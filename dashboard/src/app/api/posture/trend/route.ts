@@ -1,0 +1,8 @@
+import { NextResponse } from "next/server";
+import { getSeverityTrend } from "@/lib/seed";
+
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const days = parseInt(url.searchParams.get("days") || "30");
+  return NextResponse.json(getSeverityTrend(days));
+}

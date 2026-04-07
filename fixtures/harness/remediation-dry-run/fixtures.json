@@ -1,0 +1,227 @@
+{
+  "fixtures": [
+    {
+      "name": "expected-pass",
+      "expectation": "pass",
+      "plannerInputPath": "fixtures/planner/seeded-findings.json",
+      "plannerOptions": {
+        "dryRun": true
+      },
+      "prInput": {
+        "executionMode": "per_repo",
+        "idempotencyKey": "harness-pass-2026-04-05",
+        "runId": "harness-pass-001",
+        "guardrails": {
+          "maxDiffLines": 200,
+          "allowlistPaths": [
+            "^services/"
+          ],
+          "denylistPaths": [
+            "^services/.*/secrets\\.env$"
+          ]
+        }
+      },
+      "verificationInput": {
+        "now": "2026-04-05T09:00:00.000Z",
+        "provider": "github_actions",
+        "policyArtifact": {
+          "attached": false,
+          "status": "missing"
+        },
+        "baselineMetrics": {
+          "truePositives": null,
+          "falsePositives": null,
+          "trueNegatives": null,
+          "falseNegatives": null
+        },
+        "reproducibleRuns": 2,
+        "exceptions": [],
+        "requiredCheckNames": []
+      },
+      "expected": {
+        "planner": {
+          "dryRun": true,
+          "minChanges": 1
+        },
+        "prGeneration": {
+          "status": "ready",
+          "minPullRequests": 1
+        },
+        "verification": {
+          "status": "ready",
+          "decision": "auto-merge"
+        }
+      }
+    },
+    {
+      "name": "expected-fail",
+      "expectation": "fail",
+      "plannerInputPath": "fixtures/planner/seeded-findings.json",
+      "plannerOptions": {
+        "dryRun": true
+      },
+      "prInput": {
+        "executionMode": "per_repo",
+        "idempotencyKey": "harness-fail-2026-04-05",
+        "runId": "harness-fail-001",
+        "guardrails": {
+          "maxDiffLines": 200,
+          "allowlistPaths": [
+            "^services/"
+          ],
+          "denylistPaths": [
+            "^services/.*/secrets\\.env$"
+          ]
+        }
+      },
+      "verificationInput": {
+        "now": "2026-04-05T09:00:00.000Z",
+        "provider": "github_actions",
+        "policyArtifact": {
+          "attached": true,
+          "status": "pass"
+        },
+        "baselineMetrics": {
+          "truePositives": 188,
+          "falsePositives": 6,
+          "trueNegatives": 204,
+          "falseNegatives": 2
+        },
+        "reproducibleRuns": 2,
+        "exceptions": [],
+        "failedChecks": [
+          {
+            "repository": "api",
+            "name": "static_analysis",
+            "status": "failed"
+          }
+        ]
+      },
+      "expected": {
+        "planner": {
+          "dryRun": true,
+          "minChanges": 1
+        },
+        "prGeneration": {
+          "status": "ready",
+          "minPullRequests": 1
+        },
+        "verification": {
+          "status": "blocked",
+          "decision": "required-block"
+        }
+      }
+    },
+    {
+      "name": "expected-pending",
+      "expectation": "pass",
+      "plannerInputPath": "fixtures/planner/seeded-findings.json",
+      "plannerOptions": {
+        "dryRun": true
+      },
+      "prInput": {
+        "executionMode": "per_repo",
+        "idempotencyKey": "harness-pending-2026-04-05",
+        "runId": "harness-pending-001",
+        "guardrails": {
+          "maxDiffLines": 200,
+          "allowlistPaths": [
+            "^services/"
+          ],
+          "denylistPaths": [
+            "^services/.*/secrets\\.env$"
+          ]
+        }
+      },
+      "verificationInput": {
+        "now": "2026-04-05T09:00:00.000Z",
+        "provider": "github_actions",
+        "policyArtifact": {
+          "attached": true,
+          "status": "pass"
+        },
+        "baselineMetrics": {
+          "truePositives": 188,
+          "falsePositives": 6,
+          "trueNegatives": 204,
+          "falseNegatives": 2
+        },
+        "reproducibleRuns": 2,
+        "exceptions": [],
+        "failedChecks": [
+          {
+            "repository": "api",
+            "name": "static_analysis",
+            "status": "pending"
+          }
+        ]
+      },
+      "expected": {
+        "planner": {
+          "dryRun": true,
+          "minChanges": 1
+        },
+        "prGeneration": {
+          "status": "ready",
+          "minPullRequests": 1
+        },
+        "verification": {
+          "status": "pending",
+          "decision": "manual-approval"
+        }
+      }
+    },
+    {
+      "name": "expected-policy-fail",
+      "expectation": "fail",
+      "plannerInputPath": "fixtures/planner/seeded-findings.json",
+      "plannerOptions": {
+        "dryRun": true
+      },
+      "prInput": {
+        "executionMode": "per_repo",
+        "idempotencyKey": "harness-policy-fail-2026-04-05",
+        "runId": "harness-policy-fail-001",
+        "guardrails": {
+          "maxDiffLines": 200,
+          "allowlistPaths": [
+            "^services/"
+          ],
+          "denylistPaths": [
+            "^services/.*/secrets\\.env$"
+          ]
+        }
+      },
+      "verificationInput": {
+        "now": "2026-04-05T09:00:00.000Z",
+        "provider": "github_actions",
+        "policyArtifact": {
+          "attached": true,
+          "status": "fail"
+        },
+        "baselineMetrics": {
+          "truePositives": 188,
+          "falsePositives": 6,
+          "trueNegatives": 204,
+          "falseNegatives": 2
+        },
+        "reproducibleRuns": 2,
+        "exceptions": []
+      },
+      "expected": {
+        "planner": {
+          "dryRun": true,
+          "minChanges": 1
+        },
+        "prGeneration": {
+          "status": "ready",
+          "minPullRequests": 1
+        },
+        "verification": {
+          "status": "blocked",
+          "decision": "required-block"
+        }
+      }
+    }
+  ]
+}

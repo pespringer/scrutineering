@@ -1,0 +1,52 @@
+---
+# Deployment — Planner API
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrutineering-planner
+  labels:
+    app: scrutineering-planner
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: scrutineering-planner
+  template:
+    metadata:
+      labels:
+        app: scrutineering-planner
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: planner
+          image: scrutineering-planner:latest
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: scrutineering-secrets
+          resources:
+            requests:
+              cpu: "250m"
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 10

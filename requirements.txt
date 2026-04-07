@@ -1,0 +1,10 @@
+celery
+sqlalchemy
+psycopg2-binary
+asyncpg
+alembic
+pydantic
+rich
+fastapi
+uvicorn
+greenlet

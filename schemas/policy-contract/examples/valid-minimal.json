@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "policyId": "default-low-risk",
+  "riskLevel": "low",
+  "actions": {
+    "allow": ["open_pr", "update_patch", "auto_merge_low_risk"],
+    "deny": ["major_version_bump", "runtime_hot_patch"]
+  },
+  "exceptionWindows": [],
+  "auditMetadata": {
+    "source": "scanner",
+    "actor": "remediation-bot",
+    "createdAt": "2026-04-05T06:00:00Z",
+    "correlationId": "abc12345-remediation"
+  }
+}

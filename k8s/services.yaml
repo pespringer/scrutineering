@@ -1,0 +1,49 @@
+---
+# Service — Planner API
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-planner
+  labels:
+    app: scrutineering-planner
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: scrutineering-planner
+---
+# Service — PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-postgres
+  labels:
+    app: postgres
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+  selector:
+    app: postgres
+---
+# Service — Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-redis
+  labels:
+    app: redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+  selector:
+    app: redis

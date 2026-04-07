@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-04-05T07:00:00.000Z",
+  "window": {
+    "start": "2026-03-29T00:00:00.000Z",
+    "end": "2026-04-05T00:00:00.000Z"
+  },
+  "alertRouting": {
+    "owner": "platform-remediation-owner",
+    "onCall": "platform-security-oncall"
+  },
+  "sloTargets": {
+    "successRateMin": 0.95,
+    "latencyP95MinutesMax": 45,
+    "changeFailureRateMax": 0.08,
+    "vulnerabilityBurndownRateMin": 0.2
+  },
+  "runs": [
+    {
+      "id": "run-1",
+      "repository": "api",
+      "team": "payments",
+      "status": "success",
+      "startedAt": "2026-04-01T00:00:00.000Z",
+      "completedAt": "2026-04-01T00:20:00.000Z",
+      "vulnerabilitiesResolved": 4,
+      "vulnerabilitiesIntroduced": 0
+    },
+    {
+      "id": "run-2",
+      "repository": "api",
+      "team": "payments",
+      "status": "failed_after_merge",
+      "startedAt": "2026-04-01T02:00:00.000Z",
+      "completedAt": "2026-04-01T03:30:00.000Z",
+      "vulnerabilitiesResolved": 1,
+      "vulnerabilitiesIntroduced": 2
+    },
+    {
+      "id": "run-3",
+      "repository": "worker",
+      "team": "risk",
+      "status": "success",
+      "startedAt": "2026-04-02T01:00:00.000Z",
+      "completedAt": "2026-04-02T01:25:00.000Z",
+      "vulnerabilitiesResolved": 3,
+      "vulnerabilitiesIntroduced": 0
+    },
+    {
+      "id": "run-4",
+      "repository": "worker",
+      "team": "risk",
+      "status": "failed",
+      "startedAt": "2026-04-03T01:00:00.000Z",
+      "completedAt": "2026-04-03T01:10:00.000Z",
+      "deployed": false,
+      "vulnerabilitiesResolved": 0,
+      "vulnerabilitiesIntroduced": 0
+    }
+  ],
+  "vulnerabilityBacklog": [
+    { "scopeType": "team", "scopeId": "payments", "startingOpen": 25, "endingOpen": 20 },
+    { "scopeType": "team", "scopeId": "risk", "startingOpen": 10, "endingOpen": 8 },
+    { "scopeType": "repository", "scopeId": "api", "startingOpen": 20, "endingOpen": 17 },
+    { "scopeType": "repository", "scopeId": "worker", "startingOpen": 15, "endingOpen": 11 }
+  ]
+}

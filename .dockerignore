@@ -1,0 +1,9 @@
+node_modules/
+.python-version
+__pycache__/
+*.pyc
+.git/
+.env
+docker-compose.yml
+Dockerfile
+Dockerfile.worker

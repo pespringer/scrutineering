@@ -1,0 +1,114 @@
+{
+  "findings": [
+    {
+      "id": "F-001",
+      "vulnerabilityClass": "outdated_dependency",
+      "severity": "medium",
+      "packageName": "lodash",
+      "currentVersion": "4.17.15",
+      "fixedVersion": "4.17.20",
+      "filePath": "services/api/package.json",
+      "advisoryId": "GHSA-35jh-r3h4-6jhm"
+    },
+    {
+      "id": "F-011",
+      "vulnerabilityClass": "outdated_dependency",
+      "severity": "critical",
+      "packageName": "lodash",
+      "currentVersion": "4.17.15",
+      "fixedVersion": "4.17.21",
+      "filePath": "services/api/package.json",
+      "advisoryId": "GHSA-29mw-wpgm-hmr9"
+    },
+    {
+      "id": "F-002",
+      "vulnerabilityClass": "vulnerable_transitive_dependency",
+      "severity": "high",
+      "packageName": "ansi-regex",
+      "currentVersion": "5.0.0",
+      "fixedVersion": "5.0.1",
+      "filePath": "services/web/package-lock.json",
+      "advisoryId": "GHSA-93q8-gq69-wqmw"
+    },
+    {
+      "id": "F-003",
+      "vulnerabilityClass": "unpinned_dependency",
+      "severity": "medium",
+      "packageName": "requests",
+      "currentVersion": ">=2.25",
+      "fixedVersion": "2.31.0",
+      "filePath": "services/ml/requirements.txt",
+      "advisoryId": "PYSEC-2023-99"
+    },
+    {
+      "id": "F-004",
+      "vulnerabilityClass": "os_package_vulnerability",
+      "severity": "high",
+      "packageName": "openssl",
+      "currentVersion": "1.1.1f-r0",
+      "fixedVersion": "1.1.1f-r2",
+      "filePath": "services/worker/Dockerfile",
+      "advisoryId": "CVE-2025-10001"
+    },
+    {
+      "id": "F-005",
+      "vulnerabilityClass": "vulnerable_base_image",
+      "severity": "critical",
+      "packageName": "python",
+      "currentVersion": "python:3.11-alpine3.18",
+      "fixedVersion": "python:3.11-alpine3.19",
+      "filePath": "services/worker/Dockerfile",
+      "advisoryId": "CVE-2025-20002"
+    },
+    {
+      "id": "F-006",
+      "vulnerabilityClass": "unpinned_base_image_tag",
+      "severity": "low",
+      "packageName": "python",
+      "currentVersion": "python:3.11-alpine3.18",
+      "fixedVersion": "python@sha256:72d6f7f811a8fa2f7c6012be8fcd31fd",
+      "filePath": "services/worker/Dockerfile",
+      "advisoryId": "SBOM-BASE-01"
+    },
+    {
+      "id": "F-007",
+      "vulnerabilityClass": "vulnerable_lockfile_resolution",
+      "severity": "medium",
+      "packageName": "ws",
+      "currentVersion": "8.13.0",
+      "fixedVersion": "8.17.1",
+      "filePath": "services/realtime/yarn.lock",
+      "advisoryId": "GHSA-3h5v-q93c-6h6q"
+    },
+    {
+      "id": "F-008",
+      "vulnerabilityClass": "insecure_default_package",
+      "severity": "high",
+      "packageName": "curl",
+      "currentVersion": "8.3.0",
+      "fixedVersion": "8.6.0",
+      "filePath": "services/edge/Dockerfile",
+      "advisoryId": "CVE-2025-41234"
+    },
+    {
+      "id": "F-009",
+      "vulnerabilityClass": "stale_digest_reference",
+      "severity": "medium",
+      "packageName": "node",
+      "currentVersion": "node@sha256:old0123456789",
+      "fixedVersion": "node@sha256:newfedcba9876",
+      "filePath": "services/frontend/Dockerfile",
+      "advisoryId": "SLSA-DIGEST-09"
+    },
+    {
+      "id": "F-010",
+      "vulnerabilityClass": "kernel_live_patch_required",
+      "severity": "critical",
+      "packageName": "linux-kernel",
+      "currentVersion": "5.15.0",
+      "fixedVersion": "5.15.44",
+      "filePath": "services/runtime/host-profile.yaml",
+      "advisoryId": "CVE-2025-55555"
+    }
+  ]
+}

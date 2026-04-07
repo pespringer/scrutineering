@@ -1,0 +1,175 @@
+# ============================================================================
+# Container Sentinel — Docker Compose Scaffold
+#
+# Services:
+#   app           — Node.js planner/REST server
+#   postgres      — PostgreSQL 16 (metadata + scan results)
+#   redis         — Redis 7 (Celery broker / result backend)
+#   celery-worker — Python Celery worker (runs Trivy / Grype scans)
+#   celery-beat   — Celery Beat scheduler for periodic scan tasks
+#
+# Usage:
+#   cp .env.example .env        # edit variables as needed
+#   docker compose up --build   # first run
+#   docker compose up -d        # subsequent runs
+# ============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Node.js Planner Server (Express/HTTP API)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: scrutineering-app
+    ports:
+      - "${PLANNER_PORT:-3000}:${PLANNER_PORT:-3000}"
+    env_file:
+      - .env
+    environment:
+      - PLANNER_HOST=0.0.0.0
+      - PLANNER_PORT=${PLANNER_PORT:-3000}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:${PLANNER_PORT:-3000}/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 — persistent metadata, scan results, remediation state
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: scrutineering-postgres
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-scrutineering}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-scrutineering}
+      - POSTGRES_DB=${POSTGRES_DB:-scrutineering}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scrutineering} -d ${POSTGRES_DB:-scrutineering}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 — Celery broker and result backend
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: scrutineering-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker — vulnerability scanning (Trivy + Grype)
+  # ---------------------------------------------------------------------------
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: scrutineering-celery-worker
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL:-info}
+      - CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-2}
+      - CELERY_QUEUES=${CELERY_QUEUES:-scan}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - TRIVY_SEVERITY=${TRIVY_SEVERITY:-CRITICAL,HIGH}
+      - GRYPE_SEVERITY_THRESHOLD=${GRYPE_SEVERITY_THRESHOLD:-High}
+      - SCANNER_TIMEOUT=${SCANNER_TIMEOUT:-1800}
+      - SCANNER_CACHE_DIR=${SCANNER_CACHE_DIR:-/tmp/scanner-cache}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    deploy:
+      resources:
+        limits:
+          cpus: "4"
+          memory: 4G
+        reservations:
+          cpus: "1"
+          memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat — periodic task scheduler (scheduled scan orchestration)
+  # ---------------------------------------------------------------------------
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    container_name: scrutineering-celery-beat
+    command: >
+      celery --app=src.scan.celery_app:create_celery_app beat
+      --loglevel=${CELERY_LOG_LEVEL:-info}
+      --scheduler celery.beat:PersistentScheduler
+      --pidfile=/tmp/celerybeat.pid
+      --schedule=/tmp/celerybeat-schedule
+    env_file:
+      - .env
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL:-info}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - SCHEDULE_CRON_SCAN=${SCHEDULE_CRON_SCAN:-0 */6 * * *}
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - scrutineering
+
+# ---------------------------------------------------------------------------
+# Shared network for all services
+# ---------------------------------------------------------------------------
+networks:
+  scrutineering:
+    driver: bridge
+
+# ---------------------------------------------------------------------------
+# Persistent volume for PostgreSQL data
+# ---------------------------------------------------------------------------
+volumes:
+  pgdata:
+    driver: local

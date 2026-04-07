@@ -1,0 +1,24 @@
+{
+  "version": "1.0.0",
+  "policyId": "payments-service-high-risk",
+  "riskLevel": "high",
+  "actions": {
+    "allow": ["open_pr", "update_patch", "require_manual_approval"],
+    "deny": ["auto_merge", "major_version_bump", "runtime_hot_patch"]
+  },
+  "exceptionWindows": [
+    {
+      "service": "payments-api",
+      "start": "2026-04-06T00:00:00Z",
+      "end": "2026-04-06T06:00:00Z",
+      "reason": "Quarterly settlement freeze with approved emergency exceptions.",
+      "approvedBy": "CTO"
+    }
+  ],
+  "auditMetadata": {
+    "source": "manual_override",
+    "actor": "security-oncall",
+    "createdAt": "2026-04-05T06:01:00Z",
+    "correlationId": "highrisk-20260405-001"
+  }
+}

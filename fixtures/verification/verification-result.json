@@ -1,0 +1,558 @@
+{
+  "status": "ready",
+  "decision": "auto-merge",
+  "generatedAt": "2026-04-05T08:46:36.167Z",
+  "verificationSummary": {
+    "pullRequestCount": 7,
+    "requiredCheckNames": [
+      "dependency_scan",
+      "container_image_scan",
+      "static_analysis",
+      "secrets_detection",
+      "verification_harness_health",
+      "regression_scope"
+    ],
+    "policyGateStatus": "pass",
+    "exceptionGateStatus": "pass",
+    "reproducibilityStatus": "pass"
+  },
+  "gates": [
+    {
+      "name": "policy_artifact",
+      "status": "pass",
+      "reasonCodes": [],
+      "reasons": [],
+      "metadata": {}
+    },
+    {
+      "name": "exception_policy",
+      "status": "pass",
+      "reasonCodes": [],
+      "reasons": [],
+      "metadata": {
+        "totalExceptions": 0
+      }
+    },
+    {
+      "name": "reproducibility",
+      "status": "pass",
+      "reasonCodes": [],
+      "reasons": [],
+      "metadata": {
+        "reproducibleRuns": 2
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "api",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "edge",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "frontend",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "ml",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "realtime",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "web",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    },
+    {
+      "name": "ci_required_checks",
+      "status": "pass",
+      "reasonCodes": [
+        "all_required_checks_passed"
+      ],
+      "reasons": [
+        {
+          "code": "all_required_checks_passed",
+          "message": "All required CI checks passed for an allowed remediation trigger."
+        }
+      ],
+      "metadata": {
+        "repository": "worker",
+        "requiredChecks": [
+          "dependency_scan",
+          "container_image_scan",
+          "static_analysis",
+          "secrets_detection",
+          "verification_harness_health",
+          "regression_scope"
+        ]
+      }
+    }
+  ],
+  "baselineMetrics": {
+    "confusionMatrix": {
+      "truePositives": 188,
+      "falsePositives": 6,
+      "trueNegatives": 204,
+      "falseNegatives": 2
+    },
+    "sampleSize": 400,
+    "precision": 0.9690721649484536,
+    "recall": 0.9894736842105263,
+    "falsePositiveRate": 0.02857142857142857,
+    "falseNegativeRate": 0.010526315789473684
+  },
+  "pullRequests": [
+    {
+      "repository": "api",
+      "branch": "auto/remediate/api/e2b3cd98",
+      "fingerprint": "e2b3cd98c8af1147",
+      "verificationArtifact": {
+        "repository": "api",
+        "branch": "auto/remediate/api/e2b3cd98",
+        "fingerprint": "e2b3cd98c8af1147",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "api",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "edge",
+      "branch": "auto/remediate/edge/ccfd301b",
+      "fingerprint": "ccfd301b38092247",
+      "verificationArtifact": {
+        "repository": "edge",
+        "branch": "auto/remediate/edge/ccfd301b",
+        "fingerprint": "ccfd301b38092247",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "edge",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "frontend",
+      "branch": "auto/remediate/frontend/9f4a5753",
+      "fingerprint": "9f4a5753c6d9d6a9",
+      "verificationArtifact": {
+        "repository": "frontend",
+        "branch": "auto/remediate/frontend/9f4a5753",
+        "fingerprint": "9f4a5753c6d9d6a9",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "frontend",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "ml",
+      "branch": "auto/remediate/ml/02a085cc",
+      "fingerprint": "02a085cc1161992e",
+      "verificationArtifact": {
+        "repository": "ml",
+        "branch": "auto/remediate/ml/02a085cc",
+        "fingerprint": "02a085cc1161992e",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "ml",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "realtime",
+      "branch": "auto/remediate/realtime/9f682032",
+      "fingerprint": "9f6820321be71393",
+      "verificationArtifact": {
+        "repository": "realtime",
+        "branch": "auto/remediate/realtime/9f682032",
+        "fingerprint": "9f6820321be71393",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "realtime",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "web",
+      "branch": "auto/remediate/web/9710f064",
+      "fingerprint": "9710f064cd1c7c7f",
+      "verificationArtifact": {
+        "repository": "web",
+        "branch": "auto/remediate/web/9710f064",
+        "fingerprint": "9710f064cd1c7c7f",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "web",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    },
+    {
+      "repository": "worker",
+      "branch": "auto/remediate/worker/46ebc608",
+      "fingerprint": "46ebc6088abd8903",
+      "verificationArtifact": {
+        "repository": "worker",
+        "branch": "auto/remediate/worker/46ebc608",
+        "fingerprint": "46ebc6088abd8903",
+        "decision": "auto-merge",
+        "status": "ready",
+        "reasons": [
+          {
+            "code": "all_required_checks_passed",
+            "message": "All required CI checks passed for an allowed remediation trigger."
+          }
+        ],
+        "summary": {
+          "totalChecks": 6,
+          "requiredChecks": 6
+        },
+        "generatedAt": "2026-04-05T08:46:36.167Z",
+        "gate": {
+          "name": "ci_required_checks",
+          "status": "pass",
+          "reasonCodes": [
+            "all_required_checks_passed"
+          ],
+          "reasons": [
+            {
+              "code": "all_required_checks_passed",
+              "message": "All required CI checks passed for an allowed remediation trigger."
+            }
+          ],
+          "metadata": {
+            "repository": "worker",
+            "requiredChecks": [
+              "dependency_scan",
+              "container_image_scan",
+              "static_analysis",
+              "secrets_detection",
+              "verification_harness_health",
+              "regression_scope"
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

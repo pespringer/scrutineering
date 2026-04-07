@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "policyId": "broken-contract",
+  "riskLevel": "medium",
+  "actions": {
+    "allow": ["open_pr"],
+    "deny": ["runtime_hot_patch"]
+  },
+  "exceptionWindows": [],
+  "auditMetadata": {
+    "source": "scanner",
+    "actor": "remediation-bot",
+    "createdAt": "2026-04-05T06:02:00Z"
+  }
+}

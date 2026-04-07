@@ -1,0 +1,51 @@
+---
+# Logging — Fluentbit ConfigMap for container log collection
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrutineering-fluentbit-config
+  labels:
+    app: fluentbit
+data:
+  fluent-bit.conf: |
+    [SERVICE]
+        Flush        1
+        Log_Level    info
+        Daemon       off
+
+    @INCLUDE input.conf
+    @INCLUDE filter.conf
+    @INCLUDE output.conf
+
+  input.conf: |
+    [INPUT]
+        Name              tail
+        Path              /var/log/containers/scrutineering-*.log
+        Parser            crio
+        Refresh_Interval  5
+        Tag               scrutineering.*
+
+  filter.conf: |
+    [FILTER]
+        Name                kubernetes
+        Match               scrutineering.*
+        Kube_URL            https://kubernetes.default.svc:443
+        Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+
+    [FILTER]
+        Name    nest
+        Match   scrutineering.*
+        Operation lift
+        Nested_under kubernetes
+
+  output.conf: |
+    [OUTPUT]
+        Name            es
+        Match           scrutineering.*
+        Host            elasticsearch-master
+        Port            9200
+        Logstash_Format On
+        Logstash_Prefix scrutineering-logs
+        Retry_Limit     False
+---

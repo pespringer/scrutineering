@@ -1,0 +1,33 @@
+---
+# Deployment — Celery Beat (scheduler)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrutineering-celery-beat
+  labels:
+    app: scrutineering-celery-beat
+    tier: scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scrutineering-celery-beat
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: scrutineering-celery-beat
+    spec:
+      containers:
+        - name: celery-beat
+          image: scrutineering-worker:latest
+          command:
+            - "celery"
+            - "--app=src.scan.celery_app:create_celery_app"
+            - "beat"
+            - "--loglevel=info"
+            - "--scheduler=celery.beat:PersistentScheduler"
+          envFrom:
+            - secretRef:
+                name: scrutineering-secrets

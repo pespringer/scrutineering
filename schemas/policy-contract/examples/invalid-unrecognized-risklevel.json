@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "policyId": "test-bad-risklevel",
+  "riskLevel": "EXTREME",
+  "actions": {
+    "allow": ["open_pr"],
+    "deny": ["auto_merge"]
+  },
+  "exceptionWindows": [],
+  "auditMetadata": {
+    "source": "scanner",
+    "actor": "test",
+    "createdAt": "2026-01-01T00:00:00Z",
+    "correlationId": "test-invalid-risklevel"
+  }
+}

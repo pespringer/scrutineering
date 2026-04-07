@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://paperclip.dev/schemas/policy-contract/v1.schema.json",
+  "title": "Container Remediation Policy Contract v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "policyId",
+    "riskLevel",
+    "actions",
+    "exceptionWindows",
+    "auditMetadata"
+  ],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "policyId": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9._-]{3,64}$"
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": ["low", "medium", "high", "critical"]
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allow", "deny"],
+      "properties": {
+        "allow": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "open_pr",
+              "update_patch",
+              "update_minor",
+              "auto_merge_low_risk",
+              "require_manual_approval"
+            ]
+          }
+        },
+        "deny": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "enum": [
+              "auto_merge",
+              "major_version_bump",
+              "runtime_hot_patch"
+            ]
+          }
+        }
+      }
+    },
+    "exceptionWindows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start", "end", "reason", "approvedBy"],
+        "properties": {
+          "service": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 500
+          },
+          "approvedBy": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "auditMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "actor", "createdAt", "correlationId"],
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["scanner", "runtime", "manual_override"]
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "correlationId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9-]{8,128}$"
+        }
+      }
+    }
+  }
+}

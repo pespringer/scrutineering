@@ -1,0 +1,110 @@
+---
+# ConfigMap — Application defaults
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: scrutineering-config
+data:
+  PLANNER_HOST: "0.0.0.0"
+  PLANNER_PORT: "3000"
+  TRIVY_SEVERITY: "CRITICAL,HIGH"
+  GRYPE_SEVERITY_THRESHOLD: "High"
+  SCANNER_TIMEOUT: "1800"
+  SCHEDULE_CRON_SCAN: "0 */6 * * *"
+---
+# Secret — Sensitive values (base64 encoded)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: scrutineering-secrets
+type: Opaque
+stringData:
+  DATABASE_URL: "postgresql://scrutineering:change-me-secret@scrutineering-postgres:5432/scrutineering"
+  REDIS_URL: "redis://scrutineering-redis:6379/0"
+  CELERY_BROKER_URL: "redis://scrutineering-redis:6379/0"
+---
+# Deployment — PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrutineering-postgres
+  labels:
+    app: postgres
+    tier: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: scrutineering-secrets
+          env:
+            - name: POSTGRES_DB
+              value: scrutineering
+            - name: POSTGRES_USER
+              value: scrutineering
+          volumeMounts:
+            - name: pgdata
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: pgdata
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+# PersistentVolumeClaim — PostgreSQL
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Deployment — Redis
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrutineering-redis
+  labels:
+    app: redis
+    tier: cache
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "100m"
+              memory: 128Mi
+            limits:
+              cpu: "500m"
+              memory: 256Mi

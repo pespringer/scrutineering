@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f Dockerfile -t scrutineering-planner:${{ github.ref_name }} .
+      - run: docker build -f Dockerfile.worker -t scrutineering-worker:${{ github.ref_name }} .
+      - run: |
+          docker save scrutineering-planner:${{ github.ref_name }} > planner.tar.gz
+          docker save scrutineering-worker:${{ github.ref_name }} > worker.tar.gz
+      - run: |
+          gh release create ${{ github.ref_name }} \
+            planner.tar.gz worker.tar.gz \
+            --title "Release ${{ github.ref_name }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

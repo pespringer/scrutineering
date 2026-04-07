@@ -1,0 +1,335 @@
+"""Celery tasks for the scrutineering scan orchestrator.
+
+This module defines the Celery task run_scan that orchestrates the full scan pipeline:
+- Runs Trivy and Grype in parallel against a container image
+- Parses JSON output from each scanner
+- Deduplicates findings across scanners
+- Persists results to PostgreSQL
+- Handles partial failures gracefully
+"""
+
+import asyncio
+import logging
+import os
+import uuid
+from dataclasses import asdict
+from datetime import datetime
+from typing import Optional
+
+from celery import shared_task
+
+from src.scan.celery_app import create_celery_app
+from src.scan.scanners.base import ScannerError, ScannerFinding
+from src.scan.scanners.trivy import TrivyScanner
+from src.scan.scanners.grype import GrypeScanner
+from src.scan.utils.dedup import deduplicate_findings_with_report
+from src.scan.utils.db import init_db, persist_findings
+
+logger = logging.getLogger(__name__)
+
+app = create_celery_app()
+
+
+def run_scanner_sync(scanner, image_name: str, source_name: str) -> list[dict]:
+    """Run a single scanner synchronously and return normalized findings.
+
+    This wrapper runs the async scanner method in a new event loop
+    (Celery workers don't have a running loop by default).
+
+    Args:
+        scanner: ScannerAdapter instance
+        image_name: Container image reference
+        source_name: Scanner name string ('trivy' or 'grype')
+
+    Returns:
+        List of finding dicts with source_name attached.
+
+    Raises:
+        ScannerError: If the scanner fails.
+    """
+    async def _run():
+        findings = await scanner.scan(image_name)
+        return [(f, source_name) for f in findings]
+
+    return asyncio.run(_run())
+
+
+@shared_task(
+    bind=True,
+    name="src.scan.tasks.run_scan",
+    acks_late=True,
+    task_time_limit=3600,
+)
+def run_scan(
+    self,
+    image_name: str,
+    scan_id: Optional[str] = None,
+    scanners: Optional[list[str]] = None,
+    save_results: bool = True,
+) -> dict:
+    """Orchestrate a full container image scan pipeline.
+
+    Runs Trivy and Grype in parallel, deduplicates findings,
+    and persists results to PostgreSQL.
+
+    Args:
+        image_name: Container image to scan (e.g., 'nginx:1.25')
+        scan_id: Optional scan ID for tracking (generated if not provided)
+        scanners: Optional list of scanners to run. Defaults to ['trivy', 'grype']
+        save_results: Whether to persist findings to the database. Defaults to True.
+
+    Returns:
+        dict with scan results including:
+        - scan_id: The scan tracking ID
+        - image_name: The scanned image
+        - status: 'completed', 'partial', or 'failed'
+        - findings: Total unique findings after dedup
+        - findings_by_source: Count per scanner
+        - persisted: Number of findings saved to DB
+        - errors: List of scanner errors encountered
+    """
+    scan_id = scan_id or str(uuid.uuid4())
+    scanners = scanners or ["trivy", "grype"]
+
+    logger.info(
+        "Starting scan %s for image '%s' (scanners: %s)",
+        scan_id,
+        image_name,
+        scanners,
+    )
+
+    # Task state tracking
+    self.update_state(
+        state="SCANNING",
+        meta={"scan_id": scan_id, "image_name": image_name, "phase": "running"},
+    )
+
+    all_findings: list[tuple[ScannerFinding, str]] = []
+    errors: list[dict] = []
+    scanners_completed: list[str] = []
+    scanners_failed: list[str] = []
+
+    def scan_one(scanner_name: str) -> list[tuple[ScannerFinding, str]]:
+        """Execute a single scanner and return findings."""
+        if scanner_name == "trivy":
+            scanner = TrivyScanner()
+            source_name = "trivy"
+        elif scanner_name == "grype":
+            scanner = GrypeScanner()
+            source_name = "grype"
+        else:
+            raise ValueError(f"Unknown scanner: {scanner_name}")
+
+        logger.info("Running %s scan on '%s'...", source_name, image_name)
+        findings = run_scanner_sync(scanner, image_name, source_name)
+        logger.info(
+            "%s found %d findings on '%s'",
+            source_name,
+            len(findings),
+            image_name,
+        )
+        return findings
+
+    # Run all scanners concurrently with isolated error handling
+    results_map = {}
+    for scanner_name in scanners:
+        try:
+            findings = scan_one(scanner_name)
+            results_map[scanner_name] = ("ok", findings)
+        except ScannerError as e:
+            logger.error("Scanner '%s' failed for '%s': %s", scanner_name, image_name, e)
+            errors.append({"scanner": scanner_name, "error": str(e)})
+            results_map[scanner_name] = ("error", str(e))
+        except Exception as e:
+            logger.exception(
+                "Unexpected error running '%s' for '%s': %s",
+                scanner_name,
+                image_name,
+                e,
+            )
+            errors.append(
+                {"scanner": scanner_name, "error": f"Unexpected: {str(e)}"}
+            )
+            results_map[scanner_name] = ("error", str(e))
+
+    # Collect results
+    for scanner_name in scanners:
+        status, data = results_map[scanner_name]
+        if status == "ok":
+            all_findings.extend(data)
+            scanners_completed.append(scanner_name)
+        else:
+            scanners_failed.append(scanner_name)
+
+    # Determine overall status
+    if not scanners_completed:
+        status = "failed"
+        logger.error(
+            "Scan %s failed completely for '%s'. All scanners failed.",
+            scan_id,
+            image_name,
+        )
+        self.update_state(
+            state="FAILURE",
+            meta={
+                "scan_id": scan_id,
+                "image_name": image_name,
+                "status": status,
+                "errors": errors,
+            },
+        )
+        return {"scan_id": scan_id, "image_name": image_name, "status": status, "errors": errors}
+
+    if scanners_failed:
+        status = "partial"
+    else:
+        status = "completed"
+
+    # Deduplicate findings across scanners
+    dedup_report = None
+    if all_findings:
+        deduped, dedup_report = deduplicate_findings_with_report(all_findings)
+    else:
+        deduped = []
+
+    # Persist to database
+    persisted = 0
+    if save_results and deduped:
+        try:
+            persisted = persist_findings(
+                scan_id=scan_id,
+                image_name=image_name,
+                deduped_findings=deduped,
+                source_name=",".join(scanners_completed),
+            )
+            logger.info(
+                "Persisted %d findings for scan %s on '%s'",
+                persisted,
+                scan_id,
+                image_name,
+            )
+        except Exception as e:
+            logger.exception("Failed to persist findings for scan %s: %s", scan_id, e)
+            errors.append({"component": "database", "error": str(e)})
+
+    # Build dedup summary for the result
+    dedup_summary = dedup_report.summary() if dedup_report else {"total_raw_findings": 0, "unique_findings_after_dedup": 0, "merged_duplicates": 0, "dedup_ratio": 0.0, "findings_by_source": {}}
+
+    # Build result summary
+    # Count findings by source
+    findings_by_source: dict[str, int] = {}
+    for finding, source in all_findings:
+        findings_by_source[source] = findings_by_source.get(source, 0) + 1
+
+    # Update task state
+    meta = {
+        "scan_id": scan_id,
+        "image_name": image_name,
+        "status": status,
+        "findings": len(deduped),
+        "dedup_summary": dedup_summary,
+        "findings_by_source": findings_by_source,
+        "scanners_completed": scanners_completed,
+        "scanners_failed": scanners_failed,
+        "persisted": persisted,
+        "errors": errors,
+        "completed_at": datetime.utcnow().isoformat(),
+    }
+
+    self.update_state(state="COMPLETED", meta=meta)
+
+    logger.info(
+        "Scan %s %s for '%s': %d findings (%d new sources, %d persisting)",
+        scan_id,
+        status,
+        image_name,
+        len(deduped),
+        len(scanners_completed),
+        persisted,
+    )
+
+    return {
+        "scan_id": scan_id,
+        "image_name": image_name,
+        "status": status,
+        "findings": len(deduped),
+        "dedup_summary": dedup_summary,
+        "findings_by_source": findings_by_source,
+        "scanners_completed": scanners_completed,
+        "scanners_failed": scanners_failed,
+        "persisted": persisted,
+        "errors": errors,
+    }
+
+
+@shared_task(
+    bind=True,
+    name="src.scan.tasks.run_batch_scan",
+    acks_late=True,
+)
+def run_batch_scan(
+    self,
+    image_names: list[str],
+    scan_id_prefix: Optional[str] = None,
+    scanners: Optional[list[str]] = None,
+    save_results: bool = True,
+) -> dict:
+    """Run scans on multiple container images sequentially.
+
+    Each image gets its own scan_id and runs through the full pipeline
+    independently. Failures on one image don't affect others.
+
+    Args:
+        image_names: List of container images to scan
+        scan_id_prefix: Optional prefix for scan IDs (default: random UUID prefix)
+        scanners: Optional list of scanners (default: ['trivy', 'grype'])
+        save_results: Whether to persist findings (default: True)
+
+    Returns:
+        dict with overall batch results and per-image status.
+    """
+    prefix = scan_id_prefix or str(uuid.uuid4())[:8]
+    results = []
+    total_findings = 0
+    total_errors = 0
+
+    logger.info("Starting batch scan of %d images (prefix: %s)", len(image_names), prefix)
+
+    for idx, image_name in enumerate(image_names):
+        current_scan_id = f"{prefix}-{idx + 1}"
+
+        self.update_state(
+            state="BATCH_SCANNING",
+            meta={
+                "batch_size": len(image_names),
+                "current_index": idx,
+                "current_image": image_name,
+                "total_findings": total_findings,
+                "total_errors": total_errors,
+            },
+        )
+
+        try:
+            result = run_scan(
+                self,
+                image_name=image_name,
+                scan_id=current_scan_id,
+                scanners=scanners,
+                save_results=save_results,
+            )
+            results.append({"image_name": image_name, "scan_id": current_scan_id, **result})
+            total_findings += result.get("findings", 0)
+            if result.get("status") != "completed":
+                total_errors += 1
+        except Exception as e:
+            logger.exception("Batch scan failed for image '%s': %s", image_name, e)
+            results.append({"image_name": image_name, "scan_id": current_scan_id, "status": "failed", "error": str(e)})
+            total_errors += 1
+
+    return {
+        "prefix": prefix,
+        "total_images": len(image_names),
+        "total_findings": total_findings,
+        "total_errors": total_errors,
+        "per_image_results": results,
+    }

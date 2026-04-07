@@ -1,0 +1,35 @@
+# --- Python Celery Worker ---
+FROM python:3.12-slim
+WORKDIR /app
+
+# Install system deps needed for psycopg2 and scanner binaries
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      libpq-dev gcc curl jq && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Trivy (container vulnerability scanner)
+RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | \
+    sh -s -- -b /usr/local/bin v0.60.0
+
+# Install Grype (container vulnerability scanner)
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | \
+    sh -s -- -b /usr/local/bin
+
+# Install Python deps
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy source
+COPY src/ ./src/
+
+# Celery needs to run from the project root so "src.scan" is importable
+ENV PYTHONPATH=/app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV CELERY_BROKER_URL=redis://redis:6379/0
+
+# Default command runs the Celery worker
+CMD celery --app=src.scan.celery_app:create_celery_app worker \
+  --loglevel=${CELERY_LOG_LEVEL:-info} \
+  --concurrency=${CELERY_CONCURRENCY:-2} \
+  --queues=${CELERY_QUEUES:-scan}

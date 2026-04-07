@@ -1,0 +1,34 @@
+[
+  {
+    "interviewId": "INT-101",
+    "candidate": "Candidate A",
+    "loop": "Backend Engineer",
+    "owner": "Alex",
+    "interviewEndedAt": "2026-04-01T16:20:00Z",
+    "debriefSubmittedAt": "2026-04-01T20:15:00Z"
+  },
+  {
+    "interviewId": "INT-102",
+    "candidate": "Candidate B",
+    "loop": "Backend Engineer",
+    "owner": "Jordan",
+    "interviewEndedAt": "2026-04-02T18:10:00Z",
+    "debriefSubmittedAt": "2026-04-03T02:35:00Z"
+  },
+  {
+    "interviewId": "INT-103",
+    "candidate": "Candidate C",
+    "loop": "SRE Engineer",
+    "owner": "Sam",
+    "interviewEndedAt": "2026-04-03T14:05:00Z",
+    "debriefSubmittedAt": null
+  },
+  {
+    "interviewId": "INT-104",
+    "candidate": "Candidate D",
+    "loop": "SRE Engineer",
+    "owner": "Casey",
+    "interviewEndedAt": "2026-04-04T11:30:00Z",
+    "debriefSubmittedAt": "2026-04-04T19:05:00Z"
+  }
+]

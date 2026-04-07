@@ -1,0 +1,32 @@
+---
+# Prometheus scrape config for Container Sentinel
+# Add this to your prometheus.yml scrape_configs
+
+- job_name: 'container-sentinel'
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  metrics_path: '/metrics'
+  static_configs:
+    - targets: ['scrutineering-planner:3000']
+      labels:
+        service: container-sentinel-planner
+        env: production
+---
+# Grafana provisioning datasource
+apiVersion: kind.grafana.com/v1alpha1
+kind: datasource
+metadata:
+  name: scrutineering-postgres
+spec:
+  name: PostgreSQL - Scrutineering
+  type: postgres
+  url: scrutineering-postgres:5432
+  secureJsonData:
+    password: "change-me-secret"
+  jsonData:
+    database: scrutineering
+    user: scrutineering
+    sslmode: disable
+    maxOpenConns: 20
+    maxIdleConns: 5
+---
