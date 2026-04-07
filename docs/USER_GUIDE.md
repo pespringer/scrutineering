@@ -119,14 +119,63 @@ See the [Testing section](#test-suite) below for complete instructions.
 
 ### Docker Compose (Development / Single Node)
 ```bash
+# Copy environment template and edit as needed
+cp .env.example .env
+
+# Build and start all services
 docker compose up --build -d
+
+# Check status
+docker compose ps
+docker compose logs -f
+```
+
+Services started:
+- **Planner API** (port 3000) — REST API for remediation planning
+- **PostgreSQL** (port 5432) — Metadata and scan result storage
+- **Redis** (port 6379) — Celery broker and cache
+- **Celery Worker** — Runs Trivy/Grype vulnerability scans
+- **Celery Beat** — Schedules periodic scan tasks
+
+### Dashboard (Next.js Frontend)
+The dashboard is a standalone Next.js app in `dashboard/`. It can run separately from Docker Compose:
+
+```bash
+cd dashboard
+npm install
+npm run build     # Production build
+npm run dev        # Development mode with hot reload (port 3001)
+```
+
+The dashboard connects to the Planner API backend via environment variables. Set `NEXT_PUBLIC_API_URL` to point to your running backend.
+
+### Web Frontend
+A secondary web app in `web/` provides additional views:
+
+```bash
+cd web
+npm install
+npm run dev
 ```
 
 ### Kubernetes (Production)
 ```bash
+# 1. Infrastructure (PostgreSQL, Redis, PVCs)
 kubectl apply -f k8s/infrastructure.yaml
+
+# 2. Planner API deployment
 kubectl apply -f k8s/planner-deployment.yaml
+
+# 3. Worker deployment  
 kubectl apply -f k8s/worker-deployment.yaml
+
+# 4. Celery Beat scheduler
 kubectl apply -f k8s/celery-beat-deployment.yaml
+
+# 5. Services and networking
 kubectl apply -f k8s/services.yaml
+
+# Verify
+kubectl get pods
+kubectl get svc
 ```
