@@ -1,46 +1,16 @@
-# Dependencies
 node_modules/
+.env
+__pycache__/
+*.pyc
 *.egg-info/
 .venv/
 venv/
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-*.egg-info/
-dist/
-*.egg
-
-# Next.js
-.next/
-out/
-
-# Build output
 *.log
-!.gitignore
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Testing/coverage
-coverage/
-.nyc_output/
+dashboard/.next/
+dashboard/out/
+*.sqlite3
+*.db
+dist/
+build/
+.coverage
 .pytest_cache/
-
-# Turbopack
-.turbo/
