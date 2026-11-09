@@ -14,3 +14,7 @@ def test_approval_token_is_scoped_and_expiring():
 
 def test_approval_hash_is_deterministic():
     assert approval_token_hash("token") == approval_token_hash("token")
+
+
+def test_approval_ttl_is_bounded():
+    with pytest.raises(ValueError): issue_approval("rem", "alice", "secret", ttl_seconds=86401)

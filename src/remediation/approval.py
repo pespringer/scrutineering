@@ -14,7 +14,7 @@ def approval_token_hash(token: str) -> str:
 
 
 def issue_approval(remediation_id: str, approver: str, secret: str, *, ttl_seconds: int = 900, now: int | None = None) -> str:
-    if not remediation_id or not approver or not secret or ttl_seconds < 1:
+    if not remediation_id or not approver or not secret or ttl_seconds < 1 or ttl_seconds > 86400:
         raise ValueError("approval fields and positive TTL are required")
     payload = {"remediation_id": remediation_id, "approver": approver, "expires_at": (now or int(time.time())) + ttl_seconds}
     encoded = base64.urlsafe_b64encode(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).decode().rstrip("=")
