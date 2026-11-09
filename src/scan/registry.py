@@ -61,12 +61,15 @@ async def login_ecr(region: Optional[str] = None) -> tuple[str, str]:
 
     Returns (username, password) where password is the auth token.
     """
-    region_flag = f"--region {region}" if region else ""
-    cmd = f"aws ecr get-login-password {region_flag}"
+    if region is not None and not re.fullmatch(r"[a-z0-9-]{1,32}", region):
+        raise ValueError("AWS region contains invalid characters")
+    args = ["aws", "ecr", "get-login-password"]
+    if region:
+        args.extend(["--region", region])
 
     try:
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
+        proc = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )

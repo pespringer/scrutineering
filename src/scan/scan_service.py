@@ -39,10 +39,22 @@ class ScanService:
         trivy_timeout: int = 600,
         grype_timeout: int = 600,
         severities: str = "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN",
+        scanner_retry_attempts: int | None = None,
+        scanner_retry_backoff: float | None = None,
     ):
         self.trivy_timeout = trivy_timeout
         self.grype_timeout = grype_timeout
         self.severities = severities
+        self.scanner_retry_attempts = (
+            int(os.environ.get("SCANNER_RETRY_ATTEMPTS", "2"))
+            if scanner_retry_attempts is None else scanner_retry_attempts
+        )
+        self.scanner_retry_backoff = (
+            float(os.environ.get("SCANNER_RETRY_BACKOFF_SECONDS", "0.25"))
+            if scanner_retry_backoff is None else scanner_retry_backoff
+        )
+        if self.scanner_retry_attempts < 0 or self.scanner_retry_backoff < 0:
+            raise ValueError("scanner retry settings must not be negative")
 
     async def scan(
         self,
@@ -240,11 +252,19 @@ class ScanService:
     async def _run_single(
         self, scanner, image_name: str, source_name: str
     ) -> list[ScannerFinding]:
-        """Run a single scanner and return findings."""
-        logger.info("Running %s scan on '%s'...", source_name, image_name)
-        findings = await scanner.scan(image_name)
-        logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
-        return findings
+        """Run a scanner with bounded exponential backoff for transient failures."""
+        for attempt in range(self.scanner_retry_attempts + 1):
+            logger.info("Running %s scan on '%s' (attempt %d)...", source_name, image_name, attempt + 1)
+            try:
+                findings = await scanner.scan(image_name)
+                logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
+                return findings
+            except ScannerError:
+                if attempt >= self.scanner_retry_attempts:
+                    raise
+                delay = self.scanner_retry_backoff * (2 ** attempt)
+                logger.warning("%s scan failed; retrying in %.2fs", source_name, delay)
+                await asyncio.sleep(delay)
 
     @staticmethod
     def _compute_risk_score(findings: list[dict]) -> dict:

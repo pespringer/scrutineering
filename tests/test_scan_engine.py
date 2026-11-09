@@ -9,11 +9,12 @@ Tests cover:
 - concurrent batch scanning
 """
 
+import asyncio
 import pytest
 from src.scan.scanners.base import ScannerFinding, ScannerError
 from src.scan.scanners.trivy import TrivyScanner, SEVERITY_MAP
 from src.scan.scanners.grype import GrypeScanner
-from src.scan.registry import detect_registry
+from src.scan.registry import detect_registry, login_ecr
 from src.scan.scan_service import ScanService
 from src.db.models import Severity, FindingSource
 
@@ -186,6 +187,49 @@ class TestRegistryDetection:
 
     def test_private_registry(self):
         assert detect_registry("registry.mycompany.com:5000/app:v1") == "registry.mycompany.com:5000"
+
+    def test_ecr_login_uses_argument_vector(self, monkeypatch):
+        calls = []
+
+        class FakeProcess:
+            returncode = 0
+
+            async def communicate(self):
+                return b"token\n", b""
+
+        async def fake_exec(*args, **kwargs):
+            calls.append(args)
+            return FakeProcess()
+
+        monkeypatch.setattr("src.scan.registry.asyncio.create_subprocess_exec", fake_exec)
+        assert asyncio.run(login_ecr("us-east-1")) == ("AWS", "token")
+        assert calls == [("aws", "ecr", "get-login-password", "--region", "us-east-1")]
+
+    def test_ecr_login_rejects_shell_metacharacters(self):
+        with pytest.raises(ValueError, match="invalid characters"):
+            asyncio.run(login_ecr("us-east-1; touch /tmp/pwned"))
+
+
+class TestScannerRetries:
+    def test_transient_scanner_failure_is_retried(self):
+        class FlakyScanner:
+            source = FindingSource.TRIVY
+            attempts = 0
+
+            async def scan(self, image_name):
+                self.attempts += 1
+                if self.attempts < 3:
+                    raise ScannerError("trivy", "temporary failure")
+                return []
+
+        scanner = FlakyScanner()
+        service = ScanService(scanner_retry_attempts=2, scanner_retry_backoff=0)
+        assert asyncio.run(service._run_single(scanner, "alpine:3.20", "trivy")) == []
+        assert scanner.attempts == 3
+
+    def test_negative_retry_settings_are_rejected(self):
+        with pytest.raises(ValueError, match="must not be negative"):
+            ScanService(scanner_retry_attempts=-1)
 
 
 # -- Risk score tests ------------------------------------------------------ #
