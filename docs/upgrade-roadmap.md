@@ -32,7 +32,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.
 - **Started:** `dashboard/` is canonical and `web/` is explicitly marked legacy; removal awaits downstream migration.
-- **Started:** planner API v1 is documented; scan, findings, alerts, and audit endpoints still need to converge on it.
+- **Started:** planner API v1 now has a shared versioned read router for scans, findings, alerts, and audit data; production database wiring and cross-service authentication remain.
 - **In progress:** request IDs, structured errors, API keys, and process-local limits exist; OIDC/RBAC, tenant boundaries, and immutable audit records remain.
 - **Started:** state services are internal by default and credentials are explicit; non-root containers remain.
 - **Completed:** planner and worker images now run as unprivileged users, and Grype is installed from a pinned release archive.
