@@ -30,6 +30,7 @@ from src.db.models import (
     Severity,
     SeveritySnapshot,
 )
+from src.remediation.state_machine import transition
 
 
 class ImageRepository:
@@ -357,10 +358,31 @@ class RemediationRepository:
         status,  # RemediationStatus enum value
         **kw,
     ) -> None:
-        values: dict = {"status": status}
-        if status == RemediationStatus.STARTED and "started_at" not in kw:
+        current = session.execute(
+            select(Remediation.status).where(Remediation.id == remediation_id)
+        ).scalar_one_or_none()
+        if current is None:
+            raise ValueError(f"Remediation {remediation_id} does not exist")
+
+        current_status = RemediationStatus(current)
+        target_status = RemediationStatus(status)
+        transition(current_status, target_status)
+
+        values: dict = {"status": target_status}
+        active_statuses = {
+            RemediationStatus.ANALYZING,
+            RemediationStatus.PATCHING,
+            RemediationStatus.BUILDING,
+            RemediationStatus.VERIFYING,
+            RemediationStatus.PR_OPENED,
+        }
+        if target_status in active_statuses and "started_at" not in kw:
             values["started_at"] = func.now()
-        if status in (RemediationStatus.COMPLETED, RemediationStatus.FAILED):
+        if target_status in (
+            RemediationStatus.COMPLETED,
+            RemediationStatus.FAILED,
+            RemediationStatus.SKIPPED,
+        ):
             values["completed_at"] = func.now()
         values.update({k: v for k, v in kw.items() if k in values or k not in ("status",)})
         session.execute(

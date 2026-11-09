@@ -18,6 +18,7 @@
 
 ## Operations
 - **[operations/on-call-playbook.md](operations/on-call-playbook.md)** — Incident response procedures
+- **[operations/remediation-lifecycle.md](operations/remediation-lifecycle.md)** — Allowed remediation states and transitions
 - **[operations/production-readiness-checklist.md](operations/production-readiness-checklist.md)** — Pre-production checklist
 - **[operations/weekly-security-outcome-report.md](operations/weekly-security-outcome-report.md)** — Weekly report template
 - **[operations/remediation-telemetry-slos.md](operations/remediation-telemetry-slos.md)** — SLO definitions and dashboards
