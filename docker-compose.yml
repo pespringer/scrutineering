@@ -56,6 +56,8 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: scrutineering-postgres
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - .env
     environment:
@@ -80,6 +82,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: scrutineering-redis
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped
     networks:
       - scrutineering
