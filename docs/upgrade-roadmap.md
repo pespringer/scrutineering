@@ -38,7 +38,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** planner and worker images now run as unprivileged users, and Grype is installed from a pinned release archive.
 - **Completed:** provider-neutral principal, role, and tenant-scope authorization primitives are covered by Node tests; JWT/OIDC verification remains an integration task.
 - **Completed:** planner v1 now validates required request fields consistently across plans, PRs, CI checks, and rollout evaluation.
-- **Started:** digest-aware identities and provenance fields exist; registry resolution and universal scan population remain.
+- **Started:** digest-aware identities and provenance fields exist; local Docker registry resolution now rejects tag-only results without a digest, while universal scan population remains.
 
 ## Phase 2 — Make Remediation Real (30–60 days)
 

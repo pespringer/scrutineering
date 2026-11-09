@@ -178,3 +178,31 @@ async def docker_pull(image_name: str) -> str:
         return stdout.decode(errors="replace")
     except FileNotFoundError:
         raise RuntimeError("Docker is not installed or not in PATH.")
+
+
+async def resolve_image_digest(image_name: str, docker_bin: str = "docker") -> str:
+    """Resolve a local image reference to its immutable ``sha256`` digest."""
+    if "@sha256:" in image_name:
+        digest = image_name.rsplit("@", 1)[1]
+        if re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+            return digest
+        raise ValueError("image digest must use a 64-character sha256 value")
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            docker_bin, "image", "inspect", image_name,
+            "--format", "{{index .RepoDigests 0}}",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+    except FileNotFoundError as exc:
+        raise RuntimeError("Docker is not installed or not in PATH.") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(f"could not resolve image digest: {stderr.decode(errors='replace')[:500]}")
+
+    resolved = stdout.decode(errors="replace").strip()
+    digest = resolved.rsplit("@", 1)[-1]
+    if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+        raise RuntimeError(f"docker returned no immutable digest for '{image_name}'")
+    return digest
