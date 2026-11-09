@@ -603,7 +603,7 @@ class RemediationAction(Base):
 class RemediationEvent(Base):
     """Durable lifecycle event emitted by a remediation worker."""
     __tablename__ = "remediation_events"
-    __table_args__ = (Index("idx_remediation_events_remediation_id", "remediation_id"),)
+    __table_args__ = (Index("idx_remediation_events_remediation_id", "remediation_id"), Index("idx_remediation_events_sequence", "remediation_id", "sequence"))
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
     remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)

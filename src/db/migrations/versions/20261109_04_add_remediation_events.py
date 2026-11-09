@@ -17,7 +17,9 @@ def upgrade():
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )
     op.create_index("idx_remediation_events_remediation_id", "remediation_events", ["remediation_id"])
+    op.create_index("idx_remediation_events_sequence", "remediation_events", ["remediation_id", "sequence"])
 
 def downgrade():
+    op.drop_index("idx_remediation_events_sequence", table_name="remediation_events")
     op.drop_index("idx_remediation_events_remediation_id", table_name="remediation_events")
     op.drop_table("remediation_events")
