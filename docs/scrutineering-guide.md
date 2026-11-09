@@ -246,7 +246,8 @@ kubectl apply -f k8s/services.yaml
 
 - **Prometheus** config in `monitoring/prometheus-config.yaml`
 - **Fluentbit** logging config in `monitoring/logging.yaml`
-- Planner exposes `/metrics` endpoint for Prometheus scraping
+- Prometheus scraping is planned; runtime monitoring APIs and buffer health are
+  available through the Python monitoring router.
 
 ## Security Policies
 

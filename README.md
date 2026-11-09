@@ -18,7 +18,7 @@ scrutineering/
 │   └── db/               # SQLAlchemy models + Alembic migrations
 ├── k8s/                  # Kubernetes manifests
 ├── monitoring/           # Prometheus/Grafana/Fluentbit configs
-├── schemas/              # Policy contract JSON schemas
+├── schemas/              # Policy and signed-evidence JSON schemas
 ├── scripts/              # CLI utility scripts
 ├── tests/                # Python test suite
 ├── fixtures/             # Test fixtures
@@ -32,14 +32,12 @@ Frontend direction: `dashboard/` is the canonical Next.js application. `web/`
 is legacy and receives no new product work. Runtime services require an
 explicit `DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
-│
-Docker Compose Services:
-  app           → Node.js planner/REST server (port 3000)
-  postgres      → PostgreSQL 16 (metadata + scan results)
-  redis         → Redis 7 (Celery broker)
-  celery-worker → Python Celery worker (Trivy/Grype scans)
-  celery-beat   → Celery scheduler for periodic scans
 ```
+
+Docker Compose services are the Node planner (`app`), PostgreSQL, Redis, the
+Celery scanner worker, and Celery Beat. PostgreSQL and Redis stay on the
+internal Compose network unless `docker-compose.host-access.yml` is explicitly
+selected.
 
 ## Quick Start
 
@@ -76,7 +74,11 @@ pip install -r requirements.txt
 
 # Run tests
 npm test          # Node.js tests
-pytest tests/     # Python tests
+PYTHONPATH=. pytest tests/ -q  # Python tests
+
+# Validate security contracts
+npm run validate:policy-contract
+npm run validate:evidence-contract
 
 # Run individual scripts
 node src/planner/server.mjs
@@ -105,9 +107,10 @@ kubectl apply -f k8s/services.yaml
 
 ## Monitoring
 
-- Prometheus scraped at `http://planner:3000/metrics`
-- Grafana datasource provisioning in `monitoring/prometheus-config.yaml`
-- Fluentbit log collection in `monitoring/logging.yaml`
+- Runtime monitoring APIs are documented in `docs/operations/` and exposed by
+  the Python monitoring router; Prometheus scraping is not yet wired to the
+  planner server.
+- Grafana/Prometheus configuration lives in `monitoring/`.
 
 ## Policy Contract
 
@@ -116,6 +119,19 @@ JSON schemas in `schemas/policy-contract/`. Validate with:
 node scripts/validate-policy-contract.mjs
 ```
 
+## Control-Plane APIs
+
+- Planner actions: see [Planner API v1](docs/api/planner-v1.md).
+- Scan data reads: `/api/v1/scans`, `/api/v1/findings`, `/api/v1/alerts`, and
+  `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
+- Scoped planner API keys use `PLANNER_API_KEYS_JSON`; see
+  [Authorization Foundation](docs/security/authorization.md).
+
+Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
+tag-only images fail closed when a digest cannot be resolved. Evidence must be
+verified before remediation; the current executor runs isolated validation but
+does not commit, push, or open pull requests yet.
+
 ## Documentation
 
 - [Architecture Decision Records](docs/adr/)
@@ -123,3 +139,4 @@ node scripts/validate-policy-contract.mjs
 - [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)
 - [Operations Playbook](docs/operations/on-call-playbook.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
+- [Upgrade Roadmap](docs/upgrade-roadmap.md)
