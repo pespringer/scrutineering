@@ -42,10 +42,14 @@ Docker Compose Services:
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
-# Set PLANNER_API_KEY in .env before starting the exposed planner service.
+# Set POSTGRES_PASSWORD, DATABASE_URL, and PLANNER_API_KEY in .env before starting.
 
 # 2. Start all services
 docker compose up --build -d
+
+# Optional: expose PostgreSQL and Redis to the host for local tooling only.
+# Do not use this override on shared or production hosts.
+docker compose -f docker-compose.yml -f docker-compose.host-access.yml up --build -d
 
 # 3. Run database migrations
 docker compose exec app alembic -c alembic.ini upgrade head

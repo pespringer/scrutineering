@@ -43,8 +43,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - run: pip install -r requirements.txt
-      - run: pip install pytest
-      - run: pytest tests/ -v
+      - run: python -m pytest tests/ -v
 
   # ------------------------------------------------
   # Docker build (planner + worker images)

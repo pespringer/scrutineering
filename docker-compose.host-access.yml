@@ -1,0 +1,13 @@
+# Explicit development-only host access for stateful services.
+# Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.host-access.yml up
+# Never use this override on a shared or production host.
+
+services:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  redis:
+    ports:
+      - "${REDIS_PORT:-6379}:6379"

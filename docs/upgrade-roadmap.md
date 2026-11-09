@@ -23,6 +23,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Phase 1 — Establish a Secure Core (0–30 days)
 
 - **Started:** planner API key enforcement and regression coverage are implemented; OIDC/RBAC remains outstanding.
+- **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - Select one frontend and deprecate the other.
 - Define one versioned API contract for scans, findings, remediation runs, alerts, and audit events.
 - Add OIDC authentication, RBAC, tenant boundaries, request IDs, structured errors, rate limits, and immutable audit records.

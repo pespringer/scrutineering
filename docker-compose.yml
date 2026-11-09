@@ -30,7 +30,7 @@ services:
     environment:
       - PLANNER_HOST=0.0.0.0
       - PLANNER_PORT=${PLANNER_PORT:-3000}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set in .env}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
     depends_on:
       postgres:
@@ -57,10 +57,8 @@ services:
       - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-scrutineering}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-scrutineering}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env}
       - POSTGRES_DB=${POSTGRES_DB:-scrutineering}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     restart: unless-stopped
@@ -79,8 +77,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: scrutineering-redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     restart: unless-stopped
     networks:
       - scrutineering
@@ -107,7 +103,7 @@ services:
       - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL:-info}
       - CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-2}
       - CELERY_QUEUES=${CELERY_QUEUES:-scan}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set in .env}
       - TRIVY_SEVERITY=${TRIVY_SEVERITY:-CRITICAL,HIGH}
       - GRYPE_SEVERITY_THRESHOLD=${GRYPE_SEVERITY_THRESHOLD:-High}
       - SCANNER_TIMEOUT=${SCANNER_TIMEOUT:-1800}
@@ -149,7 +145,7 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
       - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL:-info}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://scrutineering:scrutineering@postgres:5432/scrutineering}
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set in .env}
       - SCHEDULE_CRON_SCAN=${SCHEDULE_CRON_SCAN:-0 */6 * * *}
     depends_on:
       redis:
