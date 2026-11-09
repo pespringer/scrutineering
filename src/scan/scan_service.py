@@ -9,6 +9,7 @@ directly via child_process without requiring Celery.
 """
 
 import asyncio
+import time
 import logging
 import os
 from dataclasses import replace
@@ -18,7 +19,7 @@ from .registry import detect_registry, authenticate_to_registry, resolve_image_d
 from .image_identity import parse_image_reference
 from .cache import ScanCache
 from src.db.models import Severity
-from src.telemetry.scan_metrics import record_scan
+from src.telemetry.scan_metrics import record_scan, record_scan_latency
 from .scanners.base import ScannerError, ScannerFinding
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .scanners.trivy import TrivyScanner
@@ -309,6 +310,7 @@ class ScanService:
             raise CircuitOpenError(f"{source_name} scanner circuit is open")
         for attempt in range(self.scanner_retry_attempts + 1):
             logger.info("Running %s scan on '%s' (attempt %d)...", source_name, image_name, attempt + 1)
+            started = time.monotonic()
             try:
                 findings = await scanner.scan(image_name)
                 if self._scanner_cache is not None:
@@ -317,6 +319,7 @@ class ScanService:
                         "severity": finding.severity.value if finding.severity else None,
                     } for finding in findings])
                 record_scan("completed", source_name)
+                record_scan_latency(time.monotonic() - started, source_name)
                 circuit.record_success()
                 logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
                 return findings
@@ -324,6 +327,7 @@ class ScanService:
                 if attempt >= self.scanner_retry_attempts:
                     circuit.record_failure()
                     record_scan("failed", source_name)
+                    record_scan_latency(time.monotonic() - started, source_name)
                     raise
                 delay = self.scanner_retry_backoff * (2 ** attempt)
                 logger.warning("%s scan failed; retrying in %.2fs", source_name, delay)
