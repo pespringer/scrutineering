@@ -347,6 +347,7 @@ class EBPFMonitorAgent:
         self._event_buffer: asyncio.Queue[RuntimeEvent] = asyncio.Queue(
             maxsize=10_000,
         )
+        self._dropped_events = 0
         self._stream_task: asyncio.Task | None = None
 
     # -- Lifecycle ---------------------------------------------------------- #
@@ -371,12 +372,22 @@ class EBPFMonitorAgent:
         async for event in self._backend.watch(container_id):
             if not self._running:
                 break
-            await self._event_buffer.put(event)
+            if self._event_buffer.full():
+                # Prefer recent security signals and never block the backend
+                # when a dashboard consumer falls behind.
+                try:
+                    self._event_buffer.get_nowait()
+                except asyncio.QueueEmpty:
+                    pass
+                self._dropped_events += 1
+            self._event_buffer.put_nowait(event)
             yield event
 
     async def events(self, container_id: str,
                      limit: int = 100) -> list[RuntimeEvent]:
         """Return up to *limit* buffered events (non-blocking)."""
+        if limit < 1:
+            return []
         results: list[RuntimeEvent] = []
         while len(results) < limit:
             try:
@@ -384,6 +395,14 @@ class EBPFMonitorAgent:
             except asyncio.QueueEmpty:
                 break
         return results
+
+    def buffer_stats(self) -> dict[str, int]:
+        """Expose bounded-buffer health for degraded-mode reporting."""
+        return {
+            "buffered_events": self._event_buffer.qsize(),
+            "buffer_capacity": self._event_buffer.maxsize,
+            "dropped_events": self._dropped_events,
+        }
 
     # -- Convenience: watch many containers --------------------------------- #
 

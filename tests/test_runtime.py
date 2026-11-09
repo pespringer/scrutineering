@@ -34,6 +34,19 @@ class TestRuntimeEvent:
         assert d["source"] == "ebpf_agent"
 
 
+class TestRuntimeBackpressure:
+    def test_invalid_event_limit_is_empty(self):
+        agent = EBPFMonitorAgent()
+        assert asyncio.run(agent.events("c1", limit=0)) == []
+
+    def test_buffer_stats_expose_bounded_capacity(self):
+        agent = EBPFMonitorAgent()
+        stats = agent.buffer_stats()
+        assert stats["buffer_capacity"] == 10_000
+        assert stats["buffered_events"] == 0
+        assert stats["dropped_events"] == 0
+
+
 # ---------------------------------------------------------------------------
 # Analysis engine
 # ---------------------------------------------------------------------------
