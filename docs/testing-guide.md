@@ -237,3 +237,6 @@ Run `npm run verify:local` from the repository root to execute the Node suite,
 policy/evidence contract validators, and the complete Python suite with the
 reproducible `uv` dependency invocation used by CI. The runner uses direct
 process execution and stops at the first failure.
+
+The canonical dashboard is verified separately with `cd dashboard && npm ci &&
+npm run build`; CI runs this job on every change.
