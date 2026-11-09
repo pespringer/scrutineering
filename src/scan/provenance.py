@@ -49,6 +49,8 @@ def validate_database_freshness(records: list[ScannerProvenance], max_age_days: 
             return False
         if updated.tzinfo is None:
             updated = updated.replace(tzinfo=timezone.utc)
+        if updated > (now or datetime.now(timezone.utc)):
+            return False
         if updated < cutoff:
             return False
     return True
