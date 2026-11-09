@@ -49,7 +49,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Phase 3 — Production Operations (60–90 days)
 
-- **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, and a local digest-keyed TTL cache; shared caching and queue priorities remain.
+- **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, a local digest-keyed TTL cache, and explicit scan queue priorities; shared caching remains.
 - Add OpenTelemetry traces and SLOs for scan latency, failures, stale data, remediation success, and rollback rate.
 - **Started:** runtime monitoring now exposes bounded-buffer health, durable JSONL event delivery, and sink-failure telemetry; managed queue delivery and capability checks remain.
 - **Started:** SBOM/provenance contract validation, deterministic generation, and a concrete fail-closed cosign verification adapter exist; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.

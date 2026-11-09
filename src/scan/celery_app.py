@@ -22,10 +22,10 @@ def create_celery_app() -> Celery:
         task_serializer="json",
         result_serializer="json",
         accept_content=["json"],
-        task_default_queue="scan",
+        task_default_queue="scan.normal",
         task_routes={
-            "src.scan.tasks.run_scan": {"queue": "scan"},
-            "src.scan.tasks.run_image_scan": {"queue": "scan"},
+            "src.scan.tasks.run_scan": {"queue": "scan.normal"},
+            "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
         },
         task_acks_late=True,
         task_time_limit=3600,
