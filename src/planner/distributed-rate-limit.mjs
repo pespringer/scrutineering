@@ -9,6 +9,7 @@ export function createDistributedRateLimiter({ limitPerMinute, increment }) {
   if (typeof increment !== "function") throw new TypeError("increment callback is required");
   const windowMs = 60_000;
   return async (clientKey) => {
+    if (!/^[A-Za-z0-9._:@/-]{1,256}$/.test(String(clientKey))) throw new Error("invalid limiter client key");
     const now = Date.now();
     const windowStart = Math.floor(now / windowMs) * windowMs;
     const count = await increment(`planner:rate:${windowStart}:${clientKey}`, windowMs);

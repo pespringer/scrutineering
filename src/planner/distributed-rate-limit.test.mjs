@@ -14,3 +14,8 @@ test("distributed limiter shares counts through its atomic store callback", asyn
   assert.equal((await first("same-client")).allowed, true);
   assert.equal((await second("same-client")).allowed, false);
 });
+
+test("rejects unsafe limiter keys", async () => {
+  const limiter = createDistributedRateLimiter({ limitPerMinute: 1, increment: async () => 1 });
+  await assert.rejects(() => limiter("bad key"), /invalid/);
+});
