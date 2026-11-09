@@ -9,6 +9,7 @@ def test_jsonl_event_store_persists_and_replays_recent_events(tmp_path):
     events = store.read(limit=1)
     assert len(events) == 1
     assert events[0]["event_type"] == "network"
+    assert store.read(container_id="c1", limit=2)[0]["event_type"] == "process"
 
 
 def test_jsonl_event_store_handles_empty_state(tmp_path):

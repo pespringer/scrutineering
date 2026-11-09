@@ -19,3 +19,6 @@ single previous segment for bounded local storage.
 `EBPFMonitorAgent.capability_report()` exposes whether BCC and the kernel
 tracing interface are present, making fallback mode visible instead of silently
 appearing healthy.
+The durable JSONL sink supports bounded replay by event count and optional
+`container_id` filtering, which lets operators drain one workload without
+loading the entire event history.

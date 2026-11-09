@@ -29,8 +29,11 @@ class JsonlEventStore:
             stream.flush()
             os.fsync(stream.fileno())
 
-    def read(self, limit: int = 100) -> list[dict]:
+    def read(self, limit: int = 100, container_id: str | None = None) -> list[dict]:
         if limit < 1 or not self.path.exists():
             return []
         lines = self.path.read_text(encoding="utf-8").splitlines()
-        return [json.loads(line) for line in lines[-limit:]]
+        events = [json.loads(line) for line in lines if line]
+        if container_id is not None:
+            events = [event for event in events if event.get("container_id") == container_id]
+        return events[-limit:]
