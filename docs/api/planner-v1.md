@@ -17,6 +17,8 @@ The server accepts an injected async limiter; use
 `createDistributedRateLimiter` with an atomic Redis `INCR`/`EXPIRE` adapter for
 multi-replica deployments. `createRedisIncrement` supplies that adapter for a
 node-redis-compatible client.
+Production configuration must provide `REDIS_URL`; use `rediss://` when Redis
+traffic crosses a trust boundary.
 
 ## Routes
 
