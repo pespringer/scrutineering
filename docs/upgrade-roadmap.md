@@ -22,7 +22,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Phase 1 — Establish a Secure Core (0–30 days)
 
-- **Started:** planner API key enforcement and OIDC claim-policy coverage are implemented; production discovery/signature wiring remains.
+- **Started:** planner API key enforcement, strict OIDC configuration, and claim-policy coverage are implemented; provider discovery/signature wiring remains.
 - **Started:** planner routes now have credential-scoped limits with a Redis-compatible distributed adapter; Redis client lifecycle and deployment wiring remain.
 - **Started:** image references now have canonical digest-aware parsing and local/OCI registry resolution; universal credential/provider wiring remains.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.

@@ -24,6 +24,9 @@ signature verifier supplies trusted claims, then issuer, audience, expiry, and
 activation checks map them into the common principal shape. It does not accept
 unsigned or self-decoded JWT payloads.
 
+`loadOidcConfig()` requires `OIDC_ISSUER` and `OIDC_AUDIENCE`, and rejects
+non-HTTPS issuers before startup wiring can proceed.
+
 Run the focused contract tests with:
 
 ```bash
