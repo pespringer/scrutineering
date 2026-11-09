@@ -17,9 +17,17 @@ spec:
       labels:
         app: scrutineering-worker
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: worker
           image: scrutineering-worker:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           command:
             - "celery"
             - "--app=src.scan.celery_app:create_celery_app"
