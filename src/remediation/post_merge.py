@@ -5,6 +5,8 @@ from __future__ import annotations
 
 def evaluate_post_merge(*, expected_digest: str, observed_digest: str | None, required_scan_status: str, findings_before: int, findings_after: int) -> dict[str, object]:
     reasons: list[str] = []
+    if findings_before < 0 or findings_after < 0:
+        reasons.append("finding_counts_invalid")
     if not expected_digest or observed_digest != expected_digest:
         reasons.append("deployed digest does not match the verified artifact")
     if required_scan_status != "completed":
