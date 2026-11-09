@@ -24,7 +24,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - **Started:** planner API key enforcement and OIDC claim-policy coverage are implemented; production discovery/signature wiring remains.
 - **Started:** planner routes now have credential-scoped limits with a Redis-compatible distributed adapter; Redis client lifecycle and deployment wiring remain.
-- **Started:** image references now have canonical digest-aware parsing; tag-only references remain explicitly mutable until registry digest resolution is wired into the scan boundary.
+- **Started:** image references now have canonical digest-aware parsing and local/OCI registry resolution; universal credential/provider wiring remains.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.
 - **Started:** signed SBOM/provenance evidence has a versioned schema, deterministic generation, fixtures, CI validation, and a cosign adapter; deployment keyless-policy wiring remains.

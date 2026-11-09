@@ -14,6 +14,9 @@ scrutineering/
 │   ├── verification/     # Policy verification harness
 │   ├── rollout/          # Staged rollout controller
 │   ├── telemetry/        # SLO/SLI and outcome reporting
+│   ├── auth/              # API-key and OIDC claim policy boundaries
+│   ├── api/               # Composed FastAPI application
+│   ├── remediation/       # Worktrees, edits, validation, lifecycle, rollback
 │   ├── scan/             # Python Celery workers (Trivy/Grype scans)
 │   └── db/               # SQLAlchemy models + Alembic migrations
 ├── k8s/                  # Kubernetes manifests
@@ -150,5 +153,8 @@ component merges or bypasses branch protection.
 - [GitHub Publication Boundary](docs/operations/github-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
+- [Audit Integrity](docs/security/audit-integrity.md)
+- [Scan Queue Priorities](docs/operations/scan-queues.md)
+- [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
