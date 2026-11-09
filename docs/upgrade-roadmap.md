@@ -33,7 +33,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.
 - **Started:** `dashboard/` is canonical and `web/` is explicitly marked legacy; removal awaits downstream migration.
 - **Started:** the canonical FastAPI app now mounts scan-data, runtime, analytics, and forensics routers and wires scan reads to SQLAlchemy; readiness checks and cross-service authentication remain.
-- **Started:** configured API keys and an OIDC claim-policy boundary now map to verified-principal-shaped roles and tenant scopes; provider discovery/signature wiring and immutable audit records remain.
+- **Started:** configured API keys and an OIDC claim-policy boundary now map to verified-principal-shaped roles and tenant scopes; audit records now carry a hash chain, while provider discovery/signature wiring and durable chain anchoring remain.
 - **Started:** state services are internal by default and credentials are explicit; non-root containers remain.
 - **Completed:** planner and worker images now run as unprivileged users, and Grype is installed from a pinned release archive.
 - **Completed:** provider-neutral principal, role, and tenant-scope authorization primitives are covered by Node tests; JWT/OIDC verification remains an integration task.

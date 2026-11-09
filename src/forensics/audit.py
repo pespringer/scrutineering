@@ -14,6 +14,7 @@ Acceptance criteria covered:
 from __future__ import annotations
 
 import json
+import hashlib
 import logging
 import time
 from dataclasses import dataclass, field
@@ -43,6 +44,8 @@ class AuditRecord:
     subject: str = ""
     detail: dict[str, Any] = field(default_factory=dict)
     source: str = "audit_logger"
+    previous_hash: str = ""
+    record_hash: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -56,6 +59,8 @@ class AuditRecord:
             "subject": self.subject,
             "detail": self.detail,
             "source": self.source,
+            "previous_hash": self.previous_hash,
+            "record_hash": self.record_hash,
         }
 
 
@@ -112,6 +117,7 @@ class AuditLogger:
         self._max_records = max_records
         self._records: list[AuditRecord] = []
         self._counter = 0
+        self._last_hash = ""
         self._get_session = db_session_factory
 
     # -- Core logging ------------------------------------------------------- #
@@ -130,7 +136,7 @@ class AuditLogger:
         """Append a new audit record (immutable, append-only)."""
         self._counter += 1
         record_id = f"AUDIT-{int(time.time() * 1000):x}-{self._counter:x}"
-        record = AuditRecord(
+        record_fields = dict(
             record_id=record_id,
             container_id=container_id,
             event_type=event_type,
@@ -140,7 +146,11 @@ class AuditLogger:
             action=action or event_type,
             subject=subject,
             detail=detail or {},
+            previous_hash=self._last_hash,
         )
+        canonical = json.dumps(record_fields, sort_keys=True, default=str, separators=(",", ":"))
+        record = AuditRecord(**record_fields, record_hash=hashlib.sha256(canonical.encode()).hexdigest())
+        self._last_hash = record.record_hash
         self._records.append(record)
 
         # Evict oldest if over max
@@ -348,4 +358,5 @@ class AuditLogger:
     def clear(self) -> None:
         """Clear the in-memory log (does not affect persisted records)."""
         self._records.clear()
+        self._last_hash = ""
         self._counter = 0

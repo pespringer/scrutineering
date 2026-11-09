@@ -629,6 +629,14 @@ class TestAuditLogger:
         with pytest.raises(Exception):
             rec.event_type = "mutated"
 
+    def test_records_form_a_hash_chain(self):
+        al = AuditLogger()
+        first = al.log("first", "c1")
+        second = al.log("second", "c1")
+        assert first.record_hash
+        assert second.previous_hash == first.record_hash
+        assert first.record_hash != second.record_hash
+
     def test_query_by_container(self):
         al = AuditLogger()
         al.log("e1", "c1")
