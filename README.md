@@ -87,6 +87,7 @@ npm run verify:local  # Node, Python, and security-contract checks
 # Run individual scripts
 node src/planner/server.mjs
 node scripts/run-remediation-dry-run-harness.mjs
+node scripts/run-staging-rollback-drill.mjs
 
 # Run the composed Python API
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
