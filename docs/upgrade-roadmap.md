@@ -112,4 +112,4 @@ durable publisher idempotency, remediation event sequencing, scanner latency
 metrics, dashboard CI builds, Kubernetes temporary-storage limits, and stricter
 image/database/evidence validation.
 
-The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, and a staging run that proves a failed policy or CI check cannot auto-merge.
+The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
