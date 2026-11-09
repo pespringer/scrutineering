@@ -98,4 +98,9 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Definition of Done
 
+The current hardening batch also covers unsigned-token rejection, bounded OIDC
+clock skew, Redis lifecycle health, limiter-key validation, provider branch
+validation, cache size/cardinality controls, runtime replay integrity, external
+audit anchoring, and CI-executed rollback drills.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, and a staging run that proves a failed policy or CI check cannot auto-merge.
