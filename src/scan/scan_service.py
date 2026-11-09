@@ -14,7 +14,7 @@ import os
 from dataclasses import replace
 from typing import Optional
 
-from .registry import detect_registry, authenticate_to_registry, resolve_image_digest
+from .registry import detect_registry, authenticate_to_registry, resolve_image_digest_with_fallback
 from .image_identity import parse_image_reference
 from .cache import ScanCache
 from src.db.models import Severity
@@ -50,7 +50,7 @@ class ScanService:
         scanner_circuit_failure_threshold: int | None = None,
         scanner_circuit_reset_timeout: float | None = None,
         require_immutable_identity: bool | None = None,
-        digest_resolver=resolve_image_digest,
+        digest_resolver=resolve_image_digest_with_fallback,
         scanner_cache: ScanCache | None = None,
     ):
         self.trivy_timeout = trivy_timeout

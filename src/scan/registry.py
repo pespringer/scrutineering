@@ -235,3 +235,20 @@ async def resolve_image_digest(image_name: str, docker_bin: str = "docker") -> s
     if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
         raise RuntimeError(f"docker returned no immutable digest for '{image_name}'")
     return digest
+
+
+async def resolve_image_digest_with_fallback(image_name: str, token: str | None = None) -> str:
+    """Try the local daemon, then resolve through the OCI Registry API."""
+    try:
+        return await resolve_image_digest(image_name)
+    except Exception as local_error:
+        from src.scan.image_identity import parse_image_reference
+        identity = parse_image_reference(image_name)
+        host = "registry-1.docker.io" if identity.registry.value == "dockerhub" else identity.registry.value
+        repository = identity.repo_name
+        if host == "registry-1.docker.io" and "/" not in repository:
+            repository = f"library/{repository}"
+        try:
+            return await asyncio.to_thread(resolve_registry_digest, host, repository, identity.tag, token=token)
+        except Exception as remote_error:
+            raise RuntimeError(f"local and remote digest resolution failed: {local_error}; {remote_error}") from remote_error

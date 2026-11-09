@@ -7,7 +7,7 @@ image: callers must persist the returned digest or treat resolution failure as
 non-passing.
 
 The command uses argument-vector execution and never invokes a shell. Registry
-Registry API resolution is also available through the OCI manifest `HEAD`
+The default scan resolver tries the local daemon and then the OCI manifest `HEAD`
 contract and accepts an optional bearer token. It requires the registry to
 return `Docker-Content-Digest`; a tag-only response is rejected.
 
