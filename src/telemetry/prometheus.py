@@ -10,6 +10,7 @@ class MetricsRegistry:
     def __init__(self):
         self._counters = defaultdict(float)
         self._gauges = defaultdict(float)
+        self._histograms = defaultdict(list)
         self._lock = Lock()
 
     def increment(self, name: str, value: float = 1, labels: dict[str, str] | None = None) -> None:
@@ -20,11 +21,16 @@ class MetricsRegistry:
         with self._lock:
             self._gauges[(name, self._labels(labels))] = value
 
+    def observe(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
+        with self._lock:
+            self._histograms[(name, self._labels(labels))].append(float(value))
+
     def clear(self) -> None:
         """Remove all metric values, primarily for isolated tests."""
         with self._lock:
             self._counters.clear()
             self._gauges.clear()
+            self._histograms.clear()
 
     def snapshot(self) -> dict[str, dict[str, float]]:
         """Return a lock-protected structured view for diagnostics and tests."""
@@ -32,6 +38,7 @@ class MetricsRegistry:
             return {
                 "counters": {f"{name}|{labels}": value for (name, labels), value in self._counters.items()},
                 "gauges": {f"{name}|{labels}": value for (name, labels), value in self._gauges.items()},
+                "histograms": {f"{name}|{labels}": list(values) for (name, labels), values in self._histograms.items()},
             }
 
     @staticmethod
@@ -46,4 +53,10 @@ class MetricsRegistry:
                 rows.append(f"{name}{('{'+labels+'}') if labels else ''} {value:g}")
             for (name, labels), value in sorted(self._gauges.items()):
                 rows.append(f"{name}{('{'+labels+'}') if labels else ''} {value:g}")
+            for (name, labels), values in sorted(self._histograms.items()):
+                for quantile, percentile in (("0.5", 0.5), ("0.95", 0.95)):
+                    ordered = sorted(values)
+                    index = min(len(ordered) - 1, int(len(ordered) * percentile))
+                    suffix = f"{labels},quantile=\"{quantile}\"" if labels else f"quantile=\"{quantile}\""
+                    rows.append(f"{name}{{{suffix}}} {ordered[index]:g}")
             return "\n".join(rows) + ("\n" if rows else "")
