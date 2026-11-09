@@ -76,6 +76,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, a local digest-keyed TTL cache, and explicit scan queue priorities; shared caching remains.
 - **Completed:** the scan cache now supports explicit invalidation and expired-entry pruning for shared-worker maintenance.
+- **Completed:** a Redis-backed scan cache adapter now supports shared worker results with digest-derived keys and TTLs.
 - **Completed:** scan worker configuration now validates that all priority queues are present.
 - **Started:** the canonical FastAPI app exposes a Prometheus-compatible metrics registry at `/metrics`, including scanner outcomes; OpenTelemetry traces and production SLO instrumentation remain.
 - **Completed:** the metrics registry exposes a lock-protected structured snapshot for diagnostics without parsing Prometheus text.
