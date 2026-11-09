@@ -9,6 +9,7 @@ This module defines the Celery task run_scan that orchestrates the full scan pip
 """
 
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
 import uuid
@@ -52,6 +53,64 @@ def run_scanner_sync(scanner, image_name: str, source_name: str) -> list[dict]:
         return [(f, source_name) for f in findings]
 
     return asyncio.run(_run())
+
+
+def run_scanners_concurrently(
+    scanner_names: list[str], image_name: str, max_workers: int | None = None
+) -> list[tuple[str, str, list[tuple[ScannerFinding, str]] | str]]:
+    """Run scanners concurrently while preserving configured result order."""
+    def scan_one(scanner_name: str) -> list[tuple[ScannerFinding, str]]:
+        if scanner_name == "trivy":
+            scanner = TrivyScanner()
+            source_name = "trivy"
+        elif scanner_name == "grype":
+            scanner = GrypeScanner()
+            source_name = "grype"
+        else:
+            raise ValueError(f"Unknown scanner: {scanner_name}")
+
+        logger.info("Running %s scan on '%s'...", source_name, image_name)
+        findings = run_scanner_sync(scanner, image_name, source_name)
+        logger.info(
+            "%s found %d findings on '%s'",
+            source_name,
+            len(findings),
+            image_name,
+        )
+        return findings
+
+    if not scanner_names:
+        return []
+
+    worker_count = max_workers or len(scanner_names)
+    worker_count = max(1, min(worker_count, len(scanner_names)))
+    results = []
+
+    with ThreadPoolExecutor(
+        max_workers=worker_count, thread_name_prefix="scanner"
+    ) as executor:
+        futures = [(name, executor.submit(scan_one, name)) for name in scanner_names]
+        for scanner_name, future in futures:
+            try:
+                results.append((scanner_name, "ok", future.result()))
+            except ScannerError as error:
+                logger.error(
+                    "Scanner '%s' failed for '%s': %s",
+                    scanner_name,
+                    image_name,
+                    error,
+                )
+                results.append((scanner_name, "error", str(error)))
+            except Exception as error:
+                logger.exception(
+                    "Unexpected error running '%s' for '%s': %s",
+                    scanner_name,
+                    image_name,
+                    error,
+                )
+                results.append((scanner_name, "error", f"Unexpected: {error}"))
+
+    return results
 
 
 @shared_task(
@@ -109,57 +168,16 @@ def run_scan(
     scanners_completed: list[str] = []
     scanners_failed: list[str] = []
 
-    def scan_one(scanner_name: str) -> list[tuple[ScannerFinding, str]]:
-        """Execute a single scanner and return findings."""
-        if scanner_name == "trivy":
-            scanner = TrivyScanner()
-            source_name = "trivy"
-        elif scanner_name == "grype":
-            scanner = GrypeScanner()
-            source_name = "grype"
-        else:
-            raise ValueError(f"Unknown scanner: {scanner_name}")
-
-        logger.info("Running %s scan on '%s'...", source_name, image_name)
-        findings = run_scanner_sync(scanner, image_name, source_name)
-        logger.info(
-            "%s found %d findings on '%s'",
-            source_name,
-            len(findings),
-            image_name,
-        )
-        return findings
-
-    # Run all scanners concurrently with isolated error handling
-    results_map = {}
-    for scanner_name in scanners:
-        try:
-            findings = scan_one(scanner_name)
-            results_map[scanner_name] = ("ok", findings)
-        except ScannerError as e:
-            logger.error("Scanner '%s' failed for '%s': %s", scanner_name, image_name, e)
-            errors.append({"scanner": scanner_name, "error": str(e)})
-            results_map[scanner_name] = ("error", str(e))
-        except Exception as e:
-            logger.exception(
-                "Unexpected error running '%s' for '%s': %s",
-                scanner_name,
-                image_name,
-                e,
-            )
-            errors.append(
-                {"scanner": scanner_name, "error": f"Unexpected: {str(e)}"}
-            )
-            results_map[scanner_name] = ("error", str(e))
-
-    # Collect results
-    for scanner_name in scanners:
-        status, data = results_map[scanner_name]
+    # Run all scanners concurrently with isolated error handling. The helper
+    # preserves configured order even when completion order differs.
+    scanner_results = run_scanners_concurrently(scanners, image_name)
+    for scanner_name, status, data in scanner_results:
         if status == "ok":
             all_findings.extend(data)
             scanners_completed.append(scanner_name)
         else:
             scanners_failed.append(scanner_name)
+            errors.append({"scanner": scanner_name, "error": data})
 
     # Determine overall status
     if not scanners_completed:
@@ -178,7 +196,16 @@ def run_scan(
                 "errors": errors,
             },
         )
-        return {"scan_id": scan_id, "image_name": image_name, "status": status, "errors": errors}
+        return {
+            "scan_id": scan_id,
+            "image_name": image_name,
+            "status": status,
+            "findings": 0,
+            "scanners_completed": scanners_completed,
+            "scanners_failed": scanners_failed,
+            "persisted": 0,
+            "errors": errors,
+        }
 
     if scanners_failed:
         status = "partial"

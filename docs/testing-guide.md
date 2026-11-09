@@ -11,8 +11,8 @@ This document covers how to test each component of the Scrutineering application
 All Python tests use **pytest** and are in `tests/`:
 
 ```bash
-# Run all tests
-pytest tests/ -v
+# Run all tests (or use `PYTHONPATH=. uv run --with-requirements requirements.txt --with pytest pytest tests/ -v`)
+PYTHONPATH=. pytest tests/ -v
 
 # Run specific test file
 pytest tests/test_scan_engine.py -v

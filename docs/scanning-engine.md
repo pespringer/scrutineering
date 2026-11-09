@@ -86,8 +86,10 @@ CVSS-based weighted risk score:
 | Concurrent scanners      | Trivy + Grype run in parallel |
 
 Concurrent scanning is achieved via:
-1. Both scanners run in parallel asyncio tasks per image
-2. Batch scans use asyncio.Semaphore for controlled concurrency
+1. `ScanService` runs scanner coroutines concurrently per image.
+2. Celery tasks use a bounded thread pool because each task bridges its async scanner adapter through a dedicated event loop.
+3. Results are collected in configured scanner order, so reports remain deterministic even when completion order differs.
+4. Batch scans use `asyncio.Semaphore` for controlled image-level concurrency.
 
 ## Execution Modes
 

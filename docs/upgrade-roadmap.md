@@ -24,6 +24,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - **Started:** planner API key enforcement and regression coverage are implemented; OIDC/RBAC remains outstanding.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
+- **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - Select one frontend and deprecate the other.
 - Define one versioned API contract for scans, findings, remediation runs, alerts, and audit events.
 - Add OIDC authentication, RBAC, tenant boundaries, request IDs, structured errors, rate limits, and immutable audit records.

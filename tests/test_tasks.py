@@ -1,6 +1,7 @@
 """Tests for the Celery scan orchestrator tasks."""
 
 import uuid
+import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -52,7 +53,7 @@ class TestRunScan:
         mock_persist.return_value = 2
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25", scan_id="test-001")
+        result = run_scan.run.__func__(mock_self, "nginx:1.25", scan_id="test-001")
 
         assert result["status"] == "completed"
         assert result["scan_id"] == "test-001"
@@ -69,10 +70,15 @@ class TestRunScan:
         """Trivy fails but Grype results are saved (partial success)."""
         from src.scan.tasks import run_scan
 
-        mock_scan.side_effect = ScannerError("trivy", "command not found", "output")
+        def scan_side_effect(scanner, image_name, source_name):
+            if source_name == "trivy":
+                raise ScannerError("trivy", "command not found", "output")
+            return []
+
+        mock_scan.side_effect = scan_side_effect
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25", scan_id="test-002")
+        result = run_scan.run.__func__(mock_self, "nginx:1.25", scan_id="test-002")
 
         assert result["status"] == "partial"
         assert "trivy" in result["scanners_failed"]
@@ -88,7 +94,7 @@ class TestRunScan:
         mock_scan.side_effect = ScannerError("scanner", "failed", "err")
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "bad-image:latest", scan_id="test-003")
+        result = run_scan.run.__func__(mock_self, "bad-image:latest", scan_id="test-003")
 
         assert result["status"] == "failed"
         assert result["scanners_completed"] == []
@@ -105,7 +111,7 @@ class TestRunScan:
         mock_persist.return_value = 0
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "clean-image:latest", scan_id="test-004")
+        result = run_scan.run.__func__(mock_self, "clean-image:latest", scan_id="test-004")
 
         assert result["status"] == "completed"
         assert result["findings"] == 0
@@ -122,7 +128,7 @@ class TestRunScan:
         mock_persist.side_effect = Exception("DB connection refused")
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25", scan_id="test-005")
+        result = run_scan.run.__func__(mock_self, "nginx:1.25", scan_id="test-005")
 
         assert result["status"] == "completed"  # Scanners succeeded
         assert result["findings"] == 1
@@ -140,7 +146,7 @@ class TestRunScan:
         mock_persist.return_value = 1
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25", scanners=["trivy"])
+        result = run_scan.run.__func__(mock_self, "nginx:1.25", scanners=["trivy"])
 
         assert result["status"] == "completed"
         assert result["scanners_completed"] == ["trivy"]
@@ -154,7 +160,7 @@ class TestRunScan:
         mock_scan.return_value = []
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25")
+        result = run_scan.run.__func__(mock_self, "nginx:1.25")
 
         assert "scan_id" in result
         assert len(result["scan_id"]) > 0  # UUID
@@ -169,7 +175,7 @@ class TestRunScan:
         mock_scan.return_value = [(finding, "trivy")]
 
         mock_self = MagicMock()
-        result = run_scan(mock_self, "nginx:1.25", save_results=False)
+        result = run_scan.run.__func__(mock_self, "nginx:1.25", save_results=False)
 
         assert result["persisted"] == 0
         mock_persist.assert_not_called()
@@ -180,11 +186,29 @@ class TestRunScan:
 
         with patch('src.scan.tasks.run_scanner_sync', side_effect=RuntimeError("unexpected")):
             mock_self = MagicMock()
-            result = run_scan(mock_self, "nginx:1.25")
+            result = run_scan.run.__func__(mock_self, "nginx:1.25")
 
             assert result["status"] == "failed"
-            assert len(result["errors"]) == 1
+            assert len(result["errors"]) == 2
             assert "unexpected" in result["errors"][0]["error"]
+
+    def test_scanners_run_concurrently_and_results_keep_configured_order(self):
+        """Both scanner jobs overlap while output order stays deterministic."""
+        from src.scan.tasks import run_scanners_concurrently
+
+        started = threading.Barrier(2)
+
+        def scan_side_effect(scanner, image_name, source_name):
+            started.wait(timeout=1)
+            return []
+
+        with patch("src.scan.tasks.run_scanner_sync", side_effect=scan_side_effect):
+            results = run_scanners_concurrently(["trivy", "grype"], "nginx:1.25")
+
+        assert [(name, status) for name, status, _ in results] == [
+            ("trivy", "ok"),
+            ("grype", "ok"),
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -208,7 +232,7 @@ class TestRunBatchScan:
                 {"scan_id": "batch-3", "status": "partial", "findings": 1, "findings_by_source": {"trivy": 1}, "persisted": 1, "scanners_completed": ["trivy"], "scanners_failed": ["grype"], "errors": [{"scanner": "grype", "error": "timeout"}]},
             ]
 
-            result = run_batch_scan(mock_self, images, scan_id_prefix="batch")
+            result = run_batch_scan.run.__func__(mock_self, images, scan_id_prefix="batch")
 
             assert result["total_images"] == 3
             assert result["total_findings"] == 9  # 5 + 3 + 1
@@ -229,7 +253,7 @@ class TestRunBatchScan:
                 {"scan_id": "x-3", "status": "completed", "findings": 4, "findings_by_source": {"grype": 4}, "persisted": 4, "scanners_completed": ["grype"], "scanners_failed": [], "errors": []},
             ]
 
-            result = run_batch_scan(mock_self, images)
+            result = run_batch_scan.run.__func__(mock_self, images)
 
             assert result["total_findings"] == 6
             assert result["total_errors"] == 1
