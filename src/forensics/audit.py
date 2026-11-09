@@ -17,7 +17,7 @@ import json
 import hashlib
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Sequence
 
@@ -25,6 +25,21 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
+
+
+def verify_audit_chain(records: Sequence[dict[str, Any]]) -> bool:
+    """Verify ordering, previous links, and record hashes in exported records."""
+    previous = ""
+    for record in reversed(list(records)):
+        if record.get("previous_hash", "") != previous:
+            return False
+        payload = {key: value for key, value in record.items() if key != "record_hash"}
+        canonical = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
+        digest = hashlib.sha256(canonical.encode()).hexdigest()
+        if record.get("record_hash") != digest:
+            return False
+        previous = digest
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -148,8 +163,9 @@ class AuditLogger:
             detail=detail or {},
             previous_hash=self._last_hash,
         )
-        canonical = json.dumps(record_fields, sort_keys=True, default=str, separators=(",", ":"))
-        record = AuditRecord(**record_fields, record_hash=hashlib.sha256(canonical.encode()).hexdigest())
+        draft = AuditRecord(**record_fields, record_hash="")
+        canonical = json.dumps({key: value for key, value in draft.to_dict().items() if key != "record_hash"}, sort_keys=True, separators=(",", ":"))
+        record = replace(draft, record_hash=hashlib.sha256(canonical.encode()).hexdigest())
         self._last_hash = record.record_hash
         self._records.append(record)
 

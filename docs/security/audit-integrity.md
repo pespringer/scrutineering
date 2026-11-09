@@ -7,3 +7,6 @@ evident in-process chain while preserving append-only behavior.
 The chain is not yet anchored outside the process or persisted in dedicated
 database columns. Production should anchor periodic heads and reject gaps or
 unexpected previous hashes during audit export.
+
+`verify_audit_chain()` performs that local export check and returns false on
+any link or payload-hash mismatch.

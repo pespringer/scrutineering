@@ -42,6 +42,7 @@ from src.forensics.audit import (
     AuditRecord,
     AuditLogger,
     AuditEvent,
+    verify_audit_chain,
 )
 
 
@@ -636,6 +637,7 @@ class TestAuditLogger:
         assert first.record_hash
         assert second.previous_hash == first.record_hash
         assert first.record_hash != second.record_hash
+        assert verify_audit_chain(al.query())
 
     def test_query_by_container(self):
         al = AuditLogger()
