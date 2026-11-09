@@ -15,7 +15,8 @@ This limiter is process-local; multi-replica deployments must add a shared
 gateway or Redis-backed limiter before relying on the limit as a global policy.
 The server accepts an injected async limiter; use
 `createDistributedRateLimiter` with an atomic Redis `INCR`/`EXPIRE` adapter for
-multi-replica deployments.
+multi-replica deployments. `createRedisIncrement` supplies that adapter for a
+node-redis-compatible client.
 
 ## Routes
 
