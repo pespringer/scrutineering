@@ -9,6 +9,10 @@ RUN npm install
 # Copy source
 COPY src/ ./src/
 
+# Run the planner without root privileges.
+RUN addgroup -S -g 10001 app && adduser -S -u 10001 -G app app && chown -R app:app /app
+USER app
+
 ENV NODE_ENV=production
 ENV PLANNER_HOST=0.0.0.0
 ENV PLANNER_PORT=3000

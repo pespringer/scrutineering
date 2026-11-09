@@ -23,6 +23,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: scrutineering-app
+    user: "10001:10001"
     ports:
       - "${PLANNER_PORT:-3000}:${PLANNER_PORT:-3000}"
     env_file:
@@ -95,6 +96,7 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     container_name: scrutineering-celery-worker
+    user: "scanner"
     env_file:
       - .env
     environment:
@@ -133,6 +135,7 @@ services:
       context: .
       dockerfile: Dockerfile.worker
     container_name: scrutineering-celery-beat
+    user: "scanner"
     command: >
       celery --app=src.scan.celery_app:create_celery_app beat
       --loglevel=${CELERY_LOG_LEVEL:-info}

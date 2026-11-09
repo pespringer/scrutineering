@@ -12,9 +12,10 @@ RUN apt-get update && \
 RUN curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | \
     sh -s -- -b /usr/local/bin v0.60.0
 
-# Install Grype (container vulnerability scanner)
-RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | \
-    sh -s -- -b /usr/local/bin
+# Install a pinned Grype release (avoid executing a moving install script).
+ARG GRYPE_VERSION=0.91.0
+RUN curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
+    | tar -xz -C /usr/local/bin grype
 
 # Install Python deps
 COPY requirements.txt ./
@@ -22,6 +23,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source
 COPY src/ ./src/
+
+# Keep runtime state writable only in /tmp and run the worker as an unprivileged user.
+RUN addgroup --system scanner && adduser --system --ingroup scanner scanner && \
+    mkdir -p /tmp/scanner-cache && chown -R scanner:scanner /app /tmp/scanner-cache
+USER scanner
 
 # Celery needs to run from the project root so "src.scan" is importable
 ENV PYTHONPATH=/app
