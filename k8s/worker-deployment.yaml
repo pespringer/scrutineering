@@ -29,6 +29,8 @@ spec:
           envFrom:
             - secretRef:
                 name: scrutineering-secrets
+            - configMapRef:
+                name: scrutineering-config
           resources:
             requests:
               cpu: "500m"
