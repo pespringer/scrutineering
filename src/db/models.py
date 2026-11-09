@@ -504,6 +504,7 @@ class Remediation(Base):
         Index("idx_remediations_status", "status"),
         Index("idx_remediations_image_id", "image_id"),
         Index("idx_remediations_created_at", "created_at"),
+        Index("idx_remediations_approved_by", "approved_by"),
     )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
