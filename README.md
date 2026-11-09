@@ -109,6 +109,7 @@ See `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
 ```bash
 # Apply manifests in order
 kubectl apply -f k8s/configmap-and-secrets.yaml
+kubectl apply -f k8s/resource-quota.yaml
 kubectl apply -f k8s/infrastructure.yaml     # postgres, redis, PVCs
 kubectl apply -f k8s/planner-deployment.yaml
 kubectl apply -f k8s/worker-deployment.yaml

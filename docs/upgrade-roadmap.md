@@ -106,6 +106,7 @@ audit anchoring, and CI-executed rollback drills.
 The latest deployment slice also configures all scan queues in Compose and
 Kubernetes, adds non-root restricted security contexts to planner and worker
 pods, and bounds registry pull/authentication subprocesses.
+Kubernetes promotion now also includes the checked-in namespace resource quota.
 
 The current follow-up batch adds key-rotation refresh, service replay guards,
 durable publisher idempotency, remediation event sequencing, scanner latency
