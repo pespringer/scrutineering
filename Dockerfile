@@ -6,6 +6,11 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci --omit=dev
 
+# npm is only needed at build time; the planner runs node directly.
+# Strip npm/npx so the runtime image doesn't ship npm's bundled dependency tree
+# (the source of the HIGH findings in the security scan).
+RUN rm -rf /usr/local/lib/node_modules/npm && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
 # Copy source
 COPY src/ ./src/
 
