@@ -9,7 +9,9 @@ from pathlib import Path
 class ReplayCheckpoint:
     def __init__(self, path: str | Path): self.path = Path(path)
     def load(self) -> int: 
-        try: return int(json.loads(self.path.read_text())["offset"])
+        try:
+            payload = json.loads(self.path.read_text())
+            return int(payload["offset"]) if payload.get("version", 1) == 1 else 0
         except (FileNotFoundError, KeyError, ValueError, json.JSONDecodeError): return 0
     def save(self, offset: int) -> None:
         if offset < 0: raise ValueError("offset must be non-negative")
@@ -17,7 +19,7 @@ class ReplayCheckpoint:
         fd, temporary = tempfile.mkstemp(prefix="checkpoint-", dir=self.path.parent)
         try:
             with os.fdopen(fd, "w") as stream:
-                stream.write(json.dumps({"offset": offset}) + "\n")
+                stream.write(json.dumps({"version": 1, "offset": offset}) + "\n")
                 stream.flush(); os.fsync(stream.fileno())
             os.replace(temporary, self.path)
         finally:
