@@ -20,3 +20,10 @@ def update_exact_dependency(text: str, package: str, old: str, new: str) -> str:
     updated, count = pattern.subn(rf"\g<1>{new}\g<2>", text)
     if count != 1: raise ValueError("dependency match must be unique")
     return updated
+
+
+def update_json_dependency(text: str, package: str, old: str, new: str) -> str:
+    pattern = re.compile(rf'("{re.escape(package)}"\s*:\s*"){re.escape(old)}(")')
+    updated, count = pattern.subn(rf"\g<1>{new}\g<2>", text)
+    if count != 1: raise ValueError("JSON dependency match must be unique")
+    return updated
