@@ -122,3 +122,5 @@ new privileges. Kubernetes additionally runs planner and worker pods as
 non-root with bounded writable `/tmp` volumes.
 Apply `k8s/resource-quota.yaml` in the target namespace so scanner concurrency
 cannot exhaust node capacity.
+Apply `k8s/pod-disruption-budgets.yaml` as well to keep one planner and worker
+available during voluntary node or deployment disruptions.
