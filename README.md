@@ -42,6 +42,7 @@ Docker Compose Services:
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
+# Set PLANNER_API_KEY in .env before starting the exposed planner service.
 
 # 2. Start all services
 docker compose up --build -d

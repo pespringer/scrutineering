@@ -8,3 +8,5 @@ rich
 fastapi
 uvicorn
 greenlet
+pytest
+pytest-cov
