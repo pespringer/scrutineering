@@ -240,3 +240,4 @@ process execution and stops at the first failure.
 
 The canonical dashboard is verified separately with `cd dashboard && npm ci &&
 npm run build`; CI runs this job on every change.
+Deployment manifests are checked with `npm run validate:deployment`.

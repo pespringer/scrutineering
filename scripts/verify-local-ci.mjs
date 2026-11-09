@@ -5,6 +5,7 @@ const commands = [
   ["npm", ["run", "validate:policy-contract"]],
   ["npm", ["run", "validate:evidence-contract"]],
   ["npm", ["run", "drill:staging-rollback"]],
+  ["npm", ["run", "validate:deployment"]],
   ["uv", ["run", "--with-requirements", "requirements.txt", "--with", "pytest", "pytest", "tests/", "-q"]],
 ];
 
