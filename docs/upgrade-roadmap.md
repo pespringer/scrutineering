@@ -46,6 +46,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** remediation workers can now verify evidence, apply injected changes, and run fail-closed validation commands inside detached Git worktrees; guarded exact-match edits exist, while language-specific parsers, commits, and PR publication remain.
 - **Started:** remediation validation now requires install, test, build, SBOM, and post-change rescan phases in order; provider-specific commands and PR publication remain.
 - **Started:** guarded GitHub and GitLab publishers require verified evidence, allowlists, and idempotency keys; GitHub App/project-token lifecycle and branch-policy enforcement remain.
+- **Completed:** provider tokens and publication allowlists now load through one normalized production-checked configuration boundary.
 - **Started:** remediation execution now has an in-memory coordinator and validated rollback-plan builder for the analyzing/patching/building/verifying/PR/completed path; persistence, approval, and post-merge verification remain.
 
 ## Phase 3 — Production Operations (60–90 days)

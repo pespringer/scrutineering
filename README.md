@@ -146,6 +146,8 @@ verified before remediation. The executor runs isolated validation, and the
 GitHub publisher can open allowlisted PRs only after verified evidence; neither
 component merges or bypasses branch protection.
 The scanner also defaults this policy on when `NODE_ENV=production`.
+Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
+`GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
 
 ## Documentation
 
