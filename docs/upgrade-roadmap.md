@@ -90,6 +90,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** runtime monitoring now exposes bounded-buffer health, durable JSONL event delivery, sink-failure telemetry, and explicit eBPF capability reports; managed queue delivery remains.
 - **Completed:** runtime delivery now retries failed sinks and routes exhausted events to an optional dead-letter handler.
 - **Completed:** durable runtime replay supports bounded, container-scoped reads.
+- **Completed:** runtime replay now has a persistent offset checkpoint for restart-safe draining.
 - **Started:** SBOM/provenance verification now supports digest, signature, and freshness gates; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.
 
 ## Definition of Done
