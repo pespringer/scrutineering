@@ -10,6 +10,7 @@ The breaker is intentionally local to a worker process. Shared breaker state,
 distributed scan queues, and persistent scanner-result caching remain future
 operational work.
 
-`ScanCache` now provides the local caching primitive. It keys entries by
+`ScanCache` now provides the local caching primitive and `ScanService` can use
+it for successful scanner results. It keys entries by
 scanner and digest-qualified image, uses bounded TTLs, and writes atomically
 with `fsync`/rename so interrupted workers do not publish partial JSON.

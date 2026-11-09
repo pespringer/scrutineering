@@ -16,6 +16,7 @@ from src.scan.scanners.trivy import TrivyScanner, SEVERITY_MAP
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.registry import detect_registry, login_ecr, resolve_image_digest
 from src.scan.scan_service import ScanService
+from src.scan.cache import ScanCache
 from src.db.models import Severity, FindingSource
 
 
@@ -279,6 +280,18 @@ class TestScanIdentityBoundary:
         service = FakeService(require_immutable_identity=True, digest_resolver=resolver)
         asyncio.run(service.scan("alpine:latest", scanners=["trivy"], save_results=False))
         assert seen == ["alpine@sha256:" + "c" * 64]
+
+    def test_scanner_cache_avoids_repeating_successful_scan(self, tmp_path):
+        class Scanner:
+            attempts = 0
+            async def scan(self, image_name):
+                self.attempts += 1
+                return []
+        scanner = Scanner()
+        service = ScanService(scanner_retry_attempts=0, scanner_cache=ScanCache(tmp_path))
+        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "a" * 64, "trivy"))
+        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "a" * 64, "trivy"))
+        assert scanner.attempts == 1
 
 
 # -- Risk score tests ------------------------------------------------------ #

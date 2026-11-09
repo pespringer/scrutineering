@@ -16,6 +16,8 @@ from typing import Optional
 
 from .registry import detect_registry, authenticate_to_registry, resolve_image_digest
 from .image_identity import parse_image_reference
+from .cache import ScanCache
+from src.db.models import Severity
 from .scanners.base import ScannerError, ScannerFinding
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .scanners.trivy import TrivyScanner
@@ -48,6 +50,7 @@ class ScanService:
         scanner_circuit_reset_timeout: float | None = None,
         require_immutable_identity: bool | None = None,
         digest_resolver=resolve_image_digest,
+        scanner_cache: ScanCache | None = None,
     ):
         self.trivy_timeout = trivy_timeout
         self.grype_timeout = grype_timeout
@@ -72,6 +75,7 @@ class ScanService:
             if require_immutable_identity is None else require_immutable_identity
         )
         self._digest_resolver = digest_resolver
+        self._scanner_cache = scanner_cache
 
     async def scan(
         self,
@@ -292,12 +296,24 @@ class ScanService:
             source_name,
             CircuitBreaker(self._circuit_failure_threshold, self._circuit_reset_timeout),
         )
+        if self._scanner_cache is not None:
+            cached = self._scanner_cache.get(source_name, image_name)
+            if cached is not None:
+                return [ScannerFinding(**{
+                    **finding,
+                    "severity": Severity(finding["severity"]) if finding.get("severity") else None,
+                }) for finding in cached]
         if not circuit.allow():
             raise CircuitOpenError(f"{source_name} scanner circuit is open")
         for attempt in range(self.scanner_retry_attempts + 1):
             logger.info("Running %s scan on '%s' (attempt %d)...", source_name, image_name, attempt + 1)
             try:
                 findings = await scanner.scan(image_name)
+                if self._scanner_cache is not None:
+                    self._scanner_cache.set(source_name, image_name, [{
+                        **finding.__dict__,
+                        "severity": finding.severity.value if finding.severity else None,
+                    } for finding in findings])
                 circuit.record_success()
                 logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
                 return findings
