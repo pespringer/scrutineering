@@ -25,10 +25,17 @@ from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.utils.dedup import deduplicate_findings_with_report
 from src.scan.utils.db import init_db, persist_findings
+from src.scan.queue import scan_task_options
 
 logger = logging.getLogger(__name__)
 
 app = create_celery_app()
+
+
+def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
+    """Submit a scan with explicit broker queue and priority options."""
+    options = scan_task_options(priority)
+    return run_scan.apply_async(args=[image_name], kwargs=kwargs, **options)
 
 
 def run_scanner_sync(scanner, image_name: str, source_name: str) -> list[dict]:
