@@ -27,6 +27,7 @@ def verify_service_request(headers: dict[str, str], body: bytes, secret: str, *,
 
 
 def create_replay_guard(max_entries: int = 10_000):
+    if max_entries < 1: raise ValueError("max_entries must be positive")
     seen: dict[str, int] = {}
     def check(signature: str, now: int) -> bool:
         for key, expires in list(seen.items()):
