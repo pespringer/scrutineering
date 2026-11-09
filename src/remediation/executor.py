@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from .worktree import RemediationWorktree
+from src.scan.evidence import EvidenceVerificationError, verify_evidence
 
 
 @dataclass
@@ -25,12 +26,22 @@ def execute_remediation(
     apply_change: Callable[[Path, object], None],
     validation_commands: Sequence[Sequence[str]],
     *,
-    evidence_verified: bool,
+    evidence_verified: bool | None = None,
+    evidence_envelope: dict | None = None,
+    evidence_artifact: bytes | dict | None = None,
+    evidence_verifier=None,
     base_dir: str | Path | None = None,
     timeout_seconds: int = 600,
 ) -> RemediationExecution:
     """Apply supplied changes and run all validation commands in a worktree."""
-    if not evidence_verified:
+    if evidence_envelope is not None:
+        if evidence_artifact is None or evidence_verifier is None:
+            return RemediationExecution(status="blocked", error="evidence verifier and artifact are required")
+        try:
+            evidence_verified = verify_evidence(evidence_envelope, evidence_artifact, evidence_verifier)
+        except EvidenceVerificationError as exc:
+            return RemediationExecution(status="blocked", error=str(exc))
+    if evidence_verified is not True:
         return RemediationExecution(status="blocked", error="verified evidence is required")
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be positive")

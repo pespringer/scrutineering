@@ -1,6 +1,7 @@
 import subprocess
 
 from src.remediation.executor import execute_remediation
+from src.scan.evidence import build_evidence
 
 
 def make_repo(tmp_path):
@@ -39,3 +40,19 @@ def test_executor_applies_changes_and_validates_in_isolation(tmp_path):
     )
     assert result.status == "ready"
     assert "config.txt" in result.changed_files
+
+
+def test_executor_verifies_evidence_envelope_at_boundary(tmp_path):
+    repo = make_repo(tmp_path)
+    artifact = {"packages": []}
+    envelope = build_evidence(
+        artifact=artifact, artifact_type="sbom", format="spdx-json",
+        subject_digest="sha256:" + "a" * 64, tool_name="syft", tool_version="1",
+        signature_provider="cosign", signature_identity="id", signature_value="x" * 16,
+        generated_at="2026-11-08T12:00:00Z",
+    )
+    result = execute_remediation(
+        repo, [], lambda *_: None, [], evidence_envelope=envelope,
+        evidence_artifact=artifact, evidence_verifier=lambda *_: True,
+    )
+    assert result.status == "ready"
