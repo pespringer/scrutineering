@@ -29,6 +29,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.
 - **Started:** signed SBOM/provenance evidence has a versioned schema, deterministic generation, fixtures, CI validation, and a cosign adapter; deployment keyless-policy wiring remains.
+- **Completed:** cosign verification now has a bounded timeout and fails closed on unavailable or hung binaries.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.

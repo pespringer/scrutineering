@@ -10,9 +10,12 @@ from pathlib import Path
 class CosignVerifier:
     """Verify a blob signature with cosign without invoking a shell."""
 
-    def __init__(self, cosign_bin: str = "cosign", oidc_issuer: str | None = None):
+    def __init__(self, cosign_bin: str = "cosign", oidc_issuer: str | None = None, timeout_seconds: int = 30):
+        if timeout_seconds < 1:
+            raise ValueError("timeout_seconds must be positive")
         self.cosign_bin = cosign_bin
         self.oidc_issuer = oidc_issuer
+        self.timeout_seconds = timeout_seconds
 
     def __call__(self, envelope: dict, artifact_bytes: bytes) -> bool:
         signature = envelope.get("signature", {})
@@ -31,5 +34,8 @@ class CosignVerifier:
             if self.oidc_issuer:
                 command.extend(["--certificate-oidc-issuer", self.oidc_issuer])
             command.append(str(artifact_path))
-            result = subprocess.run(command, capture_output=True, text=True, check=False)
+            try:
+                result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=self.timeout_seconds)
+            except (OSError, subprocess.TimeoutExpired):
+                return False
             return result.returncode == 0
