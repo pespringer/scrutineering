@@ -43,6 +43,10 @@ def _page(items: list[dict[str, Any]], limit: int, offset: int) -> Page:
     return Page(items=window, limit=limit, offset=offset, count=len(window), total=len(items))
 
 
+def _normalized_filter(value: str | None) -> str | None:
+    return value.strip().lower() if value and value.strip() else None
+
+
 @router.get("/scans/{scan_id}")
 def get_scan(scan_id: str) -> dict[str, Any]:
     result = _get_provider().get_scan(scan_id)
@@ -58,7 +62,7 @@ def list_findings(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> Page:
-    items = _get_provider().list_findings(severity=severity, image_digest=image_digest)
+    items = _get_provider().list_findings(severity=_normalized_filter(severity), image_digest=_normalized_filter(image_digest))
     return _page(items, limit, offset)
 
 
@@ -68,7 +72,7 @@ def list_alerts(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> Page:
-    return _page(_get_provider().list_alerts(status=status), limit, offset)
+    return _page(_get_provider().list_alerts(status=_normalized_filter(status)), limit, offset)
 
 
 @router.get("/audit", response_model=Page)
@@ -78,4 +82,4 @@ def list_audit(
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> Page:
-    return _page(_get_provider().list_audit(actor=actor, event_type=event_type), limit, offset)
+    return _page(_get_provider().list_audit(actor=_normalized_filter(actor), event_type=_normalized_filter(event_type)), limit, offset)

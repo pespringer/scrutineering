@@ -15,3 +15,5 @@ the database adapter can be wired without changing the public contract.
 `SqlAlchemyScanDataProvider` is the canonical read adapter for scans, findings,
 and audit records. Runtime alerts may be supplied through its alert-provider
 callback until runtime alerts receive a shared persistent model.
+Filter values are trimmed and normalized to lowercase before reaching the data
+provider, so clients can send ` HIGH ` without creating a second filter shape.
