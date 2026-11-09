@@ -120,3 +120,5 @@ Key variables:
 Compose keeps planner, worker, PostgreSQL, and Redis containers from gaining
 new privileges. Kubernetes additionally runs planner and worker pods as
 non-root with bounded writable `/tmp` volumes.
+Apply `k8s/resource-quota.yaml` in the target namespace so scanner concurrency
+cannot exhaust node capacity.
