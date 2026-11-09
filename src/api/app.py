@@ -2,6 +2,8 @@
 
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
+from uuid import uuid4
+import re
 
 from src.analytics.api import router as analytics_router
 from src.forensics.api import router as forensics_router
@@ -21,6 +23,14 @@ def create_app() -> FastAPI:
     application.include_router(runtime_router)
     application.include_router(analytics_router)
     application.include_router(forensics_router)
+
+    @application.middleware("http")
+    async def request_id_middleware(request, call_next):
+        supplied = request.headers.get("x-request-id", "")
+        request_id = supplied if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", supplied) else str(uuid4())
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = request_id
+        return response
 
     @application.get("/health", tags=["health"])
     def health() -> dict[str, str]:

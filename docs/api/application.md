@@ -11,6 +11,9 @@ analytics, and forensics routers. `/health` is intentionally lightweight;
 database readiness and authenticated cross-service access remain deployment
 configuration work.
 
+All responses receive a safe `X-Request-ID`; callers may supply a matching
+identifier for cross-service tracing.
+
 The scan-data router is wired to `SqlAlchemyScanDataProvider` during app
 creation. It uses the repository session factory and fails closed when the
 database URL is not configured.
