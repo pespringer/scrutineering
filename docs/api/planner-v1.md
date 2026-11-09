@@ -8,8 +8,9 @@ All `/v1/*` routes require `Authorization: Bearer $PLANNER_API_KEY` (or `X-API-K
 
 Every response includes `X-Request-ID`. Clients may supply a safe value using the same header; otherwise the server generates a UUID. Include this ID in support tickets and audit records.
 
-Non-health routes are rate-limited per client address. The default is 60
-requests per minute and can be changed with `PLANNER_RATE_LIMIT_PER_MINUTE`.
+Non-health routes are rate-limited per authenticated credential (or client
+address before authentication). The default is 60 requests per minute and can
+be changed with `PLANNER_RATE_LIMIT_PER_MINUTE`.
 This limiter is process-local; multi-replica deployments must add a shared
 gateway or Redis-backed limiter before relying on the limit as a global policy.
 

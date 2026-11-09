@@ -123,3 +123,22 @@ test("enforces the v1 request contract across planner endpoints", async () => {
     }
   });
 });
+
+test("uses authenticated identity for rate-limit buckets", async () => {
+  const server = createPlannerServer({ apiKey: "test-secret", bindHost: "127.0.0.1", rateLimitPerMinute: 1 });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const request = (key) => fetch(`${baseUrl}/v1/plans`, {
+    method: "POST",
+    headers: { "x-api-key": key, "content-type": "application/json" },
+    body: JSON.stringify({ findings: [], dryRun: true }),
+  });
+  try {
+    assert.equal((await request("test-secret")).status, 200);
+    assert.equal((await request("test-secret")).status, 429);
+    assert.equal((await request("another-key")).status, 401);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});

@@ -23,7 +23,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Phase 1 — Establish a Secure Core (0–30 days)
 
 - **Started:** planner API key enforcement and regression coverage are implemented; OIDC/RBAC remains outstanding.
-- **Started:** planner routes now have process-local request limiting with structured `429` responses; distributed limiting remains outstanding.
+- **Started:** planner routes now have credential-scoped process-local request limiting with structured `429` responses; distributed limiting remains outstanding.
 - **Started:** image references now have canonical digest-aware parsing; tag-only references remain explicitly mutable until registry digest resolution is wired into the scan boundary.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.

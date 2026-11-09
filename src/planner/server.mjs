@@ -1,5 +1,5 @@
 import http from "node:http";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRemediationPlan } from "./remediation-planner.mjs";
@@ -87,6 +87,14 @@ function isAuthorized(req, apiKey) {
   return bearer === `Bearer ${apiKey}` || suppliedKey === apiKey;
 }
 
+function rateLimitKey(req) {
+  const credential = req.headers.authorization || req.headers["x-api-key"];
+  if (typeof credential === "string" && credential.length > 0) {
+    return `credential:${createHash("sha256").update(credential).digest("hex")}`;
+  }
+  return `address:${req.socket.remoteAddress || "unknown"}`;
+}
+
 export function createPlannerServer({
   apiKey = process.env.PLANNER_API_KEY || "",
   bindHost = host,
@@ -109,7 +117,7 @@ export function createPlannerServer({
       return sendJson(res, 200, { status: "ok" }, requestId);
     }
 
-    const rate = consumeRateLimit(req.socket.remoteAddress || "unknown");
+    const rate = consumeRateLimit(rateLimitKey(req));
     res.setHeader("X-RateLimit-Limit", String(rateLimitPerMinute));
     res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     if (!rate.allowed) {
