@@ -51,6 +51,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** GitLab publication now reuses the same idempotent result for retried project requests.
 - **Completed:** GitLab publication now rejects non-protected target branches by default.
 - **Completed:** provider tokens and publication allowlists now load through one normalized production-checked configuration boundary.
+- **Completed:** FastAPI API-key comparison now uses constant-time matching and rejects empty credentials.
 - **Started:** remediation execution now has an in-memory coordinator and validated rollback-plan builder for the analyzing/patching/building/verifying/PR/completed path; persistence, approval, and post-merge verification remain.
 - **Completed:** isolated remediation execution can optionally produce a local commit artifact after validation, without pushing or merging.
 - **Completed:** remediation approvals now use scoped, short-lived HMAC tokens that fail closed on tampering or expiry.
