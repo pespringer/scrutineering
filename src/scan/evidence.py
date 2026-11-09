@@ -72,6 +72,8 @@ def verify_evidence(
     if max_age_seconds is not None:
         generated = datetime.fromisoformat(envelope["generatedAt"].replace("Z", "+00:00"))
         current = now or datetime.now(timezone.utc)
+        if generated > current:
+            raise EvidenceVerificationError("evidence generated in the future")
         if (current - generated).total_seconds() > max_age_seconds:
             raise EvidenceVerificationError("evidence is stale")
     artifact_bytes = (

@@ -72,3 +72,9 @@ def test_verification_rejects_oversized_artifacts():
     envelope = build_evidence(artifact=b"large", artifact_type="sbom", format="json", subject_digest="sha256:" + "c" * 64, tool_name="x", tool_version="1", signature_provider="x", signature_identity="id", signature_value="sig")
     with pytest.raises(EvidenceVerificationError, match="size limit"):
         verify_evidence(envelope, b"large", lambda *_: True, max_artifact_bytes=2)
+
+
+def test_verification_rejects_future_evidence():
+    envelope = build_evidence(artifact=b"x", artifact_type="sbom", format="json", subject_digest="sha256:" + "d" * 64, tool_name="x", tool_version="1", signature_provider="x", signature_identity="id", signature_value="sig", generated_at="2027-01-01T00:00:00Z")
+    with pytest.raises(EvidenceVerificationError, match="future"):
+        verify_evidence(envelope, b"x", lambda *_: True, now=datetime(2026, 11, 9, tzinfo=timezone.utc), max_age_seconds=60)
