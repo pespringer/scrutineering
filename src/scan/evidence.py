@@ -8,6 +8,10 @@ from datetime import datetime, timezone
 from typing import Any
 
 
+class EvidenceVerificationError(ValueError):
+    """Raised when evidence integrity or signature verification fails."""
+
+
 def _sha256(value: bytes) -> str:
     return f"sha256:{hashlib.sha256(value).hexdigest()}"
 
@@ -51,3 +55,29 @@ def build_evidence(
             "value": signature_value,
         },
     }
+
+
+def verify_evidence(
+    envelope: dict[str, Any],
+    artifact: bytes | dict[str, Any],
+    signature_verifier,
+) -> bool:
+    """Verify artifact integrity and delegate signature verification to a provider."""
+    if not isinstance(envelope, dict) or envelope.get("version") != "1.0.0":
+        raise EvidenceVerificationError("unsupported evidence contract")
+    artifact_bytes = (
+        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
+        if isinstance(artifact, dict) else artifact
+    )
+    if envelope.get("artifactDigest") != _sha256(artifact_bytes):
+        raise EvidenceVerificationError("artifact digest does not match evidence")
+    signature = envelope.get("signature") or {}
+    if not all(signature.get(key) for key in ("provider", "identity", "value")):
+        raise EvidenceVerificationError("evidence signature is incomplete")
+    try:
+        valid = signature_verifier(envelope, artifact_bytes)
+    except Exception as exc:
+        raise EvidenceVerificationError(f"signature verification failed: {exc}") from exc
+    if not valid:
+        raise EvidenceVerificationError("signature verification failed")
+    return True
