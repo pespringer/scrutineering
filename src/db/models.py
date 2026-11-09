@@ -557,6 +557,8 @@ class Remediation(Base):
     actions = relationship("RemediationAction", back_populates="remediation",
                            lazy="selectin",
                            cascade="all, delete-orphan")
+    events = relationship("RemediationEvent", back_populates="remediation",
+                          lazy="selectin", cascade="all, delete-orphan")
 
 
 class RemediationAction(Base):
@@ -595,6 +597,19 @@ class RemediationAction(Base):
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime,
                                                   server_default=func.now())
+
+
+class RemediationEvent(Base):
+    """Durable lifecycle event emitted by a remediation worker."""
+    __tablename__ = "remediation_events"
+    __table_args__ = (Index("idx_remediation_events_remediation_id", "remediation_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)
+    remediation = relationship("Remediation", back_populates="events", lazy="joined")
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 # -- Compliance Reporting --------------------------------------------------- #
