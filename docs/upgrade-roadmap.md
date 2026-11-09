@@ -36,6 +36,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **In progress:** request IDs, structured errors, API keys, and process-local limits exist; OIDC/RBAC, tenant boundaries, and immutable audit records remain.
 - **Started:** state services are internal by default and credentials are explicit; non-root containers remain.
 - **Completed:** planner and worker images now run as unprivileged users, and Grype is installed from a pinned release archive.
+- **Completed:** provider-neutral principal, role, and tenant-scope authorization primitives are covered by Node tests; JWT/OIDC verification remains an integration task.
 - **Started:** digest-aware identities and provenance fields exist; registry resolution and universal scan population remain.
 
 ## Phase 2 — Make Remediation Real (30–60 days)
