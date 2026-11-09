@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
 
     @application.get("/version", tags=["health"])
     def version() -> dict[str, str]:
-        return {"service": "scrutineering", "version": os.environ.get("SCRUTINEERING_VERSION", "1.0")}
+        return {"service": "scrutineering", "version": os.environ.get("SCRUTINEERING_VERSION", "1.0"), "revision": os.environ.get("SCRUTINEERING_REVISION", "unknown")}
 
     @application.get("/ready", tags=["health"])
     def readiness():
