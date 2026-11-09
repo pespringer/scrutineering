@@ -84,6 +84,7 @@ npm run validate:policy-contract
 npm run validate:evidence-contract
 npm run verify:local  # Node, Python, and security-contract checks
 npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
+npm run validate:docs        # README documentation-link checks
 
 # Run individual scripts
 node src/planner/server.mjs

@@ -118,4 +118,10 @@ durable audit exports, deployment-manifest validation, pod disruption budgets,
 Compose privilege restrictions, runtime event rotation, and deployment resource
 quotas.
 
+The latest batch also adds replay-safe service identities, concurrent Redis-start
+coalescing, durable provider token/idempotency handling, redacted remediation
+events, scanner latency instrumentation, locked production images, and CI-local
+validation of every checked-in deployment manifest.
+README documentation links are now validated as part of local CI.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
