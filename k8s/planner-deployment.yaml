@@ -21,9 +21,17 @@ spec:
         prometheus.io/port: "3000"
         prometheus.io/path: "/metrics"
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: planner
           image: scrutineering-planner:latest
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
           ports:
             - containerPort: 3000
               name: http
@@ -31,6 +39,8 @@ spec:
           envFrom:
             - secretRef:
                 name: scrutineering-secrets
+            - configMapRef:
+                name: scrutineering-config
           resources:
             requests:
               cpu: "250m"
