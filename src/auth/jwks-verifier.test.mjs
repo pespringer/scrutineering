@@ -11,3 +11,10 @@ test("verifies JWT claims against a cached JWKS key", async () => {
   await verify(token);
   assert.equal(fetches, 1);
 });
+
+test("rejects unsigned JWTs", async () => {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = `${encode({ alg: "none", kid: "k" })}.${encode({ sub: "user-1" })}.`;
+  const verify = createJwksVerifier({ jwksUri: "https://issuer.test/keys", verifySignature: async () => true });
+  await assert.rejects(() => verify(token), /insecure/);
+});

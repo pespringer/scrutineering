@@ -8,7 +8,7 @@ export function createJwksVerifier({ jwksUri, fetchImpl = fetch, verifySignature
     if (parts.length !== 3) throw new Error("JWT must contain three segments");
     const header = JSON.parse(base64url(parts[0]));
     const claims = JSON.parse(base64url(parts[1]));
-    if (!header.kid || !header.alg) throw new Error("JWT header is incomplete");
+    if (!header.kid || !header.alg || header.alg === "none") throw new Error("JWT header is incomplete or insecure");
     if (!cached || cached.expiresAt <= Date.now()) {
       const response = await fetchImpl(jwksUri);
       if (!response.ok) throw new Error(`JWKS fetch failed with status ${response.status}`);
