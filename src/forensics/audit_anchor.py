@@ -8,6 +8,6 @@ class AuditAnchor:
     sink: object
 
     def publish(self, record_hash: str) -> str:
-        if not record_hash or not record_hash.startswith("sha256:"): raise ValueError("audit hash must be sha256")
+        if not record_hash or len(record_hash) != 71 or not record_hash.startswith("sha256:"): raise ValueError("audit hash must be sha256")
         result = self.sink(record_hash)
         return str(result)
