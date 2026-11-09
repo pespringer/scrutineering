@@ -83,6 +83,7 @@ PYTHONPATH=. pytest tests/ -q  # Python tests
 npm run validate:policy-contract
 npm run validate:evidence-contract
 npm run verify:local  # Node, Python, and security-contract checks
+npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
 
 # Run individual scripts
 node src/planner/server.mjs
