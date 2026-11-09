@@ -212,6 +212,7 @@ class FindingRepository:
         fixed_version: str | None = None,
         fix_available: bool = False,
         scanner_version: str | None = None,
+        vulnerability_db_version: str | None = None,
     ) -> ScanFinding:
         existing = session.execute(
             select(ScanFinding).where(
@@ -230,6 +231,8 @@ class FindingRepository:
                 existing.fixed_version = fixed_version
             if fix_available:
                 existing.fix_available = True
+            if vulnerability_db_version:
+                existing.vulnerability_db_version = vulnerability_db_version
             return existing
 
         finding = ScanFinding(
@@ -247,6 +250,7 @@ class FindingRepository:
             fixed_version=fixed_version,
             fix_available=fix_available,
             scanner_version=scanner_version,
+            vulnerability_db_version=vulnerability_db_version,
         )
         session.add(finding)
         session.flush()

@@ -21,9 +21,9 @@
 | Table | Purpose | Key columns |
 |---|---|---|
 | `images` | Tracked container images | registry, repo_name, tag, digest |
-| `scans` | Individual scan executions | scan_id (unique), image_id, status, counts |
+| `scans` | Individual scan executions | scan_id (unique), image_id, digest, scanner/database versions, status, counts |
 | `scan_findings` | Deduplicated vulnerabilities | fingerprint (unique per image), cve_id, severity, remediated |
-| `raw_scan_results` | Raw scanner JSON for audit | image_id, scanner_source, raw_output (JSONB) |
+| `raw_scan_results` | Raw scanner JSON for audit | image_id, scanner source/version, database version, raw_output (JSONB) |
 | `severity_snapshots` | Daily severity counts for trends | image_id, snapshot_date, counts by severity |
 | `security_policies` | User-defined policies | policy_type, rules (JSONB), action, image_filters |
 | `policy_evaluations` | Policy evaluation audit log | policy_id, scan_id, violated, action_taken |

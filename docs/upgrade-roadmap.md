@@ -25,6 +25,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** planner API key enforcement and regression coverage are implemented; OIDC/RBAC remains outstanding.
 - **Started:** planner routes now have process-local request limiting with structured `429` responses; distributed limiting remains outstanding.
 - **Started:** image references now have canonical digest-aware parsing; tag-only references remain explicitly mutable until registry digest resolution is wired into the scan boundary.
+- **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.

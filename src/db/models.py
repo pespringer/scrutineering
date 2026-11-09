@@ -257,6 +257,9 @@ class Scan(Base):
                                                            nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(
         Float, nullable=True)
+    image_digest: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    scanner_versions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    vulnerability_db_versions: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
     # Status
     status: Mapped[ScanStatus] = mapped_column(
@@ -330,6 +333,7 @@ class ScanFinding(Base):
     source: Mapped[FindingSource] = mapped_column(Enum(FindingSource))
     scanner_version: Mapped[str | None] = mapped_column(String(64),
                                                          nullable=True)
+    vulnerability_db_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Fix information
     fixed_version: Mapped[str | None] = mapped_column(String(64),
@@ -375,6 +379,8 @@ class RawScanResult(Base):
     scan_id: Mapped[str] = mapped_column(String(64), nullable=False)
     scanner_source: Mapped[FindingSource] = mapped_column(
         Enum(FindingSource), nullable=False)
+    scanner_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    vulnerability_db_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
     raw_output: Mapped[dict] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime,
                                                   server_default=func.now())
