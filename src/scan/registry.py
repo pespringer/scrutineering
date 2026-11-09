@@ -28,6 +28,16 @@ def registry_credentials_from_env(env: dict[str, str] | None = None) -> dict[str
     return credentials
 
 
+def registry_env_keys(registry: str) -> tuple[str, ...]:
+    return {
+        "dockerhub": ("DOCKERHUB_USERNAME", "DOCKERHUB_PASSWORD"),
+        "ghcr.io": ("GITHUB_TOKEN",),
+        "gitlab": ("GITLAB_TOKEN", "CI_JOB_TOKEN"),
+        "ecr": ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"),
+        "gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
+    }.get(registry, ())
+
+
 def resolve_registry_digest(
     registry: str,
     repository: str,
