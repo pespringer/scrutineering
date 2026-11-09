@@ -10,8 +10,11 @@ class DeliveryResult:
     dead_lettered: int
 
 
-async def deliver_events(events, sink, *, max_attempts: int = 3, dead_letter=None) -> DeliveryResult:
+async def deliver_events(events, sink, *, max_attempts: int = 3, max_batch: int = 1000, dead_letter=None) -> DeliveryResult:
     if max_attempts < 1: raise ValueError("max_attempts must be positive")
+    if max_batch < 1: raise ValueError("max_batch must be positive")
+    events = list(events)
+    if len(events) > max_batch: raise ValueError("event batch exceeds limit")
     delivered = dead_lettered = 0
     for event in events:
         sent = False
