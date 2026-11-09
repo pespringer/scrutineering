@@ -3,6 +3,7 @@ redis
 sqlalchemy
 psycopg2-binary
 asyncpg
+aiosqlite
 alembic
 pydantic
 rich

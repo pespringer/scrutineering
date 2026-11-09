@@ -116,7 +116,7 @@ remediations (1) ──< remediation_actions (many)   [CASCADE delete]
 
 ```bash
 # Set environment
-export DATABASE_URL=postgresql+psycopg2://sentinel:sentinel@localhost:5432/sentinel
+export DATABASE_URL='postgresql+psycopg2://<user>:<password>@<host>:5432/<database>'
 
 # Apply all pending migrations
 alembic -c src/db/migrations/alembic.ini upgrade head

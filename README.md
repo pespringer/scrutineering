@@ -27,6 +27,11 @@ scrutineering/
 │   ├── hiring/           # Hiring pipeline docs
 │   ├── operations/       # Runbooks, SLAs, playbooks
 │   └── security/         # Security validation docs
+
+Frontend direction: `dashboard/` is the canonical Next.js application. `web/`
+is legacy and receives no new product work. Runtime services require an
+explicit `DATABASE_URL`; tests opt into an in-memory SQLite database through
+`SCRUTINEERING_TEST_MODE=1`.
 │
 Docker Compose Services:
   app           → Node.js planner/REST server (port 3000)

@@ -11,6 +11,11 @@ from src.db.models import Base
 
 config = context.config
 
+database_url = os.environ.get("DATABASE_URL", "").strip()
+if not database_url:
+    raise RuntimeError("DATABASE_URL must be configured before running Alembic migrations")
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 

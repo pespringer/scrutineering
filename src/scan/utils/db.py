@@ -24,18 +24,17 @@ from src.db.models import (
     ScanFinding,
     Severity,
 )
+from src.db.config import get_database_url
 
-DATABASE_URL = os.environ.get(
-    "SCAN_DATABASE_URL",
-    os.environ.get(
-        "DATABASE_URL",
-        "postgresql+psycopg2://sentinel:sentinel@localhost:5432/sentinel",
-    ),
-)
+DATABASE_URL = get_database_url("SCAN_DATABASE_URL", "DATABASE_URL")
 
 _sync_url = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1) if DATABASE_URL.startswith("postgresql://") else DATABASE_URL
 
-engine = create_engine(_sync_url, pool_pre_ping=True, pool_size=5, max_overflow=10)
+engine_options = {"pool_pre_ping": True}
+if not _sync_url.startswith("sqlite"):
+    engine_options.update(pool_size=5, max_overflow=10)
+
+engine = create_engine(_sync_url, **engine_options)
 
 
 def init_db():

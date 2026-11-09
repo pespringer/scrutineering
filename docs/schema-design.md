@@ -67,8 +67,8 @@ PYTHONPATH=. alembic -c alembic.ini downgrade -1
 Environment variables:
 | Variable | Purpose | Default |
 |---|---|---|
-| `DATABASE_URL` | Sync URL (Celery workers) | `postgresql+psycopg2://sentinel:sentinel@localhost:5432/sentinel` |
-| `ASYNC_DATABASE_URL` | Async URL (FastAPI) | `postgresql+asyncpg://sentinel:sentinel@localhost:5432/sentinel` |
+| `DATABASE_URL` | Sync URL (Celery workers) | Required deployment secret; no insecure default |
+| `ASYNC_DATABASE_URL` | Async URL (FastAPI) | Optional override derived from `DATABASE_URL` |
 
 Connection pool: 20 base, 10 overflow, 1 hour recycle, pre-ping on borrow.
 

@@ -9,52 +9,39 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.db.models import Base
+from src.db.config import get_async_database_url, get_database_url
 
-DATABASE_URL = os.environ.get(
-    "DATABASE_URL",
-    "postgresql+psycopg2://sentinel:sentinel@localhost:5432/sentinel"
-)
+DATABASE_URL = get_database_url("DATABASE_URL")
 
 # Async variant for FastAPI
-ASYNC_DATABASE_URL = os.environ.get(
-    "ASYNC_DATABASE_URL",
-    DATABASE_URL.replace("postgresql+psycopg2://", "postgresql+asyncpg://")
-              .replace("postgresql://", "postgresql+asyncpg://")
-)
+ASYNC_DATABASE_URL = get_async_database_url(DATABASE_URL)
 
 # -- Sync engine (Celery workers) ------------------------------------------- #
 
-engine = create_engine(
-    DATABASE_URL,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-)
+engine_options = {"pool_pre_ping": True, "pool_recycle": 3600}
+if not DATABASE_URL.startswith("sqlite"):
+    engine_options.update(pool_size=20, max_overflow=10)
+
+engine = create_engine(DATABASE_URL, **engine_options)
 
 
-@event.listens_for(engine, "connect")
-def _set_sqlalchemy_defaults(dbapi_connection, connection_record):
-    """Tune connection-level settings on every new connection."""
-    cursor = dbapi_connection.cursor()
-    # Timezone-aware timestamps
-    cursor.execute("SET timezone = 'UTC'")
-    # Slightly larger work_mem for analytical queries
-    cursor.execute("SET work_mem = '16MB'")
-    # Statement timeout as safety net (5 minutes)
-    cursor.execute("SET statement_timeout = '300000'")
-    cursor.close()
+if not DATABASE_URL.startswith("sqlite"):
+    @event.listens_for(engine, "connect")
+    def _set_sqlalchemy_defaults(dbapi_connection, connection_record):
+        """Tune connection-level settings on every PostgreSQL connection."""
+        cursor = dbapi_connection.cursor()
+        cursor.execute("SET timezone = 'UTC'")
+        cursor.execute("SET work_mem = '16MB'")
+        cursor.execute("SET statement_timeout = '300000'")
+        cursor.close()
 
 # -- Async engine (FastAPI) ------------------------------------------------ #
 
-async_engine = create_async_engine(
-    ASYNC_DATABASE_URL,
-    pool_size=20,
-    max_overflow=10,
-    pool_pre_ping=True,
-    pool_recycle=3600,
-    echo=False,
-)
+async_engine_options = {"pool_pre_ping": True, "pool_recycle": 3600, "echo": False}
+if not ASYNC_DATABASE_URL.startswith("sqlite"):
+    async_engine_options.update(pool_size=20, max_overflow=10)
+
+async_engine = create_async_engine(ASYNC_DATABASE_URL, **async_engine_options)
 
 async_session_factory = async_sessionmaker(
     async_engine,

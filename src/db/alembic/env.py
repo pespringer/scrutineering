@@ -1,6 +1,7 @@
 """Alembic environment configuration."""
 
 from logging.config import fileConfig
+import os
 
 from sqlalchemy import engine_from_config, pool
 
@@ -10,6 +11,10 @@ from alembic import context
 from src.db.models import Base
 
 config = context.config
+database_url = os.environ.get("DATABASE_URL", "").strip()
+if not database_url:
+    raise RuntimeError("DATABASE_URL must be configured before running Alembic migrations")
+config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 target_metadata = Base.metadata
 
 if config.config_file_name is not None:
