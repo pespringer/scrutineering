@@ -150,8 +150,11 @@ async def login_gcr(service_account_key_path: Optional[str] = None) -> tuple[str
         )
 
     # Use the _json_key_base64 auth method
-    with open(key_path) as f:
-        key_json = json.load(f)
+    try:
+        with open(key_path) as f:
+            key_json = json.load(f)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError("GCR credentials are not valid JSON") from exc
 
     username = "_json_key_base64"
     password = base64.b64encode(json.dumps(key_json).encode()).decode()
