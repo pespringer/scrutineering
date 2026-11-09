@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import tempfile
 from pathlib import Path
 
 
@@ -12,4 +14,11 @@ class ReplayCheckpoint:
     def save(self, offset: int) -> None:
         if offset < 0: raise ValueError("offset must be non-negative")
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps({"offset": offset}) + "\n")
+        fd, temporary = tempfile.mkstemp(prefix="checkpoint-", dir=self.path.parent)
+        try:
+            with os.fdopen(fd, "w") as stream:
+                stream.write(json.dumps({"offset": offset}) + "\n")
+                stream.flush(); os.fsync(stream.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
