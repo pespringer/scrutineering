@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Sequence
 
 from .worktree import RemediationWorktree
+from .approval import verify_approval
 from src.scan.evidence import EvidenceVerificationError, verify_evidence
 
 
@@ -34,6 +35,9 @@ def execute_remediation(
     base_dir: str | Path | None = None,
     timeout_seconds: int = 600,
     commit_message: str | None = None,
+    approval_token: str | None = None,
+    approval_secret: str | None = None,
+    remediation_id: str | None = None,
 ) -> RemediationExecution:
     """Apply supplied changes and run all validation commands in a worktree."""
     if evidence_envelope is not None:
@@ -45,6 +49,13 @@ def execute_remediation(
             return RemediationExecution(status="blocked", error=str(exc))
     if evidence_verified is not True:
         return RemediationExecution(status="blocked", error="verified evidence is required")
+    if approval_secret:
+        if not approval_token or not remediation_id:
+            return RemediationExecution(status="blocked", error="approval token and remediation id are required")
+        try:
+            verify_approval(approval_token, remediation_id, approval_secret)
+        except ValueError as exc:
+            return RemediationExecution(status="blocked", error=str(exc))
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be positive")
 
