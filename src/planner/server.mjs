@@ -7,6 +7,7 @@ import { createPullRequestArtifacts } from "../pr-generator/pr-generator.mjs";
 import { evaluateCiChecks } from "../ci/ci-integration.mjs";
 import { evaluateRolloutDecision } from "../rollout/staged-rollout.mjs";
 import { validatePlannerRequest } from "./contracts.mjs";
+import { authenticateApiKey, authorizeApiRequest, parseApiKeys } from "../auth/api-keys.mjs";
 
 const host = process.env.PLANNER_HOST || "127.0.0.1";
 const port = Number(process.env.PLANNER_PORT || 8787);
@@ -80,11 +81,11 @@ function isLoopbackHost(value) {
   return ["127.0.0.1", "::1", "localhost"].includes(value);
 }
 
-function isAuthorized(req, apiKey) {
-  if (!apiKey) return true;
+function suppliedApiKey(req) {
   const bearer = req.headers.authorization;
   const suppliedKey = req.headers["x-api-key"];
-  return bearer === `Bearer ${apiKey}` || suppliedKey === apiKey;
+  if (typeof bearer === "string" && bearer.startsWith("Bearer ")) return bearer.slice(7);
+  return suppliedKey;
 }
 
 function rateLimitKey(req) {
@@ -97,10 +98,11 @@ function rateLimitKey(req) {
 
 export function createPlannerServer({
   apiKey = process.env.PLANNER_API_KEY || "",
+  apiKeys = parseApiKeys(process.env.PLANNER_API_KEYS_JSON || ""),
   bindHost = host,
   rateLimitPerMinute = Number(process.env.PLANNER_RATE_LIMIT_PER_MINUTE || 60),
 } = {}) {
-  if (!isLoopbackHost(bindHost) && !apiKey) {
+  if (!isLoopbackHost(bindHost) && !apiKey && Object.keys(apiKeys).length === 0) {
     throw new Error("PLANNER_API_KEY must be configured for non-loopback deployments");
   }
   if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1) {
@@ -125,7 +127,8 @@ export function createPlannerServer({
       return sendError(res, 429, "rate_limited", "Too many requests; retry later.", requestId);
     }
 
-    if (!isAuthorized(req, apiKey)) {
+    const principal = authenticateApiKey(suppliedApiKey(req), { apiKey, apiKeys });
+    if (!principal) {
       res.setHeader("WWW-Authenticate", "Bearer");
       return sendError(res, 401, "unauthorized", "Authentication is required.", requestId);
     }
@@ -142,6 +145,19 @@ export function createPlannerServer({
       const validation = validatePlannerRequest(requestPath, payload);
       if (!validation.valid) {
         return sendError(res, 400, "invalid_request", validation.message, requestId);
+      }
+      const policy = {
+        "/v1/plans": { role: "planner" },
+        "/v1/pull-requests": { role: "planner" },
+        "/v1/ci/checks": { role: "ci" },
+        "/v1/rollout/evaluate": { role: "rollout" },
+      }[requestPath];
+      const authorization = authorizeApiRequest(principal, {
+        ...policy,
+        ...(payload.tenantId ? { tenantId: payload.tenantId } : {}),
+      });
+      if (!authorization.allowed) {
+        return sendError(res, authorization.code === "unauthorized" ? 401 : 403, authorization.code, authorization.reason || "Access denied.", requestId);
       }
       if (requestPath === "/v1/plans") {
         const plan = createRemediationPlan(payload, { dryRun: Boolean(payload.dryRun) });

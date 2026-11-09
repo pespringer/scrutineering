@@ -142,3 +142,27 @@ test("uses authenticated identity for rate-limit buckets", async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
+
+test("enforces configured roles and tenant scopes", async () => {
+  const server = createPlannerServer({
+    bindHost: "127.0.0.1",
+    apiKey: "",
+    apiKeys: { ciKey: { id: "ci", roles: ["ci"], tenantIds: ["tenant-a"] } },
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const baseUrl = `http://127.0.0.1:${server.address().port}`;
+  try {
+    const plans = await fetch(`${baseUrl}/v1/plans`, {
+      method: "POST", headers: { "x-api-key": "ciKey", "content-type": "application/json" },
+      body: JSON.stringify({ findings: [] }),
+    });
+    assert.equal(plans.status, 403);
+    const checks = await fetch(`${baseUrl}/v1/ci/checks`, {
+      method: "POST", headers: { "x-api-key": "ciKey", "content-type": "application/json" },
+      body: JSON.stringify({ checks: [], tenantId: "tenant-b" }),
+    });
+    assert.equal(checks.status, 403);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});

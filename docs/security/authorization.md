@@ -8,8 +8,16 @@ error envelope.
 
 The module intentionally does not decode JWTs or trust request headers. An OIDC
 or API-gateway adapter must validate signatures, issuer, audience, expiry, and
-tenant claims before constructing a principal. Until that adapter is wired into
-the planner, the existing API-key boundary remains the only active control.
+tenant claims before constructing a principal.
+
+`PLANNER_API_KEYS_JSON` can provide scoped service identities:
+
+```json
+{"ci-key":{"principal":"ci","roles":["ci"],"tenantIds":["tenant-a"]}}
+```
+
+Planner, CI, rollout, and tenant-bearing requests are checked against these
+claims. OIDC/JWT verification must still happen before claims are imported.
 
 Run the focused contract tests with:
 

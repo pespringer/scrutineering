@@ -18,7 +18,7 @@ export function authorize(principal, { role, tenantId } = {}) {
   if (role && !principal.roles.includes(role)) {
     return { allowed: false, code: "forbidden", reason: `role ${role} is required` };
   }
-  if (tenantId && !principal.tenantIds.includes(tenantId)) {
+  if (tenantId && !principal.tenantIds.includes("*") && !principal.tenantIds.includes(tenantId)) {
     return { allowed: false, code: "tenant_forbidden", reason: "tenant is outside the principal scope" };
   }
   return { allowed: true };
