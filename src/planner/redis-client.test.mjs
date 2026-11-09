@@ -9,3 +9,9 @@ test("starts, health-checks, and stops one Redis client lifecycle", async () => 
   assert.equal(connects, 1); assert.equal(lifecycle.connected, true);
   await lifecycle.stop(); assert.equal(disconnects, 1); assert.equal(lifecycle.connected, false);
 });
+
+test("drops an unhealthy client after a failed health check", async () => {
+  const lifecycle = createRedisClient({ connect: async () => ({}), ping: async () => { throw new Error("down"); } });
+  await assert.rejects(() => lifecycle.start(), /down/);
+  assert.equal(lifecycle.connected, false);
+});
