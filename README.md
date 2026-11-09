@@ -91,6 +91,9 @@ node scripts/run-staging-rollback-drill.mjs
 
 # Run the composed Python API
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
+
+# Build the canonical dashboard
+cd dashboard && npm ci && npm run build
 ```
 
 ## CI/CD
