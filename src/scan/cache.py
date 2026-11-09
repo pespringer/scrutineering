@@ -12,12 +12,14 @@ from typing import Any
 
 
 class ScanCache:
-    def __init__(self, directory: str | Path, ttl_seconds: int = 3600):
+    def __init__(self, directory: str | Path, ttl_seconds: int = 3600, max_entry_bytes: int = 5_000_000):
         if ttl_seconds < 1:
             raise ValueError("ttl_seconds must be positive")
+        if max_entry_bytes < 1: raise ValueError("max_entry_bytes must be positive")
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
         self.ttl_seconds = ttl_seconds
+        self.max_entry_bytes = max_entry_bytes
 
     def _path(self, scanner: str, image: str) -> Path:
         key = hashlib.sha256(f"{scanner}\0{image}".encode()).hexdigest()
@@ -37,10 +39,12 @@ class ScanCache:
 
     def set(self, scanner: str, image: str, findings: list[dict[str, Any]], now: float | None = None) -> None:
         payload = {"created_at": time.time() if now is None else now, "findings": findings}
+        encoded = json.dumps(payload, sort_keys=True)
+        if len(encoded.encode()) > self.max_entry_bytes: raise ValueError("scan cache entry exceeds size limit")
         fd, temporary = tempfile.mkstemp(prefix="scan-cache-", dir=self.directory)
         try:
             with os.fdopen(fd, "w", encoding="utf-8") as stream:
-                json.dump(payload, stream, sort_keys=True)
+                stream.write(encoded)
                 stream.flush()
                 os.fsync(stream.fileno())
             os.replace(temporary, self._path(scanner, image))

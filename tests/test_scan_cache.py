@@ -25,3 +25,9 @@ def test_cache_can_invalidate_and_prune(tmp_path):
     assert cache.prune(now=12) == 1
     assert cache.invalidate("trivy", "fresh") is True
     assert cache.invalidate("trivy", "fresh") is False
+
+
+def test_cache_rejects_oversized_entries(tmp_path):
+    import pytest
+    with pytest.raises(ValueError, match="size limit"):
+        ScanCache(tmp_path, max_entry_bytes=10).set("trivy", "image", [{"finding": "x"}])
