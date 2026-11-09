@@ -101,6 +101,7 @@ export function createPlannerServer({
   apiKeys = parseApiKeys(process.env.PLANNER_API_KEYS_JSON || ""),
   bindHost = host,
   rateLimitPerMinute = Number(process.env.PLANNER_RATE_LIMIT_PER_MINUTE || 60),
+  rateLimiter = null,
 } = {}) {
   if (!isLoopbackHost(bindHost) && !apiKey && Object.keys(apiKeys).length === 0) {
     throw new Error("PLANNER_API_KEY must be configured for non-loopback deployments");
@@ -109,7 +110,7 @@ export function createPlannerServer({
     throw new Error("PLANNER_RATE_LIMIT_PER_MINUTE must be a positive integer");
   }
 
-  const consumeRateLimit = createRateLimiter(rateLimitPerMinute);
+  const consumeRateLimit = rateLimiter || createRateLimiter(rateLimitPerMinute);
 
   return http.createServer(async (req, res) => {
     const requestId = requestIdFor(req);
@@ -119,7 +120,7 @@ export function createPlannerServer({
       return sendJson(res, 200, { status: "ok" }, requestId);
     }
 
-    const rate = consumeRateLimit(rateLimitKey(req));
+    const rate = await consumeRateLimit(rateLimitKey(req));
     res.setHeader("X-RateLimit-Limit", String(rateLimitPerMinute));
     res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
     if (!rate.allowed) {
