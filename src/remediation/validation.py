@@ -25,10 +25,12 @@ def run_validation_pipeline(
     timeout_seconds: int = 1800,
     allowed_commands: set[str] | None = None,
     phase_timeouts: Mapping[str, int] | None = None,
+    max_argument_length: int = 4096,
 ) -> ValidationResult:
     """Run all required gates in order; missing gates fail closed."""
     if timeout_seconds < 1:
         raise ValueError("timeout_seconds must be positive")
+    if max_argument_length < 1: raise ValueError("max_argument_length must be positive")
     missing = [phase for phase in REQUIRED_PHASES if not commands.get(phase)]
     if missing:
         return ValidationResult(status="blocked", error=f"missing validation phases: {', '.join(missing)}")
@@ -37,6 +39,8 @@ def run_validation_pipeline(
     allowed = allowed_commands or DEFAULT_ALLOWED_COMMANDS
     for phase in REQUIRED_PHASES:
         command = list(commands[phase])
+        if any(len(str(argument)) > max_argument_length for argument in command):
+            return ValidationResult(status="blocked", phases=results, error=f"{phase} command argument is too long")
         normalized = " ".join(command[:2]) if len(command) > 1 and command[0] == "npm" else command[0]
         executable = Path(command[0]).name
         if command[0] not in {entry.split()[0] for entry in allowed} and executable not in {entry.split()[0] for entry in allowed} and normalized not in allowed:
