@@ -24,6 +24,7 @@ def run_validation_pipeline(
     *,
     timeout_seconds: int = 1800,
     allowed_commands: set[str] | None = None,
+    phase_timeouts: Mapping[str, int] | None = None,
 ) -> ValidationResult:
     """Run all required gates in order; missing gates fail closed."""
     if timeout_seconds < 1:
@@ -40,7 +41,9 @@ def run_validation_pipeline(
         executable = Path(command[0]).name
         if command[0] not in {entry.split()[0] for entry in allowed} and executable not in {entry.split()[0] for entry in allowed} and normalized not in allowed:
             return ValidationResult(status="blocked", phases=results, error=f"{phase} command is not allowlisted")
-        completed = subprocess.run(command, cwd=worktree, capture_output=True, text=True, check=False, timeout=timeout_seconds)
+        timeout = (phase_timeouts or {}).get(phase, timeout_seconds)
+        if timeout < 1: return ValidationResult(status="blocked", phases=results, error=f"{phase} timeout must be positive")
+        completed = subprocess.run(command, cwd=worktree, capture_output=True, text=True, check=False, timeout=timeout)
         result = {
             "phase": phase, "command": command, "returncode": completed.returncode,
             "stdout": completed.stdout[-2000:], "stderr": completed.stderr[-2000:],
