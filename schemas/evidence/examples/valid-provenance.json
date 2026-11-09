@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "artifactType": "provenance",
+  "format": "slsa-provenance",
+  "subject": {
+    "repository": "ghcr.io/acme/api",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "artifactDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "generatedAt": "2026-11-08T12:00:00Z",
+  "tool": { "name": "github-actions", "version": "2026.11" },
+  "signature": {
+    "provider": "sigstore",
+    "identity": "https://github.com/acme/api/.github/workflows/release.yml@refs/heads/main",
+    "value": "signed-provenance-value-123456"
+  }
+}

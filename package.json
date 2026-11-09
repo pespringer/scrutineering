@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "validate:policy-contract": "node scripts/validate-policy-contract.mjs",
+    "validate:evidence-contract": "node scripts/validate-evidence-contract.mjs",
     "report:debrief-compliance": "node scripts/generate-debrief-compliance-report.mjs",
     "artifact:staging-pr": "node scripts/generate-staging-pr-artifact.mjs",
     "verify:remediation-prs": "node scripts/run-verification-harness.mjs",

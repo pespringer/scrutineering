@@ -36,6 +36,7 @@
 
 ## Security
 - **[security/remediation-dry-run-harness.md](security/remediation-dry-run-harness.md)** — Dry-run harness documentation
+- **[security/evidence-contract.md](security/evidence-contract.md)** — Signed SBOM and provenance evidence contract
 - **[security/verification-baseline-report.md](security/verification-baseline-report.md)** — Verification baseline report
 - **[security/remediation-dry-run-qa-validation-plan.md](security/remediation-dry-run-qa-validation-plan.md)** — QA validation plan
 

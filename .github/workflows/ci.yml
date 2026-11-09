@@ -26,6 +26,7 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - run: npx ajv compile -s "schemas/policy-contract/*.json" 2>/dev/null || echo "No JSON schemas to validate"
+      - run: npm run validate:evidence-contract
       - run: node --test "src/**/*.test.mjs"
       - run: |
           node scripts/run-remediation-dry-run-harness.mjs || true

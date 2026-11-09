@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "artifactType": "sbom",
+  "format": "spdx-json",
+  "subject": {
+    "repository": "ghcr.io/acme/api",
+    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "artifactDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "generatedAt": "2026-11-08T12:00:00Z",
+  "tool": { "name": "syft", "version": "1.18.0" },
+  "signature": {
+    "provider": "cosign",
+    "identity": "security-pipeline@acme.example",
+    "value": "signed-artifact-value-123456"
+  }
+}

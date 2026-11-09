@@ -27,6 +27,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** image references now have canonical digest-aware parsing; tag-only references remain explicitly mutable until registry digest resolution is wired into the scan boundary.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.
+- **Started:** signed SBOM/provenance evidence now has a versioned schema, fixtures, and CI validation hook; generation and signature verification remain outstanding.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.
