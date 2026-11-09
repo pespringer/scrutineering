@@ -40,7 +40,7 @@ class ImageIdentity:
 def parse_image_reference(image_name: str) -> ImageIdentity:
     """Parse a Docker-style reference, including ``@sha256:...`` digests."""
     value = str(image_name or "").strip()
-    if not value:
+    if not value or any(char.isspace() for char in value):
         raise ValueError("image_name must not be empty")
 
     digest = None
