@@ -66,6 +66,10 @@ Fingerprint: `sha256(CVE_ID | package_name | package_version)[:64]`
 - Scan without CVE (package advisories) → fingerprinted by package+version
 - New scanner run → updates `last_seen` timestamp on existing findings
 
+Image evidence uses `registry/repository@sha256:<digest>` when a digest is
+available. Tag-only inputs remain supported for discovery, but are marked
+mutable and must not be treated as immutable release evidence.
+
 ## Risk Scoring
 
 CVSS-based weighted risk score:

@@ -210,8 +210,10 @@ class Image(Base):
 
     @property
     def full_name(self) -> str:
-        """Return full image name e.g. 'library/nginx:latest'."""
+        """Return the canonical image reference, preferring its digest."""
         prefix = self.registry.value if self.registry != ImageRegistry.DOCKER_HUB else ""
+        if self.digest:
+            return f"{prefix + '/' if prefix else ''}{self.repo_name}@{self.digest}"
         if prefix:
             return f"{prefix}/{self.repo_name}:{self.tag}"
         return f"{self.repo_name}:{self.tag}"

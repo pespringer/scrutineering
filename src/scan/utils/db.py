@@ -25,6 +25,7 @@ from src.db.models import (
     Severity,
 )
 from src.db.config import get_database_url
+from src.scan.image_identity import parse_image_reference
 
 DATABASE_URL = get_database_url("SCAN_DATABASE_URL", "DATABASE_URL")
 
@@ -55,33 +56,8 @@ def _parse_image_name(image_name: str) -> tuple[ImageRegistry, str, str]:
         'ghcr.io/user/app:v1'  -> (GHCR, 'user/app', 'v1')
         'myregistry:5000/foo'  -> (OTHER, 'myregistry:5000/foo', 'latest')
     """
-    registry = ImageRegistry.DOCKER_HUB
-    repo = image_name
-    tag = "latest"
-
-    # Extract tag
-    if ":" in repo:
-        # Avoid splitting on port numbers (e.g., myregistry:5000/foo)
-        parts = repo.rsplit(":", 1)
-        if "/" not in parts[1]:
-            repo, tag = parts[0], parts[1]
-
-    # Detect registry from hostname
-    first_seg = repo.split("/")[0]
-    registry_map = {
-        "ghcr.io":     ImageRegistry.GHCR,
-        "gcr.io":      ImageRegistry.GCR,
-        "registry.hub.docker.com": ImageRegistry.DOCKER_HUB,
-    }
-    # ECR pattern: <account>.dkr.ecr.<region>.amazonaws.com
-    if "ecr" in first_seg or "amazonaws" in first_seg:
-        registry = ImageRegistry.ECR
-    elif first_seg in registry_map:
-        registry = registry_map[first_seg]
-    elif "." in first_seg or ":" in first_seg:
-        registry = ImageRegistry.OTHER
-
-    return registry, repo, tag
+    identity = parse_image_reference(image_name)
+    return identity.registry, identity.repo_name, identity.tag
 
 
 def _make_fingerprint(cve_id: str, package_name: str,
@@ -109,7 +85,8 @@ def persist_findings(
     from src.db.connection import get_session as get_db_session
 
     now = datetime.utcnow()
-    registry, repo, tag = _parse_image_name(image_name)
+    identity = parse_image_reference(image_name)
+    registry, repo, tag = identity.registry, identity.repo_name, identity.tag
     count = 0
 
     with get_db_session() as session:
@@ -121,9 +98,16 @@ def persist_findings(
         )
         image = session.execute(img_q).scalar_one_or_none()
         if not image:
-            image = Image(registry=registry, repo_name=repo, tag=tag)
+            image = Image(
+                registry=registry,
+                repo_name=repo,
+                tag=tag,
+                digest=identity.digest,
+            )
             session.add(image)
             session.flush()
+        elif identity.digest and image.digest != identity.digest:
+            image.digest = identity.digest
 
         for finding in deduped_findings:
             severity_str = finding.get("severity")
