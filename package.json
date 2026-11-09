@@ -14,7 +14,8 @@
     "verify:local": "node scripts/verify-local-ci.mjs",
     "start:planner": "node src/planner/server.mjs",
     "report:security-outcomes": "node scripts/generate-security-outcome-report.mjs",
-    "drill:staging-rollback": "node scripts/run-staging-rollback-drill.mjs"
+    "drill:staging-rollback": "node scripts/run-staging-rollback-drill.mjs",
+    "validate:deployment": "node scripts/validate-deployment-config.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
