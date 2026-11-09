@@ -19,6 +19,7 @@ test("health remains public while planner routes require an API key", async () =
   await withServer("test-secret", async (baseUrl) => {
     const health = await fetch(`${baseUrl}/health`);
     assert.equal(health.status, 200);
+    assert.match(health.headers.get("x-request-id"), /^[0-9a-f-]{36}$/);
 
     const unauthorized = await fetch(`${baseUrl}/v1/plans`, {
       method: "POST",
@@ -26,7 +27,9 @@ test("health remains public while planner routes require an API key", async () =
       body: JSON.stringify({ findings: [], dryRun: true }),
     });
     assert.equal(unauthorized.status, 401);
-    assert.deepEqual(await unauthorized.json(), { error: "unauthorized" });
+    const unauthorizedBody = await unauthorized.json();
+    assert.equal(unauthorizedBody.error.code, "unauthorized");
+    assert.equal(unauthorizedBody.error.requestId, unauthorized.headers.get("x-request-id"));
 
     const authorized = await fetch(`${baseUrl}/v1/plans`, {
       method: "POST",
@@ -37,7 +40,32 @@ test("health remains public while planner routes require an API key", async () =
       body: JSON.stringify({ findings: [], dryRun: true }),
     });
     assert.equal(authorized.status, 200);
+    assert.match(authorized.headers.get("x-request-id"), /^[0-9a-f-]{36}$/);
     assert.equal((await authorized.json()).summary.totalFindings, 0);
+  });
+});
+
+test("propagates a safe caller request ID and uses a structured validation error", async () => {
+  await withServer("test-secret", async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/plans`, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-secret",
+        "content-type": "application/json",
+        "x-request-id": "ci-run_123",
+      },
+      body: JSON.stringify({ findings: "not-an-array" }),
+    });
+
+    assert.equal(response.status, 400);
+    assert.equal(response.headers.get("x-request-id"), "ci-run_123");
+    assert.deepEqual(await response.json(), {
+      error: {
+        code: "invalid_request",
+        message: "Expected body.findings to be an array.",
+        requestId: "ci-run_123",
+      },
+    });
   });
 });
 

@@ -3,6 +3,9 @@
 ## Product Documentation
 - **[scrutineering-guide.md](scrutineering-guide.md)** — Main application guide: what it is, architecture, quick start, all components, configuration, K8s deployment, monitoring
 - **[upgrade-roadmap.md](upgrade-roadmap.md)** — Prioritized architecture, security, remediation, and operations upgrade plan
+
+## API
+- **[Planner API v1](api/planner-v1.md)** — Versioned planner routes, authentication, request IDs, and error contracts
 - **[testing-guide.md](testing-guide.md)** — Comprehensive testing guide: unit, integration, security, end-to-end flows
 - **[scan-engine.md](scan-engine.md)** — Scanning engine design doc: architecture, registries, scanners, dedup, risk scoring
 - **[scrutineering.md](scrutineering.md)** — Product overview
