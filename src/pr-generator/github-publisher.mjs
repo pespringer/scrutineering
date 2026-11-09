@@ -1,4 +1,5 @@
 const REPOSITORY_PART = /^[A-Za-z0-9_.-]+$/;
+const BRANCH_PART = /^[A-Za-z0-9._/-]{1,256}$/;
 
 function validateRepository(owner, repo, allowedRepositories) {
   if (!REPOSITORY_PART.test(owner) || !REPOSITORY_PART.test(repo)) {
@@ -19,6 +20,7 @@ export function createGitHubPublisher({ token, allowedRepositories = [], fetchIm
     if (evidenceVerified !== true) throw new Error("verified evidence is required before publication");
     if (base !== "main" && base !== "master") throw new Error("base branch is not protected by publication policy");
     if (head === base) throw new Error("head and base branches must differ");
+    if (!BRANCH_PART.test(head) || !BRANCH_PART.test(base) || head.includes("..")) throw new Error("invalid branch name");
     if (!idempotencyKey) throw new Error("idempotencyKey is required for publication");
     const existing = published.get(`${fullName}:${idempotencyKey}`);
     if (existing) return existing;

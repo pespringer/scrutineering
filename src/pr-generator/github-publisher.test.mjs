@@ -24,3 +24,8 @@ test("blocks unverified or disallowed publication", async () => {
   await assert.rejects(() => publish({ owner: "other", repo: "api", title: "Fix", body: "Details", head: "auto/fix", evidenceVerified: true, idempotencyKey: "run" }), /allowlisted/);
   await assert.rejects(() => publish({ owner: "acme", repo: "api", title: "Fix", body: "Details", head: "main", evidenceVerified: true, idempotencyKey: "run" }), /differ/);
 });
+
+test("rejects unsafe branch names", async () => {
+  const publish = createGitHubPublisher({ token: "secret", allowedRepositories: ["acme/api"] });
+  await assert.rejects(() => publish({ owner: "acme", repo: "api", title: "Fix", body: "Details", head: "../bad", evidenceVerified: true, idempotencyKey: "run" }), /branch/);
+});
