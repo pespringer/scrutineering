@@ -1,6 +1,6 @@
 import pytest
 
-from src.remediation.approval import issue_approval, verify_approval
+from src.remediation.approval import issue_approval, verify_approval, approval_token_hash
 
 
 def test_approval_token_is_scoped_and_expiring():
@@ -10,3 +10,7 @@ def test_approval_token_is_scoped_and_expiring():
         verify_approval(token, "rem-2", "secret", now=100)
     with pytest.raises(ValueError):
         verify_approval(token, "rem-1", "secret", now=161)
+
+
+def test_approval_hash_is_deterministic():
+    assert approval_token_hash("token") == approval_token_hash("token")

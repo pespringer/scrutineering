@@ -9,6 +9,10 @@ import json
 import time
 
 
+def approval_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
 def issue_approval(remediation_id: str, approver: str, secret: str, *, ttl_seconds: int = 900, now: int | None = None) -> str:
     if not remediation_id or not approver or not secret or ttl_seconds < 1:
         raise ValueError("approval fields and positive TTL are required")
