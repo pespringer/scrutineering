@@ -12,7 +12,7 @@ function validateRepository(owner, repo, allowedRepositories) {
   return fullName;
 }
 
-export function createGitHubPublisher({ token, allowedRepositories = [], fetchImpl = fetch } = {}) {
+export function createGitHubPublisher({ token, allowedRepositories = [], fetchImpl = fetch, idempotencyStore } = {}) {
   if (!token) throw new Error("GitHub publisher token is required");
   const published = new Map();
   return async function publishPullRequest({ owner, repo, title, body, head, base = "main", evidenceVerified, idempotencyKey }) {
@@ -22,7 +22,8 @@ export function createGitHubPublisher({ token, allowedRepositories = [], fetchIm
     if (head === base) throw new Error("head and base branches must differ");
     if (!BRANCH_PART.test(head) || !BRANCH_PART.test(base) || head.includes("..")) throw new Error("invalid branch name");
     if (!idempotencyKey) throw new Error("idempotencyKey is required for publication");
-    const existing = published.get(`${fullName}:${idempotencyKey}`);
+    const key = `${fullName}:${idempotencyKey}`;
+    const existing = idempotencyStore ? await idempotencyStore.get(key) : published.get(key);
     if (existing) return existing;
     for (const [name, value] of Object.entries({ title, body, head, base })) {
       if (typeof value !== "string" || value.trim() === "") throw new Error(`${name} is required`);
@@ -41,6 +42,7 @@ export function createGitHubPublisher({ token, allowedRepositories = [], fetchIm
     const result = await response.json();
     const publication = { repository: fullName, number: result.number, url: result.html_url };
     published.set(`${fullName}:${idempotencyKey}`, publication);
+    if (idempotencyStore) await idempotencyStore.set(key, publication);
     return publication;
   };
 }

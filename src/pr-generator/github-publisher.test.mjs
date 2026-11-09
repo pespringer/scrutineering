@@ -29,3 +29,10 @@ test("rejects unsafe branch names", async () => {
   const publish = createGitHubPublisher({ token: "secret", allowedRepositories: ["acme/api"] });
   await assert.rejects(() => publish({ owner: "acme", repo: "api", title: "Fix", body: "Details", head: "../bad", evidenceVerified: true, idempotencyKey: "run" }), /branch/);
 });
+
+test("supports an external idempotency store", async () => {
+  const records = new Map(); let calls = 0;
+  const publish = createGitHubPublisher({ token: "secret", allowedRepositories: ["acme/api"], idempotencyStore: { get: async (key) => records.get(key), set: async (key, value) => records.set(key, value) }, fetchImpl: async () => { calls += 1; return { ok: true, async json() { return { number: 8, html_url: "https://github.test/pr/8" }; } }; } });
+  const request = { owner: "acme", repo: "api", title: "Fix", body: "Details", head: "auto/fix", evidenceVerified: true, idempotencyKey: "external" };
+  await publish(request); await publish(request); assert.equal(calls, 1);
+});
