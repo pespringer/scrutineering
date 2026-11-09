@@ -67,6 +67,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** remediation approvals now use scoped, short-lived HMAC tokens that fail closed on tampering or expiry.
 - **Completed:** remediation execution now enforces configured approval tokens at the write boundary.
 - **Completed:** post-merge verification now compares deployed digests, scan completion, and finding deltas before declaring success.
+- **Completed:** post-merge verification now has a coordinator that invokes rollback handlers on regressions.
 - **Completed:** remediation approval provenance now persists approver, timestamp, and token hash fields through an Alembic migration.
 - **Completed:** remediation lifecycle events now have a durable PostgreSQL table and migration chain.
 - **Completed:** evidence verification can enforce an artifact-size ceiling before invoking signature providers.
