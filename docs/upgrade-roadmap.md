@@ -81,6 +81,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** the canonical FastAPI app exposes a Prometheus-compatible metrics registry at `/metrics`, including scanner outcomes; OpenTelemetry traces and production SLO instrumentation remain.
 - **Completed:** the metrics registry exposes a lock-protected structured snapshot for diagnostics without parsing Prometheus text.
 - **Completed:** service code now has an optional OpenTelemetry span bridge that remains usable without the SDK installed.
+- **Completed:** OTLP exporter configuration now validates endpoints and provides an explicit service name.
 - **Completed:** CI harness failures are no longer ignored, and the Python job sets its package path explicitly.
 - **Completed:** the example environment now documents complete scan queues, provider allowlists, and evidence freshness/size controls.
 - **Completed:** the composed API exposes a public version endpoint for deployment and support diagnostics.
