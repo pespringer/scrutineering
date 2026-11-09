@@ -12,6 +12,8 @@ data:
   SCANNER_TIMEOUT: "1800"
   SCHEDULE_CRON_SCAN: "0 */6 * * *"
   CELERY_QUEUES: "scan.low,scan.normal,scan.high"
+  OTEL_SERVICE_NAME: "scrutineering"
+  SCRUTINEERING_VERSION: "0.1.0"
 ---
 # Secret — Sensitive values (base64 encoded)
 apiVersion: v1
