@@ -54,6 +54,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** remediation workers can now verify evidence, apply injected changes, and run fail-closed validation commands inside detached Git worktrees; guarded exact-match edits exist, while language-specific parsers, commits, and PR publication remain.
 - **Completed:** remediation includes conservative Dockerfile and exact dependency parsers that reject ambiguous matches.
 - **Started:** remediation validation now requires install, test, build, SBOM, and post-change rescan phases in order; provider-specific commands and PR publication remain.
+- **Completed:** validation commands now fail closed unless their executables are explicitly allowlisted.
 - **Started:** guarded GitHub and GitLab publishers require verified evidence, allowlists, and idempotency keys; GitHub App/project-token lifecycle and branch-policy enforcement remain.
 - **Completed:** GitLab publication now reuses the same idempotent result for retried project requests.
 - **Completed:** GitLab publication now rejects non-protected target branches by default.
