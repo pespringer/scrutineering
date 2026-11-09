@@ -46,3 +46,23 @@ class ScanCache:
             os.replace(temporary, self._path(scanner, image))
         finally:
             Path(temporary).unlink(missing_ok=True)
+
+    def invalidate(self, scanner: str, image: str) -> bool:
+        path = self._path(scanner, image)
+        existed = path.exists()
+        path.unlink(missing_ok=True)
+        return existed
+
+    def prune(self, now: float | None = None) -> int:
+        current = time.time() if now is None else now
+        removed = 0
+        for path in self.directory.glob("*.json"):
+            try:
+                payload = json.loads(path.read_text())
+                if current - payload["created_at"] > self.ttl_seconds:
+                    path.unlink()
+                    removed += 1
+            except (FileNotFoundError, KeyError, json.JSONDecodeError, TypeError):
+                path.unlink(missing_ok=True)
+                removed += 1
+        return removed

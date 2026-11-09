@@ -16,3 +16,12 @@ def test_cache_keys_separate_scanners(tmp_path):
     cache.set("grype", "image", [{"source": "grype"}], now=1)
     assert cache.get("trivy", "image", now=2)[0]["source"] == "trivy"
     assert cache.get("grype", "image", now=2)[0]["source"] == "grype"
+
+
+def test_cache_can_invalidate_and_prune(tmp_path):
+    cache = ScanCache(tmp_path, ttl_seconds=10)
+    cache.set("trivy", "old", [], now=1)
+    cache.set("trivy", "fresh", [], now=100)
+    assert cache.prune(now=12) == 1
+    assert cache.invalidate("trivy", "fresh") is True
+    assert cache.invalidate("trivy", "fresh") is False
