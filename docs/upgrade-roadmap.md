@@ -107,4 +107,9 @@ The latest deployment slice also configures all scan queues in Compose and
 Kubernetes, adds non-root restricted security contexts to planner and worker
 pods, and bounds registry pull/authentication subprocesses.
 
+The current follow-up batch adds key-rotation refresh, service replay guards,
+durable publisher idempotency, remediation event sequencing, scanner latency
+metrics, dashboard CI builds, Kubernetes temporary-storage limits, and stricter
+image/database/evidence validation.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, and a staging run that proves a failed policy or CI check cannot auto-merge.
