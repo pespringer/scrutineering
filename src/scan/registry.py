@@ -9,9 +9,38 @@ import json
 import logging
 import os
 import re
+from urllib.request import Request, urlopen
 from typing import Optional
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_registry_digest(
+    registry: str,
+    repository: str,
+    reference: str,
+    *,
+    token: str | None = None,
+    opener=urlopen,
+) -> str:
+    """Resolve a tag through the OCI Registry v2 manifest API."""
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,255}", registry) or not repository or not reference:
+        raise ValueError("invalid registry image coordinates")
+    if any(part in {".", ".."} for part in repository.split("/")):
+        raise ValueError("invalid repository path")
+    url = f"https://{registry}/v2/{repository}/manifests/{reference}"
+    headers = {"Accept": ", ".join([
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+    ])}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    response = opener(Request(url, headers=headers, method="HEAD"))
+    digest = response.headers.get("Docker-Content-Digest")
+    if not digest or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
+        raise RuntimeError("registry did not return an immutable sha256 digest")
+    return digest
 
 
 def detect_registry(image_name: str) -> str:

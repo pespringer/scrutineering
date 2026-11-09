@@ -7,7 +7,9 @@ image: callers must persist the returned digest or treat resolution failure as
 non-passing.
 
 The command uses argument-vector execution and never invokes a shell. Registry
-API resolution for images that are not present locally remains a follow-up.
+Registry API resolution is also available through the OCI manifest `HEAD`
+contract and accepts an optional bearer token. It requires the registry to
+return `Docker-Content-Digest`; a tag-only response is rejected.
 
 Set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` in production. The scan service then
 refuses to run scanners when a tag cannot be resolved, and passes the resolved
