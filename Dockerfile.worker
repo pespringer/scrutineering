@@ -11,7 +11,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install a pinned Trivy release (avoid executing a moving install script).
-ARG TRIVY_VERSION=0.60.0
+ARG TRIVY_VERSION=0.76.2
 RUN curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
     | tar -xz -C /usr/local/bin trivy
 
