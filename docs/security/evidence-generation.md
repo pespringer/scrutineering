@@ -13,3 +13,7 @@ the selected provider before accepting evidence.
 signature verification to the configured provider adapter. A missing or
 rejected signature raises `EvidenceVerificationError`; callers should block
 the scan or remediation gate rather than continue with degraded evidence.
+
+`CosignVerifier` is the concrete provider adapter. It invokes
+`cosign verify-blob` without a shell, passes the certificate identity and
+optional OIDC issuer, and returns false on any non-zero verification result.
