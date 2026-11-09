@@ -2,6 +2,7 @@ const base64url = (value) => Buffer.from(value, "base64url").toString("utf8");
 
 export function createJwksVerifier({ jwksUri, fetchImpl = fetch, verifySignature, cacheTtlMs = 300000 } = {}) {
   if (!jwksUri || typeof verifySignature !== "function") throw new TypeError("jwksUri and verifySignature are required");
+  if (!Number.isInteger(cacheTtlMs) || cacheTtlMs < 1000 || cacheTtlMs > 86400000) throw new Error("cacheTtlMs must be between 1000 and 86400000");
   let cached = null;
   return async function verify(token) {
     const parts = String(token || "").split(".");

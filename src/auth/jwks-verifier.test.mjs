@@ -26,3 +26,7 @@ test("refreshes JWKS when a rotated key is unknown", async () => {
   const verify = createJwksVerifier({ jwksUri: "https://issuer.test/keys", fetchImpl: async () => ({ ok: true, async json() { fetches += 1; return { keys: [{ kid: fetches > 1 ? "rotated" : "old" }] }; } }), verifySignature: async () => true });
   assert.equal((await verify(token)).sub, "user-1"); assert.equal(fetches, 2);
 });
+
+test("bounds JWKS cache lifetime", () => {
+  assert.throws(() => createJwksVerifier({ jwksUri: "https://issuer.test/keys", verifySignature: async () => true, cacheTtlMs: 1 }), /between/);
+});
