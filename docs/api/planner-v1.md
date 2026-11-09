@@ -24,6 +24,17 @@ gateway or Redis-backed limiter before relying on the limit as a global policy.
 
 `/v1/plans` requires an array-valued `findings` property. Use `dryRun: true` when no write actions should be produced.
 
+## Request contracts
+
+All v1 bodies must be JSON objects. Required fields are:
+
+- `/v1/plans`: `findings` array.
+- `/v1/pull-requests`: non-empty `idempotencyKey` and `plan` object.
+- `/v1/ci/checks`: `checks` array.
+- `/v1/rollout/evaluate`: non-empty `teamId` and `riskLevel` strings.
+
+Missing or incorrectly typed fields return the standard `invalid_request` envelope.
+
 ## Error envelope
 
 Non-2xx responses use one shape:

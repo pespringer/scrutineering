@@ -109,3 +109,17 @@ test("rate limits planner routes but never blocks health checks", async () => {
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 });
+
+test("enforces the v1 request contract across planner endpoints", async () => {
+  await withServer("test-secret", async (baseUrl) => {
+    for (const path of ["/v1/pull-requests", "/v1/ci/checks", "/v1/rollout/evaluate"]) {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method: "POST",
+        headers: { authorization: "Bearer test-secret", "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).error.code, "invalid_request");
+    }
+  });
+});

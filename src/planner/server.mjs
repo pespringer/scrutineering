@@ -6,6 +6,7 @@ import { createRemediationPlan } from "./remediation-planner.mjs";
 import { createPullRequestArtifacts } from "../pr-generator/pr-generator.mjs";
 import { evaluateCiChecks } from "../ci/ci-integration.mjs";
 import { evaluateRolloutDecision } from "../rollout/staged-rollout.mjs";
+import { validatePlannerRequest } from "./contracts.mjs";
 
 const host = process.env.PLANNER_HOST || "127.0.0.1";
 const port = Number(process.env.PLANNER_PORT || 8787);
@@ -130,17 +131,11 @@ export function createPlannerServer({
 
     try {
       const payload = JSON.parse(await collectBody(req));
+      const validation = validatePlannerRequest(requestPath, payload);
+      if (!validation.valid) {
+        return sendError(res, 400, "invalid_request", validation.message, requestId);
+      }
       if (requestPath === "/v1/plans") {
-        if (!Array.isArray(payload.findings)) {
-          return sendError(
-            res,
-            400,
-            "invalid_request",
-            "Expected body.findings to be an array.",
-            requestId,
-          );
-        }
-
         const plan = createRemediationPlan(payload, { dryRun: Boolean(payload.dryRun) });
         return sendJson(res, 200, plan, requestId);
       }
