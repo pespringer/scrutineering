@@ -1,7 +1,8 @@
 const splitList = (value) => String(value || "")
   .split(",")
   .map((entry) => entry.trim())
-  .filter(Boolean);
+  .filter(Boolean)
+  .filter((entry, index, entries) => entries.indexOf(entry) === index);
 
 export function loadProviderConfig(env = process.env) {
   const githubRepositories = splitList(env.GITHUB_ALLOWED_REPOSITORIES);

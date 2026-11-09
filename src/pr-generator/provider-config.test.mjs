@@ -5,7 +5,7 @@ import { loadProviderConfig } from "./provider-config.mjs";
 test("loads provider tokens and normalized allowlists", () => {
   const config = loadProviderConfig({
     GITHUB_TOKEN: "gh-token",
-    GITHUB_ALLOWED_REPOSITORIES: " acme/api,acme/web ",
+    GITHUB_ALLOWED_REPOSITORIES: " acme/api,acme/web,acme/api ",
     GITLAB_TOKEN: "gl-token",
     GITLAB_ALLOWED_PROJECTS: "12, 34",
   });
