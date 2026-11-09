@@ -179,6 +179,11 @@ class AuditLogger:
 
         return record
 
+    def export(self) -> list[dict[str, Any]]:
+        records = [record.to_dict() for record in self._records]
+        if not verify_audit_chain(records): raise RuntimeError("audit chain integrity check failed")
+        return records
+
     def persist_record(self, record: AuditRecord) -> None:
         """Persist a single audit record to the database."""
         if not self._get_session:
