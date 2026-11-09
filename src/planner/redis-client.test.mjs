@@ -15,3 +15,10 @@ test("drops an unhealthy client after a failed health check", async () => {
   await assert.rejects(() => lifecycle.start(), /down/);
   assert.equal(lifecycle.connected, false);
 });
+
+test("coalesces concurrent starts", async () => {
+  let connects = 0;
+  const lifecycle = createRedisClient({ connect: async () => { connects += 1; return {}; } });
+  await Promise.all([lifecycle.start(), lifecycle.start()]);
+  assert.equal(connects, 1);
+});
