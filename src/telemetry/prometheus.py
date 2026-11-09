@@ -59,4 +59,7 @@ class MetricsRegistry:
                     index = min(len(ordered) - 1, int(len(ordered) * percentile))
                     suffix = f"{labels},quantile=\"{quantile}\"" if labels else f"quantile=\"{quantile}\""
                     rows.append(f"{name}{{{suffix}}} {ordered[index]:g}")
+                suffix = f"{{{labels}}}" if labels else ""
+                rows.append(f"{name}_count{suffix} {len(values)}")
+                rows.append(f"{name}_sum{suffix} {sum(values):g}")
             return "\n".join(rows) + ("\n" if rows else "")

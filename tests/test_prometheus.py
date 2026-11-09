@@ -12,3 +12,4 @@ def test_metrics_registry_renders_counters_and_gauges():
     assert "scanner_queue_depth 3" in output
     assert metrics.snapshot()["gauges"]["scanner_queue_depth|"] == 3
     assert 'scan_latency_seconds{quantile="0.95"} 3' in output
+    assert "scan_latency_seconds_count 2" in output
