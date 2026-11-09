@@ -56,6 +56,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Phase 3 — Production Operations (60–90 days)
 
 - **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, a local digest-keyed TTL cache, and explicit scan queue priorities; shared caching remains.
+- **Completed:** scan worker configuration now validates that all priority queues are present.
 - **Started:** the canonical FastAPI app exposes a Prometheus-compatible metrics registry at `/metrics`, including scanner outcomes; OpenTelemetry traces and production SLO instrumentation remain.
 - **Started:** runtime monitoring now exposes bounded-buffer health, durable JSONL event delivery, sink-failure telemetry, and explicit eBPF capability reports; managed queue delivery remains.
 - **Started:** SBOM/provenance verification now supports digest, signature, and freshness gates; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.

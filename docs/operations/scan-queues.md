@@ -14,3 +14,6 @@ call sites.
 
 Scanner outcomes are exported as `scrutineering_scans_total` with `status` and
 `scanner` labels, including `completed`, `failed`, and `cache_hit`.
+
+Deployments must include `scan.low`, `scan.normal`, and `scan.high`; the
+configuration validator rejects a worker pool that omits any priority queue.
