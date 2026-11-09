@@ -15,3 +15,7 @@ and the provider verifier rather than asserting a boolean in production.
 `run_validation_pipeline` defines those publication gates explicitly: install,
 test, build, SBOM generation, and post-change rescan. Missing phases or the
 first failed command block the run, and later phases are not attempted.
+
+`build_rollback_plan` produces a validated `git revert --no-edit` command for a
+published commit. It never executes the rollback; operators must run the plan
+inside an isolated worktree and repeat verification gates before publication.
