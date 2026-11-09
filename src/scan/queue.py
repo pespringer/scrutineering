@@ -14,7 +14,7 @@ def load_queue_config(env: dict[str, str] | None = None) -> dict[str, object]:
     missing = required - configured
     if missing:
         raise ValueError(f"CELERY_QUEUES is missing required queues: {', '.join(sorted(missing))}")
-    return {"queues": tuple(sorted(configured)), "required": tuple(sorted(required))}
+    return {"queues": tuple(sorted(configured)), "required": tuple(sorted(required)), "extra": tuple(sorted(configured - required))}
 
 
 def scan_priority(severity: str | None = None, deadline: bool = False) -> str:
