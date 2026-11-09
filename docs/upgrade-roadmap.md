@@ -43,7 +43,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Phase 2 — Make Remediation Real (30–60 days)
 
 - **Started:** remediation workers can now apply injected changes and run fail-closed validation commands inside detached Git worktrees; parser-aware edits, commits, and PR publication remain.
-- Run dependency installation, tests, builds, SBOM generation, and post-change rescans before opening a PR.
+- **Started:** remediation validation now requires install, test, build, SBOM, and post-change rescan phases in order; provider-specific commands and PR publication remain.
 - Integrate GitHub/GitLab using least-privilege credentials and signed evidence artifacts.
 - Model remediation as an explicit state machine with retry, approval, rollback, and post-merge verification.
 
