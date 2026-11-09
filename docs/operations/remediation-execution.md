@@ -9,7 +9,7 @@ command passes.
 
 The executor never commits, pushes, or opens a pull request. Parser-aware edit
 adapters and post-change SBOM/rescan commands should be added before enabling
-publication. Callers should provide `evidence_envelope`, `evidence_artifact`,
+publication. Guarded `replace_text` edits can build on this boundary. Callers should provide `evidence_envelope`, `evidence_artifact`,
 and the provider verifier rather than asserting a boolean in production.
 
 `run_validation_pipeline` defines those publication gates explicitly: install,
