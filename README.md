@@ -136,6 +136,7 @@ node scripts/validate-policy-contract.mjs
 - OIDC deployments must validate signatures before passing claims to the OIDC
   policy boundary. The distributed limiter can use the Redis adapter described
   in [Planner API v1](docs/api/planner-v1.md).
+  Discovery metadata is fetched from the configured HTTPS issuer with a bounded timeout.
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
   analytics, and forensics routers and exposes `/health`.
   `/ready` checks database connectivity for deployment probes.
