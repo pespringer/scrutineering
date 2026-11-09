@@ -18,6 +18,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - Keep `npm test` green and make fixtures reflect fail-closed policy semantics.
 - Make Python test dependencies reproducible from `requirements.txt`.
 - Add API contract tests and a documented local CI command.
+- **Completed:** `npm run verify:local` now mirrors the repository's Node, Python, and security-contract verification sequence.
 - Treat partial scans, missing evidence, and stale vulnerability databases as explicit non-passing states; provenance freshness validation is now available.
 
 ## Phase 1 — Establish a Secure Core (0–30 days)

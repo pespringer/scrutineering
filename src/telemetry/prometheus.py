@@ -20,6 +20,12 @@ class MetricsRegistry:
         with self._lock:
             self._gauges[(name, self._labels(labels))] = value
 
+    def clear(self) -> None:
+        """Remove all metric values, primarily for isolated tests."""
+        with self._lock:
+            self._counters.clear()
+            self._gauges.clear()
+
     @staticmethod
     def _labels(labels: dict[str, str] | None) -> str:
         if not labels: return ""

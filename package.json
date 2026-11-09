@@ -11,6 +11,7 @@
     "verify:remediation-prs": "node scripts/run-verification-harness.mjs",
     "harness:remediation-dry-run": "node scripts/run-remediation-dry-run-harness.mjs",
     "test": "node --test",
+    "verify:local": "node scripts/verify-local-ci.mjs",
     "start:planner": "node src/planner/server.mjs",
     "report:security-outcomes": "node scripts/generate-security-outcome-report.mjs"
   },

@@ -82,6 +82,7 @@ PYTHONPATH=. pytest tests/ -q  # Python tests
 # Validate security contracts
 npm run validate:policy-contract
 npm run validate:evidence-contract
+npm run verify:local  # Node, Python, and security-contract checks
 
 # Run individual scripts
 node src/planner/server.mjs
