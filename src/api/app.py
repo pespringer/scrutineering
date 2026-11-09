@@ -14,6 +14,9 @@ from src.scan.db_provider import SqlAlchemyScanDataProvider
 from src.db.connection import get_session
 from src.api.readiness import check_database
 from src.telemetry.scan_metrics import scan_metrics as metrics
+from src.api.auth import is_api_key_authorized
+import os
+from fastapi.responses import JSONResponse
 
 
 def create_app() -> FastAPI:
@@ -31,6 +34,13 @@ def create_app() -> FastAPI:
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response
+
+    @application.middleware("http")
+    async def api_auth_middleware(request, call_next):
+        expected = os.environ.get("PYTHON_API_KEY", "")
+        if expected and request.url.path not in {"/health", "/ready", "/metrics"} and not is_api_key_authorized(request, expected):
+            return JSONResponse({"error": "unauthorized"}, status_code=401)
+        return await call_next(request)
 
     @application.get("/health", tags=["health"])
     def health() -> dict[str, str]:

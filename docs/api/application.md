@@ -14,6 +14,10 @@ configuration work.
 All responses receive a safe `X-Request-ID`; callers may supply a matching
 identifier for cross-service tracing.
 
+Set `PYTHON_API_KEY` to protect non-health API routes. Requests may use
+`Authorization: Bearer ...` or `X-API-Key`; health, readiness, and metrics
+remain probe-accessible.
+
 The scan-data router is wired to `SqlAlchemyScanDataProvider` during app
 creation. It uses the repository session factory and fails closed when the
 database URL is not configured.
