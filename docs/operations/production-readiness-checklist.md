@@ -64,3 +64,9 @@ Go live only when all of the following are true:
 - Staging rollback drill completed and documented.
 - On-call playbook has named primary/secondary responders.
 - Kill switch ownership and paging route are confirmed.
+## Staging promotion gates
+
+- Run `npm run verify:local`.
+- Run `npm run drill:staging-rollback`.
+- Confirm OIDC issuer, cosign identity, provider allowlists, and service secrets
+  are configured from the deployment secret store.
