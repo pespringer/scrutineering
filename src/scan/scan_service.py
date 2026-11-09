@@ -15,6 +15,7 @@ from typing import Optional
 
 from .registry import detect_registry, authenticate_to_registry
 from .scanners.base import ScannerError, ScannerFinding
+from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .scanners.trivy import TrivyScanner
 from .scanners.grype import GrypeScanner
 from .utils.dedup import deduplicate_findings_with_report
@@ -41,6 +42,8 @@ class ScanService:
         severities: str = "CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN",
         scanner_retry_attempts: int | None = None,
         scanner_retry_backoff: float | None = None,
+        scanner_circuit_failure_threshold: int | None = None,
+        scanner_circuit_reset_timeout: float | None = None,
     ):
         self.trivy_timeout = trivy_timeout
         self.grype_timeout = grype_timeout
@@ -55,6 +58,11 @@ class ScanService:
         )
         if self.scanner_retry_attempts < 0 or self.scanner_retry_backoff < 0:
             raise ValueError("scanner retry settings must not be negative")
+        threshold = scanner_circuit_failure_threshold if scanner_circuit_failure_threshold is not None else int(os.environ.get("SCANNER_CIRCUIT_FAILURE_THRESHOLD", "3"))
+        reset_timeout = scanner_circuit_reset_timeout if scanner_circuit_reset_timeout is not None else float(os.environ.get("SCANNER_CIRCUIT_RESET_SECONDS", "60"))
+        self._scanner_circuits = {}
+        self._circuit_failure_threshold = threshold
+        self._circuit_reset_timeout = reset_timeout
 
     async def scan(
         self,
@@ -253,14 +261,22 @@ class ScanService:
         self, scanner, image_name: str, source_name: str
     ) -> list[ScannerFinding]:
         """Run a scanner with bounded exponential backoff for transient failures."""
+        circuit = self._scanner_circuits.setdefault(
+            source_name,
+            CircuitBreaker(self._circuit_failure_threshold, self._circuit_reset_timeout),
+        )
+        if not circuit.allow():
+            raise CircuitOpenError(f"{source_name} scanner circuit is open")
         for attempt in range(self.scanner_retry_attempts + 1):
             logger.info("Running %s scan on '%s' (attempt %d)...", source_name, image_name, attempt + 1)
             try:
                 findings = await scanner.scan(image_name)
+                circuit.record_success()
                 logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
                 return findings
             except ScannerError:
                 if attempt >= self.scanner_retry_attempts:
+                    circuit.record_failure()
                     raise
                 delay = self.scanner_retry_backoff * (2 ** attempt)
                 logger.warning("%s scan failed; retrying in %.2fs", source_name, delay)
