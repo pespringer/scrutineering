@@ -12,3 +12,7 @@ in production until durable event delivery is implemented.
 events before buffering them, and exposes sink failures alongside dropped-event
 counts. Production deployments should replace JSONL with a managed durable
 queue or database once retention and replay policies are defined.
+
+`EBPFMonitorAgent.capability_report()` exposes whether BCC and the kernel
+tracing interface are present, making fallback mode visible instead of silently
+appearing healthy.

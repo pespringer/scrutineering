@@ -237,6 +237,20 @@ TRACEPOINT_PROBE(raw_syscalls, sys_enter) {
         except (ImportError, OSError):
             return False
 
+    @classmethod
+    def capability_report(cls) -> dict[str, bool]:
+        """Report prerequisites without attempting to attach probes."""
+        try:
+            import bcc  # noqa: F401
+            bcc_available = True
+        except (ImportError, OSError):
+            bcc_available = False
+        try:
+            kernel_interface = Path("/sys/kernel/debug/tracing").exists()
+        except OSError:
+            kernel_interface = False
+        return {"bcc": bcc_available, "kernel_tracing": kernel_interface, "available": bcc_available and kernel_interface}
+
     async def _start_bpf(self) -> bool:
         """Initialise the BPF tracer.  Returns True on success."""
         try:
@@ -351,6 +365,11 @@ class EBPFMonitorAgent:
         self._dropped_events = 0
         self._sink_failures = 0
         self._event_sink = event_sink
+
+    def capability_report(self) -> dict[str, bool]:
+        report = EBPFBackend.capability_report()
+        report["backend"] = self._backend.__class__.__name__ == "EBPFBackend"
+        return report
         self._stream_task: asyncio.Task | None = None
 
     # -- Lifecycle ---------------------------------------------------------- #

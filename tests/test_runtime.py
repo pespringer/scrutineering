@@ -46,6 +46,10 @@ class TestRuntimeBackpressure:
         assert stats["buffered_events"] == 0
         assert stats["dropped_events"] == 0
 
+    def test_capability_report_is_explicit(self):
+        report = EBPFMonitorAgent().capability_report()
+        assert {"bcc", "kernel_tracing", "available", "backend"}.issubset(report)
+
 
 # ---------------------------------------------------------------------------
 # Analysis engine
