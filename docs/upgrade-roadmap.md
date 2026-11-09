@@ -57,6 +57,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** validation commands now fail closed unless their executables are explicitly allowlisted.
 - **Started:** guarded GitHub and GitLab publishers require verified evidence, allowlists, and idempotency keys; GitHub App/project-token lifecycle and branch-policy enforcement remain.
 - **Completed:** GitHub App installation-token acquisition is isolated behind a scoped, expiry-aware adapter.
+- **Completed:** publication idempotency records can persist in a restrictive local store instead of process memory.
 - **Completed:** GitLab publication now reuses the same idempotent result for retried project requests.
 - **Completed:** GitLab publication now rejects non-protected target branches by default.
 - **Completed:** provider tokens and publication allowlists now load through one normalized production-checked configuration boundary.
