@@ -25,6 +25,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - **Started:** planner API key enforcement, strict OIDC configuration, and claim-policy coverage are implemented; provider discovery/signature wiring remains.
 - **Completed:** OIDC discovery metadata is fetched over HTTPS with issuer validation and bounded request timeouts.
+- **Completed:** JWT verification now selects a JWKS key by `kid` and caches rotating-key metadata for a bounded interval.
 - **Started:** planner routes now have credential-scoped limits with a Redis-compatible distributed adapter and strict Redis URL validation; client lifecycle and deployment wiring remain.
 - **Started:** image references now have canonical digest-aware parsing and local/OCI registry resolution; universal credential/provider wiring remains.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
