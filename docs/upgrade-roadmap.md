@@ -8,8 +8,8 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - Node.js planner logic and Python scanning/runtime services are split across separate control paths.
 - `dashboard/` is now the canonical frontend; `web/` remains a legacy tree pending removal.
-- Remediation currently produces deterministic PR artifacts; it does not yet patch, validate, or merge repositories.
-- The planner now has API-key authentication, request IDs, structured errors, and process-local rate limiting; OIDC/RBAC, complete schema validation, and distributed limiting remain.
+- Remediation now supports isolated validation and guarded GitHub PR publication; it does not merge repositories or bypass branch protection.
+- The planner now has API-key/OIDC policy boundaries, request IDs, structured errors, route validation, and local/distributed limiter adapters; provider wiring remains.
 - Compose keeps PostgreSQL and Redis internal by default and requires explicit credentials.
 - Scanner orchestration, observability, and finding lifecycle management need hardening.
 
@@ -22,12 +22,12 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Phase 1 — Establish a Secure Core (0–30 days)
 
-- **Started:** planner API key enforcement and regression coverage are implemented; OIDC/RBAC remains outstanding.
+- **Started:** planner API key enforcement and OIDC claim-policy coverage are implemented; production discovery/signature wiring remains.
 - **Started:** planner routes now have credential-scoped limits with a Redis-compatible distributed adapter; Redis client lifecycle and deployment wiring remain.
 - **Started:** image references now have canonical digest-aware parsing; tag-only references remain explicitly mutable until registry digest resolution is wired into the scan boundary.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.
-- **Started:** signed SBOM/provenance evidence now has a versioned schema, fixtures, and CI validation hook; generation and signature verification remain outstanding.
+- **Started:** signed SBOM/provenance evidence has a versioned schema, deterministic generation, fixtures, CI validation, and a cosign adapter; deployment keyless-policy wiring remains.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.

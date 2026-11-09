@@ -129,13 +129,17 @@ node scripts/validate-policy-contract.mjs
   `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
 - Scoped planner API keys use `PLANNER_API_KEYS_JSON`; see
   [Authorization Foundation](docs/security/authorization.md).
+- OIDC deployments must validate signatures before passing claims to the OIDC
+  policy boundary. The distributed limiter can use the Redis adapter described
+  in [Planner API v1](docs/api/planner-v1.md).
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
   analytics, and forensics routers and exposes `/health`.
 
 Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
 tag-only images fail closed when a digest cannot be resolved. Evidence must be
-verified before remediation; the current executor runs isolated validation but
-does not commit, push, or open pull requests yet.
+verified before remediation. The executor runs isolated validation, and the
+GitHub publisher can open allowlisted PRs only after verified evidence; neither
+component merges or bypasses branch protection.
 
 ## Documentation
 
@@ -143,5 +147,8 @@ does not commit, push, or open pull requests yet.
 - [Database Schema Design](docs/db-schema-design.md)
 - [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)
 - [Operations Playbook](docs/operations/on-call-playbook.md)
+- [GitHub Publication Boundary](docs/operations/github-publication.md)
+- [Remediation Execution](docs/operations/remediation-execution.md)
+- [Evidence Generation and Verification](docs/security/evidence-generation.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
