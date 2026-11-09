@@ -15,6 +15,19 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+def registry_credentials_from_env(env: dict[str, str] | None = None) -> dict[str, tuple[str, str]]:
+    """Return explicitly configured registry credentials without exposing secrets."""
+    values = env or os.environ
+    credentials: dict[str, tuple[str, str]] = {}
+    if values.get("DOCKERHUB_USERNAME") and values.get("DOCKERHUB_PASSWORD"):
+        credentials["dockerhub"] = (values["DOCKERHUB_USERNAME"], values["DOCKERHUB_PASSWORD"])
+    if values.get("GITHUB_TOKEN"):
+        credentials["ghcr.io"] = ("gh_token", values["GITHUB_TOKEN"])
+    if values.get("GITLAB_TOKEN") or values.get("CI_JOB_TOKEN"):
+        credentials["gitlab"] = (values.get("GITLAB_USERNAME", "gitlab-ci-token"), values.get("GITLAB_TOKEN", values.get("CI_JOB_TOKEN", "")))
+    return credentials
+
+
 def resolve_registry_digest(
     registry: str,
     repository: str,
@@ -167,17 +180,9 @@ async def authenticate_to_registry(registry: str, **kwargs) -> Optional[tuple[st
 
     if registry == "dockerhub":
         # Docker Hub uses DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD env vars
-        user = os.environ.get("DOCKERHUB_USERNAME")
-        pwd = os.environ.get("DOCKERHUB_PASSWORD")
-        if user and pwd:
-            return (user, pwd)
-        return None
+        return registry_credentials_from_env().get("dockerhub")
     elif registry == "gitlab":
-        user = os.environ.get("GITLAB_USERNAME", "gitlab-ci-token")
-        pwd = os.environ.get("GITLAB_TOKEN", os.environ.get("CI_JOB_TOKEN", ""))
-        if pwd:
-            return (user, pwd)
-        return None
+        return registry_credentials_from_env().get("gitlab")
     else:
         auth_fn = dispatch.get(registry)
         if auth_fn:

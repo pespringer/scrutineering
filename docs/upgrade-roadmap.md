@@ -41,6 +41,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** provider-neutral principal, role, and tenant-scope authorization primitives are covered by Node tests; JWT/OIDC verification remains an integration task.
 - **Completed:** planner v1 now validates required request fields consistently across plans, PRs, CI checks, and rollout evaluation.
 - **Started:** digest-aware identities and provenance fields now flow through `ScanService`; local Docker resolution falls back to OCI registry manifests and production defaults to fail-closed identity, while universal credential/provider wiring remains.
+- **Completed:** Docker Hub, GHCR, and GitLab registry credentials now have one explicit environment-derived mapping.
 
 ## Phase 2 — Make Remediation Real (30–60 days)
 
