@@ -209,6 +209,8 @@ class AuditLogger:
                 entity_type="runtime_event",
                 entity_id=record.record_id,
                 detail=record.to_dict(),
+                previous_hash=record.previous_hash,
+                record_hash=record.record_hash,
                 actor=record.actor,
                 actor_kind="runtime",
             )

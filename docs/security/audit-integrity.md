@@ -10,3 +10,6 @@ unexpected previous hashes during audit export.
 
 `verify_audit_chain()` performs that local export check and returns false on
 any link or payload-hash mismatch.
+
+Migration `20261109_02` adds nullable hash columns to `audit_log` so existing
+records remain readable while new records can be anchored and indexed.

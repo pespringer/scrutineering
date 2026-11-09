@@ -647,6 +647,8 @@ class AuditLog(Base):
         nullable=True)
 
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    previous_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    record_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     actor: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 'agent', 'scheduler', 'user', 'system'
     actor_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
