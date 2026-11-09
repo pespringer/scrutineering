@@ -44,7 +44,9 @@ def _page(items: list[dict[str, Any]], limit: int, offset: int) -> Page:
 
 
 def _normalized_filter(value: str | None) -> str | None:
-    return value.strip().lower() if value and value.strip() else None
+    normalized = value.strip().lower() if value and value.strip() else None
+    if normalized and len(normalized) > 512: raise HTTPException(status_code=400, detail="filter is too long")
+    return normalized
 
 
 @router.get("/scans/{scan_id}")
