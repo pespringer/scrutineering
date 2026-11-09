@@ -11,4 +11,5 @@ test("publishes an evidence-backed allowlisted GitLab MR", async () => {
   assert.deepEqual(await publish({ ...request, title: "Changed" }), result);
   assert.equal(calls, 1);
   await assert.rejects(() => publish({ ...request, targetBranch: "feature", idempotencyKey: "run-2" }), /protected/);
+  await assert.rejects(() => publish({ ...request, sourceBranch: "../bad", idempotencyKey: "run-3" }), /branch/);
 });

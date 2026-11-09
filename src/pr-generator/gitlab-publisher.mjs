@@ -5,6 +5,7 @@ export function createGitLabPublisher({ token, allowedProjects = [], allowedTarg
     const normalizedProjectId = String(projectId);
     if (!allowedProjects.includes(normalizedProjectId)) throw new Error("GitLab project is not allowlisted");
     if (!allowedTargetBranches.includes(targetBranch)) throw new Error("target branch is not protected by publication policy");
+    if (!/^[A-Za-z0-9._/-]{1,256}$/.test(sourceBranch) || sourceBranch.includes("..")) throw new Error("invalid source branch");
     if (evidenceVerified !== true) throw new Error("verified evidence is required before publication");
     if (!idempotencyKey || !title || !description || !sourceBranch || !targetBranch) throw new Error("merge request fields are required");
     const key = `${normalizedProjectId}:${idempotencyKey}`;
