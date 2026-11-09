@@ -83,6 +83,9 @@ npm run validate:evidence-contract
 # Run individual scripts
 node src/planner/server.mjs
 node scripts/run-remediation-dry-run-harness.mjs
+
+# Run the composed Python API
+uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 ```
 
 ## CI/CD
@@ -126,6 +129,8 @@ node scripts/validate-policy-contract.mjs
   `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
 - Scoped planner API keys use `PLANNER_API_KEYS_JSON`; see
   [Authorization Foundation](docs/security/authorization.md).
+- The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
+  analytics, and forensics routers and exposes `/health`.
 
 Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
 tag-only images fail closed when a digest cannot be resolved. Evidence must be
