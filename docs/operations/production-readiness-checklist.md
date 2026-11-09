@@ -70,3 +70,5 @@ Go live only when all of the following are true:
 - Run `npm run drill:staging-rollback`.
 - Confirm OIDC issuer, cosign identity, provider allowlists, and service secrets
   are configured from the deployment secret store.
+- Confirm database pool bounds, resource quotas, and pod disruption budgets are
+  applied before enabling production scan concurrency.
