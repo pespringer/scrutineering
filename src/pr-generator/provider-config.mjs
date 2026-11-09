@@ -9,8 +9,8 @@ export function loadProviderConfig(env = process.env) {
   const gitlabProjects = splitList(env.GITLAB_ALLOWED_PROJECTS);
   const githubToken = String(env.GITHUB_TOKEN || "").trim();
   const gitlabToken = String(env.GITLAB_TOKEN || env.CI_JOB_TOKEN || "").trim();
-  if (env.NODE_ENV === "production" && (githubRepositories.length === 0 || gitlabProjects.length === 0)) {
-    throw new Error("production provider configuration requires GitHub and GitLab allowlists");
+  if (env.NODE_ENV === "production" && (githubRepositories.length === 0 || gitlabProjects.length === 0 || !githubToken || !gitlabToken)) {
+    throw new Error("production provider configuration requires GitHub/GitLab tokens and allowlists");
   }
   return {
     github: { token: githubToken, allowedRepositories: githubRepositories },
