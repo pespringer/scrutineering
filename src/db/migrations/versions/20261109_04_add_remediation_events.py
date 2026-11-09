@@ -12,6 +12,7 @@ def upgrade():
         sa.Column("id", sa.BigInteger(), primary_key=True),
         sa.Column("remediation_id", sa.BigInteger(), sa.ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False),
         sa.Column("event_type", sa.String(length=64), nullable=False),
+        sa.Column("sequence", sa.Integer(), nullable=True),
         sa.Column("detail", sa.JSON(), nullable=False),
         sa.Column("created_at", sa.DateTime(), server_default=sa.func.now()),
     )

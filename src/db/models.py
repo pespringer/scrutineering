@@ -609,6 +609,7 @@ class RemediationEvent(Base):
     remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)
     remediation = relationship("Remediation", back_populates="events", lazy="joined")
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
