@@ -108,11 +108,12 @@ def detect_registry(image_name: str) -> str:
     return "dockerhub"
 
 
-async def login_ecr(region: Optional[str] = None) -> tuple[str, str]:
+async def login_ecr(region: Optional[str] = None, timeout_seconds: int = 60) -> tuple[str, str]:
     """Get ECR login credentials via AWS CLI.
 
     Returns (username, password) where password is the auth token.
     """
+    if timeout_seconds < 1: raise ValueError("timeout_seconds must be positive")
     if region is not None and not re.fullmatch(r"[a-z0-9-]{1,32}", region):
         raise ValueError("AWS region contains invalid characters")
     args = ["aws", "ecr", "get-login-password"]
@@ -125,10 +126,13 @@ async def login_ecr(region: Optional[str] = None) -> tuple[str, str]:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
         if proc.returncode != 0:
             raise RuntimeError(f"AWS ECR login failed: {stderr.decode()}")
         return "AWS", stdout.decode().strip()
+    except asyncio.TimeoutError as exc:
+        proc.kill(); await proc.communicate()
+        raise RuntimeError("AWS ECR login timed out") from exc
     except FileNotFoundError:
         raise RuntimeError("AWS CLI not installed. Install awscli to use ECR registries.")
 
