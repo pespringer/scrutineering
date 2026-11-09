@@ -19,3 +19,6 @@ first failed command block the run, and later phases are not attempted.
 `build_rollback_plan` produces a validated `git revert --no-edit` command for a
 published commit. It never executes the rollback; operators must run the plan
 inside an isolated worktree and repeat verification gates before publication.
+Validated execution can optionally create a local commit artifact with
+`commit_message`. The executor never pushes or merges that commit; publication
+remains behind the separate provider policy boundary.

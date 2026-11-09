@@ -18,6 +18,7 @@ class RemediationExecution:
     commands: list[dict[str, object]] = field(default_factory=list)
     changed_files: list[str] = field(default_factory=list)
     error: str | None = None
+    commit: str | None = None
 
 
 def execute_remediation(
@@ -32,6 +33,7 @@ def execute_remediation(
     evidence_verifier=None,
     base_dir: str | Path | None = None,
     timeout_seconds: int = 600,
+    commit_message: str | None = None,
 ) -> RemediationExecution:
     """Apply supplied changes and run all validation commands in a worktree."""
     if evidence_envelope is not None:
@@ -69,7 +71,15 @@ def execute_remediation(
                 capture_output=True, text=True,
             )
             changed_files = [line for line in diff.stdout.splitlines() if line]
-            return RemediationExecution(status="ready", worktree=str(worktree), commands=command_results, changed_files=changed_files)
+            commit = None
+            if commit_message and changed_files:
+                subprocess.run(["git", "add", "--all"], cwd=worktree, check=True, capture_output=True, text=True)
+                committed = subprocess.run(
+                    ["git", "-c", "user.name=Scrutineering", "-c", "user.email=security@example.invalid", "commit", "-m", commit_message],
+                    cwd=worktree, check=True, capture_output=True, text=True,
+                )
+                commit = committed.stdout.strip().split()[-1]
+            return RemediationExecution(status="ready", worktree=str(worktree), commands=command_results, changed_files=changed_files, commit=commit)
     except subprocess.TimeoutExpired as exc:
         return RemediationExecution(status="failed", error=f"validation timed out: {exc.cmd}")
     except Exception as exc:

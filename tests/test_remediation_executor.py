@@ -39,6 +39,16 @@ def test_executor_applies_changes_and_validates_in_isolation(tmp_path):
         evidence_verified=True, base_dir=tmp_path,
     )
     assert result.status == "ready"
+
+
+def test_executor_can_commit_validated_changes_in_isolation(tmp_path):
+    repo = make_repo(tmp_path)
+    result = execute_remediation(
+        repo, ["committed\n"], lambda worktree, change: (worktree / "config.txt").write_text(change),
+        [], evidence_verified=True, base_dir=tmp_path, commit_message="Apply validated fix",
+    )
+    assert result.status == "ready"
+    assert result.commit
     assert "config.txt" in result.changed_files
 
 
