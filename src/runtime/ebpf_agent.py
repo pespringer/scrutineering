@@ -334,7 +334,8 @@ class EBPFMonitorAgent:
 
     def __init__(self,
                  docker_bin: str = "docker",
-                 sample_rate: int = 100):
+                 sample_rate: int = 100,
+                 event_sink=None):
         self.sample_rate = sample_rate
         self._backend: MonitorBackend
         if EBPFBackend.is_available():
@@ -348,6 +349,8 @@ class EBPFMonitorAgent:
             maxsize=10_000,
         )
         self._dropped_events = 0
+        self._sink_failures = 0
+        self._event_sink = event_sink
         self._stream_task: asyncio.Task | None = None
 
     # -- Lifecycle ---------------------------------------------------------- #
@@ -372,6 +375,12 @@ class EBPFMonitorAgent:
         async for event in self._backend.watch(container_id):
             if not self._running:
                 break
+            if self._event_sink is not None:
+                try:
+                    self._event_sink.append(event)
+                except Exception:
+                    self._sink_failures += 1
+                    logger.exception("Runtime event sink failed")
             if self._event_buffer.full():
                 # Prefer recent security signals and never block the backend
                 # when a dashboard consumer falls behind.
@@ -402,6 +411,7 @@ class EBPFMonitorAgent:
             "buffered_events": self._event_buffer.qsize(),
             "buffer_capacity": self._event_buffer.maxsize,
             "dropped_events": self._dropped_events,
+            "sink_failures": self._sink_failures,
         }
 
     # -- Convenience: watch many containers --------------------------------- #

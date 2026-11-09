@@ -51,7 +51,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 - **Started:** Trivy and Grype run concurrently with bounded retries and per-scanner circuit breakers; caching and queue priorities remain.
 - Add OpenTelemetry traces and SLOs for scan latency, failures, stale data, remediation success, and rollback rate.
-- **Started:** runtime monitoring now exposes bounded-buffer health and drops oldest events instead of blocking the backend under dashboard backpressure; capability checks and durable delivery remain.
+- **Started:** runtime monitoring now exposes bounded-buffer health, durable JSONL event delivery, and sink-failure telemetry; managed queue delivery and capability checks remain.
 - **Started:** SBOM/provenance contract validation, deterministic generation, and a concrete fail-closed cosign verification adapter exist; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.
 
 ## Definition of Done
