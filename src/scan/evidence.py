@@ -64,6 +64,7 @@ def verify_evidence(
     *,
     now: datetime | None = None,
     max_age_seconds: int | None = None,
+    max_artifact_bytes: int | None = None,
 ) -> bool:
     """Verify artifact integrity and delegate signature verification to a provider."""
     if not isinstance(envelope, dict) or envelope.get("version") != "1.0.0":
@@ -77,6 +78,8 @@ def verify_evidence(
         json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
         if isinstance(artifact, dict) else artifact
     )
+    if max_artifact_bytes is not None and len(artifact_bytes) > max_artifact_bytes:
+        raise EvidenceVerificationError("evidence artifact exceeds size limit")
     if envelope.get("artifactDigest") != _sha256(artifact_bytes):
         raise EvidenceVerificationError("artifact digest does not match evidence")
     signature = envelope.get("signature") or {}
