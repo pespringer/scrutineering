@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
+import re
 
 
 def sign_service_request(service: str, body: bytes, secret: str, timestamp: int | None = None) -> dict[str, str]:
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", service): raise ValueError("invalid service name")
     issued = str(timestamp or int(time.time()))
     message = f"{service}:{issued}:".encode() + body
     signature = hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
