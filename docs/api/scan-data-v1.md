@@ -7,8 +7,9 @@
 - `GET /alerts?status=&limit=&offset=`
 - `GET /audit?actor=&event_type=&limit=&offset=`
 
-Collection endpoints return the same `{items, limit, offset, count}` envelope
-and enforce bounded pagination. The router depends on a provider interface so
+Collection endpoints return the same `{items, limit, offset, count, total}`
+envelope, where `count` is the returned page size and `total` is the filtered
+result count. The router depends on a provider interface so
 the database adapter can be wired without changing the public contract.
 
 `SqlAlchemyScanDataProvider` is the canonical read adapter for scans, findings,

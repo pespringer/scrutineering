@@ -20,6 +20,7 @@ class Page(BaseModel):
     limit: int
     offset: int
     count: int
+    total: int
 
 
 router = APIRouter(prefix="/api/v1", tags=["scan-control-plane"])
@@ -39,7 +40,7 @@ def _get_provider() -> ScanDataProvider:
 
 def _page(items: list[dict[str, Any]], limit: int, offset: int) -> Page:
     window = items[offset:offset + limit]
-    return Page(items=window, limit=limit, offset=offset, count=len(window))
+    return Page(items=window, limit=limit, offset=offset, count=len(window), total=len(items))
 
 
 @router.get("/scans/{scan_id}")

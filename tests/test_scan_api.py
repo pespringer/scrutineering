@@ -23,6 +23,7 @@ def test_versioned_read_api_has_consistent_pagination_and_filters():
     result = api.list_findings(severity="critical", image_digest=None, limit=1, offset=0)
     assert result.items == [{"fingerprint": "f1", "severity": "critical"}]
     assert result.count == 1
+    assert result.total == 2
     assert api.list_alerts(status="open", limit=100, offset=0).items[0]["id"] == "a1"
     assert api.list_audit(actor="ci", event_type=None, limit=100, offset=0).items[0]["actor"] == "ci"
 
