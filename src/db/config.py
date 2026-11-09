@@ -12,6 +12,8 @@ def get_database_url(*environment_names: str) -> str:
     for name in environment_names:
         value = os.environ.get(name, "").strip()
         if value:
+            if os.environ.get("NODE_ENV") == "production" and value.startswith("sqlite"):
+                raise RuntimeError("production database must not use SQLite")
             return value
 
     if os.environ.get("SCRUTINEERING_TEST_MODE") == "1":
