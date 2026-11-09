@@ -5,7 +5,8 @@ fields. Each hash covers the canonical record payload, creating a tamper-
 evident in-process chain while preserving append-only behavior.
 
 Audit chains can now be sent through the `AuditAnchor` adapter for external
-anchoring. The chain is not yet anchored outside the process or persisted in dedicated
+anchoring. Production deployments must connect it to an append-only external
+anchor and retain the returned anchor identifier.
 database columns. Production should anchor periodic heads and reject gaps or
 unexpected previous hashes during audit export.
 
