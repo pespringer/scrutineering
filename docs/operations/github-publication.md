@@ -11,3 +11,7 @@ requires an idempotency key, protects `main`/`master`, and reuses a prior
 result for duplicate keys within the publisher process. The adapter does not
 merge, approve, bypass branch protection, or support arbitrary repository
 coordinates.
+
+The GitLab adapter applies the same default `main`/`master` target-branch
+policy and permits a narrower configured list when a repository uses a
+different protected branch.

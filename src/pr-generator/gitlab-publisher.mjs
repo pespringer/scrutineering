@@ -1,9 +1,10 @@
-export function createGitLabPublisher({ token, allowedProjects = [], fetchImpl = fetch } = {}) {
+export function createGitLabPublisher({ token, allowedProjects = [], allowedTargetBranches = ["main", "master"], fetchImpl = fetch } = {}) {
   if (!token) throw new Error("GitLab publisher token is required");
   const published = new Map();
   return async function publishMergeRequest({ projectId, title, description, sourceBranch, targetBranch = "main", evidenceVerified, idempotencyKey }) {
     const normalizedProjectId = String(projectId);
     if (!allowedProjects.includes(normalizedProjectId)) throw new Error("GitLab project is not allowlisted");
+    if (!allowedTargetBranches.includes(targetBranch)) throw new Error("target branch is not protected by publication policy");
     if (evidenceVerified !== true) throw new Error("verified evidence is required before publication");
     if (!idempotencyKey || !title || !description || !sourceBranch || !targetBranch) throw new Error("merge request fields are required");
     const key = `${normalizedProjectId}:${idempotencyKey}`;

@@ -10,4 +10,5 @@ test("publishes an evidence-backed allowlisted GitLab MR", async () => {
   assert.deepEqual(result, { projectId: "42", iid: 3, url: "https://gitlab.com/acme/api/-/merge_requests/3", idempotencyKey: "run-1" });
   assert.deepEqual(await publish({ ...request, title: "Changed" }), result);
   assert.equal(calls, 1);
+  await assert.rejects(() => publish({ ...request, targetBranch: "feature", idempotencyKey: "run-2" }), /protected/);
 });

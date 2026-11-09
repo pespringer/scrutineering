@@ -47,6 +47,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** remediation validation now requires install, test, build, SBOM, and post-change rescan phases in order; provider-specific commands and PR publication remain.
 - **Started:** guarded GitHub and GitLab publishers require verified evidence, allowlists, and idempotency keys; GitHub App/project-token lifecycle and branch-policy enforcement remain.
 - **Completed:** GitLab publication now reuses the same idempotent result for retried project requests.
+- **Completed:** GitLab publication now rejects non-protected target branches by default.
 - **Completed:** provider tokens and publication allowlists now load through one normalized production-checked configuration boundary.
 - **Started:** remediation execution now has an in-memory coordinator and validated rollback-plan builder for the analyzing/patching/building/verifying/PR/completed path; persistence, approval, and post-merge verification remain.
 
