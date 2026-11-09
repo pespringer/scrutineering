@@ -156,6 +156,8 @@ Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
 OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
 planner and worker deployments run as non-root with restricted privilege.
+Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
+production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 
 ## Documentation
 
