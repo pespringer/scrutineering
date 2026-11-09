@@ -151,6 +151,8 @@ component merges or bypasses branch protection.
 The scanner also defaults this policy on when `NODE_ENV=production`.
 Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
+OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
+planner and worker deployments run as non-root with restricted privilege.
 
 ## Documentation
 
@@ -167,3 +169,4 @@ Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
+- [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
