@@ -117,3 +117,6 @@ Key variables:
 ### Database connection errors
 - Verify PostgreSQL is running: `docker compose exec postgres pg_isready`
 - Check database exists: `docker compose exec postgres psql -U scrutineering -l`
+Compose keeps planner, worker, PostgreSQL, and Redis containers from gaining
+new privileges. Kubernetes additionally runs planner and worker pods as
+non-root with bounded writable `/tmp` volumes.
