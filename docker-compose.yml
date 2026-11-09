@@ -24,6 +24,8 @@ services:
       dockerfile: Dockerfile
     container_name: scrutineering-app
     user: "10001:10001"
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "${PLANNER_PORT:-3000}:${PLANNER_PORT:-3000}"
     env_file:
@@ -97,6 +99,8 @@ services:
       dockerfile: Dockerfile.worker
     container_name: scrutineering-celery-worker
     user: "scanner"
+    security_opt:
+      - no-new-privileges:true
     env_file:
       - .env
     environment:
