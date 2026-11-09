@@ -7,18 +7,22 @@ from threading import Lock
 
 
 class MetricsRegistry:
-    def __init__(self):
+    def __init__(self, max_series: int = 10_000):
+        if max_series < 1: raise ValueError("max_series must be positive")
         self._counters = defaultdict(float)
         self._gauges = defaultdict(float)
         self._histograms = defaultdict(list)
         self._lock = Lock()
+        self.max_series = max_series
 
     def increment(self, name: str, value: float = 1, labels: dict[str, str] | None = None) -> None:
         with self._lock:
+            if (name, self._labels(labels)) not in self._counters and len(self._counters) >= self.max_series: raise RuntimeError("metric series limit reached")
             self._counters[(name, self._labels(labels))] += value
 
     def set_gauge(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
         with self._lock:
+            if (name, self._labels(labels)) not in self._gauges and len(self._gauges) >= self.max_series: raise RuntimeError("metric series limit reached")
             self._gauges[(name, self._labels(labels))] = value
 
     def observe(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:

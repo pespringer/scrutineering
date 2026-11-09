@@ -13,3 +13,11 @@ def test_metrics_registry_renders_counters_and_gauges():
     assert metrics.snapshot()["gauges"]["scanner_queue_depth|"] == 3
     assert 'scan_latency_seconds{quantile="0.95"} 3' in output
     assert "scan_latency_seconds_count 2" in output
+
+
+def test_metrics_registry_caps_series_cardinality():
+    import pytest
+    metrics = MetricsRegistry(max_series=1)
+    metrics.increment("one")
+    with pytest.raises(RuntimeError, match="series limit"):
+        metrics.increment("two")
