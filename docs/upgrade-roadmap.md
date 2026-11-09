@@ -92,6 +92,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** durable runtime replay supports bounded, container-scoped reads.
 - **Completed:** runtime replay now has a persistent offset checkpoint for restart-safe draining.
 - **Started:** SBOM/provenance verification now supports digest, signature, and freshness gates; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.
+- **Completed:** production cosign policy now requires an explicit certificate identity and HTTPS OIDC issuer.
 
 ## Definition of Done
 
