@@ -7,5 +7,7 @@ export async function createOidcVerifier(env = process.env, options = {}) {
   const config = loadOidcConfig(env);
   const metadata = await discoverOidcProvider({ issuer: config.issuer, fetchImpl: options.fetchImpl, timeoutMs: options.timeoutMs });
   const verifyJwt = createJwksVerifier({ jwksUri: metadata.jwksUri, fetchImpl: options.fetchImpl, verifySignature: options.verifySignature });
-  return (token) => verifyOidcToken(token, verifyJwt, { issuer: config.issuer, audience: config.audience });
+  const leewaySeconds = Number(env.OIDC_LEEWAY_SECONDS || 60);
+  if (!Number.isInteger(leewaySeconds) || leewaySeconds < 0 || leewaySeconds > 600) throw new Error("OIDC_LEEWAY_SECONDS must be between 0 and 600");
+  return (token) => verifyOidcToken(token, verifyJwt, { issuer: config.issuer, audience: config.audience, leewaySeconds });
 }

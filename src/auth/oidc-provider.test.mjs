@@ -8,3 +8,7 @@ test("composes discovery, JWKS verification, and claim policy", async () => {
   const verify = await createOidcVerifier({ OIDC_ISSUER: "https://issuer.test", OIDC_AUDIENCE: "aud" }, { fetchImpl: async (url) => ({ ok: true, async json() { return url.endsWith("keys") ? { keys: [{ kid: "k" }] } : { issuer: "https://issuer.test", jwks_uri: "https://issuer.test/keys" }; } }), verifySignature: async () => true });
   assert.equal((await verify(token)).id, "u");
 });
+
+test("rejects unreasonable OIDC clock skew", async () => {
+  await assert.rejects(() => createOidcVerifier({ OIDC_ISSUER: "https://issuer.test", OIDC_AUDIENCE: "aud", OIDC_LEEWAY_SECONDS: "601" }, { fetchImpl: async () => ({ ok: true, async json() { return { issuer: "https://issuer.test", jwks_uri: "https://issuer.test/keys" }; } }), verifySignature: async () => true }), /between/);
+});
