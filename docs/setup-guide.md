@@ -124,3 +124,5 @@ Apply `k8s/resource-quota.yaml` in the target namespace so scanner concurrency
 cannot exhaust node capacity.
 Apply `k8s/pod-disruption-budgets.yaml` as well to keep one planner and worker
 available during voluntary node or deployment disruptions.
+The planner image uses `npm ci --omit=dev` so production dependencies match the
+lockfile exactly.

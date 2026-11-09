@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Install deps first for layer caching
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci --omit=dev
 
 # Copy source
 COPY src/ ./src/
