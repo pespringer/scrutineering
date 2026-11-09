@@ -11,9 +11,11 @@ directly via child_process without requiring Celery.
 import asyncio
 import logging
 import os
+from dataclasses import replace
 from typing import Optional
 
-from .registry import detect_registry, authenticate_to_registry
+from .registry import detect_registry, authenticate_to_registry, resolve_image_digest
+from .image_identity import parse_image_reference
 from .scanners.base import ScannerError, ScannerFinding
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .scanners.trivy import TrivyScanner
@@ -44,6 +46,8 @@ class ScanService:
         scanner_retry_backoff: float | None = None,
         scanner_circuit_failure_threshold: int | None = None,
         scanner_circuit_reset_timeout: float | None = None,
+        require_immutable_identity: bool | None = None,
+        digest_resolver=resolve_image_digest,
     ):
         self.trivy_timeout = trivy_timeout
         self.grype_timeout = grype_timeout
@@ -63,6 +67,11 @@ class ScanService:
         self._scanner_circuits = {}
         self._circuit_failure_threshold = threshold
         self._circuit_reset_timeout = reset_timeout
+        self.require_immutable_identity = (
+            os.environ.get("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "false").lower() == "true"
+            if require_immutable_identity is None else require_immutable_identity
+        )
+        self._digest_resolver = digest_resolver
 
     async def scan(
         self,
@@ -84,6 +93,23 @@ class ScanService:
 
         scan_id = str(uuid.uuid4())
         scanners = scanners or ["trivy", "grype"]
+        identity = parse_image_reference(image_name)
+        resolved_digest = identity.digest
+        if resolved_digest is None:
+            try:
+                resolved_digest = await self._digest_resolver(image_name)
+                identity = replace(identity, digest=resolved_digest)
+            except Exception as exc:
+                logger.warning("Could not resolve immutable identity for '%s': %s", image_name, exc)
+                if self.require_immutable_identity:
+                    return {
+                        "scan_id": scan_id,
+                        "image_name": image_name,
+                        "status": "failed",
+                        "errors": [{"component": "identity", "error": str(exc)}],
+                        "identity_verified": False,
+                    }
+        scan_reference = identity.reference if resolved_digest else image_name
 
         # Detect registry and attempt auth
         registry = detect_registry(image_name)
@@ -103,7 +129,7 @@ class ScanService:
 
         # Build scanners
         scanner_instances = []
-        scan_params = {"username": None, "password": None}
+        scan_params = {"registry_username": None, "registry_password": None}
         if registry_creds:
             scan_params["username"], scan_params["password"] = registry_creds
 
@@ -117,7 +143,6 @@ class ScanService:
             elif s == "grype":
                 scanner_instances.append(GrypeScanner(
                     timeout=self.grype_timeout,
-                    **scan_params,
                 ))
             else:
                 logger.warning("Unknown scanner '%s', skipping", s)
@@ -131,7 +156,7 @@ class ScanService:
             }
 
         # Run scanners concurrently
-        tasks = [self._run_single(scanner, image_name, scanner.source.value) for scanner in scanner_instances]
+        tasks = [self._run_single(scanner, scan_reference, scanner.source.value) for scanner in scanner_instances]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         all_findings = []
@@ -173,7 +198,7 @@ class ScanService:
             try:
                 persisted = persist_findings(
                     scan_id=scan_id,
-                    image_name=image_name,
+                    image_name=scan_reference,
                     deduped_findings=deduped,
                     source_name=",".join(scanners_completed),
                 )
@@ -192,6 +217,8 @@ class ScanService:
         return {
             "scan_id": scan_id,
             "image_name": image_name,
+            "resolved_digest": resolved_digest,
+            "identity_verified": resolved_digest is not None,
             "registry": registry,
             "status": status,
             "findings": len(deduped),

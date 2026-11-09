@@ -255,6 +255,32 @@ class TestDigestResolution:
         assert calls[0][:4] == ("docker", "image", "inspect", "alpine:3.20")
 
 
+class TestScanIdentityBoundary:
+    def test_scan_fails_closed_when_immutable_identity_is_required(self):
+        async def resolver(_image):
+            raise RuntimeError("registry unavailable")
+
+        service = ScanService(require_immutable_identity=True, digest_resolver=resolver)
+        result = asyncio.run(service.scan("alpine:latest", scanners=["trivy"], save_results=False))
+        assert result["status"] == "failed"
+        assert result["identity_verified"] is False
+
+    def test_resolved_digest_is_sent_to_scanners(self):
+        seen = []
+
+        async def resolver(_image):
+            return "sha256:" + "c" * 64
+
+        class FakeService(ScanService):
+            async def _run_single(self, scanner, image_name, source_name):
+                seen.append(image_name)
+                return []
+
+        service = FakeService(require_immutable_identity=True, digest_resolver=resolver)
+        asyncio.run(service.scan("alpine:latest", scanners=["trivy"], save_results=False))
+        assert seen == ["alpine@sha256:" + "c" * 64]
+
+
 # -- Risk score tests ------------------------------------------------------ #
 
 class TestRiskScore:

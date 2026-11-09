@@ -8,3 +8,7 @@ non-passing.
 
 The command uses argument-vector execution and never invokes a shell. Registry
 API resolution for images that are not present locally remains a follow-up.
+
+Set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` in production. The scan service then
+refuses to run scanners when a tag cannot be resolved, and passes the resolved
+`repository@sha256:...` reference to every scanner and persistence boundary.
