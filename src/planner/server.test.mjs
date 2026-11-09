@@ -75,3 +75,37 @@ test("non-loopback planners fail closed without credentials", () => {
     /PLANNER_API_KEY must be configured/,
   );
 });
+
+test("rate limits planner routes but never blocks health checks", async () => {
+  const server = createPlannerServer({
+    apiKey: "test-secret",
+    bindHost: "127.0.0.1",
+    rateLimitPerMinute: 1,
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address();
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  try {
+    const first = await fetch(`${baseUrl}/v1/plans`, {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret", "content-type": "application/json" },
+      body: JSON.stringify({ findings: [], dryRun: true }),
+    });
+    assert.equal(first.status, 200);
+
+    const limited = await fetch(`${baseUrl}/v1/plans`, {
+      method: "POST",
+      headers: { authorization: "Bearer test-secret", "content-type": "application/json" },
+      body: JSON.stringify({ findings: [], dryRun: true }),
+    });
+    assert.equal(limited.status, 429);
+    assert.equal((await limited.json()).error.code, "rate_limited");
+    assert.ok(Number(limited.headers.get("retry-after")) >= 1);
+
+    const health = await fetch(`${baseUrl}/health`);
+    assert.equal(health.status, 200);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+});

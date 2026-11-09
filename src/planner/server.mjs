@@ -33,6 +33,34 @@ function requestIdFor(req) {
   return randomUUID();
 }
 
+function createRateLimiter(limitPerMinute) {
+  const windowMs = 60_000;
+  const clients = new Map();
+
+  return (clientKey) => {
+    const now = Date.now();
+    const current = clients.get(clientKey);
+    const window = current && now - current.startedAt < windowMs
+      ? current
+      : { startedAt: now, count: 0 };
+
+    window.count += 1;
+    clients.set(clientKey, window);
+
+    if (clients.size > 10_000) {
+      for (const [key, value] of clients) {
+        if (now - value.startedAt >= windowMs) clients.delete(key);
+      }
+    }
+
+    return {
+      allowed: window.count <= limitPerMinute,
+      remaining: Math.max(0, limitPerMinute - window.count),
+      retryAfterSeconds: Math.max(1, Math.ceil((window.startedAt + windowMs - now) / 1000)),
+    };
+  };
+}
+
 function collectBody(req) {
   return new Promise((resolve, reject) => {
     let buffer = "";
@@ -61,10 +89,16 @@ function isAuthorized(req, apiKey) {
 export function createPlannerServer({
   apiKey = process.env.PLANNER_API_KEY || "",
   bindHost = host,
+  rateLimitPerMinute = Number(process.env.PLANNER_RATE_LIMIT_PER_MINUTE || 60),
 } = {}) {
   if (!isLoopbackHost(bindHost) && !apiKey) {
     throw new Error("PLANNER_API_KEY must be configured for non-loopback deployments");
   }
+  if (!Number.isInteger(rateLimitPerMinute) || rateLimitPerMinute < 1) {
+    throw new Error("PLANNER_RATE_LIMIT_PER_MINUTE must be a positive integer");
+  }
+
+  const consumeRateLimit = createRateLimiter(rateLimitPerMinute);
 
   return http.createServer(async (req, res) => {
     const requestId = requestIdFor(req);
@@ -72,6 +106,14 @@ export function createPlannerServer({
 
     if (req.method === "GET" && requestPath === "/health") {
       return sendJson(res, 200, { status: "ok" }, requestId);
+    }
+
+    const rate = consumeRateLimit(req.socket.remoteAddress || "unknown");
+    res.setHeader("X-RateLimit-Limit", String(rateLimitPerMinute));
+    res.setHeader("X-RateLimit-Remaining", String(rate.remaining));
+    if (!rate.allowed) {
+      res.setHeader("Retry-After", String(rate.retryAfterSeconds));
+      return sendError(res, 429, "rate_limited", "Too many requests; retry later.", requestId);
     }
 
     if (!isAuthorized(req, apiKey)) {
