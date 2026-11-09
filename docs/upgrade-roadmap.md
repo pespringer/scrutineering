@@ -7,10 +7,10 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Current Baseline
 
 - Node.js planner logic and Python scanning/runtime services are split across separate control paths.
-- `dashboard/` and `web/` overlap and target different API contracts.
+- `dashboard/` is now the canonical frontend; `web/` remains a legacy tree pending removal.
 - Remediation currently produces deterministic PR artifacts; it does not yet patch, validate, or merge repositories.
-- The planner HTTP API has no authentication, schema validation, request tracing, or rate limiting.
-- Compose exposes PostgreSQL and Redis with development credentials.
+- The planner now has API-key authentication, request IDs, structured errors, and process-local rate limiting; OIDC/RBAC, complete schema validation, and distributed limiting remain.
+- Compose keeps PostgreSQL and Redis internal by default and requires explicit credentials.
 - Scanner orchestration, observability, and finding lifecycle management need hardening.
 
 ## Phase 0 — Restore Trust (now)
@@ -31,11 +31,11 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
 - **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.
-- Select one frontend and deprecate the other.
-- Define one versioned API contract for scans, findings, remediation runs, alerts, and audit events.
-- Add OIDC authentication, RBAC, tenant boundaries, request IDs, structured errors, rate limits, and immutable audit records.
-- Stop publishing database/Redis ports by default; remove default secrets; run containers as non-root.
-- Identify images by immutable digest and store scanner/database versions with every result.
+- **Started:** `dashboard/` is canonical and `web/` is explicitly marked legacy; removal awaits downstream migration.
+- **Started:** planner API v1 is documented; scan, findings, alerts, and audit endpoints still need to converge on it.
+- **In progress:** request IDs, structured errors, API keys, and process-local limits exist; OIDC/RBAC, tenant boundaries, and immutable audit records remain.
+- **Started:** state services are internal by default and credentials are explicit; non-root containers remain.
+- **Started:** digest-aware identities and provenance fields exist; registry resolution and universal scan population remain.
 
 ## Phase 2 — Make Remediation Real (30–60 days)
 
@@ -46,10 +46,10 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Phase 3 — Production Operations (60–90 days)
 
-- Run Trivy and Grype concurrently with bounded retries, caching, queue priorities, and circuit breakers.
+- **Started:** Trivy and Grype run concurrently; bounded retries, caching, queue priorities, and circuit breakers remain.
 - Add OpenTelemetry traces and SLOs for scan latency, failures, stale data, remediation success, and rollback rate.
 - Harden eBPF/runtime monitoring with capability checks, backpressure, durable event delivery, and degraded-health reporting.
-- Produce SBOMs, signed images, provenance attestations, migration tests, and staging rollback drills.
+- **Started:** SBOM/provenance contract validation exists; artifact generation, signing, migration tests, and staging rollback drills remain.
 
 ## Definition of Done
 
