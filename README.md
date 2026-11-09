@@ -176,5 +176,6 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
+- Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
