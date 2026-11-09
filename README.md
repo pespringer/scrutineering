@@ -141,6 +141,7 @@ node scripts/validate-policy-contract.mjs
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
   analytics, and forensics routers and exposes `/health`.
   `/ready` checks database connectivity for deployment probes.
+  `/version` reports the configured service version and revision.
 
 Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
 tag-only images fail closed when a digest cannot be resolved. Evidence must be
@@ -165,3 +166,4 @@ Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
+- [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
