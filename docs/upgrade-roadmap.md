@@ -113,4 +113,9 @@ durable publisher idempotency, remediation event sequencing, scanner latency
 metrics, dashboard CI builds, Kubernetes temporary-storage limits, and stricter
 image/database/evidence validation.
 
+This batch additionally adds bounded JWKS and database-pool configuration,
+durable audit exports, deployment-manifest validation, pod disruption budgets,
+Compose privilege restrictions, runtime event rotation, and deployment resource
+quotas.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
