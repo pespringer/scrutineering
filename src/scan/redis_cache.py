@@ -16,7 +16,9 @@ class RedisScanCache:
 
     async def get(self, scanner: str, image: str):
         value = await self.client.get(self._key(scanner, image))
-        return json.loads(value) if value else None
+        if not value: return None
+        try: return json.loads(value)
+        except (TypeError, json.JSONDecodeError): return None
 
     async def set(self, scanner: str, image: str, findings):
         await self.client.set(self._key(scanner, image), json.dumps(findings, sort_keys=True), ex=self.ttl_seconds)
