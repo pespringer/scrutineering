@@ -35,6 +35,8 @@ app = create_celery_app()
 def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
     """Submit a scan with explicit broker queue and priority options."""
     options = scan_task_options(priority)
+    if kwargs.get("scan_id"):
+        options["task_id"] = str(kwargs["scan_id"])
     return run_scan.apply_async(args=[image_name], kwargs=kwargs, **options)
 
 
