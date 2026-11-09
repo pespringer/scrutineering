@@ -19,6 +19,11 @@ tenant claims before constructing a principal.
 Planner, CI, rollout, and tenant-bearing requests are checked against these
 claims. OIDC/JWT verification must still happen before claims are imported.
 
+`src/auth/oidc.mjs` provides the claim-policy boundary: a deployment-specific
+signature verifier supplies trusted claims, then issuer, audience, expiry, and
+activation checks map them into the common principal shape. It does not accept
+unsigned or self-decoded JWT payloads.
+
 Run the focused contract tests with:
 
 ```bash
