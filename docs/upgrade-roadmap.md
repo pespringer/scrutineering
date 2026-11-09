@@ -42,7 +42,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Phase 2 — Make Remediation Real (30–60 days)
 
-- Add isolated worktree patching with parser-aware edits.
+- **Started:** remediation workers can now create and clean up detached Git worktrees without shell interpolation; parser-aware patching remains.
 - Run dependency installation, tests, builds, SBOM generation, and post-change rescans before opening a PR.
 - Integrate GitHub/GitLab using least-privilege credentials and signed evidence artifacts.
 - Model remediation as an explicit state machine with retry, approval, rollback, and post-merge verification.
