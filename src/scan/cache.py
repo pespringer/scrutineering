@@ -18,6 +18,7 @@ class ScanCache:
         if max_entry_bytes < 1: raise ValueError("max_entry_bytes must be positive")
         self.directory = Path(directory)
         self.directory.mkdir(parents=True, exist_ok=True)
+        self.directory.chmod(0o700)
         self.ttl_seconds = ttl_seconds
         self.max_entry_bytes = max_entry_bytes
 
