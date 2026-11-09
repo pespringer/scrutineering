@@ -26,6 +26,14 @@ class MetricsRegistry:
             self._counters.clear()
             self._gauges.clear()
 
+    def snapshot(self) -> dict[str, dict[str, float]]:
+        """Return a lock-protected structured view for diagnostics and tests."""
+        with self._lock:
+            return {
+                "counters": {f"{name}|{labels}": value for (name, labels), value in self._counters.items()},
+                "gauges": {f"{name}|{labels}": value for (name, labels), value in self._gauges.items()},
+            }
+
     @staticmethod
     def _labels(labels: dict[str, str] | None) -> str:
         if not labels: return ""

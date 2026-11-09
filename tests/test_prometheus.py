@@ -8,3 +8,4 @@ def test_metrics_registry_renders_counters_and_gauges():
     output = metrics.render()
     assert 'scan_total{status="completed"} 1' in output
     assert "scanner_queue_depth 3" in output
+    assert metrics.snapshot()["gauges"]["scanner_queue_depth|"] == 3
