@@ -30,6 +30,7 @@ jobs:
       - run: node --test "src/**/*.test.mjs"
       - run: node scripts/run-remediation-dry-run-harness.mjs
       - run: node scripts/run-verification-harness.mjs
+      - run: npm run drill:staging-rollback
 
   # ------------------------------------------------
   # Python Services — lint, test
