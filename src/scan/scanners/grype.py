@@ -28,6 +28,7 @@ class GrypeScanner(ScannerAdapter):
         return FindingSource.GRYPE
 
     def __init__(self, timeout: int = 600, grype_cmd: str = "grype"):
+        if timeout < 1: raise ValueError("timeout must be positive")
         self.timeout = timeout
         self.grype_cmd = grype_cmd
 

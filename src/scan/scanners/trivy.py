@@ -54,6 +54,7 @@ class TrivyScanner(ScannerAdapter):
         registry_username: Optional[str] = None,
         registry_password: Optional[str] = None,
     ):
+        if timeout < 1: raise ValueError("timeout must be positive")
         self.severities = severities
         self.timeout = timeout
         self.trivy_cmd = trivy_cmd
