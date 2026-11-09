@@ -28,9 +28,8 @@ jobs:
       - run: npx ajv compile -s "schemas/policy-contract/*.json" 2>/dev/null || echo "No JSON schemas to validate"
       - run: npm run validate:evidence-contract
       - run: node --test "src/**/*.test.mjs"
-      - run: |
-          node scripts/run-remediation-dry-run-harness.mjs || true
-          node scripts/run-verification-harness.mjs || true
+      - run: node scripts/run-remediation-dry-run-harness.mjs
+      - run: node scripts/run-verification-harness.mjs
 
   # ------------------------------------------------
   # Python Services — lint, test
@@ -44,7 +43,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
       - run: pip install -r requirements.txt
-      - run: python -m pytest tests/ -v
+      - run: PYTHONPATH=. python -m pytest tests/ -v
 
   # ------------------------------------------------
   # Docker build (planner + worker images)
