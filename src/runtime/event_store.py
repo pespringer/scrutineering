@@ -33,7 +33,11 @@ class JsonlEventStore:
         if limit < 1 or not self.path.exists():
             return []
         lines = self.path.read_text(encoding="utf-8").splitlines()
-        events = [json.loads(line) for line in lines if line]
+        events = []
+        for line in lines:
+            if not line: continue
+            try: events.append(json.loads(line))
+            except json.JSONDecodeError: continue
         if container_id is not None:
             events = [event for event in events if event.get("container_id") == container_id]
         return events[-limit:]

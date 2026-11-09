@@ -14,3 +14,9 @@ def test_jsonl_event_store_persists_and_replays_recent_events(tmp_path):
 
 def test_jsonl_event_store_handles_empty_state(tmp_path):
     assert JsonlEventStore(tmp_path / "missing.jsonl").read() == []
+
+
+def test_jsonl_event_store_skips_corrupt_lines(tmp_path):
+    path = tmp_path / "events.jsonl"
+    path.write_text("not-json\n")
+    assert JsonlEventStore(path).read() == []
