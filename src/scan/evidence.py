@@ -61,10 +61,18 @@ def verify_evidence(
     envelope: dict[str, Any],
     artifact: bytes | dict[str, Any],
     signature_verifier,
+    *,
+    now: datetime | None = None,
+    max_age_seconds: int | None = None,
 ) -> bool:
     """Verify artifact integrity and delegate signature verification to a provider."""
     if not isinstance(envelope, dict) or envelope.get("version") != "1.0.0":
         raise EvidenceVerificationError("unsupported evidence contract")
+    if max_age_seconds is not None:
+        generated = datetime.fromisoformat(envelope["generatedAt"].replace("Z", "+00:00"))
+        current = now or datetime.now(timezone.utc)
+        if (current - generated).total_seconds() > max_age_seconds:
+            raise EvidenceVerificationError("evidence is stale")
     artifact_bytes = (
         json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
         if isinstance(artifact, dict) else artifact

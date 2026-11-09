@@ -1,6 +1,7 @@
 import pytest
 
 from src.scan.evidence import EvidenceVerificationError, build_evidence, verify_evidence
+from datetime import datetime, timezone
 
 
 def test_build_evidence_is_deterministic_for_json_artifacts():
@@ -54,3 +55,14 @@ def test_verification_fails_closed_when_provider_rejects():
     )
     with pytest.raises(EvidenceVerificationError, match="signature"):
         verify_evidence(envelope, b"artifact", lambda *_: False)
+
+
+def test_verification_rejects_stale_evidence():
+    envelope = build_evidence(
+        artifact=b"artifact", artifact_type="provenance", format="slsa-provenance",
+        subject_digest="sha256:" + "b" * 64, tool_name="builder", tool_version="1",
+        signature_provider="sigstore", signature_identity="id", signature_value="x" * 16,
+        generated_at="2026-11-08T12:00:00Z",
+    )
+    with pytest.raises(EvidenceVerificationError, match="stale"):
+        verify_evidence(envelope, b"artifact", lambda *_: True, now=datetime(2026, 11, 9, tzinfo=timezone.utc), max_age_seconds=60)
