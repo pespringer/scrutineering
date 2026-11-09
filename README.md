@@ -111,8 +111,8 @@ kubectl apply -f k8s/services.yaml
 ## Monitoring
 
 - Runtime monitoring APIs are documented in `docs/operations/` and exposed by
-  the Python monitoring router; Prometheus scraping is not yet wired to the
-  planner server.
+  the Python monitoring router. The canonical FastAPI app exposes Prometheus
+  text metrics at `/metrics`.
 - Grafana/Prometheus configuration lives in `monitoring/`.
 
 ## Policy Contract

@@ -1,6 +1,7 @@
 """Canonical FastAPI application composition point."""
 
 from fastapi import FastAPI
+from fastapi.responses import PlainTextResponse
 
 from src.analytics.api import router as analytics_router
 from src.forensics.api import router as forensics_router
@@ -9,6 +10,9 @@ from src.scan.api import router as scan_router
 from src.scan.api import set_scan_data_provider
 from src.scan.db_provider import SqlAlchemyScanDataProvider
 from src.db.connection import get_session
+from src.telemetry.prometheus import MetricsRegistry
+
+metrics = MetricsRegistry()
 
 
 def create_app() -> FastAPI:
@@ -22,6 +26,10 @@ def create_app() -> FastAPI:
     @application.get("/health", tags=["health"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @application.get("/metrics", tags=["health"], response_class=PlainTextResponse)
+    def prometheus_metrics():
+        return PlainTextResponse(metrics.render(), media_type="text/plain; version=0.0.4")
 
     return application
 
