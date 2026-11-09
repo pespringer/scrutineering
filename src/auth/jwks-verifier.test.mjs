@@ -18,3 +18,11 @@ test("rejects unsigned JWTs", async () => {
   const verify = createJwksVerifier({ jwksUri: "https://issuer.test/keys", verifySignature: async () => true });
   await assert.rejects(() => verify(token), /insecure/);
 });
+
+test("refreshes JWKS when a rotated key is unknown", async () => {
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const token = `${encode({ alg: "RS256", kid: "rotated" })}.${encode({ sub: "user-1" })}.sig`;
+  let fetches = 0;
+  const verify = createJwksVerifier({ jwksUri: "https://issuer.test/keys", fetchImpl: async () => ({ ok: true, async json() { fetches += 1; return { keys: [{ kid: fetches > 1 ? "rotated" : "old" }] }; } }), verifySignature: async () => true });
+  assert.equal((await verify(token)).sub, "user-1"); assert.equal(fetches, 2);
+});

@@ -14,7 +14,11 @@ export function createJwksVerifier({ jwksUri, fetchImpl = fetch, verifySignature
       if (!response.ok) throw new Error(`JWKS fetch failed with status ${response.status}`);
       cached = { keys: (await response.json()).keys || [], expiresAt: Date.now() + cacheTtlMs };
     }
-    const key = cached.keys.find((candidate) => candidate.kid === header.kid);
+    let key = cached.keys.find((candidate) => candidate.kid === header.kid);
+    if (!key) {
+      cached = null;
+      return verify(token);
+    }
     if (!key || !(await verifySignature({ header, claims, key, signed: `${parts[0]}.${parts[1]}`, signature: parts[2] }))) throw new Error("JWT signature verification failed");
     return claims;
   };
