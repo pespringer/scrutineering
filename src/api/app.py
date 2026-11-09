@@ -10,6 +10,7 @@ from src.scan.api import router as scan_router
 from src.scan.api import set_scan_data_provider
 from src.scan.db_provider import SqlAlchemyScanDataProvider
 from src.db.connection import get_session
+from src.api.readiness import check_database
 from src.telemetry.prometheus import MetricsRegistry
 
 metrics = MetricsRegistry()
@@ -26,6 +27,10 @@ def create_app() -> FastAPI:
     @application.get("/health", tags=["health"])
     def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @application.get("/ready", tags=["health"])
+    def readiness():
+        return check_database(get_session)
 
     @application.get("/metrics", tags=["health"], response_class=PlainTextResponse)
     def prometheus_metrics():

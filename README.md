@@ -137,6 +137,7 @@ node scripts/validate-policy-contract.mjs
   in [Planner API v1](docs/api/planner-v1.md).
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
   analytics, and forensics routers and exposes `/health`.
+  `/ready` checks database connectivity for deployment probes.
 
 Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
 tag-only images fail closed when a digest cannot be resolved. Evidence must be
