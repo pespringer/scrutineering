@@ -43,7 +43,11 @@ def run_validation_pipeline(
             return ValidationResult(status="blocked", phases=results, error=f"{phase} command is not allowlisted")
         timeout = (phase_timeouts or {}).get(phase, timeout_seconds)
         if timeout < 1: return ValidationResult(status="blocked", phases=results, error=f"{phase} timeout must be positive")
-        completed = subprocess.run(command, cwd=worktree, capture_output=True, text=True, check=False, timeout=timeout)
+        try:
+            completed = subprocess.run(command, cwd=worktree, capture_output=True, text=True, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            results.append({"phase": phase, "command": command, "returncode": -1, "stdout": "", "stderr": "timed out"})
+            return ValidationResult(status="failed", phases=results, error=f"{phase} phase timed out")
         result = {
             "phase": phase, "command": command, "returncode": completed.returncode,
             "stdout": completed.stdout[-2000:], "stderr": completed.stderr[-2000:],
