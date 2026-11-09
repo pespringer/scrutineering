@@ -11,9 +11,7 @@ from src.scan.api import set_scan_data_provider
 from src.scan.db_provider import SqlAlchemyScanDataProvider
 from src.db.connection import get_session
 from src.api.readiness import check_database
-from src.telemetry.prometheus import MetricsRegistry
-
-metrics = MetricsRegistry()
+from src.telemetry.scan_metrics import scan_metrics as metrics
 
 
 def create_app() -> FastAPI:

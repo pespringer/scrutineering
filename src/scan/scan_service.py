@@ -18,6 +18,7 @@ from .registry import detect_registry, authenticate_to_registry, resolve_image_d
 from .image_identity import parse_image_reference
 from .cache import ScanCache
 from src.db.models import Severity
+from src.telemetry.scan_metrics import record_scan
 from .scanners.base import ScannerError, ScannerFinding
 from .circuit_breaker import CircuitBreaker, CircuitOpenError
 from .scanners.trivy import TrivyScanner
@@ -299,6 +300,7 @@ class ScanService:
         if self._scanner_cache is not None:
             cached = self._scanner_cache.get(source_name, image_name)
             if cached is not None:
+                record_scan("cache_hit", source_name)
                 return [ScannerFinding(**{
                     **finding,
                     "severity": Severity(finding["severity"]) if finding.get("severity") else None,
@@ -314,12 +316,14 @@ class ScanService:
                         **finding.__dict__,
                         "severity": finding.severity.value if finding.severity else None,
                     } for finding in findings])
+                record_scan("completed", source_name)
                 circuit.record_success()
                 logger.info("%s found %d findings on '%s'", source_name, len(findings), image_name)
                 return findings
             except ScannerError:
                 if attempt >= self.scanner_retry_attempts:
                     circuit.record_failure()
+                    record_scan("failed", source_name)
                     raise
                 delay = self.scanner_retry_backoff * (2 ** attempt)
                 logger.warning("%s scan failed; retrying in %.2fs", source_name, delay)

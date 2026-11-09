@@ -11,3 +11,6 @@ pure and tested independently from broker delivery.
 Call `src.scan.tasks.enqueue_scan(image_name, priority="high")` from API or
 scheduler code so queue selection is centralized rather than duplicated at
 call sites.
+
+Scanner outcomes are exported as `scrutineering_scans_total` with `status` and
+`scanner` labels, including `completed`, `failed`, and `cache_hit`.
