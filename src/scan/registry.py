@@ -201,25 +201,29 @@ async def authenticate_to_registry(registry: str, **kwargs) -> Optional[tuple[st
     return None
 
 
-async def docker_pull(image_name: str) -> str:
+async def docker_pull(image_name: str, timeout_seconds: int = 1800) -> str:
     """Pull a container image using Docker.
 
     Returns stdout from docker pull.
     Raises RuntimeError if the pull fails.
     """
+    if timeout_seconds < 1: raise ValueError("timeout_seconds must be positive")
     try:
         proc = await asyncio.create_subprocess_exec(
             "docker", "pull", image_name,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
         if proc.returncode != 0:
             raise RuntimeError(
                 f"docker pull failed for '{image_name}': "
                 f"{stderr.decode(errors='replace')[:500]}"
             )
         return stdout.decode(errors="replace")
+    except asyncio.TimeoutError as exc:
+        proc.kill(); await proc.communicate()
+        raise RuntimeError("docker pull timed out") from exc
     except FileNotFoundError:
         raise RuntimeError("Docker is not installed or not in PATH.")
 
