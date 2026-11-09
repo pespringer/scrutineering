@@ -1,4 +1,4 @@
-from src.api.readiness import check_database
+from src.api.readiness import check_database, check_dependencies
 
 
 class Session:
@@ -16,3 +16,7 @@ def test_database_readiness_fails_closed():
         def __enter__(self): raise RuntimeError("database down")
         def __exit__(self, *args): pass
     assert check_database(Broken)["status"] == "not_ready"
+
+
+def test_dependency_readiness_reports_each_check():
+    assert check_dependencies(Session, {"redis": lambda: {"status": "ready"}})["status"] == "ready"
