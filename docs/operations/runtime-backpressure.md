@@ -13,6 +13,9 @@ events before buffering them, and exposes sink failures alongside dropped-event
 counts. Production deployments should replace JSONL with a managed durable
 queue or database once retention and replay policies are defined.
 
+The JSONL sink rotates the active file once `max_bytes` is reached, keeping a
+single previous segment for bounded local storage.
+
 `EBPFMonitorAgent.capability_report()` exposes whether BCC and the kernel
 tracing interface are present, making fallback mode visible instead of silently
 appearing healthy.

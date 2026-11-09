@@ -12,11 +12,18 @@ from .ebpf_agent import RuntimeEvent
 class JsonlEventStore:
     """Append-only JSONL store with fsync for each event."""
 
-    def __init__(self, path: str | Path):
+    def __init__(self, path: str | Path, max_bytes: int = 50_000_000):
         self.path = Path(path)
+        if max_bytes < 1:
+            raise ValueError("max_bytes must be positive")
+        self.max_bytes = max_bytes
         self.path.parent.mkdir(parents=True, exist_ok=True)
 
     def append(self, event: RuntimeEvent) -> None:
+        if self.path.exists() and self.path.stat().st_size >= self.max_bytes:
+            rotated = self.path.with_suffix(self.path.suffix + ".1")
+            rotated.unlink(missing_ok=True)
+            self.path.replace(rotated)
         with self.path.open("a", encoding="utf-8") as stream:
             stream.write(json.dumps(event.to_dict(), sort_keys=True) + "\n")
             stream.flush()
