@@ -72,7 +72,7 @@ class ScanService:
         self._circuit_failure_threshold = threshold
         self._circuit_reset_timeout = reset_timeout
         self.require_immutable_identity = (
-            os.environ.get("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "false").lower() == "true"
+            os.environ.get("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "true" if os.environ.get("NODE_ENV") == "production" else "false").lower() == "true"
             if require_immutable_identity is None else require_immutable_identity
         )
         self._digest_resolver = digest_resolver

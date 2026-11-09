@@ -266,6 +266,11 @@ class TestScanIdentityBoundary:
         assert result["status"] == "failed"
         assert result["identity_verified"] is False
 
+    def test_production_defaults_to_immutable_identity(self, monkeypatch):
+        monkeypatch.setenv("NODE_ENV", "production")
+        monkeypatch.delenv("REQUIRE_IMMUTABLE_SCAN_IDENTITY", raising=False)
+        assert ScanService().require_immutable_identity is True
+
     def test_resolved_digest_is_sent_to_scanners(self):
         seen = []
 

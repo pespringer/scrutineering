@@ -144,6 +144,7 @@ tag-only images fail closed when a digest cannot be resolved. Evidence must be
 verified before remediation. The executor runs isolated validation, and the
 GitHub publisher can open allowlisted PRs only after verified evidence; neither
 component merges or bypasses branch protection.
+The scanner also defaults this policy on when `NODE_ENV=production`.
 
 ## Documentation
 
