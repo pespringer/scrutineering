@@ -26,6 +26,7 @@ class MetricsRegistry:
             self._gauges[(name, self._labels(labels))] = value
 
     def observe(self, name: str, value: float, labels: dict[str, str] | None = None) -> None:
+        if not isinstance(value, (int, float)) or value < 0: raise ValueError("metric observation must be non-negative")
         with self._lock:
             self._histograms[(name, self._labels(labels))].append(float(value))
 

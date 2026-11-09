@@ -21,3 +21,8 @@ def test_metrics_registry_caps_series_cardinality():
     metrics.increment("one")
     with pytest.raises(RuntimeError, match="series limit"):
         metrics.increment("two")
+
+
+def test_metrics_registry_rejects_negative_observations():
+    import pytest
+    with pytest.raises(ValueError): MetricsRegistry().observe("latency", -1)
