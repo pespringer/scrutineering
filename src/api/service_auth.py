@@ -24,3 +24,15 @@ def verify_service_request(headers: dict[str, str], body: bytes, secret: str, *,
         return False
     expected = sign_service_request(service, body, secret, int(issued))["x-service-signature"]
     return bool(service and signature) and hmac.compare_digest(signature, expected)
+
+
+def create_replay_guard(max_entries: int = 10_000):
+    seen: dict[str, int] = {}
+    def check(signature: str, now: int) -> bool:
+        for key, expires in list(seen.items()):
+            if expires < now: seen.pop(key, None)
+        if signature in seen: return False
+        if len(seen) >= max_entries: return False
+        seen[signature] = now + 300
+        return True
+    return check
