@@ -1,4 +1,5 @@
 import asyncio
+import pytest
 from src.scan.redis_cache import RedisScanCache
 
 
@@ -10,3 +11,7 @@ def test_redis_scan_cache_round_trip():
     cache = RedisScanCache(Client(), ttl_seconds=10)
     asyncio.run(cache.set("trivy", "image", [{"id": "CVE-1"}]))
     assert asyncio.run(cache.get("trivy", "image")) == [{"id": "CVE-1"}]
+
+
+def test_redis_cache_rejects_unsafe_prefix():
+    with pytest.raises(ValueError): RedisScanCache(object(), prefix="bad prefix")
