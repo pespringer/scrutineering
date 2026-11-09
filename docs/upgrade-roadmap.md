@@ -52,7 +52,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Started:** Trivy and Grype run concurrently with bounded retries and per-scanner circuit breakers; caching and queue priorities remain.
 - Add OpenTelemetry traces and SLOs for scan latency, failures, stale data, remediation success, and rollback rate.
 - Harden eBPF/runtime monitoring with capability checks, backpressure, durable event delivery, and degraded-health reporting.
-- **Started:** SBOM/provenance contract validation exists; artifact generation, signing, migration tests, and staging rollback drills remain.
+- **Started:** SBOM/provenance contract validation and deterministic evidence-envelope generation exist; provider signing, migration tests, and staging rollback drills remain.
 
 ## Definition of Done
 
