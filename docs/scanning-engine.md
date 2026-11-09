@@ -70,6 +70,9 @@ Image evidence uses `registry/repository@sha256:<digest>` when a digest is
 available. Tag-only inputs remain supported for discovery, but are marked
 mutable and must not be treated as immutable release evidence.
 
+Scanner provenance can be checked with `validate_database_freshness`; missing,
+unparseable, or over-age vulnerability database timestamps fail the gate.
+
 ## Risk Scoring
 
 CVSS-based weighted risk score:
