@@ -29,6 +29,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** configured OIDC verification now composes discovery, JWKS signature verification, and claim-policy enforcement.
 - **Started:** planner routes now have credential-scoped limits with a Redis-compatible distributed adapter and strict Redis URL validation; client lifecycle and deployment wiring remain.
 - **Completed:** planner Redis integration now has an explicit single-client start, health-check, and shutdown lifecycle boundary.
+- **Completed:** the distributed limiter now composes validated Redis configuration with the atomic Redis increment adapter.
 - **Started:** image references now have canonical digest-aware parsing and local/OCI registry resolution; universal credential/provider wiring remains.
 - **Started:** scan models and migrations now carry scanner/database provenance maps and per-finding database-version evidence.
 - **Started:** remediation status changes now pass through a fail-closed transition graph with terminal-state protection.
