@@ -14,3 +14,6 @@ operational work.
 it for successful scanner results. It keys entries by
 scanner and digest-qualified image, uses bounded TTLs, and writes atomically
 with `fsync`/rename so interrupted workers do not publish partial JSON.
+Scanner subprocesses have bounded durations, explicit severity normalization,
+local size-limited caches, and an optional shared Redis cache. Queue admission
+requires the low, normal, and high priority queues to be configured.
