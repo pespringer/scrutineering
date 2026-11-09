@@ -5,7 +5,7 @@ async function fetchWithError(url: string, timeoutMs = 10_000): Promise<any> {
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   let res: Response;
   try {
-    res = await fetch(url, { signal: controller.signal });
+    res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
   } finally {
     clearTimeout(timeout);
   }
