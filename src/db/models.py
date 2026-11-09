@@ -533,6 +533,9 @@ class Remediation(Base):
 
     # Verification
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    approval_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     verification_findings_before: Mapped[int] = mapped_column(
         Integer, default=0)
     verification_findings_after: Mapped[int] = mapped_column(

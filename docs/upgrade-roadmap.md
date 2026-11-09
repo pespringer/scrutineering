@@ -56,6 +56,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** isolated remediation execution can optionally produce a local commit artifact after validation, without pushing or merging.
 - **Completed:** remediation approvals now use scoped, short-lived HMAC tokens that fail closed on tampering or expiry.
 - **Completed:** post-merge verification now compares deployed digests, scan completion, and finding deltas before declaring success.
+- **Completed:** remediation approval provenance now persists approver, timestamp, and token hash fields through an Alembic migration.
 - **Completed:** evidence verification can enforce an artifact-size ceiling before invoking signature providers.
 
 ## Phase 3 — Production Operations (60–90 days)
