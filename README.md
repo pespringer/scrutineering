@@ -48,7 +48,7 @@ selected.
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
-# Set POSTGRES_PASSWORD, DATABASE_URL, and PLANNER_API_KEY in .env before starting.
+# Set POSTGRES_PASSWORD, DATABASE_URL, PLANNER_API_KEY, and provider allowlists in .env before starting.
 
 # 2. Start all services
 docker compose up --build -d

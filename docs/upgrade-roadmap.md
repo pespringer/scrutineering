@@ -68,6 +68,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** the metrics registry exposes a lock-protected structured snapshot for diagnostics without parsing Prometheus text.
 - **Completed:** service code now has an optional OpenTelemetry span bridge that remains usable without the SDK installed.
 - **Completed:** CI harness failures are no longer ignored, and the Python job sets its package path explicitly.
+- **Completed:** the example environment now documents complete scan queues, provider allowlists, and evidence freshness/size controls.
 - **Started:** runtime monitoring now exposes bounded-buffer health, durable JSONL event delivery, sink-failure telemetry, and explicit eBPF capability reports; managed queue delivery remains.
 - **Completed:** durable runtime replay supports bounded, container-scoped reads.
 - **Started:** SBOM/provenance verification now supports digest, signature, and freshness gates; deployment keyless-policy configuration, migration tests, and staging rollback drills remain.
