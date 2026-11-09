@@ -10,4 +10,5 @@ def load_otel_config(env: dict[str, str] | None = None) -> dict[str, object]:
         parsed = urlparse(endpoint)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             raise ValueError("OTEL_EXPORTER_OTLP_ENDPOINT must be an HTTP(S) URL")
-    return {"endpoint": endpoint or None, "service_name": values.get("OTEL_SERVICE_NAME", "scrutineering"), "enabled": bool(endpoint)}
+    headers = str(values.get("OTEL_EXPORTER_OTLP_HEADERS", "")).strip()
+    return {"endpoint": endpoint or None, "service_name": values.get("OTEL_SERVICE_NAME", "scrutineering"), "headers": headers, "enabled": bool(endpoint)}
