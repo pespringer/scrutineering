@@ -1,7 +1,8 @@
 # Dashboard Operations
 
 `dashboard/` is Scrutineering's only supported frontend. It is a Next.js
-application on port 3001 during local development and is built independently
+application on port 3001 during local development. Docker Compose also builds
+and starts it as the `dashboard` service on port 3001. It is built independently
 in CI with:
 
 ```bash
@@ -19,9 +20,10 @@ canonical package and lockfile exist and that the retired frontend tree has
 not returned.
 
 Set `NEXT_PUBLIC_API_URL` to the reachable API origin when the dashboard is
-not served behind the same origin as the control plane. The dashboard uses the
-versioned scan-data routes and should not call internal database or scanner
-services directly.
+not served behind the same origin as the control plane. The Compose default is
+empty so the dashboard uses its local `/api` routes; set this value at image
+build time only when deploying a separate API-backed frontend. The dashboard
+should not call internal database or scanner services directly.
 
 The former `web/` application was removed in Batch 3. New pages, components,
 API routes, and visual changes belong under `dashboard/src/`; add a dashboard

@@ -21,6 +21,7 @@ docker compose up --build -d
 | Service           | Port  | Description                          |
 |-------------------|-------|--------------------------------------|
 | Planner API       | 3000  | Node.js REST API and remediation planner |
+| Dashboard         | 3001  | Next.js security posture UI              |
 | PostgreSQL        | 5432  | Metadata and scan results storage    |
 | Redis             | 6379  | Celery message broker                |
 | Celery Worker     | -     | Runs Trivy/Grype vulnerability scans |
@@ -43,6 +44,7 @@ docker compose exec app alembic -c alembic.ini revision --autogenerate -m "descr
 
 ```bash
 curl http://localhost:3000/health
+curl -I http://localhost:3001/dashboard
 docker compose ps
 ```
 

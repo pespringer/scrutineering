@@ -132,13 +132,15 @@ docker compose logs -f
 
 Services started:
 - **Planner API** (port 3000) — REST API for remediation planning
+- **Dashboard** (port 3001) — Next.js security posture UI
 - **PostgreSQL** (port 5432) — Metadata and scan result storage
 - **Redis** (port 6379) — Celery broker and cache
 - **Celery Worker** — Runs Trivy/Grype vulnerability scans
 - **Celery Beat** — Schedules periodic scan tasks
 
 ### Dashboard (Next.js Frontend)
-The dashboard is a standalone Next.js app in `dashboard/`. It can run separately from Docker Compose:
+The dashboard is included in Docker Compose at `http://localhost:3001/dashboard`.
+For frontend development with hot reload, run it separately:
 
 ```bash
 cd dashboard

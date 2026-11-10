@@ -30,15 +30,19 @@ scrutineering/
 │   ├── hiring/           # Hiring pipeline docs
 │   ├── operations/       # Runbooks, SLAs, playbooks
 │   └── security/         # Security validation docs
+├── Dockerfile.dashboard   # Production Next.js dashboard image
+└── docker-compose.yml     # Full local stack, including dashboard
+```
 
-`dashboard/` is the only supported Next.js application; the former `web/`
+`dashboard/` is the only supported Next.js application and is packaged by
+`Dockerfile.dashboard`; the former `web/`
 frontend was removed in Batch 3. Runtime services require an explicit
 `DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
-```
 
-Docker Compose services are the Node planner (`app`), PostgreSQL, Redis, the
-Celery scanner worker, and Celery Beat. PostgreSQL and Redis stay on the
+Docker Compose services are the Node planner (`app`), Next.js dashboard,
+PostgreSQL, Redis, the Celery scanner worker, and Celery Beat. The dashboard is
+available at `http://localhost:3001/dashboard`. PostgreSQL and Redis stay on the
 internal Compose network unless `docker-compose.host-access.yml` is explicitly
 selected.
 The worker image and Compose service expose health checks for early failure
@@ -65,6 +69,7 @@ docker compose exec app alembic -c alembic.ini upgrade head
 
 # 4. Verify
 curl http://localhost:3000/health
+curl -I http://localhost:3001/dashboard
 docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
 docker compose exec app node scripts/run-verification-harness.mjs
 ```

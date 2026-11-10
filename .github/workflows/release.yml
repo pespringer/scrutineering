@@ -26,13 +26,16 @@ jobs:
       - uses: sigstore/cosign-installer@v3
       - run: docker build -f Dockerfile -t scrutineering-planner:${{ github.ref_name }} .
       - run: docker build -f Dockerfile.worker -t scrutineering-worker:${{ github.ref_name }} .
+      - run: docker build -f Dockerfile.dashboard -t scrutineering-dashboard:${{ github.ref_name }} .
       - run: |
           docker save scrutineering-planner:${{ github.ref_name }} > planner.tar.gz
           docker save scrutineering-worker:${{ github.ref_name }} > worker.tar.gz
+          docker save scrutineering-dashboard:${{ github.ref_name }} > dashboard.tar.gz
       - name: Sign release image archives with GitHub OIDC
         run: |
           cosign sign-blob --yes --output-signature planner.tar.gz.sig --output-certificate planner.tar.gz.pem planner.tar.gz
           cosign sign-blob --yes --output-signature worker.tar.gz.sig --output-certificate worker.tar.gz.pem worker.tar.gz
+          cosign sign-blob --yes --output-signature dashboard.tar.gz.sig --output-certificate dashboard.tar.gz.pem dashboard.tar.gz
       - name: Verify release signatures before publication
         run: |
           cosign verify-blob --signature planner.tar.gz.sig --certificate planner.tar.gz.pem \
@@ -41,11 +44,15 @@ jobs:
           cosign verify-blob --signature worker.tar.gz.sig --certificate worker.tar.gz.pem \
             --certificate-identity "$COSIGN_CERTIFICATE_IDENTITY" \
             --certificate-oidc-issuer "$COSIGN_OIDC_ISSUER" worker.tar.gz
+          cosign verify-blob --signature dashboard.tar.gz.sig --certificate dashboard.tar.gz.pem \
+            --certificate-identity "$COSIGN_CERTIFICATE_IDENTITY" \
+            --certificate-oidc-issuer "$COSIGN_OIDC_ISSUER" dashboard.tar.gz
       - run: |
           gh release create ${{ github.ref_name }} \
-            planner.tar.gz worker.tar.gz \
+            planner.tar.gz worker.tar.gz dashboard.tar.gz \
             planner.tar.gz.sig planner.tar.gz.pem \
             worker.tar.gz.sig worker.tar.gz.pem \
+            dashboard.tar.gz.sig dashboard.tar.gz.pem \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes
         env:

@@ -79,6 +79,7 @@ jobs:
       - uses: actions/checkout@v4
       - run: docker build -f Dockerfile -t scrutineering-planner:ci .
       - run: docker build -f Dockerfile.worker -t scrutineering-worker:ci .
+      - run: docker build -f Dockerfile.dashboard -t scrutineering-dashboard:ci .
 
   # ------------------------------------------------
   # Security scanning (Trivy image scan of built image)
