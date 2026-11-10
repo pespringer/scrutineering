@@ -157,6 +157,8 @@ verified before remediation. The executor runs isolated validation, and the
 GitHub publisher can open allowlisted PRs only after verified evidence; neither
 component merges or bypasses branch protection.
 The scanner also defaults this policy on when `NODE_ENV=production`.
+Scanner workers also enforce bounded output and finding counts through the
+documented `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` settings.
 Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
 OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
