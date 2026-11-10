@@ -27,10 +27,12 @@ class GrypeScanner(ScannerAdapter):
     def source(self) -> FindingSource:
         return FindingSource.GRYPE
 
-    def __init__(self, timeout: int = 600, grype_cmd: str = "grype"):
+    def __init__(self, timeout: int = 600, grype_cmd: str = "grype", max_output_bytes: int = 50_000_000):
         if timeout < 1: raise ValueError("timeout must be positive")
+        if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
         self.timeout = timeout
         self.grype_cmd = grype_cmd
+        self.max_output_bytes = max_output_bytes
 
     async def scan(self, image_name: str) -> list[ScannerFinding]:
         """Run Grype scan on a container image.
@@ -71,6 +73,7 @@ class GrypeScanner(ScannerAdapter):
                 stderr_text,
             )
 
+        if len(stdout) > self.max_output_bytes: raise ScannerError("grype", "scan output exceeds size limit")
         return self._parse_grype_output(stdout.decode(errors="replace"))
 
     def _parse_grype_output(self, raw_json: str) -> list[ScannerFinding]:

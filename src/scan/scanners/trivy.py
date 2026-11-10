@@ -53,8 +53,10 @@ class TrivyScanner(ScannerAdapter):
         registry_server: Optional[str] = None,
         registry_username: Optional[str] = None,
         registry_password: Optional[str] = None,
+        max_output_bytes: int = 50_000_000,
     ):
         if timeout < 1: raise ValueError("timeout must be positive")
+        if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
         self.severities = ",".join(part.strip().upper() for part in severities.split(",") if part.strip())
         self.timeout = timeout
         self.trivy_cmd = trivy_cmd
@@ -62,6 +64,7 @@ class TrivyScanner(ScannerAdapter):
         self.registry_server = registry_server
         self.registry_username = registry_username
         self.registry_password = registry_password
+        self.max_output_bytes = max_output_bytes
 
     async def scan(self, image_name: str) -> list[ScannerFinding]:
         """Run Trivy scan on a container image.
@@ -128,6 +131,7 @@ class TrivyScanner(ScannerAdapter):
                 stderr_text,
             )
 
+        if len(stdout) > self.max_output_bytes: raise ScannerError("trivy", "scan output exceeds size limit")
         return self._parse_trivy_output(stdout.decode(errors="replace"))
 
     def _parse_trivy_output(self, raw_json: str) -> list[ScannerFinding]:
