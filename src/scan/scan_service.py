@@ -53,6 +53,7 @@ class ScanService:
         require_immutable_identity: bool | None = None,
         digest_resolver=resolve_image_digest_with_fallback,
         scanner_cache: ScanCache | None = None,
+        max_findings: int | None = None,
     ):
         self.trivy_timeout = trivy_timeout
         self.grype_timeout = grype_timeout
@@ -78,6 +79,8 @@ class ScanService:
         )
         self._digest_resolver = digest_resolver
         self._scanner_cache = scanner_cache
+        self.max_findings = max_findings if max_findings is not None else int(os.environ.get("SCANNER_MAX_FINDINGS", "100000"))
+        if self.max_findings < 1: raise ValueError("max_findings must be positive")
 
     async def scan(
         self,
@@ -313,6 +316,7 @@ class ScanService:
             started = time.monotonic()
             try:
                 findings = await scanner.scan(image_name)
+                if len(findings) > self.max_findings: raise ScannerError(source_name, "finding count exceeds limit")
                 if self._scanner_cache is not None:
                     self._scanner_cache.set(source_name, image_name, [{
                         **finding.__dict__,
