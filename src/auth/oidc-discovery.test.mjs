@@ -10,3 +10,7 @@ test("loads and validates OIDC discovery metadata", async () => {
 test("rejects mismatched discovery issuer", async () => {
   await assert.rejects(() => discoverOidcProvider({ issuer: "https://issuer.test", fetchImpl: async () => ({ ok: true, async json() { return { issuer: "https://other.test", jwks_uri: "https://other.test/keys" }; } }) }), /invalid/);
 });
+
+test("rejects insecure JWKS endpoints", async () => {
+  await assert.rejects(() => discoverOidcProvider({ issuer: "https://issuer.test", fetchImpl: async () => ({ ok: true, async json() { return { issuer: "https://issuer.test", jwks_uri: "http://issuer.test/keys" }; } }) }), /invalid/);
+});
