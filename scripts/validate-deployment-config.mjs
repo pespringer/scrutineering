@@ -6,5 +6,6 @@ for (const file of required) {
   const content = fs.readFileSync(file, "utf8");
   if (!content.trim()) throw new Error(`empty deployment file: ${file}`);
   if (file === "Dockerfile.worker" && !content.includes("HEALTHCHECK")) throw new Error("worker image health check is required");
+  if (file === "k8s/resource-quota.yaml" && !content.includes("limits.memory")) throw new Error("resource quota memory limit is required");
   console.log(`PASS ${file}`);
 }
