@@ -133,4 +133,7 @@ The current batch also adds worker image health checks, scanner-limit propagatio
 through Compose/Kubernetes, deployment quota validation, and CI enforcement of
 container and documentation checks.
 
+It also hardens JWKS metadata validation, service clock skew, audit retention,
+approval identities, scanner task identifiers, and deployment health checks.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
