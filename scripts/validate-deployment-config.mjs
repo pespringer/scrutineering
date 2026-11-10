@@ -5,5 +5,6 @@ for (const file of required) {
   if (!fs.existsSync(file)) throw new Error(`missing deployment file: ${file}`);
   const content = fs.readFileSync(file, "utf8");
   if (!content.trim()) throw new Error(`empty deployment file: ${file}`);
+  if (file === "Dockerfile.worker" && !content.includes("HEALTHCHECK")) throw new Error("worker image health check is required");
   console.log(`PASS ${file}`);
 }
