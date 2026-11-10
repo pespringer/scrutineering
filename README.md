@@ -41,6 +41,8 @@ Docker Compose services are the Node planner (`app`), PostgreSQL, Redis, the
 Celery scanner worker, and Celery Beat. PostgreSQL and Redis stay on the
 internal Compose network unless `docker-compose.host-access.yml` is explicitly
 selected.
+The worker image and Compose service expose health checks for early failure
+detection.
 
 ## Quick Start
 
