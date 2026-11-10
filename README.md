@@ -123,6 +123,9 @@ kubectl apply -f k8s/celery-beat-deployment.yaml
 kubectl apply -f k8s/services.yaml
 ```
 
+Production promotion should also confirm the planner and worker health checks
+are passing before increasing scan concurrency.
+
 ## Monitoring
 
 - Runtime monitoring APIs are documented in `docs/operations/` and exposed by
