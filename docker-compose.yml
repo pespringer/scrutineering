@@ -44,7 +44,7 @@ services:
     networks:
       - scrutineering
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:${PLANNER_PORT:-3000}/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:${PLANNER_PORT:-3000}/health"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -152,7 +152,7 @@ services:
     container_name: scrutineering-celery-beat
     user: "scanner"
     command: >
-      celery --app=src.scan.celery_app:create_celery_app beat
+      celery --app=src.scan.tasks:app beat
       --loglevel=${CELERY_LOG_LEVEL:-info}
       --scheduler celery.beat:PersistentScheduler
       --pidfile=/tmp/celerybeat.pid

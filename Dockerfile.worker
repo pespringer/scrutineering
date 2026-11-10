@@ -41,7 +41,7 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV CELERY_BROKER_URL=redis://redis:6379/0
 
 # Default command runs the Celery worker
-CMD celery --app=src.scan.celery_app:create_celery_app worker \
+CMD celery --app=src.scan.tasks:app worker \
   --loglevel=${CELERY_LOG_LEVEL:-info} \
   --concurrency=${CELERY_CONCURRENCY:-2} \
   --queues=${CELERY_QUEUES:-scan}

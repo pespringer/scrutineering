@@ -25,6 +25,6 @@ ENV PLANNER_PORT=3000
 EXPOSE 3000
 
 HEALTHCHECK --interval=10s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget -qO- http://localhost:${PLANNER_PORT}/health || exit 1
+  CMD wget -qO- http://127.0.0.1:${PLANNER_PORT}/health || exit 1
 
 CMD ["node", "src/planner/server.mjs"]
