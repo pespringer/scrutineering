@@ -17,6 +17,7 @@ def sign_service_request(service: str, body: bytes, secret: str, timestamp: int 
 
 
 def verify_service_request(headers: dict[str, str], body: bytes, secret: str, *, max_skew_seconds: int = 300, now: int | None = None) -> bool:
+    if max_skew_seconds < 0 or max_skew_seconds > 3600: return False
     service = headers.get("x-service-name", "")
     issued = headers.get("x-service-timestamp", "")
     signature = headers.get("x-service-signature", "")
