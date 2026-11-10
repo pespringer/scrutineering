@@ -149,15 +149,6 @@ npm run dev        # Development mode with hot reload (port 3001)
 
 The dashboard connects to the Planner API backend via environment variables. Set `NEXT_PUBLIC_API_URL` to point to your running backend.
 
-### Web Frontend
-A secondary web app in `web/` provides additional views:
-
-```bash
-cd web
-npm install
-npm run dev
-```
-
 ### Kubernetes (Production)
 ```bash
 # 1. Infrastructure (PostgreSQL, Redis, PVCs)

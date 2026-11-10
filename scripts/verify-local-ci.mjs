@@ -7,6 +7,7 @@ const commands = [
   ["npm", ["run", "drill:staging-rollback"]],
   ["npm", ["run", "validate:deployment"]],
   ["npm", ["run", "validate:docs"]],
+  ["npm", ["run", "validate:frontend"]],
   ["uv", ["run", "--with-requirements", "requirements.txt", "--with", "pytest", "pytest", "tests/", "-q"]],
 ];
 

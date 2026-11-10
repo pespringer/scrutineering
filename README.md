@@ -31,9 +31,9 @@ scrutineering/
 │   ├── operations/       # Runbooks, SLAs, playbooks
 │   └── security/         # Security validation docs
 
-Frontend direction: `dashboard/` is the canonical Next.js application. `web/`
-is legacy and receives no new product work. Runtime services require an
-explicit `DATABASE_URL`; tests opt into an in-memory SQLite database through
+`dashboard/` is the only supported Next.js application; the former `web/`
+frontend was removed in Batch 3. Runtime services require an explicit
+`DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
 ```
 
@@ -88,6 +88,7 @@ npm run validate:evidence-contract
 npm run verify:local  # Node, Python, and security-contract checks
 npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
 npm run validate:docs        # README documentation-link checks
+npm run validate:frontend    # Enforce the single supported dashboard tree
 
 # Run individual scripts
 node src/planner/server.mjs
@@ -97,7 +98,7 @@ node scripts/run-staging-rollback-drill.mjs
 # Run the composed Python API
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 
-# Build the canonical dashboard
+# Build the supported dashboard
 cd dashboard && npm ci && npm run build
 ```
 
@@ -199,6 +200,7 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
+- [Dashboard Operations](docs/operations/dashboard.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)

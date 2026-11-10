@@ -7,7 +7,7 @@ Scrutineering combines Node.js orchestration with Python scanning services:
 - `src/planner`, `src/ci`, `src/pr-generator`, `src/harness`, `src/verification`, `src/rollout`, and `src/telemetry` contain Node.js modules and `.mjs` tests.
 - `src/scan`, `src/runtime`, `src/risk`, `src/forensics`, `src/analytics`, and `src/db` contain Python services, models, and migrations.
 - `tests/` holds the Python suite; `fixtures/` holds deterministic test data.
-- `dashboard/` and `web/` are Next.js frontends. Deployment manifests live in `k8s/`, observability configuration in `monitoring/`, and policy contracts in `schemas/`.
+- `dashboard/` is the supported Next.js frontend. Deployment manifests live in `k8s/`, observability configuration in `monitoring/`, and policy contracts in `schemas/`.
 
 ## Build, Test, and Development Commands
 
@@ -20,7 +20,7 @@ node scripts/run-remediation-dry-run-harness.mjs
 docker compose up --build
 ```
 
-Run a frontend locally with `cd dashboard && npm run dev` or `cd web && npm run dev`; build either with `npm run build`.
+Run the frontend locally with `cd dashboard && npm run dev`; build it with `npm run build`.
 
 ## Coding Style & Naming Conventions
 

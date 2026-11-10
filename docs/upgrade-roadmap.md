@@ -7,7 +7,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 ## Current Baseline
 
 - Node.js planner logic and Python scanning/runtime services are split across separate control paths.
-- `dashboard/` is now the canonical frontend; `web/` remains a legacy tree pending removal.
+- `dashboard/` is the only supported frontend; the legacy `web/` tree was removed in Batch 3.
 - Remediation now supports isolated validation and guarded GitHub PR publication; it does not merge repositories or bypass branch protection.
 - The planner now has API-key/OIDC policy boundaries, request IDs, structured errors, route validation, and local/distributed limiter adapters; provider wiring remains.
 - Compose keeps PostgreSQL and Redis internal by default and requires explicit credentials.
@@ -37,8 +37,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** cosign verification now has a bounded timeout and fails closed on unavailable or hung binaries.
 - **Started:** Compose now keeps PostgreSQL and Redis internal by default and requires explicit credentials; host access is opt-in through `docker-compose.host-access.yml`.
 - **Started:** scanner tasks now execute configured scanners concurrently while preserving deterministic result order.
-- **Started:** Python database modules now fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is canonical while `web/` is legacy.
-- **Started:** `dashboard/` is canonical and `web/` is explicitly marked legacy; removal awaits downstream migration.
+- **Completed:** Python database modules fail closed without `DATABASE_URL`; tests use an explicit in-memory mode, and `dashboard/` is the only supported frontend.
 - **Started:** the canonical FastAPI app now mounts scan-data, runtime, analytics, and forensics routers, wires scan reads to SQLAlchemy, exposes readiness, and propagates request IDs; cross-service authentication remains.
 - **Completed:** internal service requests now have body-bound, timestamped HMAC authentication helpers with replay-skew rejection.
 - **Started:** configured API keys and an OIDC claim-policy boundary now map to verified-principal-shaped roles and tenant scopes; audit records now carry a hash chain, while provider discovery/signature wiring and durable chain anchoring remain.
@@ -123,6 +122,18 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
   verified before publication.
 - **Completed:** provider publication tests cover authenticated GitHub and
   GitLab requests, idempotency, allowlists, and protected branches.
+
+### Batch 3 — Dashboard Consolidation
+
+- **Completed:** all supported frontend routes and documentation use
+  `dashboard/` as the single Next.js application.
+- **Completed:** the unreferenced legacy `web/` application and its duplicate
+  dependency tree were removed after confirming no build or deployment consumer
+  remained.
+- **Completed:** contributor, user, setup, README, and CI-facing guidance now
+  exposes one frontend install, development, and build path.
+- **Completed:** CI now validates the canonical dashboard package and prevents
+  the retired frontend tree from being reintroduced.
 
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch

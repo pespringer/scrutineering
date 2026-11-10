@@ -33,6 +33,7 @@ jobs:
       - run: npm run drill:staging-rollback
       - run: npm run validate:deployment
       - run: npm run validate:docs
+      - run: npm run validate:frontend
 
   # ------------------------------------------------
   build-dashboard:
