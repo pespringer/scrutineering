@@ -66,3 +66,16 @@ def test_executor_verifies_evidence_envelope_at_boundary(tmp_path):
         evidence_artifact=artifact, evidence_verifier=lambda *_: True,
     )
     assert result.status == "ready"
+
+
+def test_executor_can_select_production_release_evidence_boundary(tmp_path, monkeypatch):
+    repo = make_repo(tmp_path)
+    calls = []
+    monkeypatch.setattr("src.remediation.executor.verify_release_evidence", lambda envelope, artifact, **kwargs: calls.append(kwargs) or True)
+    result = execute_remediation(
+        repo, [], lambda *_: None, [], evidence_envelope={"version": "1.0.0"},
+        evidence_artifact=b"artifact", release_evidence=True,
+        evidence_env={"NODE_ENV": "production"},
+    )
+    assert result.status == "ready"
+    assert calls[0]["env"] == {"NODE_ENV": "production"}

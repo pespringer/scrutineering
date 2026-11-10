@@ -190,6 +190,11 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 Production release archives are signed with Cosign keyless signing in
 `.github/workflows/release.yml`; promotion fails before image publication when
 the identity or issuer policy is missing.
+The workflow verifies both archive signatures before creating the GitHub
+release, and remediation execution can select the same policy with
+`release_evidence=True`.
+The dashboard CI job also runs `npm audit --audit-level=high`; the checked-in
+dashboard lockfile currently reports zero vulnerabilities.
 
 ## Documentation
 

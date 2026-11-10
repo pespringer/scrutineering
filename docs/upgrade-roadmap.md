@@ -155,6 +155,18 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** operator checklists and evidence documentation describe the
   release-blocking behavior and required promotion artifacts.
 
+### Batch 6 — Production Integration and Dependency Security
+
+- **Completed:** the dashboard dependency tree is audit-clean and its
+  production build passes after lockfile-safe security updates.
+- **Completed:** dashboard CI now blocks high/critical dependency advisories
+  before building the production artifact.
+- **Completed:** the release workflow verifies both keyless Cosign signatures
+  before publishing assets, and remediation can select the same release
+  evidence boundary.
+- **Completed:** staging and migration-chain checks cover the deployed release
+  path, with operator documentation for smoke validation and rollback.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

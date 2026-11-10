@@ -31,3 +31,7 @@ after restart; missing or out-of-order sequences fail closed. Use
 `build_provider_validation_commands()` to create the required install, test,
 build, SBOM, and rescan gates for GitHub Actions or GitLab CI and the Node or
 Python ecosystem.
+
+Production callers can set `release_evidence=True` on `execute_remediation()`
+to force the configured Cosign keyless policy through `verify_release_evidence`;
+the executor blocks before creating a worktree when that gate fails.

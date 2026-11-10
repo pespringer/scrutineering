@@ -9,7 +9,7 @@ from typing import Callable, Sequence
 
 from .worktree import RemediationWorktree
 from .approval import verify_approval
-from src.scan.evidence import EvidenceVerificationError, verify_evidence
+from src.scan.evidence import EvidenceVerificationError, verify_evidence, verify_release_evidence
 
 
 @dataclass
@@ -32,6 +32,9 @@ def execute_remediation(
     evidence_envelope: dict | None = None,
     evidence_artifact: bytes | dict | None = None,
     evidence_verifier=None,
+    release_evidence: bool = False,
+    evidence_env: dict[str, str] | None = None,
+    cosign_bin: str = "cosign",
     base_dir: str | Path | None = None,
     timeout_seconds: int = 600,
     commit_message: str | None = None,
@@ -41,10 +44,15 @@ def execute_remediation(
 ) -> RemediationExecution:
     """Apply supplied changes and run all validation commands in a worktree."""
     if evidence_envelope is not None:
-        if evidence_artifact is None or evidence_verifier is None:
+        if evidence_artifact is None or (evidence_verifier is None and not release_evidence):
             return RemediationExecution(status="blocked", error="evidence verifier and artifact are required")
         try:
-            evidence_verified = verify_evidence(evidence_envelope, evidence_artifact, evidence_verifier)
+            if release_evidence:
+                evidence_verified = verify_release_evidence(
+                    evidence_envelope, evidence_artifact, env=evidence_env, cosign_bin=cosign_bin,
+                )
+            else:
+                evidence_verified = verify_evidence(evidence_envelope, evidence_artifact, evidence_verifier)
         except EvidenceVerificationError as exc:
             return RemediationExecution(status="blocked", error=str(exc))
     if evidence_verified is not True:

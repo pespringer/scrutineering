@@ -10,6 +10,10 @@ npm ci
 npm run build
 ```
 
+CI runs `npm audit --audit-level=high` before the build. Keep direct dependency
+versions and `dashboard/package-lock.json` synchronized when applying security
+updates; a high or critical advisory blocks the dashboard job.
+
 Run `npm run validate:frontend` from the repository root to verify that the
 canonical package and lockfile exist and that the retired frontend tree has
 not returned.
