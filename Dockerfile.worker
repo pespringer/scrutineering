@@ -16,7 +16,7 @@ RUN curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY
     | tar -xz -C /usr/local/bin trivy
 
 # Install a pinned Grype release (avoid executing a moving install script).
-ARG GRYPE_VERSION=0.91.0
+ARG GRYPE_VERSION=0.121.0
 RUN curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
     | tar -xz -C /usr/local/bin grype
 
