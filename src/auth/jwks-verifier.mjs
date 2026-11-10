@@ -13,7 +13,9 @@ export function createJwksVerifier({ jwksUri, fetchImpl = fetch, verifySignature
     if (!cached || cached.expiresAt <= Date.now()) {
       const response = await fetchImpl(jwksUri);
       if (!response.ok) throw new Error(`JWKS fetch failed with status ${response.status}`);
-      cached = { keys: (await response.json()).keys || [], expiresAt: Date.now() + cacheTtlMs };
+      const payload = await response.json();
+      if (!Array.isArray(payload.keys) || payload.keys.length > 1000) throw new Error("JWKS key set is invalid");
+      cached = { keys: payload.keys, expiresAt: Date.now() + cacheTtlMs };
     }
     let key = cached.keys.find((candidate) => candidate.kid === header.kid);
     if (!key) {
