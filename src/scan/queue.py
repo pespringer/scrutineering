@@ -10,6 +10,7 @@ def load_queue_config(env: dict[str, str] | None = None) -> dict[str, object]:
     values = env or {}
     queues = str(values.get("CELERY_QUEUES", "scan.low,scan.normal,scan.high"))
     configured = {item.strip() for item in queues.split(",") if item.strip()}
+    if len(configured) > 32: raise ValueError("too many configured queues")
     required = {f"scan.{name}" for name in PRIORITIES}
     missing = required - configured
     if missing:
