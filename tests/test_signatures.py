@@ -25,3 +25,12 @@ def test_cosign_verifier_rejects_nonzero_exit(monkeypatch):
 
     monkeypatch.setattr("src.scan.signatures.subprocess.run", lambda *args, **kwargs: Result())
     assert not CosignVerifier()( {"signature": {"identity": "id", "value": "sig"}}, b"artifact")
+
+
+def test_cosign_verifier_enforces_keyless_identity_policy(monkeypatch):
+    class Result:
+        returncode = 0
+    monkeypatch.setattr("src.scan.signatures.subprocess.run", lambda *args, **kwargs: Result())
+    verifier = CosignVerifier(policy={"identity": "trusted@example", "issuer": "https://issuer.example", "required": True}, oidc_issuer="https://issuer.example")
+    assert verifier({"signature": {"identity": "trusted@example", "value": "sig"}}, b"artifact")
+    assert not verifier({"signature": {"identity": "other@example", "value": "sig"}}, b"artifact")

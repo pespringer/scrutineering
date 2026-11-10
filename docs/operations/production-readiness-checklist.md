@@ -68,8 +68,13 @@ Go live only when all of the following are true:
 
 - Run `npm run verify:local`.
 - Run `npm run drill:staging-rollback`.
+- Run `npm run validate:release` with production values and
+  `npm run drill:staging-evidence`; confirm invalid provider, identity, and
+  stale-evidence scenarios block promotion.
 - Confirm OIDC issuer, cosign identity, provider allowlists, and service secrets
   are configured from the deployment secret store.
+- Confirm release assets include planner/worker Cosign signatures and
+  certificates before publishing the tag.
 - Confirm database pool bounds, resource quotas, and pod disruption budgets are
   applied before enabling production scan concurrency.
 - Run `npm run validate:deployment` after changing any image, Compose, or

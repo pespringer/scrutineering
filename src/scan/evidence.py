@@ -7,6 +7,9 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
+from .cosign_policy import load_cosign_policy
+from .signatures import CosignVerifier
+
 
 class EvidenceVerificationError(ValueError):
     """Raised when evidence integrity or signature verification fails."""
@@ -94,3 +97,26 @@ def verify_evidence(
     if not valid:
         raise EvidenceVerificationError("signature verification failed")
     return True
+
+
+def verify_release_evidence(
+    envelope: dict[str, Any],
+    artifact: bytes | dict[str, Any],
+    *,
+    env: dict[str, str] | None = None,
+    now: datetime | None = None,
+    max_age_seconds: int | None = None,
+    max_artifact_bytes: int | None = None,
+    cosign_bin: str = "cosign",
+    verifier_factory=None,
+) -> bool:
+    """Apply the production keyless policy before accepting release evidence."""
+    policy = load_cosign_policy(env)
+    if policy["required"] and (envelope.get("signature", {}).get("provider") != "cosign"):
+        raise EvidenceVerificationError("production release evidence must use cosign")
+    factory = verifier_factory or CosignVerifier
+    verifier = factory(cosign_bin=cosign_bin, oidc_issuer=policy.get("issuer"), policy=policy)
+    return verify_evidence(
+        envelope, artifact, verifier, now=now,
+        max_age_seconds=max_age_seconds, max_artifact_bytes=max_artifact_bytes,
+    )

@@ -89,6 +89,8 @@ npm run verify:local  # Node, Python, and security-contract checks
 npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
 npm run validate:docs        # README documentation-link checks
 npm run validate:frontend    # Enforce the single supported dashboard tree
+npm run drill:staging-evidence # Release-blocking keyless evidence scenarios
+npm run validate:release       # Release policy configuration check
 
 # Run individual scripts
 node src/planner/server.mjs
@@ -107,7 +109,7 @@ cd dashboard && npm ci && npm run build
 - PR triggers: lint, unit tests (Node.js + Python)
 - PRs also validate deployment manifests and README documentation links.
 - Merge to main: Docker image builds, Trivy security scan
-- Tag release: Automated GitHub release with image artifacts
+- Tag release: Automated GitHub release with keyless-signed image archives
 
 See `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
 
@@ -185,6 +187,9 @@ OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
 planner and worker deployments run as non-root with restricted privilege.
 Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
 production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
+Production release archives are signed with Cosign keyless signing in
+`.github/workflows/release.yml`; promotion fails before image publication when
+the identity or issuer policy is missing.
 
 ## Documentation
 
@@ -196,6 +201,7 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
+- [Release Evidence Gates](docs/operations/release-evidence-gates.md)
 - [Audit Integrity](docs/security/audit-integrity.md)
 - [Provider Integration](docs/security/provider-integration.md)
 - [Scan Queue Priorities](docs/operations/scan-queues.md)

@@ -1,6 +1,6 @@
 import pytest
 
-from src.scan.evidence import EvidenceVerificationError, build_evidence, verify_evidence
+from src.scan.evidence import EvidenceVerificationError, build_evidence, verify_evidence, verify_release_evidence
 from datetime import datetime, timezone
 
 
@@ -78,3 +78,27 @@ def test_verification_rejects_future_evidence():
     envelope = build_evidence(artifact=b"x", artifact_type="sbom", format="json", subject_digest="sha256:" + "d" * 64, tool_name="x", tool_version="1", signature_provider="x", signature_identity="id", signature_value="sig", generated_at="2027-01-01T00:00:00Z")
     with pytest.raises(EvidenceVerificationError, match="future"):
         verify_evidence(envelope, b"x", lambda *_: True, now=datetime(2026, 11, 9, tzinfo=timezone.utc), max_age_seconds=60)
+
+
+def test_release_evidence_applies_keyless_policy_and_staleness():
+    envelope = build_evidence(
+        artifact=b"release", artifact_type="provenance", format="slsa-provenance",
+        subject_digest="sha256:" + "e" * 64, tool_name="builder", tool_version="1",
+        signature_provider="cosign", signature_identity="release@example", signature_value="sig",
+        generated_at="2026-11-09T10:00:00Z",
+    )
+    class FakeVerifier:
+        def __init__(self, **kwargs): self.policy = kwargs["policy"]
+        def __call__(self, _envelope, _artifact): return self.policy["identity"] == "release@example"
+    assert verify_release_evidence(
+        envelope, b"release",
+        env={"NODE_ENV": "production", "COSIGN_CERTIFICATE_IDENTITY": "release@example", "COSIGN_OIDC_ISSUER": "https://issuer.example"},
+        now=datetime(2026, 11, 9, 10, 1, tzinfo=timezone.utc), max_age_seconds=300,
+        verifier_factory=FakeVerifier,
+    )
+    with pytest.raises(EvidenceVerificationError, match="production"):
+        verify_release_evidence(
+            {**envelope, "signature": {**envelope["signature"], "provider": "sigstore"}}, b"release",
+            env={"NODE_ENV": "production", "COSIGN_CERTIFICATE_IDENTITY": "release@example", "COSIGN_OIDC_ISSUER": "https://issuer.example"},
+            verifier_factory=FakeVerifier,
+        )

@@ -18,3 +18,9 @@ Callers can also supply `max_age_seconds` to reject stale evidence.
 `CosignVerifier` is the concrete provider adapter. It invokes
 `cosign verify-blob` without a shell, passes the certificate identity and
 optional OIDC issuer, and returns false on any non-zero verification result.
+
+`verify_release_evidence` applies the configured keyless policy before invoking
+Cosign. Production requires a Cosign provider, an explicit certificate
+identity, and an HTTPS OIDC issuer. It also supports the configured freshness
+and artifact-size limits. Do not pass a permissive callback to this release
+entry point; use `verify_evidence` directly only for non-production adapters.

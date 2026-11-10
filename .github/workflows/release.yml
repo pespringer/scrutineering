@@ -8,16 +8,36 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      NODE_ENV: production
+      RELEASE_EVIDENCE_REQUIRED: 'true'
+      COSIGN_CERTIFICATE_IDENTITY: ${{ secrets.COSIGN_CERTIFICATE_IDENTITY }}
+      COSIGN_OIDC_ISSUER: ${{ secrets.COSIGN_OIDC_ISSUER }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm ci
+      - run: npm run validate:release
+      - uses: sigstore/cosign-installer@v3
       - run: docker build -f Dockerfile -t scrutineering-planner:${{ github.ref_name }} .
       - run: docker build -f Dockerfile.worker -t scrutineering-worker:${{ github.ref_name }} .
       - run: |
           docker save scrutineering-planner:${{ github.ref_name }} > planner.tar.gz
           docker save scrutineering-worker:${{ github.ref_name }} > worker.tar.gz
+      - name: Sign release image archives with GitHub OIDC
+        run: |
+          cosign sign-blob --yes --output-signature planner.tar.gz.sig --output-certificate planner.tar.gz.pem planner.tar.gz
+          cosign sign-blob --yes --output-signature worker.tar.gz.sig --output-certificate worker.tar.gz.pem worker.tar.gz
       - run: |
           gh release create ${{ github.ref_name }} \
             planner.tar.gz worker.tar.gz \
+            planner.tar.gz.sig planner.tar.gz.pem \
+            worker.tar.gz.sig worker.tar.gz.pem \
             --title "Release ${{ github.ref_name }}" \
             --generate-notes
         env:

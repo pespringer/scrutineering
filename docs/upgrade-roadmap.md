@@ -144,6 +144,17 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** operational Prometheus rules and a Grafana dashboard cover
   scan failure rate, scan P95 latency, and runtime dead-letter events.
 
+### Batch 5 — Evidence and Release Controls
+
+- **Completed:** production release evidence now applies explicit Cosign
+  identity and HTTPS OIDC issuer policy before verification.
+- **Completed:** tagged releases validate keyless configuration and sign planner
+  and worker archives with Cosign before publishing assets.
+- **Completed:** staging gates prove valid evidence passes while wrong provider,
+  untrusted identity, stale evidence, and migration-chain regressions block.
+- **Completed:** operator checklists and evidence documentation describe the
+  release-blocking behavior and required promotion artifacts.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external
