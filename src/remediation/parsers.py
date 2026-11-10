@@ -16,6 +16,7 @@ def update_dockerfile_base(text: str, old: str, new: str) -> str:
 
 
 def update_exact_dependency(text: str, package: str, old: str, new: str) -> str:
+    if not re.fullmatch(r"[A-Za-z0-9_.@/-]{1,256}", package): raise ValueError("invalid dependency name")
     pattern = re.compile(rf"^(\s*{re.escape(package)}\s*[=~><!]+\s*){re.escape(old)}(\s*)$", re.MULTILINE)
     updated, count = pattern.subn(rf"\g<1>{new}\g<2>", text)
     if count != 1: raise ValueError("dependency match must be unique")
