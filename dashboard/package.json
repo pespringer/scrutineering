@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
+    "validate:build": "npm run build && node ../scripts/validate-dashboard-build.mjs",
     "start": "next start -p 3001",
     "lint": "next lint"
   },

@@ -8,7 +8,7 @@ in CI with:
 ```bash
 cd dashboard
 npm ci
-npm run build
+npm run validate:build
 ```
 
 CI runs `npm audit --audit-level=high` before the build. Keep direct dependency
@@ -40,6 +40,9 @@ The dashboard is organized as a security operations console:
 
 Run `cd dashboard && npm run build` after visual or route changes. The build
 is the release gate for TypeScript correctness and static route generation.
+The build also verifies that the generated CSS contains the dashboard utility
+bundle; this prevents an unstyled production shell when Tailwind source paths
+change.
 
 The former `web/` application was removed in Batch 3. New pages, components,
 API routes, and visual changes belong under `dashboard/src/`; add a dashboard

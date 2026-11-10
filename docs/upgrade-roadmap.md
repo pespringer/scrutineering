@@ -200,6 +200,9 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** loading skeletons, retryable errors, empty states, and
   refresh controls are explicit and tested through the production dashboard
   build and Compose healthcheck.
+- **Completed:** Tailwind v4 source registration is explicit, with a bundle
+  contract check preventing the dashboard from shipping without its spacing,
+  typography, color, and responsive utility classes.
 
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch

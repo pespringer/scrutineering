@@ -52,7 +52,7 @@ jobs:
       - working-directory: dashboard
         run: npm audit --audit-level=high
       - working-directory: dashboard
-        run: npm run build
+        run: npm run validate:build
 
   # ------------------------------------------------
   # Python Services — lint, test

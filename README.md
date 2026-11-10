@@ -107,7 +107,7 @@ node scripts/run-staging-rollback-drill.mjs
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 
 # Build the supported dashboard
-cd dashboard && npm ci && npm run build
+cd dashboard && npm ci && npm run validate:build
 ```
 
 ## CI/CD
