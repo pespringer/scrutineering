@@ -1,5 +1,5 @@
-export function createGitLabPublisher({ token, allowedProjects = [], allowedTargetBranches = ["main", "master"], fetchImpl = fetch, idempotencyStore } = {}) {
-  if (!token) throw new Error("GitLab publisher token is required");
+export function createGitLabPublisher({ token, tokenProvider, allowedProjects = [], allowedTargetBranches = ["main", "master"], fetchImpl = fetch, idempotencyStore, requireBranchProtection = false } = {}) {
+  if (!token && typeof tokenProvider !== "function") throw new Error("GitLab publisher token is required");
   const published = new Map();
   return async function publishMergeRequest({ projectId, title, description, sourceBranch, targetBranch = "main", evidenceVerified, idempotencyKey }) {
     const normalizedProjectId = String(projectId);
@@ -11,8 +11,15 @@ export function createGitLabPublisher({ token, allowedProjects = [], allowedTarg
     const key = `${normalizedProjectId}:${idempotencyKey}`;
     const stored = idempotencyStore ? await idempotencyStore.get(key) : published.get(key);
     if (stored) return stored;
+    const authToken = tokenProvider ? await tokenProvider() : token;
+    if (requireBranchProtection) {
+      const protection = await fetchImpl(`https://gitlab.com/api/v4/projects/${encodeURIComponent(normalizedProjectId)}/protected_branches/${encodeURIComponent(targetBranch)}`, {
+        headers: { "PRIVATE-TOKEN": authToken },
+      });
+      if (!protection.ok) throw new Error("GitLab target branch protection could not be verified");
+    }
     const response = await fetchImpl(`https://gitlab.com/api/v4/projects/${encodeURIComponent(normalizedProjectId)}/merge_requests`, {
-      method: "POST", headers: { "PRIVATE-TOKEN": token, "content-type": "application/json" },
+      method: "POST", headers: { "PRIVATE-TOKEN": authToken, "content-type": "application/json" },
       body: JSON.stringify({ title, description, source_branch: sourceBranch, target_branch: targetBranch, labels: "security,auto-remediation" }),
     });
     if (!response.ok) throw new Error(`GitLab MR creation failed with status ${response.status}`);

@@ -110,6 +110,20 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** audit-chain heads can be externally anchored and their
   receipts persisted through migration `20261109_05`.
 
+### Batch 2 — Remediation Productionization
+
+- **Completed:** remediation lifecycle transitions emit ordered durable events
+  and can recover from a persisted event stream after worker restart.
+- **Completed:** exact-match parsers now cover Dockerfiles, package manifests,
+  Python requirements, Go modules, and Cargo dependencies.
+- **Completed:** provider-specific Node/Python validation gates generate the
+  required install, test, build, SBOM, and rescan phases.
+- **Completed:** GitHub App token refreshes are coalesced, publishers accept
+  rotating token providers, and GitHub/GitLab branch protection can be
+  verified before publication.
+- **Completed:** provider publication tests cover authenticated GitHub and
+  GitLab requests, idempotency, allowlists, and protected branches.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

@@ -12,8 +12,8 @@ function validateRepository(owner, repo, allowedRepositories) {
   return fullName;
 }
 
-export function createGitHubPublisher({ token, allowedRepositories = [], fetchImpl = fetch, idempotencyStore } = {}) {
-  if (!token) throw new Error("GitHub publisher token is required");
+export function createGitHubPublisher({ token, tokenProvider, allowedRepositories = [], fetchImpl = fetch, idempotencyStore, requireBranchProtection = false } = {}) {
+  if (!token && typeof tokenProvider !== "function") throw new Error("GitHub publisher token is required");
   const published = new Map();
   return async function publishPullRequest({ owner, repo, title, body, head, base = "main", evidenceVerified, idempotencyKey }) {
     const fullName = validateRepository(owner, repo, allowedRepositories);
@@ -28,11 +28,18 @@ export function createGitHubPublisher({ token, allowedRepositories = [], fetchIm
     for (const [name, value] of Object.entries({ title, body, head, base })) {
       if (typeof value !== "string" || value.trim() === "") throw new Error(`${name} is required`);
     }
+    if (requireBranchProtection) {
+      const protection = await fetchImpl(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/branches/${encodeURIComponent(base)}/protection`, {
+        headers: { accept: "application/vnd.github+json", authorization: `Bearer ${tokenProvider ? await tokenProvider() : token}`, "x-github-api-version": "2022-11-28" },
+      });
+      if (!protection.ok) throw new Error("GitHub base branch protection could not be verified");
+    }
+    const authToken = tokenProvider ? await tokenProvider() : token;
     const response = await fetchImpl(`https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls`, {
       method: "POST",
       headers: {
         accept: "application/vnd.github+json",
-        authorization: `Bearer ${token}`,
+        authorization: `Bearer ${authToken}`,
         "content-type": "application/json",
         "x-github-api-version": "2022-11-28",
       },

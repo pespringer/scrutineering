@@ -24,6 +24,7 @@ from src.db.models import (
     PolicyEvaluation,
     Remediation,
     RemediationAction,
+    RemediationEvent,
     RemediationStatus,
     Scan,
     ScanFinding,
@@ -423,6 +424,27 @@ class RemediationRepository:
             .options(joinedload(Remediation.actions))
             .where(Remediation.id == remediation_id)
         ).unique().scalar_one_or_none()
+
+    @staticmethod
+    def append_event(session: Session, event: dict) -> RemediationEvent:
+        """Persist one ordered lifecycle event for restart recovery."""
+        record = RemediationEvent(
+            remediation_id=int(event["remediation_id"]),
+            event_type=str(event["event_type"]),
+            sequence=int(event["sequence"]),
+            detail=dict(event.get("detail") or {}),
+        )
+        session.add(record)
+        session.flush()
+        return record
+
+    @staticmethod
+    def list_events(session: Session, remediation_id: int) -> Sequence[RemediationEvent]:
+        return session.execute(
+            select(RemediationEvent)
+            .where(RemediationEvent.remediation_id == remediation_id)
+            .order_by(RemediationEvent.sequence, RemediationEvent.id)
+        ).scalars().all()
 
     @staticmethod
     def list_by_image(

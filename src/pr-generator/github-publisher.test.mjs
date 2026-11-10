@@ -36,3 +36,22 @@ test("supports an external idempotency store", async () => {
   const request = { owner: "acme", repo: "api", title: "Fix", body: "Details", head: "auto/fix", evidenceVerified: true, idempotencyKey: "external" };
   await publish(request); await publish(request); assert.equal(calls, 1);
 });
+
+test("uses a rotating token provider and verifies branch protection", async () => {
+  const calls = [];
+  let tokenCalls = 0;
+  const publish = createGitHubPublisher({
+    tokenProvider: async () => { tokenCalls += 1; return `installation-${tokenCalls}`; },
+    allowedRepositories: ["acme/api"],
+    requireBranchProtection: true,
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      if (url.endsWith("/protection")) return { ok: true };
+      return { ok: true, async json() { return { number: 9, html_url: "https://github.test/pr/9" }; } };
+    },
+  });
+  await publish({ owner: "acme", repo: "api", title: "Fix", body: "Details", head: "auto/fix", evidenceVerified: true, idempotencyKey: "protected" });
+  assert.equal(calls.length, 2);
+  assert.match(calls[0][1].headers.authorization, /^Bearer installation-/);
+  assert.match(calls[1][1].headers.authorization, /^Bearer installation-/);
+});

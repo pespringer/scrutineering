@@ -173,6 +173,8 @@ Scanner workers also enforce bounded output and finding counts through the
 documented `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` settings.
 Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
+Set `REQUIRE_BRANCH_PROTECTION=true` so GitHub and GitLab publishers verify
+the target branch with the provider API immediately before publication.
 Registry authentication uses one validated environment mapping for Docker Hub,
 GHCR, GitLab, ECR, and GCR. Partial static credential pairs fail closed; see
 `src/scan/registry.py` and `docs/setup-guide.md`.
@@ -188,6 +190,7 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)
 - [Operations Playbook](docs/operations/on-call-playbook.md)
 - [GitHub Publication Boundary](docs/operations/github-publication.md)
+- [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
 - [Audit Integrity](docs/security/audit-integrity.md)

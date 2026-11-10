@@ -9,11 +9,12 @@ export function loadProviderConfig(env = process.env) {
   const gitlabProjects = splitList(env.GITLAB_ALLOWED_PROJECTS);
   const githubToken = String(env.GITHUB_TOKEN || "").trim();
   const gitlabToken = String(env.GITLAB_TOKEN || env.CI_JOB_TOKEN || "").trim();
+  const requireBranchProtection = String(env.REQUIRE_BRANCH_PROTECTION || (env.NODE_ENV === "production" ? "true" : "false")).toLowerCase() === "true";
   if (env.NODE_ENV === "production" && (githubRepositories.length === 0 || gitlabProjects.length === 0 || !githubToken || !gitlabToken)) {
     throw new Error("production provider configuration requires GitHub/GitLab tokens and allowlists");
   }
   return {
-    github: { token: githubToken, allowedRepositories: githubRepositories },
-    gitlab: { token: gitlabToken, allowedProjects: gitlabProjects },
+    github: { token: githubToken, allowedRepositories: githubRepositories, requireBranchProtection },
+    gitlab: { token: gitlabToken, allowedProjects: gitlabProjects, requireBranchProtection },
   };
 }

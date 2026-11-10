@@ -9,8 +9,8 @@ test("loads provider tokens and normalized allowlists", () => {
     GITLAB_TOKEN: "gl-token",
     GITLAB_ALLOWED_PROJECTS: "12, 34",
   });
-  assert.deepEqual(config.github, { token: "gh-token", allowedRepositories: ["acme/api", "acme/web"] });
-  assert.deepEqual(config.gitlab, { token: "gl-token", allowedProjects: ["12", "34"] });
+  assert.deepEqual(config.github, { token: "gh-token", allowedRepositories: ["acme/api", "acme/web"], requireBranchProtection: false });
+  assert.deepEqual(config.gitlab, { token: "gl-token", allowedProjects: ["12", "34"], requireBranchProtection: false });
 });
 
 test("requires both provider allowlists in production", () => {

@@ -20,3 +20,20 @@ test("supports an external idempotency store", async () => {
   const request = { projectId: 42, title: "Fix", description: "Details", sourceBranch: "auto/fix", evidenceVerified: true, idempotencyKey: "external" };
   await publish(request); await publish(request); assert.equal(calls, 1);
 });
+
+test("verifies GitLab target branch protection before publication", async () => {
+  const urls = [];
+  const publish = createGitLabPublisher({
+    tokenProvider: async () => "project-token",
+    allowedProjects: ["42"],
+    requireBranchProtection: true,
+    fetchImpl: async (url, options) => {
+      urls.push([url, options]);
+      if (url.includes("protected_branches")) return { ok: true };
+      return { ok: true, async json() { return { iid: 10, web_url: "https://gitlab.test/mr/10" }; } };
+    },
+  });
+  await publish({ projectId: 42, title: "Fix", description: "Details", sourceBranch: "auto/fix", evidenceVerified: true, idempotencyKey: "protected" });
+  assert.equal(urls.length, 2);
+  assert.equal(urls[0][1].headers["PRIVATE-TOKEN"], "project-token");
+});

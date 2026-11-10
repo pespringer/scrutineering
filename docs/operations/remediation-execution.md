@@ -22,3 +22,12 @@ inside an isolated worktree and repeat verification gates before publication.
 Validated execution can optionally create a local commit artifact with
 `commit_message`. The executor never pushes or merges that commit; publication
 remains behind the separate provider policy boundary.
+
+## Recovery and validation
+
+Remediation lifecycle transitions emit ordered events through the durable event
+store. Workers can reconstruct a lifecycle with `RemediationLifecycle.recover`
+after restart; missing or out-of-order sequences fail closed. Use
+`build_provider_validation_commands()` to create the required install, test,
+build, SBOM, and rescan gates for GitHub Actions or GitLab CI and the Node or
+Python ecosystem.

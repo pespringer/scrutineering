@@ -1,6 +1,6 @@
 import sys
 
-from src.remediation.validation import run_validation_pipeline
+from src.remediation.validation import build_provider_validation_commands, run_validation_pipeline
 
 
 def test_validation_pipeline_requires_every_phase(tmp_path):
@@ -22,3 +22,10 @@ def test_validation_pipeline_stops_on_first_failure(tmp_path):
     result = run_validation_pipeline(tmp_path, commands)
     assert result.status == "failed"
     assert [phase["phase"] for phase in result.phases] == ["install", "test", "build"]
+
+
+def test_provider_validation_commands_cover_all_required_gates():
+    commands = build_provider_validation_commands("github_actions", "python")
+    assert tuple(commands) == ("install", "test", "build", "sbom", "rescan")
+    assert all(commands.values())
+    assert build_provider_validation_commands("gitlab", "node")["install"] == ["npm", "ci"]
