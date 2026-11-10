@@ -126,3 +126,5 @@ Apply `k8s/pod-disruption-budgets.yaml` as well to keep one planner and worker
 available during voluntary node or deployment disruptions.
 The planner image uses `npm ci --omit=dev` so production dependencies match the
 lockfile exactly.
+The worker image exposes a lightweight import health check and Compose uses it
+to detect broken worker images early.
