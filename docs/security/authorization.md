@@ -35,3 +35,5 @@ node --test src/auth/authorization.test.mjs
 OIDC verification now requires HTTPS discovery, rejects unsigned tokens, selects
 JWKS keys by `kid`, refreshes on rotation, and applies bounded clock skew before
 mapping claims into the authorization principal.
+Internal service requests additionally bind the body and timestamp to a
+validated service identity, with replay guards available at the receiver.
