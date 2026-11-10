@@ -128,3 +128,5 @@ The planner image uses `npm ci --omit=dev` so production dependencies match the
 lockfile exactly.
 The worker image exposes a lightweight import health check and Compose uses it
 to detect broken worker images early.
+Set `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` explicitly when tuning production
+database concurrency; both values are bounded by configuration validation.
