@@ -32,6 +32,9 @@ RUN addgroup --system scanner && adduser --system --ingroup scanner scanner && \
     mkdir -p /tmp/scanner-cache && chown -R scanner:scanner /app /tmp/scanner-cache
 USER scanner
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+  CMD python -c "import src.scan.tasks" || exit 1
+
 # Celery needs to run from the project root so "src.scan" is importable
 ENV PYTHONPATH=/app
 ENV PYTHONDONTWRITEBYTECODE=1
