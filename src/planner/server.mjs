@@ -7,7 +7,9 @@ import { createPullRequestArtifacts } from "../pr-generator/pr-generator.mjs";
 import { evaluateCiChecks } from "../ci/ci-integration.mjs";
 import { evaluateRolloutDecision } from "../rollout/staged-rollout.mjs";
 import { validatePlannerRequest } from "./contracts.mjs";
-import { authenticateApiKey, authorizeApiRequest, parseApiKeys } from "../auth/api-keys.mjs";
+import { authorizeApiRequest, parseApiKeys } from "../auth/api-keys.mjs";
+import { authenticateRequest } from "../auth/request-auth.mjs";
+import { createOidcVerifier } from "../auth/oidc-provider.mjs";
 
 const host = process.env.PLANNER_HOST || "127.0.0.1";
 const port = Number(process.env.PLANNER_PORT || 8787);
@@ -81,13 +83,6 @@ function isLoopbackHost(value) {
   return ["127.0.0.1", "::1", "localhost"].includes(value);
 }
 
-function suppliedApiKey(req) {
-  const bearer = req.headers.authorization;
-  const suppliedKey = req.headers["x-api-key"];
-  if (typeof bearer === "string" && bearer.startsWith("Bearer ")) return bearer.slice(7);
-  return suppliedKey;
-}
-
 function rateLimitKey(req) {
   const credential = req.headers.authorization || req.headers["x-api-key"];
   if (typeof credential === "string" && credential.length > 0) {
@@ -102,6 +97,7 @@ export function createPlannerServer({
   bindHost = host,
   rateLimitPerMinute = Number(process.env.PLANNER_RATE_LIMIT_PER_MINUTE || 60),
   rateLimiter = null,
+  oidcVerifier = null,
 } = {}) {
   if (!isLoopbackHost(bindHost) && !apiKey && Object.keys(apiKeys).length === 0) {
     throw new Error("PLANNER_API_KEY must be configured for non-loopback deployments");
@@ -128,7 +124,7 @@ export function createPlannerServer({
       return sendError(res, 429, "rate_limited", "Too many requests; retry later.", requestId);
     }
 
-    const principal = authenticateApiKey(suppliedApiKey(req), { apiKey, apiKeys });
+    const principal = await authenticateRequest(req, { apiKey, apiKeys, oidcVerifier });
     if (!principal) {
       res.setHeader("WWW-Authenticate", "Bearer");
       return sendError(res, 401, "unauthorized", "Authentication is required.", requestId);
@@ -207,6 +203,25 @@ export function startPlannerServer({
   return server.listen(bindPort, bindHost, () => {
     console.log(`planner-service listening on http://${bindHost}:${bindPort}`);
   });
+}
+
+/** Start the planner with discovery-backed OIDC verification when configured. */
+export async function startConfiguredPlannerServer({
+  env = process.env,
+  bindHost = host,
+  bindPort = port,
+  apiKey = env.PLANNER_API_KEY || "",
+  fetchImpl,
+  verifySignature,
+} = {}) {
+  const oidcVerifier = await createOidcVerifier(env, { fetchImpl, verifySignature });
+  const server = createPlannerServer({
+    apiKey,
+    apiKeys: parseApiKeys(env.PLANNER_API_KEYS_JSON || ""),
+    bindHost,
+    oidcVerifier,
+  });
+  return new Promise((resolve) => server.listen(bindPort, bindHost, () => resolve(server)));
 }
 
 const entrypoint = process.argv[1] && path.resolve(process.argv[1]);

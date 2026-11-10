@@ -102,6 +102,15 @@ Key variables:
 - `GRYPE_SEVERITY_THRESHOLD` — Minimum severity for Grype (default: High)
 - `SCANNER_TIMEOUT` — Scanner timeout in seconds (default: 1800)
 - `SCHEDULE_CRON_SCAN` — Cron schedule for periodic scans (default: every 6 hours)
+- `OIDC_ISSUER` and `OIDC_AUDIENCE` — HTTPS issuer and audience for planner
+  provider authentication; the configured server fetches and refreshes JWKS
+  metadata before accepting bearer tokens.
+- `SERVICE_AUTH_SECRET` — shared secret for body-bound internal HMAC requests;
+  `SERVICE_AUTH_REQUIRED=true` makes that identity mandatory on protected API
+  routes.
+- `DOCKERHUB_*`, `GITHUB_TOKEN`, `GITLAB_TOKEN`, `AWS_*`, and
+  `GOOGLE_APPLICATION_CREDENTIALS` — normalized registry credentials. Partial
+  access-key pairs are rejected during configuration loading.
 
 ## Troubleshooting
 

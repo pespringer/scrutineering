@@ -98,6 +98,18 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 
 ## Definition of Done
 
+### Batch 1 — Identity and Provider Integration
+
+- **Completed:** planner requests can use the configured HTTPS OIDC provider
+  boundary while retaining scoped API-key authentication for bootstrap and
+  local operation.
+- **Completed:** the Python API can require body-bound HMAC service identities
+  with bounded clock skew and replay rejection.
+- **Completed:** Docker Hub, GHCR, GitLab, ECR, and GCR credentials share one
+  validated environment mapping; incomplete static pairs fail closed.
+- **Completed:** audit-chain heads can be externally anchored and their
+  receipts persisted through migration `20261109_05`.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

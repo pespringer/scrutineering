@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from src.db.models import (
     AuditLog,
+    AuditChainAnchor,
     AuditEventType,
     ComplianceReport,
     FindingSource,
@@ -471,6 +472,18 @@ class AuditLogRepository:
             image_id=image_id,
             actor=actor,
             actor_kind=actor_kind,
+        )
+        session.add(entry)
+        session.flush()
+        return entry
+
+    @staticmethod
+    def record_anchor(session: Session, receipt: dict) -> AuditChainAnchor:
+        """Persist an external anchor receipt without storing provider secrets."""
+        entry = AuditChainAnchor(
+            anchor_id=str(receipt["anchor_id"]),
+            head_hash=str(receipt["head_hash"]),
+            record_id=str(receipt["record_id"]),
         )
         session.add(entry)
         session.flush()

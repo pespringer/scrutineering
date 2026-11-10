@@ -17,6 +17,10 @@ data:
   SCRUTINEERING_REVISION: "managed-by-release"
   SCANNER_MAX_OUTPUT_BYTES: "50000000"
   SCANNER_MAX_FINDINGS: "100000"
+  OIDC_ISSUER: ""
+  OIDC_AUDIENCE: ""
+  SERVICE_AUTH_MAX_SKEW_SECONDS: "300"
+  SERVICE_AUTH_REQUIRED: "true"
 ---
 # Secret — Sensitive values (base64 encoded)
 apiVersion: v1

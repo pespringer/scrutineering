@@ -16,15 +16,31 @@ logger = logging.getLogger(__name__)
 
 
 def registry_credentials_from_env(env: dict[str, str] | None = None) -> dict[str, tuple[str, str]]:
-    """Return explicitly configured registry credentials without exposing secrets."""
+    """Return explicitly configured registry credentials without exposing secrets.
+
+    Partial credential pairs are rejected so a deployment cannot silently fall
+    back to anonymous access after a configuration typo.
+    """
     values = env or os.environ
     credentials: dict[str, tuple[str, str]] = {}
-    if values.get("DOCKERHUB_USERNAME") and values.get("DOCKERHUB_PASSWORD"):
-        credentials["dockerhub"] = (values["DOCKERHUB_USERNAME"], values["DOCKERHUB_PASSWORD"])
+    docker_user, docker_password = values.get("DOCKERHUB_USERNAME", ""), values.get("DOCKERHUB_PASSWORD", "")
+    if bool(docker_user) != bool(docker_password):
+        raise ValueError("DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD must be configured together")
+    if docker_user and docker_password:
+        credentials["dockerhub"] = (docker_user, docker_password)
     if values.get("GITHUB_TOKEN"):
         credentials["ghcr.io"] = ("gh_token", values["GITHUB_TOKEN"])
-    if values.get("GITLAB_TOKEN") or values.get("CI_JOB_TOKEN"):
-        credentials["gitlab"] = (values.get("GITLAB_USERNAME", "gitlab-ci-token"), values.get("GITLAB_TOKEN", values.get("CI_JOB_TOKEN", "")))
+    gitlab_token = values.get("GITLAB_TOKEN") or values.get("CI_JOB_TOKEN")
+    if gitlab_token:
+        credentials["gitlab"] = (values.get("GITLAB_USERNAME", "gitlab-ci-token"), gitlab_token)
+    aws_key, aws_secret = values.get("AWS_ACCESS_KEY_ID", ""), values.get("AWS_SECRET_ACCESS_KEY", "")
+    if bool(aws_key) != bool(aws_secret):
+        raise ValueError("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be configured together")
+    if aws_key and aws_secret:
+        credentials["ecr"] = (aws_key, aws_secret)
+    gcp_path = values.get("GOOGLE_APPLICATION_CREDENTIALS", "")
+    if gcp_path:
+        credentials["gcr.io"] = ("_json_key_file", gcp_path)
     return credentials
 
 
@@ -35,6 +51,9 @@ def registry_env_keys(registry: str) -> tuple[str, ...]:
         "gitlab": ("GITLAB_TOKEN", "CI_JOB_TOKEN"),
         "ecr": ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"),
         "gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
+        "us.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
+        "eu.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
+        "asia.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
     }.get(registry, ())
 
 
@@ -177,7 +196,7 @@ async def login_harbor(harbor_url: str, username: str, password: str) -> tuple[s
     return username, password
 
 
-async def authenticate_to_registry(registry: str, **kwargs) -> Optional[tuple[str, str]]:
+async def authenticate_to_registry(registry: str, *, env: dict[str, str] | None = None, **kwargs) -> Optional[tuple[str, str]]:
     """Get credentials for a given registry type.
 
     Returns (username, password) tuple or None if no auth needed.
@@ -195,11 +214,19 @@ async def authenticate_to_registry(registry: str, **kwargs) -> Optional[tuple[st
         ),
     }
 
+    configured = registry_credentials_from_env(env)
     if registry == "dockerhub":
         # Docker Hub uses DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD env vars
-        return registry_credentials_from_env().get("dockerhub")
+        return configured.get("dockerhub")
     elif registry == "gitlab":
-        return registry_credentials_from_env().get("gitlab")
+        return configured.get("gitlab")
+    elif registry == "ecr" and "ecr" in configured:
+        return configured["ecr"]
+    elif registry in {"gcr.io", "us.gcr.io", "eu.gcr.io", "asia.gcr.io"}:
+        path = (env or os.environ).get("GOOGLE_APPLICATION_CREDENTIALS")
+        return await login_gcr(path)
+    elif registry == "ghcr.io" and "ghcr.io" in configured:
+        return configured["ghcr.io"]
     else:
         auth_fn = dispatch.get(registry)
         if auth_fn:

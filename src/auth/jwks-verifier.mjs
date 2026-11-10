@@ -1,4 +1,28 @@
+import { createPublicKey, verify as verifySignatureBytes } from "node:crypto";
+
 const base64url = (value) => Buffer.from(value, "base64url").toString("utf8");
+
+const algorithms = {
+  RS256: "RSA-SHA256",
+  RS384: "RSA-SHA384",
+  RS512: "RSA-SHA512",
+};
+
+export async function verifyJwsSignature({ header, key, signed, signature }) {
+  const algorithm = algorithms[header?.alg];
+  if (!algorithm || key?.use === "enc" || (key?.alg && key.alg !== header.alg)) return false;
+  try {
+    const publicKey = createPublicKey({ key, format: "jwk" });
+    return verifySignatureBytes(
+      algorithm,
+      Buffer.from(signed),
+      publicKey,
+      Buffer.from(signature, "base64url"),
+    );
+  } catch {
+    return false;
+  }
+}
 
 export function createJwksVerifier({ jwksUri, fetchImpl = fetch, verifySignature, cacheTtlMs = 300000 } = {}) {
   if (!jwksUri || typeof verifySignature !== "function") throw new TypeError("jwksUri and verifySignature are required");

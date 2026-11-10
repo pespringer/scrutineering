@@ -50,7 +50,8 @@ detection.
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
-# Set POSTGRES_PASSWORD, DATABASE_URL, PLANNER_API_KEY, and provider allowlists in .env before starting.
+# Set POSTGRES_PASSWORD, DATABASE_URL, PLANNER_API_KEY, service-auth settings,
+# and provider allowlists in .env before starting.
 
 # 2. Start all services
 docker compose up --build -d
@@ -151,6 +152,12 @@ node scripts/validate-policy-contract.mjs
   policy boundary. The distributed limiter can use the Redis adapter described
   in [Planner API v1](docs/api/planner-v1.md).
   Discovery metadata and rotating JWKS keys are fetched from the configured HTTPS issuer with bounded timeouts and cache lifetimes.
+- `startConfiguredPlannerServer()` wires HTTPS OIDC discovery, rotating JWKS
+  verification, and claim-to-principal mapping into the planner request boundary.
+- Internal Python requests can use body-bound HMAC headers signed with
+  `SERVICE_AUTH_SECRET`; set `SERVICE_AUTH_REQUIRED=true` when every protected
+  API request must come from an authenticated service identity. Replays are
+  rejected and `SERVICE_AUTH_MAX_SKEW_SECONDS` is bounded.
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
   analytics, and forensics routers and exposes `/health`.
   `/ready` checks database connectivity for deployment probes.
@@ -166,6 +173,9 @@ Scanner workers also enforce bounded output and finding counts through the
 documented `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` settings.
 Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
+Registry authentication uses one validated environment mapping for Docker Hub,
+GHCR, GitLab, ECR, and GCR. Partial static credential pairs fail closed; see
+`src/scan/registry.py` and `docs/setup-guide.md`.
 OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
 planner and worker deployments run as non-root with restricted privilege.
 Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
@@ -181,6 +191,7 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
 - [Audit Integrity](docs/security/audit-integrity.md)
+- [Provider Integration](docs/security/provider-integration.md)
 - [Scan Queue Priorities](docs/operations/scan-queues.md)
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)

@@ -135,6 +135,7 @@ class AuditLogger:
         self._counter = 0
         self._last_hash = ""
         self._get_session = db_session_factory
+        self._last_anchor: dict[str, Any] | None = None
 
     # -- Core logging ------------------------------------------------------- #
 
@@ -190,6 +191,28 @@ class AuditLogger:
         if not self._get_session:
             return
         self._persist_to_db(record)
+
+    def anchor_head(self, anchor, persist=None) -> dict[str, Any]:
+        """Publish and optionally durably record the current verified chain head."""
+        records = self.export()
+        if not records:
+            raise ValueError("cannot anchor an empty audit chain")
+        head_hash = f"sha256:{records[-1]['record_hash']}"
+        anchor_id = anchor.publish(head_hash)
+        receipt = {
+            "anchor_id": str(anchor_id),
+            "head_hash": head_hash,
+            "record_id": records[-1]["record_id"],
+            "anchored_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if persist is not None:
+            persist(receipt)
+        self._last_anchor = receipt
+        return dict(receipt)
+
+    @property
+    def last_anchor(self) -> dict[str, Any] | None:
+        return dict(self._last_anchor) if self._last_anchor else None
 
     def _persist_to_db(self, record: AuditRecord) -> None:
         """Write the audit record to the audit_log table."""

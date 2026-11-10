@@ -674,6 +674,21 @@ class AuditLog(Base):
     actor_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
 
+class AuditChainAnchor(Base):
+    """Durable receipt for an externally anchored audit-chain head."""
+    __tablename__ = "audit_chain_anchors"
+    __table_args__ = (
+        Index("idx_audit_chain_anchors_head_hash", "head_hash"),
+        UniqueConstraint("anchor_id", name="uq_audit_chain_anchors_anchor_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    anchor_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    head_hash: Mapped[str] = mapped_column(String(71), nullable=False)
+    record_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    anchored_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
 # -- Forensics -------------------------------------------------------------- #
 
 class ForensicSnapshot(Base):

@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createJwksVerifier } from "./jwks-verifier.mjs";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { createJwksVerifier, verifyJwsSignature } from "./jwks-verifier.mjs";
 
 test("verifies JWT claims against a cached JWKS key", async () => {
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -29,4 +30,18 @@ test("refreshes JWKS when a rotated key is unknown", async () => {
 
 test("bounds JWKS cache lifetime", () => {
   assert.throws(() => createJwksVerifier({ jwksUri: "https://issuer.test/keys", verifySignature: async () => true, cacheTtlMs: 1 }), /between/);
+});
+
+test("verifies an RS256 signature with the built-in JWK verifier", async () => {
+  const { privateKey, publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" });
+  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const signed = `${encode({ alg: "RS256", kid: "real-key" })}.${encode({ sub: "user-1" })}`;
+  const signature = sign("RSA-SHA256", Buffer.from(signed), privateKey).toString("base64url");
+  const verify = createJwksVerifier({
+    jwksUri: "https://issuer.test/keys",
+    fetchImpl: async () => ({ ok: true, async json() { return { keys: [{ ...jwk, kid: "real-key", alg: "RS256", use: "sig" }] }; } }),
+    verifySignature: verifyJwsSignature,
+  });
+  assert.equal((await verify(`${signed}.${signature}`)).sub, "user-1");
 });
