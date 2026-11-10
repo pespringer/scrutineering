@@ -124,4 +124,9 @@ events, scanner latency instrumentation, locked production images, and CI-local
 validation of every checked-in deployment manifest.
 README documentation links are now validated as part of local CI.
 
+This follow-up batch adds secure JWKS endpoint/key-set validation, bounded
+scanner output and finding counts, service-auth skew limits, audit retention
+guards, immutable post-merge digest validation, and deployment propagation of
+the new safety settings.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
