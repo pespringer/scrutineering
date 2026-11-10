@@ -129,4 +129,8 @@ scanner output and finding counts, service-auth skew limits, audit retention
 guards, immutable post-merge digest validation, and deployment propagation of
 the new safety settings.
 
+The current batch also adds worker image health checks, scanner-limit propagation
+through Compose/Kubernetes, deployment quota validation, and CI enforcement of
+container and documentation checks.
+
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
