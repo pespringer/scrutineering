@@ -21,3 +21,6 @@ remain probe-accessible.
 The scan-data router is wired to `SqlAlchemyScanDataProvider` during app
 creation. It uses the repository session factory and fails closed when the
 database URL is not configured.
+The canonical FastAPI app exposes `/health`, `/ready`, `/version`, and
+`/metrics`. Readiness is dependency-aware; version includes the configured
+release revision for deployment diagnostics.
