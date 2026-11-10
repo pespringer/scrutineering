@@ -129,6 +129,7 @@ class AuditLogger:
         max_records: int = 50_000,
         db_session_factory=None,  # callable returning a session
     ):
+        if max_records < 1: raise ValueError("max_records must be positive")
         self._max_records = max_records
         self._records: list[AuditRecord] = []
         self._counter = 0
