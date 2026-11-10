@@ -24,6 +24,8 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3      
       - run: npm ci
       - run: npx ajv compile -s "schemas/policy-contract/*.json" 2>/dev/null || echo "No JSON schemas to validate"
       - run: npm run validate:evidence-contract
