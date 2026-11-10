@@ -36,7 +36,9 @@ def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
     """Submit a scan with explicit broker queue and priority options."""
     options = scan_task_options(priority)
     if kwargs.get("scan_id"):
-        options["task_id"] = str(kwargs["scan_id"])
+        task_id = str(kwargs["scan_id"])
+        if len(task_id) > 64 or any(char.isspace() for char in task_id): raise ValueError("invalid scan_id")
+        options["task_id"] = task_id
     return run_scan.apply_async(args=[image_name], kwargs=kwargs, **options)
 
 
