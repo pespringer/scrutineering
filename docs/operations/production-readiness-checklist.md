@@ -72,3 +72,5 @@ Go live only when all of the following are true:
   are configured from the deployment secret store.
 - Confirm database pool bounds, resource quotas, and pod disruption budgets are
   applied before enabling production scan concurrency.
+- Run `npm run validate:deployment` after changing any image, Compose, or
+  Kubernetes manifest.
