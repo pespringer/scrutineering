@@ -120,3 +120,6 @@ result = run_scan.delay(image_name="nginx:latest")
 ### Sequential (for environments without Celery)
 
 The scan_service.py module can run directly without Celery for testing or lightweight deployments.
+Production scanner workers enforce output and finding-count ceilings through
+`SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS`; oversized results fail
+closed instead of exhausting worker memory.
