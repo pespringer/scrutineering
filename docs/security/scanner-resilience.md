@@ -17,3 +17,4 @@ with `fsync`/rename so interrupted workers do not publish partial JSON.
 Scanner subprocesses have bounded durations, explicit severity normalization,
 local size-limited caches, and an optional shared Redis cache. Queue admission
 requires the low, normal, and high priority queues to be configured.
+The worker image health check imports the task module before accepting work.
