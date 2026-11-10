@@ -101,6 +101,7 @@ cd dashboard && npm ci && npm run build
 ## CI/CD
 
 - PR triggers: lint, unit tests (Node.js + Python)
+- PRs also validate deployment manifests and README documentation links.
 - Merge to main: Docker image builds, Trivy security scan
 - Tag release: Automated GitHub release with image artifacts
 
