@@ -14,7 +14,7 @@ import logging
 import os
 import uuid
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from celery import shared_task
@@ -298,7 +298,7 @@ def run_scan(
         "scanners_failed": scanners_failed,
         "persisted": persisted,
         "errors": errors,
-        "completed_at": datetime.utcnow().isoformat(),
+        "completed_at": datetime.now(timezone.utc).isoformat(),
     }
 
     self.update_state(state="COMPLETED", meta=meta)

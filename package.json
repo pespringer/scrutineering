@@ -16,6 +16,7 @@
     "report:security-outcomes": "node scripts/generate-security-outcome-report.mjs",
     "drill:staging-rollback": "node scripts/run-staging-rollback-drill.mjs",
     "drill:staging-evidence": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-evidence-gate.py",
+    "drill:staging-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-readiness.py",
     "validate:deployment": "node scripts/validate-deployment-config.mjs",
     "validate:docs": "node scripts/validate-doc-links.mjs",
     "validate:frontend": "node scripts/validate-frontend-config.mjs",

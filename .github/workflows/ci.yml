@@ -32,6 +32,7 @@ jobs:
       - run: node scripts/run-verification-harness.mjs
       - run: npm run drill:staging-rollback
       - run: npm run drill:staging-evidence
+      - run: npm run drill:staging-readiness
       - run: npm run validate:deployment
       - run: npm run validate:docs
       - run: npm run validate:frontend

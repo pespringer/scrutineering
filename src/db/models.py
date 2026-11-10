@@ -185,8 +185,8 @@ class Image(Base):
                                      autoincrement=True)
 
     # Image coordinates
-    registry: Mapped[ImageRegistry] = mapped_column(
-        Enum(ImageRegistry), nullable=False,
+    registry_name: Mapped[ImageRegistry] = mapped_column(
+        "registry", Enum(ImageRegistry), nullable=False,
         default=ImageRegistry.DOCKER_HUB,
     )
     repo_name: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -211,7 +211,7 @@ class Image(Base):
     @property
     def full_name(self) -> str:
         """Return the canonical image reference, preferring its digest."""
-        prefix = self.registry.value if self.registry != ImageRegistry.DOCKER_HUB else ""
+        prefix = self.registry_name.value if self.registry_name != ImageRegistry.DOCKER_HUB else ""
         if self.digest:
             return f"{prefix + '/' if prefix else ''}{self.repo_name}@{self.digest}"
         if prefix:

@@ -48,7 +48,7 @@ class ImageRepository:
         labels: dict | None = None,
     ) -> Image:
         image = Image(
-            registry=registry,
+            registry_name=registry,
             repo_name=repo_name,
             tag=tag,
             digest=digest,
@@ -72,7 +72,7 @@ class ImageRepository:
     ) -> tuple[Image, bool]:
         existing = session.execute(
             select(Image).where(
-                Image.registry == registry,
+                Image.registry_name == registry,
                 Image.repo_name == repo_name,
                 Image.tag == tag,
             )
@@ -80,7 +80,7 @@ class ImageRepository:
         if existing:
             return existing, False
         image = Image(
-            registry=registry, tag=tag, repo_name=repo_name, digest=digest
+            registry_name=registry, tag=tag, repo_name=repo_name, digest=digest
         )
         session.add(image)
         session.flush()

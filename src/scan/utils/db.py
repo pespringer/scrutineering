@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import hashlib
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import create_engine, select
@@ -84,7 +84,7 @@ def persist_findings(
     """
     from src.db.connection import get_session as get_db_session
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     identity = parse_image_reference(image_name)
     registry, repo, tag = identity.registry, identity.repo_name, identity.tag
     count = 0
@@ -92,14 +92,14 @@ def persist_findings(
     with get_db_session() as session:
         # Resolve or create image
         img_q = select(Image).where(
-            Image.registry == registry,
+            Image.registry_name == registry,
             Image.repo_name == repo,
             Image.tag == tag,
         )
         image = session.execute(img_q).scalar_one_or_none()
         if not image:
             image = Image(
-                registry=registry,
+                registry_name=registry,
                 repo_name=repo,
                 tag=tag,
                 digest=identity.digest,

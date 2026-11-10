@@ -80,7 +80,7 @@ class SecurityPostureService:
             result.append({
                 "id": img.id,
                 "name": img.full_name,
-                "registry": img.registry.value,
+                "registry": img.registry_name.value,
                 "status": (last_scan.status.value if last_scan and last_scan.status else "never_scanned"),
                 "last_scan": last_scan.started_at.isoformat() if last_scan else None,
                 "open_findings": fc,

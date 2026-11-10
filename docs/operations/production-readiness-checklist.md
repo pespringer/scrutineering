@@ -1,7 +1,7 @@
 # Production Readiness Checklist: Automated Remediation Rollout
 
 - Owner: Founding Engineer (DevEx)
-- Last Updated: 2026-04-05
+- Last Updated: 2026-11-10
 - Scope: CI-provider integration, staged rollout controls, rollback readiness, and incident operations.
 
 ## 1. CI Provider and Repo Event Integration
@@ -56,12 +56,27 @@ npm test
 - Disable kill switch, re-run checks, and verify expected `auto-merge` only for allowlisted teams under rate threshold.
 - Exercise rollback flow by reverting staged merge commit and re-running verifier checks.
 
-## 6. Go/No-Go Gate
+## 6. Staging Readiness and Observability
+
+- Run `npm run drill:staging-readiness` and retain its output with the release
+  record. This validates schema targets, authenticated service replay
+  protection, shared cache delivery, audit anchoring, release evidence, and
+  monitoring asset coverage.
+- Run the same checks against the deployed staging environment with real
+  PostgreSQL, Redis, OIDC/Cosign credentials, and alert receivers.
+- Confirm Prometheus evaluates the scan failure, scan P95 latency, and runtime
+  dead-letter alerts, and that the Grafana dashboard receives current data.
+- Confirm health/readiness endpoints, resource quotas, pod disruption budgets,
+  and database migrations are green after deployment.
+
+## 7. Go/No-Go Gate
 
 Go live only when all of the following are true:
 
 - All tests pass in CI for the rollout branch.
 - Staging rollback drill completed and documented.
+- Deterministic readiness drill and live staging smoke checks completed.
+- Monitoring dashboards and alert delivery verified with current staging data.
 - On-call playbook has named primary/secondary responders.
 - Kill switch ownership and paging route are confirmed.
 ## Staging promotion gates

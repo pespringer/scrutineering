@@ -90,6 +90,7 @@ npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
 npm run validate:docs        # README documentation-link checks
 npm run validate:frontend    # Enforce the single supported dashboard tree
 npm run drill:staging-evidence # Release-blocking keyless evidence scenarios
+npm run drill:staging-readiness # Deterministic staging/production boundary checks
 npm run validate:release       # Release policy configuration check
 
 # Run individual scripts
@@ -217,4 +218,5 @@ dashboard lockfile currently reports zero vulnerabilities.
 - [Dashboard Operations](docs/operations/dashboard.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
+- [Staging Readiness Validation](docs/operations/staging-readiness.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)

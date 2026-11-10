@@ -167,6 +167,24 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** staging and migration-chain checks cover the deployed release
   path, with operator documentation for smoke validation and rollback.
 
+### Batch 7 — Staging Validation and Production Readiness
+
+- **Completed:** SQLAlchemy reserved-name and deprecated UTC timestamp warnings
+  were removed without changing the public database column contract.
+- **Completed:** a deterministic staging-readiness drill covers database schema
+  targets, authenticated service replay protection, shared Redis cache,
+  checkpointed runtime delivery, audit-head anchoring, keyless release
+  evidence, and monitoring asset coverage.
+- **Completed:** local CI and the GitHub CI workflow run the readiness drill
+  alongside deployment, documentation, frontend, release, and test gates.
+- **Documented:** operators now have a staging-readiness runbook and an
+  expanded production go/no-go checklist that clearly separates local
+  preflight from live staging credentials, migrations, telemetry, and rollback.
+
+Live staging execution remains an operator gate because it requires the
+deployment environment, secret store, OIDC/Cosign identity, alert receivers,
+and production-like PostgreSQL/Redis services.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external
