@@ -28,7 +28,7 @@ export default function DashboardPage() {
       fetch(`${API}/api/scans`).then(r => r.json()),
       fetch(`${API}/api/images`).then(r => r.json()),
     ])
-      .then(([{ posture: p, trends: t, scans: s, images: i }]) => {
+      .then(([p, t, s, i]) => {
         setPosture(p);
         setTrends(t);
         setScans(s);
