@@ -25,6 +25,22 @@ empty so the dashboard uses its local `/api` routes; set this value at image
 build time only when deploying a separate API-backed frontend. The dashboard
 should not call internal database or scanner services directly.
 
+## Product surface
+
+The dashboard is organized as a security operations console:
+
+- Overview leads with active exposure, severity trend, risk distribution,
+  recent scans, and tracked-image inventory.
+- Scan history supports repository search, status filters, outcome counts, and
+  runtime details.
+- Image detail pages provide severity filtering, sortable findings, CVE links,
+  fix availability, and responsive layouts.
+- Loading, error, empty, and unavailable-data states are intentional UI states,
+  not blank screens.
+
+Run `cd dashboard && npm run build` after visual or route changes. The build
+is the release gate for TypeScript correctness and static route generation.
+
 The former `web/` application was removed in Batch 3. New pages, components,
 API routes, and visual changes belong under `dashboard/src/`; add a dashboard
 build check when changing its routing or dependencies.

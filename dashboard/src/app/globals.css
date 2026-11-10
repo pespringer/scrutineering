@@ -3,23 +3,37 @@
 @tailwind utilities;
 
 :root {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-card: #1e293b;
-  --text-primary: #f1f5f9;
-  --text-secondary: #94a3b8;
-  --border-color: #334155;
-  --accent-blue: #3b82f6;
-  --accent-green: #10b981;
-  --accent-red: #ef4444;
-  --accent-orange: #f97316;
-  --accent-yellow: #eab308;
+  --bg-primary: #080b12;
+  --bg-secondary: #0d121c;
+  --bg-card: #111925;
+  --text-primary: #f4f7fb;
+  --text-secondary: #8d9aab;
+  --border-color: #223044;
+  --accent-blue: #55a6ff;
+  --accent-green: #38d39f;
+  --accent-red: #ff647c;
+  --accent-orange: #ff9f5b;
+  --accent-yellow: #f5cf6b;
 }
 
 body {
   background: var(--bg-primary);
   color: var(--text-primary);
+  background-image: radial-gradient(circle at 80% -10%, rgba(39, 111, 185, 0.16), transparent 34rem),
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: auto, 42px 42px, 42px 42px;
 }
+
+::selection { background: rgba(85, 166, 255, 0.35); color: #fff; }
+
+.panel {
+  border: 1px solid rgba(92, 119, 151, 0.2);
+  background: linear-gradient(145deg, rgba(18, 28, 42, 0.96), rgba(10, 16, 25, 0.96));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
+}
+
+.eyebrow { color: #718198; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
 
 ::-webkit-scrollbar {
   width: 8px;

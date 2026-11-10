@@ -1,34 +1,50 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { Activity, ArrowUpRight, LayoutDashboard, Radar, ShieldCheck } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950">
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-sm">CS</div>
-            <h1 className="text-lg font-semibold tracking-tight">Container Sentinel</h1>
-          </div>
-          <nav className="flex gap-1">
-            <NavLink href="/dashboard">Dashboard</NavLink>
-            <NavLink href="/scans">Scan History</NavLink>
+    <div className="min-h-screen bg-transparent text-slate-100">
+      <div className="mx-auto flex min-h-screen max-w-[1600px]">
+        <aside className="hidden w-64 shrink-0 border-r border-slate-800/70 bg-[#0b111a]/80 px-5 py-6 lg:flex lg:flex-col">
+          <Link href="/dashboard" className="mb-12 flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/20">CS</div>
+            <div><div className="font-semibold tracking-tight">Container</div><div className="text-xs text-slate-500">Sentinel / Control room</div></div>
+          </Link>
+          <div className="eyebrow mb-3 px-3">Workspace</div>
+          <nav className="space-y-1">
+            <NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink>
+            <NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scan history</NavLink>
           </nav>
+          <div className="mt-auto rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(56,211,159,.8)]" />System operational</div>
+            <p className="text-xs leading-5 text-slate-500">All services are reporting. Last sync is live from the scan control plane.</p>
+          </div>
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="sticky top-0 z-50 border-b border-slate-800/70 bg-[#080b12]/80 backdrop-blur-xl">
+            <div className="flex h-16 items-center justify-between px-5 sm:px-8">
+              <div className="flex items-center gap-3 lg:hidden"><div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400 text-xs font-black text-slate-950">CS</div><span className="font-semibold">Container Sentinel</span></div>
+              <div className="hidden items-center gap-2 text-sm text-slate-400 sm:flex"><Activity className="h-4 w-4 text-emerald-400" /> Live posture monitoring</div>
+              <div className="ml-auto flex items-center gap-3"><span className="hidden rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400 sm:inline-flex">v0.1.0 · Local</span><div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-xs font-semibold text-cyan-300">PS</div></div>
+            </div>
+            <nav className="flex gap-1 overflow-x-auto border-t border-slate-800/50 px-5 py-2 lg:hidden"><NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink><NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scans</NavLink></nav>
+          </header>
+          <main className="mx-auto w-full max-w-[1360px] flex-1 px-5 py-8 sm:px-8 lg:px-10">{children}</main>
+          <footer className="border-t border-slate-800/70 px-5 py-5 text-xs text-slate-600 sm:px-8 lg:px-10"><div className="mx-auto flex max-w-[1360px] items-center justify-between"><span>Container Sentinel · Security posture control plane</span><span className="hidden items-center gap-1 sm:flex">Protected by <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /></span></div></footer>
         </div>
-      </header>
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6">
-        {children}
-      </main>
-      <footer className="border-t border-slate-800 py-4 text-center text-xs text-slate-600">
-        Container Sentinel &mdash; Dashboard v0.1.0
-      </footer>
+      </div>
     </div>
   );
 }
 
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+function NavLink({ href, children, icon, active }: { href: string; children: React.ReactNode; icon?: React.ReactNode; active?: boolean }) {
   return (
-    <Link href={href} className="px-3 py-1.5 rounded-md text-sm text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors">
-      {children}
+    <Link href={href} className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active ? "bg-blue-400/10 font-medium text-blue-300 ring-1 ring-inset ring-blue-400/20" : "text-slate-500 hover:bg-slate-800/70 hover:text-slate-200"}`}>
+      {icon}<span>{children}</span>{active && <ArrowUpRight className="ml-auto h-3.5 w-3.5 opacity-60" />}
     </Link>
   );
 }

@@ -3,6 +3,7 @@ interface StatCardProps {
   value: number | string;
   icon?: React.ReactNode;
   color?: string;
+  detail?: string;
 }
 
 const colorMap: Record<string, string> = {
@@ -14,14 +15,15 @@ const colorMap: Record<string, string> = {
   default: "bg-slate-800/50 text-slate-300 border-slate-700/50",
 };
 
-export default function StatCard({ label, value, icon, color = "default" }: StatCardProps) {
+export default function StatCard({ label, value, icon, color = "default", detail }: StatCardProps) {
   return (
-    <div className={`rounded-xl border p-5 ${colorMap[color] || colorMap.default} transition-all hover:shadow-lg hover:shadow-black/20`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium opacity-70 uppercase tracking-wider">{label}</span>
-        {icon && <span className="opacity-60">{icon}</span>}
+    <div className={`group rounded-2xl border p-5 ${colorMap[color] || colorMap.default} transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20`}>
+      <div className="mb-5 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-[0.14em] opacity-65">{label}</span>
+        {icon && <span className="opacity-60 transition group-hover:scale-110">{icon}</span>}
       </div>
-      <div className="text-3xl font-bold tracking-tight">{value}</div>
+      <div className="text-3xl font-bold tracking-tight sm:text-4xl">{value}</div>
+      {detail && <div className="mt-2 text-xs opacity-60">{detail}</div>}
     </div>
   );
 }

@@ -52,12 +52,13 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
   return (
     <div>
       {/* Filter */}
-      <div className="flex items-center gap-3 mb-4">
-        <label className="text-sm text-slate-400">Filter severity:</label>
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div><div className="eyebrow mb-1">Findings</div><p className="text-sm text-slate-400">Sort and filter the issues discovered in this image.</p></div>
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
-          className="bg-slate-900 text-slate-200 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          aria-label="Filter findings by severity"
+          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10"
         >
           <option value="">All</option>
           {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((s) => (
@@ -68,13 +69,13 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
 
       {/* Table */}
       <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
+        <table className="w-full min-w-[760px] text-sm">
+          <thead className="bg-slate-900/40">
             <tr className="border-b border-slate-700/50">
               {cols.map((c) => (
                 <th
                   key={c.key}
-                  className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider cursor-pointer hover:text-slate-300 select-none whitespace-nowrap"
+                  className="cursor-pointer whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:text-slate-300"
                   onClick={() => handleSort(c.key)}
                 >
                   {c.label}
@@ -95,8 +96,8 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
                 </td>
               </tr>
             ) : sorted.map((f, i) => (
-              <tr key={f.id || i} className="hover:bg-slate-800/30 transition-colors">
-                <td className="px-3 py-3 font-mono text-slate-300 whitespace-nowrap">
+              <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
+                <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
                   {f.cve_id ? (
                     <a
                       href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`}
@@ -110,20 +111,20 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
                     <span className="text-slate-600">-</span>
                   )}
                 </td>
-                <td className="px-3 py-3">
+                <td className="px-3 py-4">
                   <SeverityBadge severity={f.severity} />
                 </td>
-                <td className="px-3 py-3 text-slate-300">{f.package_name}</td>
-                <td className="px-3 py-3 font-mono text-slate-400">
+                <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
+                <td className="px-3 py-4 font-mono text-slate-400">
                   {f.package_version || "-"}
                 </td>
-                <td className="px-3 py-3 font-mono text-xs text-slate-400 whitespace-nowrap">
+                <td className="whitespace-nowrap px-3 py-4 font-mono text-xs text-slate-500">
                   {formatDate(f.first_seen)}
                 </td>
-                <td className="px-3 py-3 max-w-[250px] truncate text-slate-300" title={f.title || ""}>
+                <td className="max-w-[250px] truncate px-3 py-4 text-slate-300" title={f.title || ""}>
                   {f.title || "-"}
                 </td>
-                <td className="px-3 py-3 font-mono text-sm whitespace-nowrap">
+                <td className="whitespace-nowrap px-3 py-4 font-mono text-sm">
                   {f.fixed_version ? (
                     <span className="text-emerald-400">{f.fixed_version}</span>
                   ) : (

@@ -69,17 +69,17 @@ export default function ImageDetailPage() {
       </Link>
 
       {/* Image header */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-6 mb-6">
+      <div className="panel relative mb-6 overflow-hidden rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-300/[0.08]">
             <Package className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h2 className="text-xl font-bold font-mono">
+            <h2 className="break-all font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">
               {image.registry}/{image.repo_name}:{image.tag}
             </h2>
             {image.last_scan_at && (
-              <p className="text-xs text-slate-500 mt-0.5">
+              <p className="mt-1 text-xs text-slate-500">
                 Last scanned: {new Date(image.last_scan_at).toLocaleString()}
               </p>
             )}
@@ -87,7 +87,7 @@ export default function ImageDetailPage() {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
           {[
             { label: "Total Open", value: image.open_findings, color: "text-slate-100" },
             { label: "Critical", value: image.critical_count, color: "text-red-400" },
@@ -95,7 +95,7 @@ export default function ImageDetailPage() {
             { label: "Medium", value: image.medium_count, color: "text-yellow-400" },
             { label: "Low", value: image.low_count, color: "text-slate-400" },
           ].map((stat) => (
-            <div key={stat.label} className="bg-slate-900/50 rounded-lg px-3 py-2 text-center">
+            <div key={stat.label} className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-center">
               <span className={`text-lg font-bold ${stat.color}`}>{stat.value}</span>
               <span className="text-xs text-slate-500 block">{stat.label}</span>
             </div>
@@ -104,7 +104,7 @@ export default function ImageDetailPage() {
       </div>
 
       {/* Severity filter */}
-      <div className="flex items-center gap-2 mb-4">
+      <div className="mb-5 flex flex-wrap items-center gap-2">
         <Filter className="w-4 h-4 text-slate-500" />
         <span className="text-sm text-slate-400 mr-1">Filter:</span>
         <div className="flex gap-1">
@@ -131,12 +131,12 @@ export default function ImageDetailPage() {
       </div>
 
       {/* Findings count */}
-      <p className="text-sm text-slate-500 mb-3">
+      <p className="mb-3 text-sm text-slate-500">
         Showing {filteredFindings.length} of {findings.length} findings
       </p>
 
       {/* Findings table */}
-      <div className="bg-slate-800/50 border border-slate-700/50 rounded-xl p-4">
+      <div className="panel rounded-2xl p-4 sm:p-6">
         <FindingsTable findings={filteredFindings} />
       </div>
     </Layout>

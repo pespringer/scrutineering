@@ -201,6 +201,10 @@ release, and remediation execution can select the same policy with
 `release_evidence=True`.
 The dashboard CI job also runs `npm audit --audit-level=high`; the checked-in
 dashboard lockfile currently reports zero vulnerabilities.
+Batch 8 also gives the dashboard a production-style operations-console UI with
+risk-first posture summaries, severity trends, scan triage, responsive image
+inventory, and explicit loading/error/empty states. Open it at
+`http://localhost:3001/dashboard` after `docker compose up --build -d`.
 
 ## Documentation
 

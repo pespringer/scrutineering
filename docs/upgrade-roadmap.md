@@ -185,6 +185,22 @@ Live staging execution remains an operator gate because it requires the
 deployment environment, secret store, OIDC/Cosign identity, alert receivers,
 and production-like PostgreSQL/Redis services.
 
+### Batch 8 — Dashboard Product Quality
+
+- **Completed:** the dashboard now uses a cohesive operations-console visual
+  system with persistent navigation, responsive layouts, focused typography,
+  risk-aware color semantics, and reusable panels/cards.
+- **Completed:** the overview is organized around active exposure, severity
+  trends, risk distribution, recent scan activity, and tracked-image inventory.
+- **Completed:** scan history now has status summaries, repository search,
+  filter controls, readable scan metadata, and clearer success/partial/failure
+  treatment.
+- **Completed:** image and findings views share the same hierarchy and support
+  responsive tables, severity filtering, sorting, CVE links, and fix metadata.
+- **Completed:** loading skeletons, retryable errors, empty states, and
+  refresh controls are explicit and tested through the production dashboard
+  build and Compose healthcheck.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external
