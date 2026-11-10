@@ -31,6 +31,8 @@ jobs:
       - run: node scripts/run-remediation-dry-run-harness.mjs
       - run: node scripts/run-verification-harness.mjs
       - run: npm run drill:staging-rollback
+      - run: npm run validate:deployment
+      - run: npm run validate:docs
 
   # ------------------------------------------------
   build-dashboard:
