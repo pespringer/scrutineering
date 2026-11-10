@@ -298,6 +298,26 @@ class TestScanIdentityBoundary:
         asyncio.run(service._run_single(scanner, "alpine@sha256:" + "a" * 64, "trivy"))
         assert scanner.attempts == 1
 
+    def test_async_shared_cache_adapter_avoids_repeating_successful_scan(self):
+        from src.scan.redis_cache import RedisScanCache
+
+        values = {}
+        class Client:
+            async def get(self, key): return values.get(key)
+            async def set(self, key, value, ex): values[key] = value
+
+        class Scanner:
+            attempts = 0
+            async def scan(self, image_name):
+                self.attempts += 1
+                return []
+
+        scanner = Scanner()
+        service = ScanService(scanner_retry_attempts=0, scanner_cache=RedisScanCache(Client()))
+        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "b" * 64, "trivy"))
+        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "b" * 64, "trivy"))
+        assert scanner.attempts == 1
+
 
 # -- Risk score tests ------------------------------------------------------ #
 

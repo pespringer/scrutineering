@@ -1,0 +1,35 @@
+groups:
+  - name: scrutineering-operational-slos
+    interval: 30s
+    rules:
+      - alert: ScrutineeringScanFailureRateHigh
+        expr: >-
+          sum(rate(scrutineering_scans_total{status="failed"}[5m]))
+          /
+          clamp_min(sum(rate(scrutineering_scans_total[5m])), 1) > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Scrutineering scan failure rate is elevated"
+          runbook: "docs/operations/on-call-playbook.md"
+      - alert: ScrutineeringScanLatencyP95High
+        expr: >-
+          max(scrutineering_scan_latency_seconds{quantile="0.95"}) > 300
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Scrutineering scan latency P95 exceeds five minutes"
+          runbook: "docs/operations/scan-queues.md"
+      - alert: ScrutineeringRuntimeEventsDeadLettered
+        expr: increase(scrutineering_runtime_events_dead_lettered_total[10m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: platform-security
+        annotations:
+          summary: "Runtime events were dead-lettered"
+          runbook: "docs/operations/runtime-backpressure.md"

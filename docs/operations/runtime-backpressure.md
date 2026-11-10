@@ -10,8 +10,11 @@ in production until durable event delivery is implemented.
 
 `JsonlEventStore` provides the first durable sink. The agent writes and fsyncs
 events before buffering them, and exposes sink failures alongside dropped-event
-counts. Production deployments should replace JSONL with a managed durable
-queue or database once retention and replay policies are defined.
+counts. Production deployments should use `ManagedEventQueue` with a durable
+`ReplayCheckpoint` and a managed sink. It retries delivery, dead-letters
+exhausted events, advances the checkpoint only after the batch is accounted
+for, and exposes `scrutineering_runtime_events_dead_lettered_total` for alerting.
+The Prometheus rule and Grafana panel are checked in under `monitoring/`.
 
 The JSONL sink rotates the active file once `max_bytes` is reached, keeping a
 single previous segment for bounded local storage.

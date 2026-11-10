@@ -17,3 +17,9 @@ Scanner outcomes are exported as `scrutineering_scans_total` with `status` and
 
 Deployments must include `scan.low`, `scan.normal`, and `scan.high`; the
 configuration validator rejects a worker pool that omits any priority queue.
+
+Scanner result caches can use `RedisScanCache` for cross-worker reuse. The
+adapter keys entries by scanner plus immutable image reference, applies a
+bounded TTL and entry size, and works with the async Redis client. `ScanService`
+awaits either the local filesystem cache or the shared adapter, so callers do
+not need separate orchestration paths.

@@ -20,3 +20,12 @@ def test_jsonl_event_store_skips_corrupt_lines(tmp_path):
     path = tmp_path / "events.jsonl"
     path.write_text("not-json\n")
     assert JsonlEventStore(path).read() == []
+
+
+def test_jsonl_event_store_reads_from_checkpoint_offset(tmp_path):
+    store = JsonlEventStore(tmp_path / "events.jsonl")
+    store.append(RuntimeEvent(event_type="process", container_id="c1"))
+    store.append(RuntimeEvent(event_type="network", container_id="c1"))
+    offset, events = store.read_from(1, 10)
+    assert offset == 2
+    assert [event["event_type"] for event in events] == ["network"]

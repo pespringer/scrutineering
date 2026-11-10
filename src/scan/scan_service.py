@@ -12,6 +12,7 @@ import asyncio
 import time
 import logging
 import os
+import inspect
 from dataclasses import replace
 from typing import Optional
 
@@ -303,6 +304,8 @@ class ScanService:
         )
         if self._scanner_cache is not None:
             cached = self._scanner_cache.get(source_name, image_name)
+            if inspect.isawaitable(cached):
+                cached = await cached
             if cached is not None:
                 record_scan("cache_hit", source_name)
                 return [ScannerFinding(**{
@@ -318,10 +321,12 @@ class ScanService:
                 findings = await scanner.scan(image_name)
                 if len(findings) > self.max_findings: raise ScannerError(source_name, "finding count exceeds limit")
                 if self._scanner_cache is not None:
-                    self._scanner_cache.set(source_name, image_name, [{
+                    stored = self._scanner_cache.set(source_name, image_name, [{
                         **finding.__dict__,
                         "severity": finding.severity.value if finding.severity else None,
                     } for finding in findings])
+                    if inspect.isawaitable(stored):
+                        await stored
                 record_scan("completed", source_name)
                 record_scan_latency(time.monotonic() - started, source_name)
                 circuit.record_success()

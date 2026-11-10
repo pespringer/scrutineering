@@ -1,0 +1,29 @@
+{
+  "title": "Scrutineering Operations",
+  "schemaVersion": 39,
+  "tags": ["scrutineering", "security"],
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Scan rate by outcome",
+      "targets": [{"expr": "sum by (status) (rate(scrutineering_scans_total[5m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Scan latency P95",
+      "targets": [{"expr": "max(scrutineering_scan_latency_seconds{quantile=\"0.95\"})"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Runtime events dead-lettered",
+      "targets": [{"expr": "increase(scrutineering_runtime_events_dead_lettered_total[1h])"}],
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}
+    }
+  ]
+}

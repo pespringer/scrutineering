@@ -293,3 +293,19 @@ class TestRunScannerSync:
 
         with pytest.raises(ScannerError):
             run_scanner_sync(mock_scanner, "nginx:1.25", "trivy")
+
+    def test_uses_shared_sync_redis_cache(self):
+        from src.scan.redis_cache import SyncRedisScanCache
+        from src.scan.tasks import run_scanner_sync
+
+        values = {}
+        class Client:
+            def get(self, key): return values.get(key)
+            def set(self, key, value, ex): values[key] = value
+
+        mock_scanner = MagicMock()
+        mock_scanner.scan = AsyncMock(return_value=[_make_finding(cve="CVE-2024-CACHE")])
+        cache = SyncRedisScanCache(Client())
+        run_scanner_sync(mock_scanner, "nginx:1.25", "trivy", cache)
+        run_scanner_sync(mock_scanner, "nginx:1.25", "trivy", cache)
+        mock_scanner.scan.assert_awaited_once()

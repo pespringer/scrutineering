@@ -37,6 +37,12 @@ Default route names:
 
 Route names can be overridden with `alertRouting` in snapshot input.
 
+Production Prometheus alert rules and a starter Grafana dashboard are checked
+in as `monitoring/prometheus-rules.yaml` and
+`monitoring/grafana-dashboard.json`. They cover scan failure rate, scan P95
+latency, and runtime-event dead letters. Route alerts to the platform-security
+owner and follow the referenced runbooks before increasing automation.
+
 ## Weekly Reporting Contract
 
 Weekly reporting uses generated telemetry output to auto-populate:

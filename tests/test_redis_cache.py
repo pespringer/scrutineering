@@ -15,3 +15,8 @@ def test_redis_scan_cache_round_trip():
 
 def test_redis_cache_rejects_unsafe_prefix():
     with pytest.raises(ValueError): RedisScanCache(object(), prefix="bad prefix")
+
+
+def test_redis_cache_bounds_entry_size():
+    with pytest.raises(ValueError, match="max_entry_bytes"):
+        RedisScanCache(object(), max_entry_bytes=0)

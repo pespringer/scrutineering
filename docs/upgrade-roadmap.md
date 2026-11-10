@@ -135,6 +135,15 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** CI now validates the canonical dashboard package and prevents
   the retired frontend tree from being reintroduced.
 
+### Batch 4 — Operational Scale
+
+- **Completed:** `ScanService` can await both local and shared Redis cache
+  adapters, with bounded shared-cache entry sizes and immutable-reference keys.
+- **Completed:** runtime event delivery now uses a checkpointed managed queue
+  facade with retries, dead-letter accounting, and restart-safe offsets.
+- **Completed:** operational Prometheus rules and a Grafana dashboard cover
+  scan failure rate, scan P95 latency, and runtime dead-letter events.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

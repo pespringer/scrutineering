@@ -134,6 +134,8 @@ are passing before increasing scan concurrency.
   the Python monitoring router. The canonical FastAPI app exposes Prometheus
   text metrics at `/metrics`.
 - Grafana/Prometheus configuration lives in `monitoring/`.
+- Batch 4 adds shared Redis scan-cache support, checkpointed managed runtime
+  delivery, Prometheus SLO alerts, and a starter Grafana operations dashboard.
 
 ## Policy Contract
 
@@ -198,6 +200,7 @@ production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 - [Provider Integration](docs/security/provider-integration.md)
 - [Scan Queue Priorities](docs/operations/scan-queues.md)
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
+- [Remediation Telemetry and SLOs](docs/operations/remediation-telemetry-slos.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
 - [Dashboard Operations](docs/operations/dashboard.md)

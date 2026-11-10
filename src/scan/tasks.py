@@ -26,10 +26,21 @@ from src.scan.scanners.grype import GrypeScanner
 from src.scan.utils.dedup import deduplicate_findings_with_report
 from src.scan.utils.db import init_db, persist_findings
 from src.scan.queue import scan_task_options
+from src.scan.redis_cache import SyncRedisScanCache
+from src.scan.models import Severity
 
 logger = logging.getLogger(__name__)
 
 app = create_celery_app()
+
+
+def create_shared_scan_cache():
+    """Build the optional cross-worker Redis cache from explicit settings."""
+    if os.environ.get("SCANNER_CACHE_BACKEND", "local").lower() != "redis":
+        return None
+    import redis
+    client = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
+    return SyncRedisScanCache(client, ttl_seconds=int(os.environ.get("SCANNER_CACHE_TTL_SECONDS", "3600")))
 
 
 def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
@@ -42,7 +53,7 @@ def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
     return run_scan.apply_async(args=[image_name], kwargs=kwargs, **options)
 
 
-def run_scanner_sync(scanner, image_name: str, source_name: str) -> list[dict]:
+def run_scanner_sync(scanner, image_name: str, source_name: str, cache=None) -> list[dict]:
     """Run a single scanner synchronously and return normalized findings.
 
     This wrapper runs the async scanner method in a new event loop
@@ -59,15 +70,28 @@ def run_scanner_sync(scanner, image_name: str, source_name: str) -> list[dict]:
     Raises:
         ScannerError: If the scanner fails.
     """
+    if cache is not None:
+        cached = cache.get_sync(source_name, image_name)
+        if cached is not None:
+            return [(ScannerFinding(**{
+                **finding,
+                "severity": Severity(finding["severity"]) if finding.get("severity") else None,
+            }), source_name) for finding in cached]
+
     async def _run():
         findings = await scanner.scan(image_name)
         return [(f, source_name) for f in findings]
-
-    return asyncio.run(_run())
+    findings = asyncio.run(_run())
+    if cache is not None:
+        cache.set_sync(source_name, image_name, [{
+            **asdict(finding),
+            "severity": finding.severity.value if finding.severity else None,
+        } for finding, _source in findings])
+    return findings
 
 
 def run_scanners_concurrently(
-    scanner_names: list[str], image_name: str, max_workers: int | None = None
+    scanner_names: list[str], image_name: str, max_workers: int | None = None, cache=None
 ) -> list[tuple[str, str, list[tuple[ScannerFinding, str]] | str]]:
     """Run scanners concurrently while preserving configured result order."""
     def scan_one(scanner_name: str) -> list[tuple[ScannerFinding, str]]:
@@ -81,7 +105,10 @@ def run_scanners_concurrently(
             raise ValueError(f"Unknown scanner: {scanner_name}")
 
         logger.info("Running %s scan on '%s'...", source_name, image_name)
-        findings = run_scanner_sync(scanner, image_name, source_name)
+        if cache is None:
+            findings = run_scanner_sync(scanner, image_name, source_name)
+        else:
+            findings = run_scanner_sync(scanner, image_name, source_name, cache)
         logger.info(
             "%s found %d findings on '%s'",
             source_name,
@@ -181,7 +208,7 @@ def run_scan(
 
     # Run all scanners concurrently with isolated error handling. The helper
     # preserves configured order even when completion order differs.
-    scanner_results = run_scanners_concurrently(scanners, image_name)
+    scanner_results = run_scanners_concurrently(scanners, image_name, cache=create_shared_scan_cache())
     for scanner_name, status, data in scanner_results:
         if status == "ok":
             all_findings.extend(data)

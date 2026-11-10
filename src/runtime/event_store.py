@@ -44,3 +44,24 @@ class JsonlEventStore:
         if container_id is not None:
             events = [event for event in events if event.get("container_id") == container_id]
         return events[-limit:]
+
+    def read_from(self, offset: int = 0, limit: int = 100) -> tuple[int, list[dict]]:
+        """Read events after a line offset and return the next offset."""
+        if offset < 0 or limit < 1 or not self.path.exists():
+            return max(0, offset), []
+        lines = self.path.read_text(encoding="utf-8").splitlines()
+        if offset >= len(lines):
+            return len(lines), []
+        events = []
+        next_offset = offset
+        for line in lines[offset:]:
+            next_offset += 1
+            if not line:
+                continue
+            try:
+                events.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+            if len(events) >= limit:
+                break
+        return next_offset, events
