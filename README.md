@@ -228,6 +228,9 @@ before using scan controls.
 The Audit Trail is available at `/audit`; local operator access defaults to the
 roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
 verified OIDC ingress identity.
+Remediation previews and approvals are API-gated and require
+`REMEDIATION_APPROVAL_SECRET`; they do not mutate repositories until the
+execution worker and its validation gates are explicitly enabled.
 
 ## Documentation
 

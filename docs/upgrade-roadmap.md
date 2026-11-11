@@ -266,6 +266,28 @@ and production-like PostgreSQL/Redis services.
 - **Next:** build remediation preview, approval, and guarded apply flows behind
   the same permission and audit boundary.
 
+### Batch 14 — Remediation preview boundary
+
+- **Completed:** selected open findings can produce deterministic, read-only
+  remediation actions with package, CVE, severity, and fixability context.
+- **Completed:** preview requests are bounded to one image and 50 findings and
+  reject cross-image or unavailable-fix selections.
+- **Completed:** preview responses explicitly declare that they do not mutate
+  database or repository state.
+
+### Batch 15 — Remediation approval boundary
+
+- **Completed:** actionable previews can be persisted as `requires_review`
+  remediation records with durable action rows.
+- **Completed:** short-lived HMAC approval tokens are issued and verified only
+  for security-operator/admin roles, with token hashes and approver provenance
+  stored on the remediation.
+- **Completed:** approval transitions use the existing fail-closed lifecycle
+  graph and emit an audit record; repository mutation remains disabled until a
+  separately deployed execution worker is available.
+- **Next:** connect approved records to an isolated execution worker that
+  enforces evidence, worktree, validation, PR, and rollback gates.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

@@ -18,6 +18,7 @@ trusted OIDC ingress identity.
 - `GET /session` — the mapped operator identity context.
 - `GET /permissions` — role-derived dashboard capabilities.
 - `GET /audit?limit=25&offset=0` — paginated operator activity records.
+- `GET /remediations/{remediation_id}` — remediation preview/status.
 
 Paginated responses use `{ items, limit, offset, count, total }`. The Next.js
 dashboard proxy keeps API keys and the trusted proxy secret server-side.
@@ -31,6 +32,21 @@ dashboard proxy keeps API keys and the trusted proxy secret server-side.
 Starting and cancelling scans require `operator` or `security-operator`; the
 `admin` role is also accepted. Read-only dashboard access remains available to
 the `dashboard` role.
+
+## Remediation boundary
+
+- `POST /remediations/preview` returns deterministic, read-only actions for
+  selected open findings.
+- `POST /remediations` persists a `requires_review` record for findings with
+  known fixes; it requires `remediator` or `security-operator`.
+- `POST /remediations/{id}/approval-token` issues a short-lived token to a
+  `security-operator`; `REMEDIATION_APPROVAL_SECRET` must be configured.
+- `POST /remediations/{id}/approve` verifies the token, stores approval
+  provenance, and transitions the record to `analyzing`.
+
+These endpoints stop before repository mutation. A future execution worker must
+consume only approved records and enforce evidence, worktree, validation, and
+rollback gates.
 
 For OIDC, an ingress must verify the token before forwarding
 `x-authenticated-sub` and optional email/roles headers. The API accepts those

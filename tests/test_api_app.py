@@ -19,6 +19,11 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/session" in paths
     assert "/api/dashboard/permissions" in paths
     assert "/api/dashboard/audit" in paths
+    assert "/api/dashboard/remediations/preview" in paths
+    assert "/api/dashboard/remediations" in paths
+    assert "/api/dashboard/remediations/{remediation_id}" in paths
+    assert "/api/dashboard/remediations/{remediation_id}/approval-token" in paths
+    assert "/api/dashboard/remediations/{remediation_id}/approve" in paths
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):

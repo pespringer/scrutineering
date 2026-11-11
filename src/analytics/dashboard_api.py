@@ -5,13 +5,15 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 import uuid
+import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
-from src.db.repositories import AuditLogRepository
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationStatus, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.repositories import AuditLogRepository, RemediationRepository
+from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -30,6 +32,19 @@ class ScanRequest(BaseModel):
         if not value or any(char.isspace() for char in value):
             raise ValueError("image_name must be a single image reference")
         return value
+
+
+class RemediationRequest(BaseModel):
+    image_id: int = Field(gt=0)
+    finding_ids: list[int] = Field(min_length=1, max_length=50)
+
+
+class ApprovalTokenRequest(BaseModel):
+    ttl_seconds: int = Field(default=900, ge=60, le=3600)
+
+
+class ApprovalRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=1024)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -116,16 +131,50 @@ def _require_role(request: Request, *allowed: str) -> None:
         raise HTTPException(status_code=403, detail="operator_role_required")
 
 
-def _record_operator_event(session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict) -> None:
+def _record_operator_event(session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict, entity_type: str = "scan") -> None:
     AuditLogRepository.record(
         session,
         event_type=event_type,
-        entity_type="scan",
+        entity_type=entity_type,
         entity_id=entity_id,
         detail=detail,
         actor=getattr(request.state, "principal_id", "dashboard-service"),
         actor_kind="user" if getattr(request.state, "auth_method", "") == "oidc_proxy" else "system",
     )
+
+
+def _remediation_actions(findings: list[ScanFinding]) -> list[dict]:
+    return [{
+        "finding_id": finding.id,
+        "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
+        "package_name": finding.package_name,
+        "from_version": finding.package_version,
+        "to_version": finding.fixed_version,
+        "cve_id": finding.cve_id,
+        "severity": _value(finding.severity),
+        "safe_to_apply": bool(finding.fix_available and finding.fixed_version),
+    } for finding in findings]
+
+
+def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
+    return {
+        "id": remediation.id,
+        "image_id": remediation.image_id,
+        "status": _value(remediation.status),
+        "finding_count": remediation.finding_count,
+        "target_severities": remediation.target_severities,
+        "approved_by": remediation.approved_by,
+        "approved_at": _iso(remediation.approved_at),
+        "actions": actions if actions is not None else [{
+            "id": action.id,
+            "action_type": _value(action.action_type),
+            "file_path": action.file_path,
+            "before_value": action.before_value,
+            "after_value": action.after_value,
+            "success": action.success,
+            "detail": action.detail,
+        } for action in remediation.actions],
+    }
 
 
 @router.get("/posture/summary")
@@ -350,3 +399,114 @@ def dashboard_audit(
         "actor_kind": record.actor_kind,
     } for record in records]
     return _page(items, limit, offset, total)
+
+
+@router.post("/remediations/preview")
+def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        image = session.get(Image, payload.image_id)
+        findings = session.query(ScanFinding).filter(
+            ScanFinding.image_id == payload.image_id,
+            ScanFinding.id.in_(payload.finding_ids),
+            ScanFinding.remediated.is_(False),
+        ).order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).all()
+    if image is None:
+        raise HTTPException(status_code=404, detail="image_not_found")
+    if len(findings) != len(set(payload.finding_ids)):
+        raise HTTPException(status_code=400, detail="findings_must_belong_to_image")
+    actions = _remediation_actions(findings)
+    return {
+        "image": _image_payload(image, findings),
+        "finding_ids": [finding.id for finding in findings],
+        "actions": actions,
+        "actionable_count": sum(action["safe_to_apply"] for action in actions),
+        "requires_approval": True,
+        "mutates_state": False,
+    }
+
+
+@router.post("/remediations", status_code=201)
+def create_remediation(payload: RemediationRequest, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        image = session.get(Image, payload.image_id)
+        findings = session.query(ScanFinding).filter(
+            ScanFinding.image_id == payload.image_id,
+            ScanFinding.id.in_(payload.finding_ids),
+            ScanFinding.remediated.is_(False),
+            ScanFinding.fix_available.is_(True),
+        ).all()
+        if image is None:
+            raise HTTPException(status_code=404, detail="image_not_found")
+        if len(findings) != len(set(payload.finding_ids)):
+            raise HTTPException(status_code=400, detail="all_findings_need_available_fixes")
+        severities = Counter(_value(finding.severity) or "unknown" for finding in findings)
+        remediation = RemediationRepository.create(
+            session,
+            image_id=image.id,
+            finding_count=len(findings),
+            target_severities=dict(severities),
+        )
+        remediation.status = RemediationStatus.REQUIRES_REVIEW
+        actions = _remediation_actions(findings)
+        for finding, action in zip(findings, actions):
+            RemediationRepository.add_action(
+                session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
+                before_value=finding.package_version, after_value=finding.fixed_version,
+                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id},
+            )
+        _record_operator_event(session, request, AuditEventType.REMEDIATION_STARTED, str(remediation.id), {"action": "remediation_requested", "finding_ids": payload.finding_ids}, entity_type="remediation")
+        return _remediation_payload(remediation, actions)
+
+
+@router.get("/remediations/{remediation_id}")
+def remediation_detail(remediation_id: int, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        remediation = RemediationRepository.get_by_id(session, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        return _remediation_payload(remediation)
+
+
+@router.post("/remediations/{remediation_id}/approval-token")
+def remediation_approval_token(remediation_id: int, payload: ApprovalTokenRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    secret = os.environ.get("REMEDIATION_APPROVAL_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="remediation_approval_not_configured")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) != RemediationStatus.REQUIRES_REVIEW.value:
+            raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
+    token = issue_approval(str(remediation_id), getattr(request.state, "principal_id", "dashboard-service"), secret, ttl_seconds=payload.ttl_seconds)
+    return {"remediation_id": remediation_id, "token": token, "expires_in": payload.ttl_seconds}
+
+
+@router.post("/remediations/{remediation_id}/approve")
+def approve_remediation(remediation_id: int, payload: ApprovalRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    secret = os.environ.get("REMEDIATION_APPROVAL_SECRET", "")
+    if not secret:
+        raise HTTPException(status_code=503, detail="remediation_approval_not_configured")
+    try:
+        approval = verify_approval(payload.token, str(remediation_id), secret)
+    except ValueError as exc:
+        raise HTTPException(status_code=403, detail="invalid_approval_token") from exc
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) != RemediationStatus.REQUIRES_REVIEW.value:
+            raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
+        RemediationRepository.update_status(
+            session, remediation_id, RemediationStatus.ANALYZING,
+            approved_by=approval["approver"], approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            approval_token_hash=approval_token_hash(payload.token),
+        )
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_approved", "approver": approval["approver"]}, entity_type="remediation")
+        remediation = RemediationRepository.get_by_id(session, remediation_id)
+        return _remediation_payload(remediation)

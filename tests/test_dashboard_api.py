@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import ScanRequest, _finding_payload, _image_payload, _page, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -53,3 +53,11 @@ def test_dashboard_roles_keep_read_only_access_separate_from_mutations():
 
 def test_cancelled_scan_event_is_part_of_the_audit_contract():
     assert AuditEventType.SCAN_CANCELLED.value == "scan_cancelled"
+
+
+def test_remediation_request_is_bounded_and_preview_actions_fail_closed():
+    request = RemediationRequest(image_id=4, finding_ids=[11])
+    finding = SimpleNamespace(id=11, package_name="openssl", package_version="3.0.0", fixed_version=None, cve_id="CVE-2026-1", severity=Severity.HIGH, fix_available=False)
+    action = _remediation_actions([finding])[0]
+    assert request.finding_ids == [11]
+    assert action["safe_to_apply"] is False

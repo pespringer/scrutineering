@@ -35,6 +35,7 @@ stringData:
   CELERY_BROKER_URL: "redis://scrutineering-redis:6379/0"
   PYTHON_API_KEY: "replace-with-a-strong-dashboard-api-key"
   DASHBOARD_TRUSTED_PROXY_SECRET: "replace-with-a-trusted-ingress-secret"
+  REMEDIATION_APPROVAL_SECRET: "replace-with-a-remediation-approval-secret"
 ---
 # Deployment — PostgreSQL
 apiVersion: apps/v1
