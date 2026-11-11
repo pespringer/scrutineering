@@ -53,6 +53,10 @@ Execution blocks are persisted as remediation lifecycle events so operators
 can distinguish a policy denial, missing adapter configuration, and an actual
 worker failure.
 
+When enabled, the worker additionally requires evidence envelope/artifact paths
+and a supported provider/ecosystem pair. It applies only exact-match edits in a
+detached worktree and runs install, test, build, SBOM, and rescan gates in order.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

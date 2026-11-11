@@ -333,6 +333,19 @@ and production-like PostgreSQL/Redis services.
 - **Next:** add a full remediation detail timeline and connect successful
   validated artifacts to guarded PR publication and rollback verification.
 
+### Batch 21 — Guarded repository execution adapter
+
+- **Completed:** exact-match action normalization now rejects traversal,
+  ambiguous, empty, and no-op edits before a worktree is created.
+- **Completed:** approved work can use the existing detached-worktree executor
+  with provider-derived install, test, build, SBOM, and rescan gates.
+- **Completed:** release evidence is required before edits and validation run;
+  missing evidence/configuration remains a durable blocked event.
+- **Completed:** successful local artifacts are reported with changed files and
+  commit identity; PR publication and merge remain separate guarded steps.
+- **Next:** connect validated artifacts to the existing allowlisted PR
+  publishers and post-merge rollback coordinator.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

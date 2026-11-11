@@ -236,6 +236,9 @@ The Remediation Queue is available at `/remediations` for users with the
 default through `REMEDIATION_EXECUTION_ENABLED=false`.
 Execution events are retained with the remediation record so blocked work is
 visible and reviewable rather than silently discarded.
+The guarded adapter also requires explicit evidence files and validation
+provider/ecosystem settings; it creates detached-worktree artifacts and never
+publishes or merges a change automatically.
 
 ## Documentation
 

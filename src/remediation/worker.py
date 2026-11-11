@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+import json
 
 from celery import shared_task
 
 from src.db.connection import get_session
 from src.db.models import Remediation, RemediationStatus
 from src.db.repositories import RemediationRepository
+from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
 
 
 def execution_enabled() -> bool:
@@ -45,4 +47,28 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
             return _blocked(session, remediation_id, "execution_adapter_not_configured")
         if any(not action.file_path for action in remediation.actions):
             return _blocked(session, remediation_id, "actions_require_explicit_file_paths")
-        return _blocked(session, remediation_id, "execution_adapter_not_enabled")
+        envelope_path = os.environ.get("REMEDIATION_EVIDENCE_FILE", "")
+        artifact_path = os.environ.get("REMEDIATION_EVIDENCE_ARTIFACT_FILE", "")
+        provider = os.environ.get("REMEDIATION_VALIDATION_PROVIDER", "")
+        ecosystem = os.environ.get("REMEDIATION_VALIDATION_ECOSYSTEM", "")
+        if not envelope_path or not artifact_path or not provider or not ecosystem:
+            return _blocked(session, remediation_id, "evidence_or_validation_config_missing")
+        try:
+            envelope, artifact = load_release_evidence(envelope_path, artifact_path)
+            validation_commands = build_validation_sequence(provider, ecosystem)
+            result = execute_repository_adapter(
+                repository_root,
+                [{"file_path": action.file_path, "before_value": action.before_value, "after_value": action.after_value} for action in remediation.actions],
+                validation_commands,
+                evidence_envelope=envelope,
+                evidence_artifact=artifact,
+                evidence_env=dict(os.environ),
+                remediation_id=str(remediation_id),
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return _blocked(session, remediation_id, f"execution_plan_invalid:{exc}")
+        if result.status != "ready":
+            return _blocked(session, remediation_id, result.error or "execution_failed")
+        events = RemediationRepository.list_events(session, remediation_id)
+        RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": {"commit": result.commit, "changed_files": result.changed_files}})
+        return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "changed_files": result.changed_files}
