@@ -492,6 +492,19 @@ def remediation_detail(remediation_id: int, request: Request) -> dict:
         return _remediation_payload(remediation)
 
 
+@router.get("/remediations/{remediation_id}/events")
+def remediation_events(remediation_id: int, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        if session.get(Remediation, remediation_id) is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        events = RemediationRepository.list_events(session, remediation_id)
+    return {"remediation_id": remediation_id, "events": [{
+        "id": event.id, "event_type": event.event_type, "sequence": event.sequence,
+        "detail": event.detail, "created_at": _iso(event.created_at),
+    } for event in events]}
+
+
 @router.post("/remediations/{remediation_id}/approval-token")
 def remediation_approval_token(remediation_id: int, payload: ApprovalTokenRequest, request: Request) -> dict:
     _require_role(request, "security-operator")

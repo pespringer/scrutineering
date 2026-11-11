@@ -234,6 +234,8 @@ execution worker and its validation gates are explicitly enabled.
 The Remediation Queue is available at `/remediations` for users with the
 `remediator` or `security-operator` role; execution remains disabled by
 default through `REMEDIATION_EXECUTION_ENABLED=false`.
+Execution events are retained with the remediation record so blocked work is
+visible and reviewable rather than silently discarded.
 
 ## Documentation
 

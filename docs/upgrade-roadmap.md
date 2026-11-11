@@ -308,6 +308,31 @@ and production-like PostgreSQL/Redis services.
 - **Next:** implement the explicit repository execution adapter with evidence,
   worktree, validation, PR, and rollback integration before enabling writes.
 
+### Batch 18 — Remediation execution queue
+
+- **Completed:** approved remediation requests are isolated onto a dedicated
+  Celery queue rather than sharing scanner capacity.
+- **Completed:** the worker requires explicit enablement and repository-root
+  configuration and never assumes that a local checkout is safe to mutate.
+
+### Batch 19 — Fail-closed execution contract
+
+- **Completed:** execution validates approved lifecycle state and explicit
+  action file paths before any adapter can be invoked.
+- **Completed:** missing adapters, missing repository roots, and incomplete
+  action metadata return blocked results without repository writes.
+- **Next:** wire the existing worktree/evidence/validation executor into the
+  explicit adapter contract and add provider publication only after gates pass.
+
+### Batch 20 — Durable remediation operations
+
+- **Completed:** blocked execution attempts persist ordered remediation events
+  with machine-readable reasons.
+- **Completed:** the dashboard API exposes remediation events for operator
+  review, while the queue UI surfaces role and execution boundaries.
+- **Next:** add a full remediation detail timeline and connect successful
+  validated artifacts to guarded PR publication and rollback verification.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

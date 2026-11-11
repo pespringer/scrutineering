@@ -19,6 +19,8 @@ trusted OIDC ingress identity.
 - `GET /permissions` — role-derived dashboard capabilities.
 - `GET /audit?limit=25&offset=0` — paginated operator activity records.
 - `GET /remediations/{remediation_id}` — remediation preview/status.
+- `GET /remediations/{remediation_id}/events` — ordered durable execution
+  events and fail-closed reasons.
 - `GET /remediations?status=requires_review` — paginated remediation queue.
 
 Paginated responses use `{ items, limit, offset, count, total }`. The Next.js
@@ -46,6 +48,10 @@ the `dashboard` role.
   provenance, and transitions the record to `analyzing`.
 - `POST /remediations/{id}/execute` queues an approved record only when
   `REMEDIATION_EXECUTION_ENABLED=true`; otherwise it fails closed.
+
+Execution blocks are persisted as remediation lifecycle events so operators
+can distinguish a policy denial, missing adapter configuration, and an actual
+worker failure.
 
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and

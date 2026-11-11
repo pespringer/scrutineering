@@ -15,6 +15,17 @@ def execution_enabled() -> bool:
     return os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 
+def _blocked(session, remediation_id: int, reason: str) -> dict:
+    events = RemediationRepository.list_events(session, remediation_id)
+    RemediationRepository.append_event(session, {
+        "remediation_id": remediation_id,
+        "event_type": "execution_blocked",
+        "sequence": len(events) + 1,
+        "detail": {"reason": reason},
+    })
+    return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
+
+
 @shared_task(bind=True, name="src.remediation.worker.execute_approved_remediation", acks_late=True, task_time_limit=3600)
 def execute_approved_remediation(self, remediation_id: int) -> dict:
     """Validate an approved record before handing it to a configured adapter.
@@ -28,10 +39,10 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
         if remediation is None:
             return {"remediation_id": remediation_id, "status": "blocked", "reason": "remediation_not_found"}
         if remediation.status != RemediationStatus.ANALYZING:
-            return {"remediation_id": remediation_id, "status": "blocked", "reason": "remediation_not_approved"}
+            return _blocked(session, remediation_id, "remediation_not_approved")
         repository_root = os.environ.get("REMEDIATION_REPOSITORY_ROOT", "")
         if not execution_enabled() or not repository_root:
-            return {"remediation_id": remediation_id, "status": "blocked", "reason": "execution_adapter_not_configured"}
+            return _blocked(session, remediation_id, "execution_adapter_not_configured")
         if any(not action.file_path for action in remediation.actions):
-            return {"remediation_id": remediation_id, "status": "blocked", "reason": "actions_require_explicit_file_paths"}
-        return {"remediation_id": remediation_id, "status": "blocked", "reason": "execution_adapter_not_enabled"}
+            return _blocked(session, remediation_id, "actions_require_explicit_file_paths")
+        return _blocked(session, remediation_id, "execution_adapter_not_enabled")
