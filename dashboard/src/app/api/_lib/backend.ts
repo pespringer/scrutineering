@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 
+class BackendError extends Error {
+  constructor(public readonly status: number) {
+    super(`dashboard backend returned ${status}`);
+  }
+}
+
 export async function backendJson<T>(path: string, init?: RequestInit): Promise<T> {
   const base = process.env.DASHBOARD_API_URL;
   if (!base) throw new Error("DASHBOARD_API_URL is not configured");
@@ -12,7 +18,7 @@ export async function backendJson<T>(path: string, init?: RequestInit): Promise<
       ...(init?.headers || {}),
     },
   });
-  if (!response.ok) throw new Error(`dashboard backend returned ${response.status}`);
+  if (!response.ok) throw new BackendError(response.status);
   return response.json() as Promise<T>;
 }
 
@@ -38,7 +44,26 @@ export async function dashboardResponse<T>(
       ? await backendJson<T>(path, request ? { headers: trustedIdentityHeaders(request) } : undefined)
       : await fallback();
     return NextResponse.json(payload);
-  } catch {
+  } catch (error) {
+    if (error instanceof BackendError) {
+      return NextResponse.json({ error: "dashboard_backend_rejected" }, { status: error.status });
+    }
+    return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
+  }
+}
+
+export async function dashboardMutationResponse<T>(path: string, request: Request, status = 200) {
+  try {
+    const payload = await backendJson<T>(path, {
+      method: "POST",
+      body: await request.text(),
+      headers: { "content-type": "application/json", ...trustedIdentityHeaders(request) },
+    });
+    return NextResponse.json(payload, { status });
+  } catch (error) {
+    if (error instanceof BackendError) {
+      return NextResponse.json({ error: "dashboard_backend_rejected" }, { status: error.status });
+    }
     return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
   }
 }
