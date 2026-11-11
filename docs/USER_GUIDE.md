@@ -51,6 +51,8 @@ docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
 
 # 4. Verify
 curl http://localhost:3000/health
+curl http://localhost:8000/health
+npm run smoke:dashboard
 ```
 
 ## API Reference
@@ -160,8 +162,10 @@ seed data is used for UI development.
 # 1. Infrastructure (PostgreSQL, Redis, PVCs)
 kubectl apply -f k8s/infrastructure.yaml
 
-# 2. Planner API deployment
+# 2. Planner and dashboard API deployments
 kubectl apply -f k8s/planner-deployment.yaml
+kubectl apply -f k8s/api-deployment.yaml
+kubectl apply -f k8s/dashboard-deployment.yaml
 
 # 3. Worker deployment  
 kubectl apply -f k8s/worker-deployment.yaml

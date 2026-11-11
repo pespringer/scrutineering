@@ -152,6 +152,11 @@ class ScanStatus(str, enum.Enum):
     CANCELLED  = "cancelled"
 
 
+def _enum_values(enum_type):
+    """Persist enum values (the lowercase database contract), not member names."""
+    return [member.value for member in enum_type]
+
+
 # -- Models ----------------------------------------------------------------- #
 
 
@@ -186,7 +191,7 @@ class Image(Base):
 
     # Image coordinates
     registry_name: Mapped[ImageRegistry] = mapped_column(
-        "registry", Enum(ImageRegistry), nullable=False,
+        "registry", Enum(ImageRegistry, values_callable=_enum_values), nullable=False,
         default=ImageRegistry.DOCKER_HUB,
     )
     repo_name: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -263,7 +268,7 @@ class Scan(Base):
 
     # Status
     status: Mapped[ScanStatus] = mapped_column(
-        Enum(ScanStatus), nullable=False, default=ScanStatus.PENDING)
+        Enum(ScanStatus, values_callable=_enum_values), nullable=False, default=ScanStatus.PENDING)
 
     # Counters — set on completion
     total_findings: Mapped[int] = mapped_column(Integer, default=0)
@@ -327,10 +332,10 @@ class ScanFinding(Base):
     title: Mapped[str] = mapped_column(String(1024), default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     severity: Mapped[Severity | None] = mapped_column(
-        Enum(Severity), nullable=True)
+        Enum(Severity, values_callable=_enum_values), nullable=True)
 
     # Source
-    source: Mapped[FindingSource] = mapped_column(Enum(FindingSource))
+    source: Mapped[FindingSource] = mapped_column(Enum(FindingSource, values_callable=_enum_values))
     scanner_version: Mapped[str | None] = mapped_column(String(64),
                                                          nullable=True)
     vulnerability_db_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -378,7 +383,7 @@ class RawScanResult(Base):
                                            nullable=False)
     scan_id: Mapped[str] = mapped_column(String(64), nullable=False)
     scanner_source: Mapped[FindingSource] = mapped_column(
-        Enum(FindingSource), nullable=False)
+        Enum(FindingSource, values_callable=_enum_values), nullable=False)
     scanner_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     vulnerability_db_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
     raw_output: Mapped[dict] = mapped_column(JSON, nullable=False)
@@ -435,7 +440,7 @@ class SecurityPolicy(Base):
 
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    policy_type: Mapped[PolicyType] = mapped_column(Enum(PolicyType),
+    policy_type: Mapped[PolicyType] = mapped_column(Enum(PolicyType, values_callable=_enum_values),
                                                      nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     priority: Mapped[int] = mapped_column(Integer, default=0)
@@ -445,7 +450,7 @@ class SecurityPolicy(Base):
     #   auto_remediate: {"severities": ["critical", "high"], "targets": ["npm", "pip"]}
     #   severity_threshold: {"max_critical": 0, "max_high": 5, "action": "block"}
     rules: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    action: Mapped[PolicyAction] = mapped_column(Enum(PolicyAction),
+    action: Mapped[PolicyAction] = mapped_column(Enum(PolicyAction, values_callable=_enum_values),
                                                   nullable=False,
                                                   default=PolicyAction.ALERT)
 
@@ -492,7 +497,7 @@ class PolicyEvaluation(Base):
     violated: Mapped[bool] = mapped_column(Boolean, default=False)
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     action_taken: Mapped[PolicyAction | None] = mapped_column(
-        Enum(PolicyAction), nullable=True)
+        Enum(PolicyAction, values_callable=_enum_values), nullable=True)
 
 
 # -- Remediations ----------------------------------------------------------- #
@@ -517,7 +522,7 @@ class Remediation(Base):
     image = relationship("Image", lazy="joined")
 
     status: Mapped[RemediationStatus] = mapped_column(
-        Enum(RemediationStatus), nullable=False,
+        Enum(RemediationStatus, values_callable=_enum_values), nullable=False,
         default=RemediationStatus.PENDING)
 
     # Trigger
@@ -583,7 +588,7 @@ class RemediationAction(Base):
                                lazy="joined")
 
     action_type: Mapped[RemediationActionType] = mapped_column(
-        Enum(RemediationActionType), nullable=False)
+        Enum(RemediationActionType, values_callable=_enum_values), nullable=False)
 
     # Before / after values
     file_path: Mapped[str | None] = mapped_column(String(1024),
@@ -657,7 +662,7 @@ class AuditLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime,
                                                  server_default=func.now(),
                                                  nullable=False)
-    event_type: Mapped[AuditEventType] = mapped_column(Enum(AuditEventType),
+    event_type: Mapped[AuditEventType] = mapped_column(Enum(AuditEventType, values_callable=_enum_values),
                                                         nullable=False)
     entity_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
     entity_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -775,7 +780,7 @@ class ContainerRuntime(Base):
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
     # e.g. 'network_connection', 'file_write', 'process_spawn',
     #      'privilege_escalation', 'syscall'
-    severity: Mapped[Severity | None] = mapped_column(Enum(Severity),
+    severity: Mapped[Severity | None] = mapped_column(Enum(Severity, values_callable=_enum_values),
                                                        nullable=True)
 
     # Details — highly variable per event type

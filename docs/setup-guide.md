@@ -31,13 +31,13 @@ docker compose up --build -d
 
 ```bash
 # Apply all pending migrations
-docker compose exec app alembic -c alembic.ini upgrade head
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
 
 # Rollback one version
-docker compose exec app alembic -c alembic.ini downgrade -1
+docker compose exec api alembic -c src/db/migrations/alembic.ini downgrade -1
 
 # Generate a new migration after model changes
-docker compose exec app alembic -c alembic.ini revision --autogenerate -m "description"
+docker compose exec api alembic -c src/db/migrations/alembic.ini revision --autogenerate -m "description"
 ```
 
 ### Health Checks

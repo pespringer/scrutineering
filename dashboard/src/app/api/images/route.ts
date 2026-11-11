@@ -14,5 +14,10 @@ export async function GET(req: Request) {
     });
   }
 
-  return dashboardResponse("/api/dashboard/images", getImages);
+  const query = new URLSearchParams(url.searchParams);
+  if (!query.has("limit")) query.set("limit", "20");
+  return dashboardResponse(`/api/dashboard/images?${query}`, () => {
+    const items = getImages();
+    return { items, limit: items.length, offset: 0, count: items.length, total: items.length };
+  });
 }

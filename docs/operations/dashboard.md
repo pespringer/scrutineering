@@ -19,11 +19,11 @@ Run `npm run validate:frontend` from the repository root to verify that the
 canonical package and lockfile exist and that the retired frontend tree has
 not returned.
 
-Set `NEXT_PUBLIC_API_URL` to the reachable API origin when the dashboard is
-not served behind the same origin as the control plane. The Compose default is
-empty so the dashboard uses its local `/api` routes; set this value at image
-build time only when deploying a separate API-backed frontend. The dashboard
-should not call internal database or scanner services directly.
+Compose and Kubernetes keep `NEXT_PUBLIC_API_URL` empty: browser requests use
+same-origin Next.js routes, which proxy server-side to the authenticated Python
+API. Configure `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the server
+environment. The dashboard should not call internal database, Redis, or scanner
+services directly.
 
 ## Product surface
 
@@ -32,7 +32,8 @@ The dashboard is organized as a security operations console:
 - Overview leads with active exposure, severity trend, risk distribution,
   recent scans, and tracked-image inventory.
 - Scan history supports repository search, status filters, outcome counts, and
-  runtime details.
+  runtime details, server-side pagination, targeted scan submission, and
+  queued-scan polling.
 - Image detail pages provide severity filtering, sortable findings, CVE links,
   fix availability, and responsive layouts.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
@@ -43,6 +44,10 @@ is the release gate for TypeScript correctness and static route generation.
 The build also verifies that the generated CSS contains the dashboard utility
 bundle; this prevents an unstyled production shell when Tailwind source paths
 change.
+
+For a running local stack, use `npm run smoke:dashboard`. It checks the Next.js
+browser shell, dashboard proxy routes, and that server-only API credentials are
+not present in responses.
 
 The former `web/` application was removed in Batch 3. New pages, components,
 API routes, and visual changes belong under `dashboard/src/`; add a dashboard

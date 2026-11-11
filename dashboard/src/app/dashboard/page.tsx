@@ -13,7 +13,7 @@ import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import StatCard from "@/components/StatCard";
-import type { ImageDetail, PostureSummary, ScanResult, SeverityTrend } from "@/types";
+import type { ImageDetail, Page, PostureSummary, ScanResult, SeverityTrend } from "@/types";
 
 const EMPTY_POSTURE: PostureSummary = {
   total_scanned_images: 0, total_findings: 0, critical_count: 0,
@@ -25,6 +25,10 @@ async function getJson<T>(url: string): Promise<T> {
   const response = await fetch(url, { cache: "no-store" });
   if (!response.ok) throw new Error(`Request failed (${response.status})`);
   return response.json();
+}
+
+function items<T>(page: T[] | Page<T>): T[] {
+  return Array.isArray(page) ? page : page.items;
 }
 
 export default function DashboardPage() {
@@ -43,18 +47,18 @@ export default function DashboardPage() {
       const [summary, trend, scanHistory, trackedImages] = await Promise.all([
         getJson<PostureSummary>(`${api}/api/posture/summary`),
         getJson<SeverityTrend[]>(`${api}/api/posture/trend`),
-        getJson<ScanResult[]>(`${api}/api/scans`),
-        getJson<ImageDetail[]>(`${api}/api/images`),
+        getJson<ScanResult[] | Page<ScanResult>>(`${api}/api/scans`),
+        getJson<ImageDetail[] | Page<ImageDetail>>(`${api}/api/images`),
       ]);
-      setPosture(summary); setTrends(trend); setScans(scanHistory); setImages(trackedImages);
+      setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages));
     } catch {
       if (api) {
         try {
           const [summary, trend, scanHistory, trackedImages] = await Promise.all([
             getJson<PostureSummary>("/api/posture/summary"), getJson<SeverityTrend[]>("/api/posture/trend"),
-            getJson<ScanResult[]>("/api/scans"), getJson<ImageDetail[]>("/api/images"),
+            getJson<ScanResult[] | Page<ScanResult>>("/api/scans"), getJson<ImageDetail[] | Page<ImageDetail>>("/api/images"),
           ]);
-          setPosture(summary); setTrends(trend); setScans(scanHistory); setImages(trackedImages);
+          setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages));
         } catch { setError("The dashboard data service is unavailable. Try refreshing in a moment."); }
       } else setError("The dashboard data service is unavailable. Try refreshing in a moment.");
     } finally { setLoading(false); }

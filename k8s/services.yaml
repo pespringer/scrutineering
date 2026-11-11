@@ -16,6 +16,40 @@ spec:
   selector:
     app: scrutineering-planner
 ---
+# Service — Python dashboard/data API
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-api
+  labels:
+    app: scrutineering-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  selector:
+    app: scrutineering-api
+---
+# Service — Next.js dashboard
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-dashboard
+  labels:
+    app: scrutineering-dashboard
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3001
+      targetPort: 3001
+      protocol: TCP
+      name: http
+  selector:
+    app: scrutineering-dashboard
+---
 # Service — PostgreSQL
 apiVersion: v1
 kind: Service

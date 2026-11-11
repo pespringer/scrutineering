@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 
-export async function backendJson<T>(path: string): Promise<T> {
+export async function backendJson<T>(path: string, init?: RequestInit): Promise<T> {
   const base = process.env.DASHBOARD_API_URL;
   if (!base) throw new Error("DASHBOARD_API_URL is not configured");
 
   const response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
-    headers: { "x-api-key": process.env.DASHBOARD_API_KEY || "" },
+    ...init,
     cache: "no-store",
+    headers: {
+      "x-api-key": process.env.DASHBOARD_API_KEY || "",
+      ...(init?.headers || {}),
+    },
   });
   if (!response.ok) throw new Error(`dashboard backend returned ${response.status}`);
   return response.json() as Promise<T>;

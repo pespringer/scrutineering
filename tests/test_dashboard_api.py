@@ -3,7 +3,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 
-from src.analytics.dashboard_api import _finding_payload, _image_payload, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import ScanRequest, _finding_payload, _image_payload, _page, _scan_payload, _severity_counts
 from src.db.models import ImageRegistry, ScanStatus, Severity
 
 
@@ -30,3 +30,11 @@ def test_dashboard_serializers_match_frontend_contract():
     assert _image_payload(image, [finding])["open_findings"] == 1
     assert _scan_payload(scan)["status"] == "completed"
     assert _finding_payload(finding)["severity"] == "HIGH"
+
+
+def test_dashboard_page_and_scan_request_contracts():
+    request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
+    assert request.image_name == "ghcr.io/acme/api:v2"
+    assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
+        "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
+    }

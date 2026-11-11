@@ -1,7 +1,7 @@
 export interface ScanResult {
   scan_id: string;
   image_name: string;
-  status: 'completed' | 'failed' | 'partial';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'partial';
   started_at: string;
   completed_at?: string;
   findings: number;
@@ -9,6 +9,14 @@ export interface ScanResult {
   high_count: number;
   medium_count: number;
   low_count: number;
+}
+
+export interface Page<T> {
+  items: T[];
+  limit: number;
+  offset: number;
+  count: number;
+  total: number;
 }
 
 export interface VulnerabilityFinding {

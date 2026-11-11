@@ -17,3 +17,23 @@ spec:
   selector:
     matchLabels:
       app: scrutineering-worker
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: scrutineering-api
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: scrutineering-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: scrutineering-dashboard
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: scrutineering-dashboard

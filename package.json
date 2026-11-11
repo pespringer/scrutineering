@@ -20,7 +20,8 @@
     "validate:deployment": "node scripts/validate-deployment-config.mjs",
     "validate:docs": "node scripts/validate-doc-links.mjs",
     "validate:frontend": "node scripts/validate-frontend-config.mjs",
-    "validate:release": "node scripts/validate-release-config.mjs"
+    "validate:release": "node scripts/validate-release-config.mjs",
+    "smoke:dashboard": "node scripts/smoke-dashboard.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

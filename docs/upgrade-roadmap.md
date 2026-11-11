@@ -217,6 +217,21 @@ and production-like PostgreSQL/Redis services.
 - **Next:** add paginated server-side filtering, scan controls/status polling,
   and Kubernetes dashboard/API deployment manifests.
 
+### Batch 10 — Operational dashboard controls
+
+- **Completed:** dashboard APIs now return bounded page envelopes with server-
+  side search and status/severity filtering for scans, images, and findings.
+- **Completed:** scan submission persists a pending record, enqueues Celery,
+  and exposes status polling through the dashboard proxy.
+- **Completed:** Celery updates durable scan state and counters as workers move
+  through running, completed, and failed states.
+- **Completed:** Kubernetes API/dashboard deployments, services, probes, and
+  disruption budgets are checked in with server-only API-key wiring.
+- **Completed:** added a runtime dashboard smoke script that verifies the UI,
+  proxy routes, and credential non-disclosure.
+- **Next:** add richer findings pagination in the UI, scan cancellation, and
+  authenticated user/OIDC session mapping for dashboard operators.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

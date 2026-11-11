@@ -99,6 +99,7 @@ npm run verify:local  # Node, Python, and security-contract checks
 npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
 npm run validate:docs        # README documentation-link checks
 npm run validate:frontend    # Enforce the single supported dashboard tree
+npm run smoke:dashboard      # Smoke-test a running dashboard/API proxy
 npm run drill:staging-evidence # Release-blocking keyless evidence scenarios
 npm run drill:staging-readiness # Deterministic staging/production boundary checks
 npm run validate:release       # Release policy configuration check
@@ -128,11 +129,13 @@ See `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
 
 ```bash
 # Apply manifests in order
-kubectl apply -f k8s/configmap-and-secrets.yaml
+kubectl apply -f k8s/infrastructure.yaml     # ConfigMap, Secret, postgres, redis
 kubectl apply -f k8s/resource-quota.yaml
 kubectl apply -f k8s/pod-disruption-budgets.yaml
 kubectl apply -f k8s/infrastructure.yaml     # postgres, redis, PVCs
 kubectl apply -f k8s/planner-deployment.yaml
+kubectl apply -f k8s/api-deployment.yaml
+kubectl apply -f k8s/dashboard-deployment.yaml
 kubectl apply -f k8s/worker-deployment.yaml
 kubectl apply -f k8s/celery-beat-deployment.yaml
 kubectl apply -f k8s/services.yaml
@@ -140,6 +143,9 @@ kubectl apply -f k8s/services.yaml
 
 Production promotion should also confirm the planner and worker health checks
 are passing before increasing scan concurrency.
+The API and dashboard deployments use separate ClusterIP services; the
+dashboard calls the API server-side with `PYTHON_API_KEY`, which must remain in
+the Kubernetes Secret and never in a `NEXT_PUBLIC_*` variable.
 
 ## Monitoring
 
@@ -213,6 +219,9 @@ inventory, and explicit loading/error/empty states. Open it at
 The dashboard now uses the authenticated Python data API when Compose sets
 `DASHBOARD_API_URL`; seed data remains available for standalone frontend work
 when that variable is unset.
+Scan history supports server-side search, status filters, pagination, targeted
+scan submission, and polling of queued scan status. Apply database migrations
+before using scan controls.
 
 ## Documentation
 

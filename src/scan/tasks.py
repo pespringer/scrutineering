@@ -28,10 +28,53 @@ from src.scan.utils.db import init_db, persist_findings
 from src.scan.queue import scan_task_options
 from src.scan.redis_cache import SyncRedisScanCache
 from src.scan.models import Severity
+from src.db.connection import get_session as get_db_session
+from src.db.models import Image, Scan, ScanStatus
+from src.scan.image_identity import parse_image_reference
 
 logger = logging.getLogger(__name__)
 
 app = create_celery_app()
+
+
+def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
+                        total_findings: int = 0, counts: dict[str, int] | None = None,
+                        error_message: str | None = None) -> None:
+    """Keep durable scan status aligned with Celery progress."""
+    identity = parse_image_reference(image_name)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_db_session() as session:
+        image = session.query(Image).filter_by(
+            registry_name=identity.registry, repo_name=identity.repo_name, tag=identity.tag,
+        ).first()
+        if image is None:
+            image = Image(registry_name=identity.registry, repo_name=identity.repo_name,
+                          tag=identity.tag, digest=identity.digest)
+            session.add(image)
+            session.flush()
+        scan = session.query(Scan).filter_by(scan_id=scan_id).first()
+        if scan is None:
+            scan = Scan(scan_id=scan_id, image_id=image.id, started_at=now)
+            session.add(scan)
+        scan.status = status.value
+        scan.total_findings = total_findings
+        scan.critical_count = (counts or {}).get("critical", 0)
+        scan.high_count = (counts or {}).get("high", 0)
+        scan.medium_count = (counts or {}).get("medium", 0)
+        scan.low_count = (counts or {}).get("low", 0)
+        scan.error_message = error_message
+        if status in {ScanStatus.COMPLETED, ScanStatus.FAILED}:
+            scan.completed_at = now
+            image.last_scan_at = now
+        image.last_scan_id = scan_id
+
+
+def _safe_update_scan_record(*args, **kwargs) -> None:
+    """Do not turn a scanner result into a task failure when persistence is down."""
+    try:
+        _update_scan_record(*args, **kwargs)
+    except Exception:
+        logger.exception("Unable to update durable scan state")
 
 
 def create_shared_scan_cache():
@@ -195,6 +238,8 @@ def run_scan(
         scanners,
     )
 
+    _safe_update_scan_record(scan_id, image_name, ScanStatus.RUNNING)
+
     # Task state tracking
     self.update_state(
         state="SCANNING",
@@ -234,6 +279,8 @@ def run_scan(
                 "errors": errors,
             },
         )
+        _safe_update_scan_record(scan_id, image_name, ScanStatus.FAILED,
+                                 error_message="all configured scanners failed")
         return {
             "scan_id": scan_id,
             "image_name": image_name,
@@ -279,6 +326,17 @@ def run_scan(
 
     # Build dedup summary for the result
     dedup_summary = dedup_report.summary() if dedup_report else {"total_raw_findings": 0, "unique_findings_after_dedup": 0, "merged_duplicates": 0, "dedup_ratio": 0.0, "findings_by_source": {}}
+
+    counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+    for finding in deduped:
+        severity = str(finding.get("severity", "")).lower()
+        if severity in counts:
+            counts[severity] += 1
+    _safe_update_scan_record(
+        scan_id, image_name, ScanStatus.COMPLETED,
+        total_findings=len(deduped), counts=counts,
+        error_message="; ".join(error.get("error", "") for error in errors) or None,
+    )
 
     # Build result summary
     # Count findings by source

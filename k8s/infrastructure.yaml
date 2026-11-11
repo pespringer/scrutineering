@@ -32,6 +32,7 @@ stringData:
   DATABASE_URL: "postgresql://scrutineering:change-me-secret@scrutineering-postgres:5432/scrutineering"
   REDIS_URL: "redis://scrutineering-redis:6379/0"
   CELERY_BROKER_URL: "redis://scrutineering-redis:6379/0"
+  PYTHON_API_KEY: "replace-with-a-strong-dashboard-api-key"
 ---
 # Deployment — PostgreSQL
 apiVersion: apps/v1
