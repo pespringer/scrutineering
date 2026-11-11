@@ -244,6 +244,9 @@ requires the existing allowlisted GitHub/GitLab publisher boundary and
 post-merge verification.
 Live publication is disabled by default and requires explicit provider tokens,
 repository allowlists, and `REMEDIATION_PUBLICATION_ENABLED=true`.
+Provider callbacks require separate HMAC webhook secrets and are replay-safe;
+merge verification and rollback-required outcomes are retained in the
+remediation timeline.
 
 ## Documentation
 

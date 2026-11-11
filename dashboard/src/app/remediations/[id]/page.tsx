@@ -1,0 +1,17 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ArrowLeft, CheckCircle2, CircleAlert, GitPullRequest, ShieldCheck } from "lucide-react";
+import Link from "next/link";
+import Layout from "@/components/Layout";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+type Event = { id: number; event_type: string; sequence: number; detail: Record<string, unknown>; created_at: string };
+type Remediation = { id: number; image_id: number; status: string; finding_count: number; actions: Array<{ action_type: string; before_value: string | null; after_value: string | null }>; publications: Array<{ provider: string; repository: string; status: string; url: string | null; verification_status: string | null }> };
+
+export default function RemediationDetail({ params }: { params: Promise<{ id: string }> }) {
+  const [data, setData] = useState<{ remediation: Remediation; events: Event[] } | null>(null);
+  useEffect(() => { params.then(({ id }) => Promise.all([fetch(`/api/remediations/${id}`).then((r) => r.json()), fetch(`/api/remediations/${id}/events`).then((r) => r.json())]).then(([remediation, events]) => setData({ remediation, events: events.events || [] })).catch(() => setData(null))); }, [params]);
+  if (!data) return <Layout><LoadingSpinner /></Layout>;
+  return <Layout><Link href="/remediations" className="mb-6 inline-flex items-center gap-2 text-sm text-cyan-300"><ArrowLeft className="h-4 w-4" /> Back to queue</Link><div className="mb-8"><div className="eyebrow mb-3">Remediation #{data.remediation.id}</div><h1 className="text-3xl font-semibold tracking-tight text-white">Execution timeline</h1><p className="mt-2 text-sm text-slate-400">Image {data.remediation.image_id} · {data.remediation.finding_count} finding(s) · {data.remediation.status}</p></div><div className="grid gap-6 xl:grid-cols-[1fr_340px]"><section className="panel rounded-2xl p-5 sm:p-6"><div className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-200"><ShieldCheck className="h-4 w-4 text-cyan-300" /> Durable events</div><div className="space-y-5">{data.events.map((event) => <div key={event.id} className="flex gap-3"><div className="mt-0.5 text-cyan-300">{event.event_type.includes("rollback") ? <CircleAlert className="h-4 w-4 text-rose-300" /> : <CheckCircle2 className="h-4 w-4" />}</div><div><div className="text-sm font-medium text-slate-200">{event.event_type}</div><div className="text-xs text-slate-500">Step {event.sequence} · {new Date(event.created_at).toLocaleString()}</div></div></div>)}{!data.events.length && <p className="text-sm text-slate-500">No lifecycle events yet.</p>}</div></section><aside className="panel rounded-2xl p-5 sm:p-6"><div className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-200"><GitPullRequest className="h-4 w-4 text-violet-300" /> Publications</div>{data.remediation.publications.map((publication) => <div key={`${publication.provider}-${publication.repository}`} className="border-b border-slate-800 py-3 last:border-0"><div className="text-sm text-slate-200">{publication.repository}</div><div className="mt-1 text-xs uppercase tracking-wider text-slate-500">{publication.provider} · {publication.status}</div>{publication.url && <a className="mt-1 block truncate text-xs text-cyan-300" href={publication.url}>{publication.url}</a>}</div>)}{!data.remediation.publications.length && <p className="text-sm text-slate-500">No publication yet.</p>}</aside></div></Layout>;
+}

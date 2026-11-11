@@ -370,6 +370,24 @@ and production-like PostgreSQL/Redis services.
 - **Next:** persist merge callbacks and feed deployed digest/finding results
   into the post-merge rollback coordinator.
 
+### Next 10 slices — Provider-to-post-merge operations
+
+- **Completed:** persist provider merge callbacks and publication outcomes.
+- **Completed:** verify provider callback HMAC signatures and reject replayed
+  event IDs.
+- **Completed:** persist merge commits, observed digests, scan state, and
+  finding deltas on publication records.
+- **Completed:** emit durable `post_merge_verified` or `rollback_required`
+  remediation events.
+- **Completed:** expose publication reconciliation for pending, failed, and
+  merged records.
+- **Completed:** add remediation detail timeline and publication status UI.
+- **Completed:** add rollback decision output with validated revert commands.
+- **Completed:** keep provider credentials server-side and publication gated.
+- **Completed:** add provider callback, publication, and route contract tests.
+- **Next:** exercise the full provider callback and rollback path in staging
+  with real webhook delivery and deployment scan evidence.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

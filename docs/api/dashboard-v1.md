@@ -69,6 +69,12 @@ idempotency key; it does not call the provider. `POST
 persists provider URL/number, request hash, status, errors, and idempotency
 outcomes in `remediation_publications`. Provider tokens remain server-side.
 
+Providers send signed callbacks to `POST /api/dashboard/webhooks/{provider}`
+with `x-provider-event-id` and `x-provider-signature`. GitHub and GitLab
+secrets are configured separately; duplicate event IDs are accepted without
+reprocessing. Merge callbacks persist commit/digest/scan findings and append a
+verified or rollback-required timeline event.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

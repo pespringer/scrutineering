@@ -593,6 +593,22 @@ class RemediationPublication(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class RemediationWebhookEvent(Base):
+    """Replay-protected provider callback receipt."""
+    __tablename__ = "remediation_webhook_events"
+    __table_args__ = (
+        UniqueConstraint("provider", "event_id", name="uq_remediation_webhook_event"),
+        Index("idx_remediation_webhook_events_remediation_id", "remediation_id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    remediation_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="SET NULL"), nullable=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    event_id: Mapped[str] = mapped_column(String(256), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    received_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class RemediationAction(Base):
     """Individual action taken within a remediation.
 
