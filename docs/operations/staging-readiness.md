@@ -7,6 +7,12 @@ production boundaries without requiring live cloud credentials:
 npm run drill:staging-readiness
 ```
 
+Run the provider-to-post-merge companion drill as well:
+
+```bash
+npm run drill:staging-provider
+```
+
 The drill verifies that the database model creates the audit, anchoring, and
 remediation-event tables; service requests authenticate and reject replay;
 Redis-backed scan caching and checkpointed runtime delivery work together;
@@ -26,3 +32,7 @@ OIDC/Cosign identity and secret store, exercise Redis and PostgreSQL over the
 staging network, confirm dashboard data and alert delivery, and record a
 successful rollback drill. Do not mark the release Go until those live checks
 are attached to the release record.
+
+The provider drill covers the publication-to-merge-to-verification path. It is
+deterministic locally; live staging must additionally deliver a real signed
+provider callback and attach deployment scan evidence.

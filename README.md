@@ -52,6 +52,10 @@ selected.
 The worker image and Compose service expose health checks for early failure
 detection.
 
+Provider publication and callbacks are gated by explicit configuration. Use
+`npm run drill:staging-provider` to exercise normalized merge callbacks,
+post-merge verification, and rollback output with deterministic fixtures.
+
 ## Quick Start
 
 ```bash

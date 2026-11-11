@@ -388,6 +388,19 @@ and production-like PostgreSQL/Redis services.
 - **Next:** exercise the full provider callback and rollback path in staging
   with real webhook delivery and deployment scan evidence.
 
+### Next 10 slices — Staging provider-to-post-merge hardening
+
+- **Completed:** normalize GitHub and GitLab merge callbacks into one provider-neutral contract.
+- **Completed:** accept native provider delivery IDs and HMAC headers while retaining the internal callback contract.
+- **Completed:** persist scan status, before/after finding counts, and validated rollback commands on publications.
+- **Completed:** add bounded reconciliation filtering for pending, failed, and merged publication records.
+- **Completed:** add provider callback outcome metrics for rejected, duplicate, unmatched, accepted, and rollback-required events.
+- **Completed:** add deterministic healthy-merge and regression rollback staging fixtures.
+- **Completed:** document staging webhook setup, secret rotation, callback evidence, and rollback review.
+- **Completed:** expose post-merge evidence and rollback output in remediation detail payloads.
+- **Next:** run the live staging publication and signed callback exercise with real provider delivery.
+- **Next:** attach deployment scan evidence and alert validation to the promotion record.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

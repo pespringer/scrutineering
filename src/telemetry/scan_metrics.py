@@ -21,3 +21,9 @@ def record_runtime_delivery(delivered: int, dead_lettered: int) -> None:
         scan_metrics.increment("scrutineering_runtime_events_delivered_total", delivered)
     if dead_lettered:
         scan_metrics.increment("scrutineering_runtime_events_dead_lettered_total", dead_lettered)
+
+
+def record_provider_callback(outcome: str) -> None:
+    if outcome not in {"accepted", "rejected", "duplicate", "unmatched", "rollback_required"}:
+        raise ValueError("unknown provider callback outcome")
+    scan_metrics.increment("scrutineering_provider_callbacks_total", labels={"outcome": outcome})

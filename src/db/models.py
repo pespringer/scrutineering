@@ -591,6 +591,10 @@ class RemediationPublication(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    scan_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    findings_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
 class RemediationWebhookEvent(Base):

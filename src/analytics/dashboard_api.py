@@ -23,6 +23,8 @@ from src.remediation.post_merge import evaluate_post_merge
 from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
+from src.remediation.provider_callbacks import normalize_callback, verify_signature
+from src.telemetry.scan_metrics import record_provider_callback
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -213,6 +215,10 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "url": publication.url, "number": publication.provider_number,
             "merged_at": _iso(publication.merged_at),
             "verification_status": publication.verification_status,
+            "scan_status": publication.scan_status,
+            "findings_before": publication.findings_before,
+            "findings_after": publication.findings_after,
+            "rollback_command": publication.rollback_command,
         } for publication in remediation.publications],
     }
 
@@ -488,11 +494,16 @@ def list_remediations(
 
 
 @router.get("/remediations/publications/reconciliation")
-def publication_reconciliation(request: Request) -> dict:
+def publication_reconciliation(request: Request, status: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=250)) -> dict:
     _require_role(request, "security-operator")
     with get_session() as session:
-        records = session.query(RemediationPublication).filter(RemediationPublication.status.in_(["pending", "failed", "merged"])).order_by(RemediationPublication.created_at.asc()).limit(100).all()
-    return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status} for record in records], "count": len(records)}
+        query = session.query(RemediationPublication).filter(RemediationPublication.status.in_(["pending", "failed", "merged"]))
+        if status:
+            if status not in {"pending", "failed", "merged"}:
+                raise HTTPException(status_code=400, detail="invalid_reconciliation_status")
+            query = query.filter(RemediationPublication.status == status)
+        records = query.order_by(RemediationPublication.created_at.asc()).limit(limit).all()
+    return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command} for record in records], "count": len(records)}
 
 
 @router.post("/remediations", status_code=201)
@@ -697,42 +708,57 @@ async def provider_webhook(provider: str, request: Request) -> dict:
     provider = provider.lower()
     if provider not in {"github", "gitlab"}:
         raise HTTPException(status_code=404, detail="provider_not_supported")
-    event_id = request.headers.get("x-provider-event-id", "")
-    signature = request.headers.get("x-provider-signature", "")
+    event_id = request.headers.get("x-provider-event-id", "") or request.headers.get("x-github-delivery", "") or request.headers.get("x-gitlab-event-uuid", "")
+    signature = request.headers.get("x-provider-signature", "") or request.headers.get("x-hub-signature-256", "")
     secret = os.environ.get(f"{provider.upper()}_WEBHOOK_SECRET", "")
     body = await request.body()
-    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest() if secret else ""
-    if not secret or not event_id or not hmac.compare_digest(signature, expected):
+    if not event_id or not verify_signature(provider=provider, body=body, signature=signature, secret=secret):
+        record_provider_callback("rejected")
         raise HTTPException(status_code=401, detail="invalid_provider_signature")
     try:
         payload = json.loads(body.decode())
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise HTTPException(status_code=400, detail="invalid_provider_payload") from exc
-    repository = str(payload.get("repository") or "")
-    number = int(payload.get("number") or 0)
+    try:
+        callback = normalize_callback(provider=provider, payload=payload, event_id=event_id, event_type=request.headers.get("x-github-event") or request.headers.get("x-gitlab-event"))
+    except (TypeError, ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail="invalid_provider_payload") from exc
     with get_session() as session:
         if session.query(RemediationWebhookEvent).filter_by(provider=provider, event_id=event_id).first():
+            record_provider_callback("duplicate")
             return {"accepted": True, "duplicate": True}
-        publication = session.query(RemediationPublication).filter_by(provider=provider, repository=repository, provider_number=number).first()
-        webhook = RemediationWebhookEvent(remediation_id=publication.remediation_id if publication else None, provider=provider, event_id=event_id, event_type=str(payload.get("event_type") or "provider_callback"))
+        publication = session.query(RemediationPublication).filter_by(provider=provider, repository=callback.repository, provider_number=callback.number).first()
+        webhook = RemediationWebhookEvent(remediation_id=publication.remediation_id if publication else None, provider=provider, event_id=event_id, event_type=callback.event_type)
         session.add(webhook)
         if publication is None:
+            record_provider_callback("unmatched")
             return {"accepted": True, "matched": False}
-        publication.status = "merged" if payload.get("merged") else str(payload.get("state") or "updated")
-        publication.merged_at = datetime.now(timezone.utc).replace(tzinfo=None) if payload.get("merged") else publication.merged_at
-        publication.merge_commit = payload.get("merge_commit") or publication.merge_commit
-        publication.observed_digest = payload.get("observed_digest") or publication.observed_digest
-        if payload.get("merged"):
+        publication.status = "merged" if callback.merged else callback.state
+        publication.merged_at = datetime.now(timezone.utc).replace(tzinfo=None) if callback.merged else publication.merged_at
+        publication.merge_commit = callback.merge_commit or publication.merge_commit
+        publication.observed_digest = callback.observed_digest or publication.observed_digest
+        publication.scan_status = callback.scan_status
+        publication.findings_before = callback.findings_before
+        publication.findings_after = callback.findings_after
+        if callback.merged:
             result = evaluate_post_merge(
-                expected_digest=str(payload.get("expected_digest") or ""),
-                observed_digest=payload.get("observed_digest"),
-                required_scan_status=str(payload.get("scan_status") or "pending"),
-                findings_before=int(payload.get("findings_before") or 0),
-                findings_after=int(payload.get("findings_after") or 0),
+                expected_digest=callback.expected_digest,
+                observed_digest=callback.observed_digest,
+                required_scan_status=callback.scan_status,
+                findings_before=callback.findings_before,
+                findings_after=callback.findings_after,
             )
             publication.verification_status = str(result["status"])
             publication.verification_detail = result
             event_type = "rollback_required" if result["status"] == "rollback_required" else "post_merge_verified"
+            if result["status"] == "rollback_required":
+                record_provider_callback("rollback_required")
+                if callback.merge_commit:
+                    try:
+                        publication.rollback_command = list(build_rollback_plan(callback.merge_commit).command)
+                    except ValueError:
+                        publication.rollback_command = []
             events = RemediationRepository.list_events(session, publication.remediation_id)
             RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": event_type, "sequence": len(events) + 1, "detail": result})
+        record_provider_callback("accepted")
         return {"accepted": True, "matched": True, "publication_id": publication.id, "verification_status": publication.verification_status}

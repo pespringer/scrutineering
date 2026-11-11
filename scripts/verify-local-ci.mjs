@@ -5,6 +5,7 @@ const commands = [
   ["npm", ["run", "validate:policy-contract"]],
   ["npm", ["run", "validate:evidence-contract"]],
   ["npm", ["run", "drill:staging-rollback"]],
+  ["npm", ["run", "drill:staging-provider"]],
   ["npm", ["run", "drill:staging-evidence"]],
   ["npm", ["run", "drill:staging-readiness"]],
   ["npm", ["run", "validate:deployment"]],
