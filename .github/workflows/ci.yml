@@ -71,7 +71,7 @@ jobs:
       - run: PYTHONPATH=. python -m pytest tests/ -v
 
   # ------------------------------------------------
-  # Docker build (planner + worker images)
+  # Docker build (planner + API + worker + dashboard images)
   # ------------------------------------------------
   docker-build:
     needs: [test-node, test-python]
@@ -80,6 +80,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build -f Dockerfile -t scrutineering-planner:ci .
+      - run: docker build -f Dockerfile.api -t scrutineering-api:ci .
       - run: docker build -f Dockerfile.worker -t scrutineering-worker:ci .
       - run: docker build -f Dockerfile.dashboard -t scrutineering-dashboard:ci .
 

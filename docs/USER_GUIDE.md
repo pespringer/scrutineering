@@ -46,8 +46,8 @@ cp .env.example .env
 # 2. Start all services
 docker compose up --build -d
 
-# 3. Run database migrations
-docker compose exec app alembic -c alembic.ini upgrade head
+# 3. Run database migrations from the API container
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
 
 # 4. Verify
 curl http://localhost:3000/health
@@ -149,7 +149,11 @@ npm run build     # Production build
 npm run dev        # Development mode with hot reload (port 3001)
 ```
 
-The dashboard connects to the Planner API backend via environment variables. Set `NEXT_PUBLIC_API_URL` to point to your running backend.
+In Docker Compose, the dashboard uses server-side routes to call the authenticated
+Python data API. Set `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the
+server environment; do not expose the API key through `NEXT_PUBLIC_*` variables.
+When running the frontend standalone without `DASHBOARD_API_URL`, deterministic
+seed data is used for UI development.
 
 ### Kubernetes (Production)
 ```bash

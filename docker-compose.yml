@@ -3,6 +3,8 @@
 #
 # Services:
 #   app           — Node.js planner/REST server
+#   api           — authenticated Python dashboard/data API
+#   dashboard     — Next.js operations dashboard
 #   postgres      — PostgreSQL 16 (metadata + scan results)
 #   redis         — Redis 7 (Celery broker / result backend)
 #   celery-worker — Python Celery worker (runs Trivy / Grype scans)
@@ -51,6 +53,41 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
+  # Python API — authenticated read-only dashboard/data boundary
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: scrutineering-api
+    user: "api"
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${PYTHON_API_PORT:-8000}:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set in .env}
+      - PYTHON_API_KEY=${PYTHON_API_KEY:-${PLANNER_API_KEY:?PLANNER_API_KEY must be set in .env}}
+      - SERVICE_AUTH_SECRET=${SERVICE_AUTH_SECRET:-}
+      - SERVICE_AUTH_REQUIRED=${SERVICE_AUTH_REQUIRED:-false}
+      - SCRUTINEERING_VERSION=${SCRUTINEERING_VERSION:-1.0}
+      - SCRUTINEERING_REVISION=${SCRUTINEERING_REVISION:-local}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
   # Next.js Dashboard — local UI and dashboard API routes
   # ---------------------------------------------------------------------------
   dashboard:
@@ -68,8 +105,12 @@ services:
     environment:
       - HOSTNAME=0.0.0.0
       - PORT=3001
+      - DASHBOARD_API_URL=${DASHBOARD_API_URL:-http://api:8000}
+      - DASHBOARD_API_KEY=${DASHBOARD_API_KEY:-${PYTHON_API_KEY:-${PLANNER_API_KEY:?PLANNER_API_KEY must be set in .env}}}
     depends_on:
       app:
+        condition: service_healthy
+      api:
         condition: service_healthy
     restart: unless-stopped
     networks:

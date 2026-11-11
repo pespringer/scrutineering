@@ -30,6 +30,7 @@ scrutineering/
 │   ├── hiring/           # Hiring pipeline docs
 │   ├── operations/       # Runbooks, SLAs, playbooks
 │   └── security/         # Security validation docs
+├── Dockerfile.api         # Production FastAPI data API image
 ├── Dockerfile.dashboard   # Production Next.js dashboard image
 └── docker-compose.yml     # Full local stack, including dashboard
 ```
@@ -40,9 +41,12 @@ frontend was removed in Batch 3. Runtime services require an explicit
 `DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
 
-Docker Compose services are the Node planner (`app`), Next.js dashboard,
-PostgreSQL, Redis, the Celery scanner worker, and Celery Beat. The dashboard is
-available at `http://localhost:3001/dashboard`. PostgreSQL and Redis stay on the
+Docker Compose services are the Node planner (`app`), authenticated Python data
+API (`api`), Next.js dashboard, PostgreSQL, Redis, the Celery scanner worker,
+and Celery Beat. The dashboard is available at `http://localhost:3001/dashboard`;
+its server-side routes read live data through `http://api:8000` and keep the API
+key out of browser JavaScript. The API is also exposed at `http://localhost:8000`
+for local diagnostics. PostgreSQL and Redis stay on the
 internal Compose network unless `docker-compose.host-access.yml` is explicitly
 selected.
 The worker image and Compose service expose health checks for early failure
@@ -64,11 +68,12 @@ docker compose up --build -d
 # Do not use this override on shared or production hosts.
 docker compose -f docker-compose.yml -f docker-compose.host-access.yml up --build -d
 
-# 3. Run database migrations
-docker compose exec app alembic -c alembic.ini upgrade head
+# 3. Run database migrations (the API image includes Alembic)
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade head
 
 # 4. Verify
 curl http://localhost:3000/health
+curl http://localhost:8000/health
 curl -I http://localhost:3001/dashboard
 docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
 docker compose exec app node scripts/run-verification-harness.mjs
@@ -170,7 +175,7 @@ node scripts/validate-policy-contract.mjs
   API request must come from an authenticated service identity. Replays are
   rejected and `SERVICE_AUTH_MAX_SKEW_SECONDS` is bounded.
 - The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
-  analytics, and forensics routers and exposes `/health`.
+  analytics, dashboard, and forensics routers and exposes `/health`.
   `/ready` checks database connectivity for deployment probes.
   `/version` reports the configured service version and revision.
 
@@ -205,6 +210,9 @@ Batch 8 also gives the dashboard a production-style operations-console UI with
 risk-first posture summaries, severity trends, scan triage, responsive image
 inventory, and explicit loading/error/empty states. Open it at
 `http://localhost:3001/dashboard` after `docker compose up --build -d`.
+The dashboard now uses the authenticated Python data API when Compose sets
+`DASHBOARD_API_URL`; seed data remains available for standalone frontend work
+when that variable is unset.
 
 ## Documentation
 

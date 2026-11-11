@@ -6,6 +6,7 @@ from uuid import uuid4
 import re
 
 from src.analytics.api import router as analytics_router
+from src.analytics.dashboard_api import router as dashboard_router
 from src.forensics.api import router as forensics_router
 from src.runtime.api import router as runtime_router
 from src.scan.api import router as scan_router
@@ -38,6 +39,7 @@ def create_app() -> FastAPI:
     application.include_router(scan_router)
     application.include_router(runtime_router)
     application.include_router(analytics_router)
+    application.include_router(dashboard_router)
     application.include_router(forensics_router)
 
     @application.middleware("http")

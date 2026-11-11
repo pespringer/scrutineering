@@ -119,7 +119,7 @@ remediations (1) ──< remediation_actions (many)   [CASCADE delete]
 export DATABASE_URL='postgresql+psycopg2://<user>:<password>@<host>:5432/<database>'
 
 # Apply all pending migrations
-alembic -c src/db/migrations/alembic.ini upgrade head
+alembic -c src/db/migrations/alembic.ini upgrade heads
 
 # Generate a new migration after model changes
 alembic -c src/db/migrations/alembic.ini revision --autogenerate -m "description"

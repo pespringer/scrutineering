@@ -74,7 +74,7 @@ def upgrade() -> None:
         sa.UniqueConstraint('registry', 'repo_name', 'tag',
                             name='uq_image_registry_repo_tag'),
         sa.CheckConstraint(
-            "char_length(registry) <= 32",
+            "char_length(registry::text) <= 32",
             name='chk_images_registry_length'),
         sa.CheckConstraint(
             "char_length(repo_name) <= 512",

@@ -328,9 +328,9 @@ curl http://localhost:3000/api/images/<image-id>
 docker compose up --build -d
 ```
 
-2. Apply migrations:
+2. Apply migrations from the API container:
 ```bash
-docker compose exec app alembic -c alembic.ini upgrade head
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
 ```
 
 3. Verify planner is healthy:

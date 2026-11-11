@@ -10,6 +10,9 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/runtime/overview" in paths
     assert "/api/forensics/snapshot" in paths
     assert "/api/v1/scans/{scan_id}" in paths
+    assert "/api/dashboard/posture/summary" in paths
+    assert "/api/dashboard/posture/trend" in paths
+    assert "/api/dashboard/images/{image_id}" in paths
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):

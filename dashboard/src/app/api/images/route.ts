@@ -1,5 +1,5 @@
-import { NextResponse } from "next/server";
 import { getImages, getImageById, getFindingsByImage } from "@/lib/seed";
+import { dashboardResponse } from "../_lib/backend";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -7,11 +7,12 @@ export async function GET(req: Request) {
   const severity = url.searchParams.get("severity");
 
   if (id) {
-    const img = getImageById(id);
-    if (!img) return NextResponse.json({ error: "not_found" }, { status: 404 });
-    const findings = getFindingsByImage(id, severity || undefined);
-    return NextResponse.json({ image: img, findings });
+    return dashboardResponse(`/api/dashboard/images/${id}${severity ? `?severity=${encodeURIComponent(severity)}` : ""}`, () => {
+      const img = getImageById(id);
+      if (!img) return { error: "not_found" };
+      return { image: img, findings: getFindingsByImage(id, severity || undefined) };
+    });
   }
 
-  return NextResponse.json(getImages());
+  return dashboardResponse("/api/dashboard/images", getImages);
 }
