@@ -39,7 +39,7 @@ policy_action_enum = sa.Enum('block', 'alert', 'auto_fix', 'skip',
                               'require_approval', 'escalate',
                               name='policyaction')
 audit_event_type_enum = sa.Enum('scan_started', 'scan_completed',
-                                 'scan_failed', 'finding_created',
+                                 'scan_failed', 'scan_cancelled', 'finding_created',
                                  'finding_closed', 'remediation_started',
                                  'remediation_completed',
                                  'remediation_failed',

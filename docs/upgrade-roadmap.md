@@ -246,6 +246,26 @@ and production-like PostgreSQL/Redis services.
 - **Next:** add audit-visible operator actions and role-specific dashboard
   controls for remediation workflows.
 
+### Batch 12 — Audit-visible operator actions
+
+- **Completed:** scan start and cancellation emit append-only `AuditLog`
+  records with actor, auth method, and request context.
+- **Completed:** the API exposes paginated audit records and the dashboard adds
+  an Audit Trail page for operator review.
+- **Completed:** migration `20261110_06_dashboard_operator_events` carries the
+  cancellation event into existing PostgreSQL installations.
+
+### Batch 13 — Role-aware dashboard controls
+
+- **Completed:** `/api/dashboard/permissions` centralizes role-derived
+  capabilities for viewing, scan management, cancellation, and remediation.
+- **Completed:** scan controls are hidden from read-only users while posture,
+  scans, images, and findings remain available to the `dashboard` role.
+- **Completed:** local default roles and verified OIDC role claims are wired
+  through Compose, Kubernetes, and the server-side dashboard proxy.
+- **Next:** build remediation preview, approval, and guarded apply flows behind
+  the same permission and audit boundary.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

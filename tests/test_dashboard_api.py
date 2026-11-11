@@ -2,9 +2,11 @@
 
 from datetime import datetime
 from types import SimpleNamespace
+import pytest
+from fastapi import HTTPException
 
-from src.analytics.dashboard_api import ScanRequest, _finding_payload, _image_payload, _page, _scan_payload, _severity_counts
-from src.db.models import ImageRegistry, ScanStatus, Severity
+from src.analytics.dashboard_api import ScanRequest, _finding_payload, _image_payload, _page, _require_role, _scan_payload, _severity_counts
+from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
 def test_dashboard_serializers_match_frontend_contract():
@@ -38,3 +40,16 @@ def test_dashboard_page_and_scan_request_contracts():
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
+
+
+def test_dashboard_roles_keep_read_only_access_separate_from_mutations():
+    readonly = SimpleNamespace(state=SimpleNamespace(principal_roles=["dashboard"]))
+    operator = SimpleNamespace(state=SimpleNamespace(principal_roles=["operator"]))
+    _require_role(operator, "operator", "security-operator")
+    with pytest.raises(HTTPException) as error:
+        _require_role(readonly, "operator", "security-operator")
+    assert error.value.status_code == 403
+
+
+def test_cancelled_scan_event_is_part_of_the_audit_contract():
+    assert AuditEventType.SCAN_CANCELLED.value == "scan_cancelled"

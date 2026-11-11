@@ -77,12 +77,14 @@ def create_app() -> FastAPI:
                 and request.headers.get("x-authenticated-sub", "")
             )
             required_service_auth = os.environ.get("SERVICE_AUTH_REQUIRED", "").lower() in {"1", "true", "yes"}
-            if (required_service_auth and not service_authenticated and not proxy_authenticated) or (not required_service_auth and not api_authenticated and not service_authenticated and not proxy_authenticated):
+            dashboard_api_key_allowed = request.url.path.startswith("/api/dashboard") and api_authenticated
+            if (required_service_auth and not service_authenticated and not proxy_authenticated and not dashboard_api_key_allowed) or (not required_service_auth and not api_authenticated and not service_authenticated and not proxy_authenticated):
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
             request.state.auth_method = "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
             request.state.principal_id = request.headers.get("x-authenticated-sub", "dashboard-service") if proxy_authenticated else "dashboard-service"
             request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
-            request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else ["dashboard"]
+            default_roles = [role.strip() for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",") if role.strip()]
+            request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else default_roles
         return await call_next(request)
 
     @application.get("/health", tags=["health"])

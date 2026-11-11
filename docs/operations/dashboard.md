@@ -41,6 +41,9 @@ The dashboard is organized as a security operations console:
   queued-scan polling.
 - Image detail pages provide severity filtering, sortable findings, CVE links,
   fix availability, and responsive layouts.
+- The Audit Trail page records scan start/cancel activity with actor context.
+- Read-only `dashboard` users can inspect data; `operator`,
+  `security-operator`, and `admin` roles can start or cancel scans.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
   not blank screens.
 
@@ -53,6 +56,12 @@ change.
 For a running local stack, use `npm run smoke:dashboard`. It checks the Next.js
 browser shell, dashboard proxy routes, and that server-only API credentials are
 not present in responses.
+
+Apply the latest database migration before exercising operator actions:
+
+```bash
+docker compose exec api alembic upgrade heads
+```
 
 The former `web/` application was removed in Batch 3. New pages, components,
 API routes, and visual changes belong under `dashboard/src/`; add a dashboard

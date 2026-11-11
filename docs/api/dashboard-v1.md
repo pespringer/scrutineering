@@ -16,6 +16,8 @@ trusted OIDC ingress identity.
 - `GET /images/{image_id}?limit=25&offset=0&severity=critical` — image detail
   and paginated findings.
 - `GET /session` — the mapped operator identity context.
+- `GET /permissions` — role-derived dashboard capabilities.
+- `GET /audit?limit=25&offset=0` — paginated operator activity records.
 
 Paginated responses use `{ items, limit, offset, count, total }`. The Next.js
 dashboard proxy keeps API keys and the trusted proxy secret server-side.
@@ -25,6 +27,10 @@ dashboard proxy keeps API keys and the trusted proxy secret server-side.
 - `POST /scans` with `{ "image_name": "nginx:1.27", "priority": "normal" }`
   persists a pending scan and queues Celery work.
 - `POST /scans/{scan_id}/cancel` revokes queued work and records `cancelled`.
+
+Starting and cancelling scans require `operator` or `security-operator`; the
+`admin` role is also accepted. Read-only dashboard access remains available to
+the `dashboard` role.
 
 For OIDC, an ingress must verify the token before forwarding
 `x-authenticated-sub` and optional email/roles headers. The API accepts those

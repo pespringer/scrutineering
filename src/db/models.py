@@ -129,6 +129,7 @@ class AuditEventType(str, enum.Enum):
     SCAN_STARTED   = "scan_started"
     SCAN_COMPLETED = "scan_completed"
     SCAN_FAILED    = "scan_failed"
+    SCAN_CANCELLED = "scan_cancelled"
     FINDING_CREATED = "finding_created"
     FINDING_CLOSED = "finding_closed"
     REMEDIATION_STARTED  = "remediation_started"

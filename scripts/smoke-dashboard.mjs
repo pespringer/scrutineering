@@ -10,7 +10,7 @@ const html = await check("/dashboard");
 if (!html.includes("/_next/static/") || !html.includes("__next_f.push")) {
   throw new Error("dashboard HTML did not contain the Next.js browser shell");
 }
-for (const path of ["/api/posture/summary", "/api/posture/trend", "/api/scans", "/api/images"]) {
+for (const path of ["/api/posture/summary", "/api/posture/trend", "/api/scans", "/api/images", "/api/session", "/api/permissions", "/api/audit"]) {
   const body = await check(path);
   if (body.includes("DASHBOARD_API_KEY") || body.includes("PYTHON_API_KEY")) {
     throw new Error(`${path} leaked a server-only API credential`);

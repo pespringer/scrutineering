@@ -10,7 +10,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from src.db.connection import get_session
-from src.db.models import Image, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.repositories import AuditLogRepository
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -109,6 +110,24 @@ def _severity_filter(value: str | None) -> Severity | None:
         raise HTTPException(status_code=400, detail="invalid severity") from exc
 
 
+def _require_role(request: Request, *allowed: str) -> None:
+    roles = set(getattr(request.state, "principal_roles", []))
+    if not roles.intersection({*allowed, "admin"}):
+        raise HTTPException(status_code=403, detail="operator_role_required")
+
+
+def _record_operator_event(session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict) -> None:
+    AuditLogRepository.record(
+        session,
+        event_type=event_type,
+        entity_type="scan",
+        entity_id=entity_id,
+        detail=detail,
+        actor=getattr(request.state, "principal_id", "dashboard-service"),
+        actor_kind="user" if getattr(request.state, "auth_method", "") == "oidc_proxy" else "system",
+    )
+
+
 @router.get("/posture/summary")
 def posture_summary() -> dict:
     with get_session() as session:
@@ -178,7 +197,8 @@ def scan_status(scan_id: str) -> dict:
 
 
 @router.post("/scans/{scan_id}/cancel")
-def cancel_scan(scan_id: str) -> dict:
+def cancel_scan(scan_id: str, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
     with get_session() as session:
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
@@ -187,15 +207,17 @@ def cancel_scan(scan_id: str) -> dict:
             return _scan_payload(scan)
         scan.status = ScanStatus.CANCELLED.value
         scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        _record_operator_event(session, request, AuditEventType.SCAN_CANCELLED, scan_id, {"action": "cancel_scan"})
     celery_app.control.revoke(scan_id, terminate=False)
     return {"scan_id": scan_id, "status": "cancelled"}
 
 
 @router.post("/scans", status_code=202)
-def start_scan(request: ScanRequest) -> dict:
+def start_scan(payload: ScanRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
     scan_id = uuid.uuid4().hex
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    identity = parse_image_reference(request.image_name)
+    identity = parse_image_reference(payload.image_name)
     try:
         with get_session() as session:
             image = session.query(Image).filter_by(
@@ -220,10 +242,11 @@ def start_scan(request: ScanRequest) -> dict:
                 started_at=now,
                 image_digest=identity.digest,
             ))
-        task = enqueue_scan(request.image_name, priority=request.priority, scan_id=scan_id)
+            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {"action": "start_scan", "image_name": payload.image_name, "priority": payload.priority})
+        task = enqueue_scan(payload.image_name, priority=payload.priority, scan_id=scan_id)
     except Exception as exc:
         raise HTTPException(status_code=503, detail="scan_queue_unavailable") from exc
-    return {"scan_id": scan_id, "task_id": task.id, "image_name": request.image_name, "status": "pending"}
+    return {"scan_id": scan_id, "task_id": task.id, "image_name": payload.image_name, "status": "pending"}
 
 
 @router.get("/images")
@@ -286,3 +309,44 @@ def dashboard_session(request: Request) -> dict:
         "email": getattr(request.state, "principal_email", None),
         "roles": getattr(request.state, "principal_roles", []),
     }
+
+
+@router.get("/permissions")
+def dashboard_permissions(request: Request) -> dict:
+    roles = set(getattr(request.state, "principal_roles", []))
+    elevated = bool(roles.intersection({"admin", "security-operator"}))
+    return {
+        "roles": sorted(roles),
+        "can_view": True,
+        "can_manage_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
+        "can_cancel_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
+        "can_remediate": elevated or "remediator" in roles,
+    }
+
+
+@router.get("/audit")
+def dashboard_audit(
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    actor: str | None = Query(default=None, max_length=128),
+    event_type: str | None = Query(default=None, max_length=64),
+) -> dict:
+    with get_session() as session:
+        query = session.query(AuditLog)
+        if actor:
+            query = query.filter(AuditLog.actor == actor)
+        if event_type:
+            query = query.filter(AuditLog.event_type == event_type.lower())
+        total = query.order_by(None).count()
+        records = query.order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).offset(offset).limit(limit).all()
+    items = [{
+        "id": record.id,
+        "timestamp": _iso(record.timestamp),
+        "event_type": _value(record.event_type),
+        "entity_type": record.entity_type,
+        "entity_id": record.entity_id,
+        "detail": record.detail,
+        "actor": record.actor,
+        "actor_kind": record.actor_kind,
+    } for record in records]
+    return _page(items, limit, offset, total)

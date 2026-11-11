@@ -21,6 +21,7 @@ data:
   OIDC_AUDIENCE: ""
   SERVICE_AUTH_MAX_SKEW_SECONDS: "300"
   SERVICE_AUTH_REQUIRED: "true"
+  DASHBOARD_DEFAULT_ROLES: "dashboard,operator"
 ---
 # Secret — Sensitive values (base64 encoded)
 apiVersion: v1

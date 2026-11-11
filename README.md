@@ -225,6 +225,9 @@ when that variable is unset.
 Scan history supports server-side search, status filters, pagination, targeted
 scan submission, and polling of queued scan status. Apply database migrations
 before using scan controls.
+The Audit Trail is available at `/audit`; local operator access defaults to the
+roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
+verified OIDC ingress identity.
 
 ## Documentation
 
