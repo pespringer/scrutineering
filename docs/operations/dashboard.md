@@ -60,7 +60,7 @@ not present in responses.
 Apply the latest database migration before exercising operator actions:
 
 ```bash
-docker compose exec api alembic upgrade heads
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
 ```
 
 The former `web/` application was removed in Batch 3. New pages, components,
