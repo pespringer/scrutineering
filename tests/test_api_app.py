@@ -26,6 +26,8 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/remediations/{remediation_id}/approve" in paths
     assert "/api/dashboard/remediations/{remediation_id}/execute" in paths
     assert "/api/dashboard/remediations/{remediation_id}/events" in paths
+    assert "/api/dashboard/remediations/{remediation_id}/publication-plan" in paths
+    assert "/api/dashboard/remediations/post-merge/verify" in paths
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):

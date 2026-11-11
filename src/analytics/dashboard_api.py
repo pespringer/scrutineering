@@ -15,6 +15,9 @@ from src.db.models import AuditEventType, AuditLog, Image, Remediation, Remediat
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
+from src.remediation.post_merge import evaluate_post_merge
+from src.remediation.publication import build_publication_plan
+from src.remediation.rollback import build_rollback_plan
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -46,6 +49,25 @@ class ApprovalTokenRequest(BaseModel):
 
 class ApprovalRequest(BaseModel):
     token: str = Field(min_length=32, max_length=1024)
+
+
+class PublicationPlanRequest(BaseModel):
+    provider: str = Field(min_length=1, max_length=32)
+    repository: str = Field(min_length=1, max_length=256)
+    head: str = Field(min_length=1, max_length=256)
+    base: str = Field(default="main", max_length=64)
+    idempotency_key: str = Field(min_length=1, max_length=256)
+    commit: str = Field(min_length=7, max_length=64)
+    evidence_verified: bool = False
+
+
+class PostMergeVerificationRequest(BaseModel):
+    expected_digest: str
+    observed_digest: str | None = None
+    scan_status: str = Field(min_length=1, max_length=32)
+    findings_before: int = Field(ge=0)
+    findings_after: int = Field(ge=0)
+    merge_commit: str | None = None
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -561,3 +583,46 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
         task = execute_approved_remediation.delay(remediation_id)
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
     return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
+
+
+@router.post("/remediations/{remediation_id}/publication-plan")
+def remediation_publication_plan(remediation_id: int, payload: PublicationPlanRequest, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        events = RemediationRepository.list_events(session, remediation_id)
+        if not any(event.event_type == "execution_ready" for event in events):
+            raise HTTPException(status_code=409, detail="validated_execution_artifact_required")
+    allowed = {value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()}
+    try:
+        plan = build_publication_plan(
+            provider=payload.provider, repository=payload.repository, head=payload.head,
+            base=payload.base, idempotency_key=payload.idempotency_key, commit=payload.commit,
+            evidence_verified=payload.evidence_verified, allowed_repositories=allowed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    with get_session() as session:
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "publication_plan_created", "provider": plan.provider, "repository": plan.repository}, entity_type="remediation")
+    return {"remediation_id": remediation_id, "provider": plan.provider, "repository": plan.repository, "head": plan.head, "base": plan.base, "idempotency_key": plan.idempotency_key, "rollback_command": list(plan.rollback_command), "publisher": "github-publisher" if plan.provider == "github" else "gitlab-publisher"}
+
+
+@router.post("/remediations/post-merge/verify")
+def verify_post_merge(payload: PostMergeVerificationRequest, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    result = evaluate_post_merge(
+        expected_digest=payload.expected_digest, observed_digest=payload.observed_digest,
+        required_scan_status=payload.scan_status, findings_before=payload.findings_before,
+        findings_after=payload.findings_after,
+    )
+    if result["status"] == "rollback_required":
+        if not payload.merge_commit:
+            return {**result, "rollback": None, "rollback_required": True}
+        try:
+            rollback = build_rollback_plan(payload.merge_commit)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {**result, "rollback_required": True, "rollback": {"command": list(rollback.command), "verification_required": rollback.verification_required}}
+    return {**result, "rollback_required": False, "rollback": None}

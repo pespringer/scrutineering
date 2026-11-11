@@ -239,6 +239,9 @@ visible and reviewable rather than silently discarded.
 The guarded adapter also requires explicit evidence files and validation
 provider/ecosystem settings; it creates detached-worktree artifacts and never
 publishes or merges a change automatically.
+Validated artifacts can produce a provider handoff plan, but publication still
+requires the existing allowlisted GitHub/GitLab publisher boundary and
+post-merge verification.
 
 ## Documentation
 

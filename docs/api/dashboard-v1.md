@@ -57,6 +57,13 @@ When enabled, the worker additionally requires evidence envelope/artifact paths
 and a supported provider/ecosystem pair. It applies only exact-match edits in a
 detached worktree and runs install, test, build, SBOM, and rescan gates in order.
 
+`POST /remediations/{id}/publication-plan` creates a validated handoff envelope
+for the existing GitHub/GitLab publishers. It requires an allowlisted
+repository, protected `main`/`master` base, verified evidence, and an
+idempotency key; it does not call the provider. `POST
+/remediations/post-merge/verify` returns `rollback_required` plus a safe
+`git revert --no-edit` plan when digest, scan, or finding checks regress.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

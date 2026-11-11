@@ -346,6 +346,18 @@ and production-like PostgreSQL/Redis services.
 - **Next:** connect validated artifacts to the existing allowlisted PR
   publishers and post-merge rollback coordinator.
 
+### Batch 22 — Publication and rollback handoff
+
+- **Completed:** validated remediation artifacts now produce a provider-neutral
+  publication plan with repository allowlisting, protected-base checks,
+  evidence enforcement, idempotency, and rollback metadata.
+- **Completed:** post-merge verification exposes digest, scan, and finding
+  regressions as `rollback_required` with a validated revert command.
+- **Completed:** dashboard proxy routes expose both handoffs without leaking
+  provider credentials or bypassing the existing publisher implementations.
+- **Next:** connect the plan to live provider publication and persist PR/merge
+  outcomes on remediation records.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external
