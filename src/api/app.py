@@ -19,6 +19,7 @@ from src.api.auth import is_api_key_authorized
 from src.api.service_auth import create_replay_guard, verify_service_request
 import os
 import time
+import hmac
 from fastapi.responses import JSONResponse
 
 
@@ -68,9 +69,20 @@ def create_app() -> FastAPI:
                     service_headers, body, service_secret, service_replay_guard, max_skew_seconds=max_skew,
                 )
             api_authenticated = bool(expected and is_api_key_authorized(request, expected))
+            proxy_secret = os.environ.get("DASHBOARD_TRUSTED_PROXY_SECRET", "")
+            proxy_authenticated = bool(
+                request.url.path.startswith("/api/dashboard")
+                and proxy_secret
+                and hmac.compare_digest(request.headers.get("x-dashboard-proxy-secret", ""), proxy_secret)
+                and request.headers.get("x-authenticated-sub", "")
+            )
             required_service_auth = os.environ.get("SERVICE_AUTH_REQUIRED", "").lower() in {"1", "true", "yes"}
-            if (required_service_auth and not service_authenticated) or (not required_service_auth and not api_authenticated and not service_authenticated):
+            if (required_service_auth and not service_authenticated and not proxy_authenticated) or (not required_service_auth and not api_authenticated and not service_authenticated and not proxy_authenticated):
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
+            request.state.auth_method = "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
+            request.state.principal_id = request.headers.get("x-authenticated-sub", "dashboard-service") if proxy_authenticated else "dashboard-service"
+            request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
+            request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else ["dashboard"]
         return await call_next(request)
 
     @application.get("/health", tags=["health"])

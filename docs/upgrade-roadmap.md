@@ -232,6 +232,20 @@ and production-like PostgreSQL/Redis services.
 - **Next:** add richer findings pagination in the UI, scan cancellation, and
   authenticated user/OIDC session mapping for dashboard operators.
 
+### Batch 11 — Operator workflow and identity context
+
+- **Completed:** image findings now use bounded server-side pages with severity
+  filtering and explicit next/previous navigation.
+- **Completed:** operators can cancel pending or running scans; the API revokes
+  the Celery task and preserves a durable cancelled state.
+- **Completed:** dashboard proxy routes preserve verified identity headers from
+  a trusted OIDC ingress, and the API exposes the mapped operator session
+  without exposing proxy secrets to browser JavaScript.
+- **Completed:** Compose/Kubernetes configuration documents the trusted proxy
+  secret boundary and adds cancellation/session API coverage.
+- **Next:** add audit-visible operator actions and role-specific dashboard
+  controls for remediation workflows.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

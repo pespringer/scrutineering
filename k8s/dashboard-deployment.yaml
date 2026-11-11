@@ -43,6 +43,11 @@ spec:
                 secretKeyRef:
                   name: scrutineering-secrets
                   key: PYTHON_API_KEY
+            - name: DASHBOARD_TRUSTED_PROXY_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: scrutineering-secrets
+                  key: DASHBOARD_TRUSTED_PROXY_SECRET
           resources:
             requests:
               cpu: "100m"

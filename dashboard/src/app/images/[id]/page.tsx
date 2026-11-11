@@ -23,6 +23,9 @@ export default function ImageDetailPage() {
   const [findings, setFindings] = useState<VulnerabilityFinding[]>([]);
   const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState(initialSeverity);
+  const [findingsOffset, setFindingsOffset] = useState(0);
+  const [findingsTotal, setFindingsTotal] = useState(0);
+  const FINDINGS_PAGE_SIZE = 25;
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -32,15 +35,16 @@ export default function ImageDetailPage() {
       setImage(imgData.image || null);
 
       const findingsRes = await fetch(
-        `/api/images/${imageId}${severityFilter !== "all" ? `?severity=${severityFilter}` : ""}`
+        `/api/images/${imageId}?${new URLSearchParams({ ...(severityFilter !== "all" ? { severity: severityFilter } : {}), limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) })}`
       );
       const findingsData = await findingsRes.json();
       setFindings(findingsData.findings || []);
+      setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
     } catch {
       setImage(null);
     }
     setLoading(false);
-  }, [imageId, severityFilter]);
+  }, [imageId, severityFilter, findingsOffset]);
 
   useEffect(() => {
     loadData();
@@ -48,14 +52,11 @@ export default function ImageDetailPage() {
 
   const handleSeverityChange = (sev: string) => {
     setSeverityFilter(sev);
+    setFindingsOffset(0);
   };
 
   if (loading) return <Layout><LoadingSpinner /></Layout>;
   if (!image) return <Layout><EmptyState icon={Package} title="Image not found" description="No scan data exists for this image." /></Layout>;
-
-  const filteredFindings = severityFilter !== "all"
-    ? findings.filter((f) => f.severity === severityFilter)
-    : findings;
 
   return (
     <Layout>
@@ -132,13 +133,14 @@ export default function ImageDetailPage() {
 
       {/* Findings count */}
       <p className="mb-3 text-sm text-slate-500">
-        Showing {filteredFindings.length} of {findings.length} findings
+        Showing {findingsOffset + (findings.length ? 1 : 0)}–{findingsOffset + findings.length} of {findingsTotal} findings
       </p>
 
       {/* Findings table */}
       <div className="panel rounded-2xl p-4 sm:p-6">
-        <FindingsTable findings={filteredFindings} />
+        <FindingsTable findings={findings} />
       </div>
+      <div className="mt-4 flex justify-end gap-3 text-xs"><button disabled={findingsOffset === 0} onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))} className="text-cyan-300 disabled:text-slate-700">Previous</button><button disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal} onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)} className="text-cyan-300 disabled:text-slate-700">Next</button></div>
     </Layout>
   );
 }

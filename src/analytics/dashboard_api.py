@@ -4,14 +4,15 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+import uuid
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from src.db.connection import get_session
 from src.db.models import Image, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.scan.image_identity import parse_image_reference
-from src.scan.tasks import enqueue_scan
+from src.scan.tasks import app as celery_app, enqueue_scan
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -176,9 +177,23 @@ def scan_status(scan_id: str) -> dict:
         return _scan_payload(scan)
 
 
+@router.post("/scans/{scan_id}/cancel")
+def cancel_scan(scan_id: str) -> dict:
+    with get_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).first()
+        if scan is None:
+            raise HTTPException(status_code=404, detail="scan_not_found")
+        if scan.status in {ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED}:
+            return _scan_payload(scan)
+        scan.status = ScanStatus.CANCELLED.value
+        scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    celery_app.control.revoke(scan_id, terminate=False)
+    return {"scan_id": scan_id, "status": "cancelled"}
+
+
 @router.post("/scans", status_code=202)
 def start_scan(request: ScanRequest) -> dict:
-    scan_id = __import__("uuid").uuid4().hex
+    scan_id = uuid.uuid4().hex
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     identity = parse_image_reference(request.image_name)
     try:
@@ -259,4 +274,15 @@ def image_detail(
         "image": _image_payload(image, all_findings),
         "findings": [_finding_payload(finding) for finding in findings],
         "findings_page": _page([_finding_payload(finding) for finding in findings], limit, offset, total),
+    }
+
+
+@router.get("/session")
+def dashboard_session(request: Request) -> dict:
+    return {
+        "authenticated": True,
+        "auth_method": getattr(request.state, "auth_method", "api_key"),
+        "subject": getattr(request.state, "principal_id", "dashboard-service"),
+        "email": getattr(request.state, "principal_email", None),
+        "roles": getattr(request.state, "principal_roles", []),
     }

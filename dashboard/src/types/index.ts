@@ -1,7 +1,7 @@
 export interface ScanResult {
   scan_id: string;
   image_name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'partial';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
   started_at: string;
   completed_at?: string;
   findings: number;

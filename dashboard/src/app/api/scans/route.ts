@@ -1,5 +1,5 @@
 import { getScanHistory } from "@/lib/seed";
-import { backendJson, dashboardResponse } from "../_lib/backend";
+import { backendJson, dashboardResponse, trustedIdentityHeaders } from "../_lib/backend";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   query.set("limit", String(limit));
   return dashboardResponse(`/api/dashboard/scans?${query}`, () => ({
     items: getScanHistory(limit), limit, offset: 0, count: Math.min(limit, getScanHistory(limit).length), total: getScanHistory(limit).length,
-  }));
+  }), req);
 }
 
 export async function POST(req: Request) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
   try {
     return Response.json(await backendJson("/api/dashboard/scans", {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...trustedIdentityHeaders(req) },
       body: await req.text(),
     }), { status: 202 });
   } catch {

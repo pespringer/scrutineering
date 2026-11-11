@@ -145,7 +145,9 @@ Production promotion should also confirm the planner and worker health checks
 are passing before increasing scan concurrency.
 The API and dashboard deployments use separate ClusterIP services; the
 dashboard calls the API server-side with `PYTHON_API_KEY`, which must remain in
-the Kubernetes Secret and never in a `NEXT_PUBLIC_*` variable.
+the Kubernetes Secret and never in a `NEXT_PUBLIC_*` variable. If an ingress
+verifies OIDC, it may forward `x-authenticated-sub`, `x-authenticated-email`,
+and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET`.
 
 ## Monitoring
 
@@ -168,6 +170,7 @@ node scripts/validate-policy-contract.mjs
 - Planner actions: see [Planner API v1](docs/api/planner-v1.md).
 - Scan data reads: `/api/v1/scans`, `/api/v1/findings`, `/api/v1/alerts`, and
   `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
+- Dashboard data and controls: see [Dashboard API v1](docs/api/dashboard-v1.md).
 - Scoped planner API keys use `PLANNER_API_KEYS_JSON`; see
   [Authorization Foundation](docs/security/authorization.md).
 - OIDC deployments must validate signatures before passing claims to the OIDC

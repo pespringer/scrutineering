@@ -56,6 +56,8 @@ def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
         if scan is None:
             scan = Scan(scan_id=scan_id, image_id=image.id, started_at=now)
             session.add(scan)
+        elif scan.status == ScanStatus.CANCELLED and status != ScanStatus.FAILED:
+            return
         scan.status = status.value
         scan.total_findings = total_findings
         scan.critical_count = (counts or {}).get("critical", 0)

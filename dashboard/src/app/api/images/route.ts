@@ -11,7 +11,7 @@ export async function GET(req: Request) {
       const img = getImageById(id);
       if (!img) return { error: "not_found" };
       return { image: img, findings: getFindingsByImage(id, severity || undefined) };
-    });
+    }, req);
   }
 
   const query = new URLSearchParams(url.searchParams);
@@ -19,5 +19,5 @@ export async function GET(req: Request) {
   return dashboardResponse(`/api/dashboard/images?${query}`, () => {
     const items = getImages();
     return { items, limit: items.length, offset: 0, count: items.length, total: items.length };
-  });
+  }, req);
 }

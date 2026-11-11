@@ -10,5 +10,5 @@ export async function GET(
     const img = getImageById(id);
     if (!img) return { error: "not_found" };
     return { image: img, findings: getFindingsByImage(id) };
-  });
+  }, req);
 }

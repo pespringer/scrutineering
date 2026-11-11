@@ -25,6 +25,11 @@ API. Configure `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the server
 environment. The dashboard should not call internal database, Redis, or scanner
 services directly.
 
+For OIDC deployments, the ingress must validate the bearer token and forward
+`x-authenticated-sub` plus optional email/roles headers. The dashboard server
+adds `DASHBOARD_TRUSTED_PROXY_SECRET` when forwarding that identity context to
+the Python API. The API rejects these headers without the matching secret.
+
 ## Product surface
 
 The dashboard is organized as a security operations console:
