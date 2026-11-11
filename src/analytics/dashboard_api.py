@@ -14,6 +14,7 @@ from src.db.connection import get_session
 from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationStatus, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
+from src.remediation.worker import execute_approved_remediation
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -426,6 +427,27 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
     }
 
 
+@router.get("/remediations")
+def list_remediations(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    status: str | None = Query(default=None, max_length=32),
+) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        query = session.query(Remediation)
+        if status:
+            try:
+                query = query.filter(Remediation.status == RemediationStatus(status.lower()))
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail="invalid_remediation_status") from exc
+        total = query.order_by(None).count()
+        records = query.order_by(Remediation.created_at.desc(), Remediation.id.desc()).offset(offset).limit(limit).all()
+        items = [_remediation_payload(record) for record in records]
+    return _page(items, limit, offset, total)
+
+
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
@@ -510,3 +532,19 @@ def approve_remediation(remediation_id: int, payload: ApprovalRequest, request: 
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_approved", "approver": approval["approver"]}, entity_type="remediation")
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         return _remediation_payload(remediation)
+
+
+@router.post("/remediations/{remediation_id}/execute", status_code=202)
+def execute_remediation(remediation_id: int, request: Request) -> dict:
+    _require_role(request, "remediator", "security-operator")
+    if os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=503, detail="remediation_execution_disabled")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) != RemediationStatus.ANALYZING.value:
+            raise HTTPException(status_code=409, detail="remediation_not_approved")
+        task = execute_approved_remediation.delay(remediation_id)
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
+    return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}

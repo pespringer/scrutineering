@@ -35,6 +35,7 @@ from src.scan.image_identity import parse_image_reference
 logger = logging.getLogger(__name__)
 
 app = create_celery_app()
+import src.remediation.worker  # noqa: F401  # register remediation task with the worker app
 
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,

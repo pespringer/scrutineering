@@ -288,6 +288,26 @@ and production-like PostgreSQL/Redis services.
 - **Next:** connect approved records to an isolated execution worker that
   enforces evidence, worktree, validation, PR, and rollback gates.
 
+### Batch 16 — Isolated remediation execution boundary
+
+- **Completed:** approved remediation records now have a dedicated Celery
+  queue and execution task boundary separate from scanner work.
+- **Completed:** execution requires explicit enablement and a configured
+  repository root; missing adapter configuration fails closed without writes.
+- **Completed:** the API can queue only approved records and emits an audit
+  record for the execution request.
+
+### Batch 17 — Remediation operations visibility
+
+- **Completed:** the dashboard API exposes a role-protected, paginated
+  remediation queue and execution status contract.
+- **Completed:** the dashboard includes a Remediation Queue view linked from
+  desktop and mobile navigation.
+- **Completed:** the dashboard proxy preserves remediation authorization
+  statuses instead of presenting role denials as backend outages.
+- **Next:** implement the explicit repository execution adapter with evidence,
+  worktree, validation, PR, and rollback integration before enabling writes.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

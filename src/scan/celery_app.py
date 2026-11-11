@@ -26,6 +26,7 @@ def create_celery_app() -> Celery:
         task_routes={
             "src.scan.tasks.run_scan": {"queue": "scan.normal"},
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
+            "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
         },
         task_acks_late=True,
         task_time_limit=3600,

@@ -231,6 +231,9 @@ verified OIDC ingress identity.
 Remediation previews and approvals are API-gated and require
 `REMEDIATION_APPROVAL_SECRET`; they do not mutate repositories until the
 execution worker and its validation gates are explicitly enabled.
+The Remediation Queue is available at `/remediations` for users with the
+`remediator` or `security-operator` role; execution remains disabled by
+default through `REMEDIATION_EXECUTION_ENABLED=false`.
 
 ## Documentation
 
