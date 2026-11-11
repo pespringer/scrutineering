@@ -242,6 +242,8 @@ publishes or merges a change automatically.
 Validated artifacts can produce a provider handoff plan, but publication still
 requires the existing allowlisted GitHub/GitLab publisher boundary and
 post-merge verification.
+Live publication is disabled by default and requires explicit provider tokens,
+repository allowlists, and `REMEDIATION_PUBLICATION_ENABLED=true`.
 
 ## Documentation
 

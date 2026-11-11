@@ -64,6 +64,11 @@ idempotency key; it does not call the provider. `POST
 /remediations/post-merge/verify` returns `rollback_required` plus a safe
 `git revert --no-edit` plan when digest, scan, or finding checks regress.
 
+`POST /remediations/{id}/publish` is disabled unless
+`REMEDIATION_PUBLICATION_ENABLED=true`, requires a `security-operator`, and
+persists provider URL/number, request hash, status, errors, and idempotency
+outcomes in `remediation_publications`. Provider tokens remain server-side.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

@@ -566,6 +566,31 @@ class Remediation(Base):
                            cascade="all, delete-orphan")
     events = relationship("RemediationEvent", back_populates="remediation",
                           lazy="selectin", cascade="all, delete-orphan")
+    publications = relationship("RemediationPublication", back_populates="remediation", lazy="selectin", cascade="all, delete-orphan")
+
+
+class RemediationPublication(Base):
+    """Durable provider publication attempt and idempotency record."""
+    __tablename__ = "remediation_publications"
+    __table_args__ = (
+        UniqueConstraint("provider", "repository", "idempotency_key", name="uq_remediation_publication_key"),
+        Index("idx_remediation_publications_remediation_id", "remediation_id"),
+        Index("idx_remediation_publications_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)
+    remediation = relationship("Remediation", back_populates="publications", lazy="joined")
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    repository: Mapped[str] = mapped_column(String(256), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    provider_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RemediationAction(Base):

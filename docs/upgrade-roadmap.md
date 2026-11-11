@@ -358,6 +358,18 @@ and production-like PostgreSQL/Redis services.
 - **Next:** connect the plan to live provider publication and persist PR/merge
   outcomes on remediation records.
 
+### Batch 23 — Provider publication outcomes
+
+- **Completed:** added an explicit, disabled-by-default GitHub/GitLab publish
+  endpoint that consumes only validated publication plans.
+- **Completed:** provider URL/number, request hash, status, errors, and
+  idempotency keys persist in `remediation_publications` via migration
+  `20261111_07`.
+- **Completed:** provider tokens remain server-side and protected-branch,
+  allowlist, evidence, and role gates run before network publication.
+- **Next:** persist merge callbacks and feed deployed digest/finding results
+  into the post-merge rollback coordinator.
+
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
 validation, cache size/cardinality controls, runtime replay integrity, external

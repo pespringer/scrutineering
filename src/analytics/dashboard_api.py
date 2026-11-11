@@ -4,20 +4,24 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
+import hashlib
+import json
 import uuid
+from urllib.request import urlopen
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationStatus, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
 from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
+from src.remediation.provider_publishers import publish_validated_plan
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -68,6 +72,11 @@ class PostMergeVerificationRequest(BaseModel):
     findings_before: int = Field(ge=0)
     findings_after: int = Field(ge=0)
     merge_commit: str | None = None
+
+
+class PublicationRequest(PublicationPlanRequest):
+    title: str = Field(min_length=1, max_length=256)
+    body: str = Field(min_length=1, max_length=10000)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -607,6 +616,45 @@ def remediation_publication_plan(remediation_id: int, payload: PublicationPlanRe
     with get_session() as session:
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "publication_plan_created", "provider": plan.provider, "repository": plan.repository}, entity_type="remediation")
     return {"remediation_id": remediation_id, "provider": plan.provider, "repository": plan.repository, "head": plan.head, "base": plan.base, "idempotency_key": plan.idempotency_key, "rollback_command": list(plan.rollback_command), "publisher": "github-publisher" if plan.provider == "github" else "gitlab-publisher"}
+
+
+@router.post("/remediations/{remediation_id}/publish", status_code=201)
+def publish_remediation(remediation_id: int, payload: PublicationRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    if os.environ.get("REMEDIATION_PUBLICATION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=503, detail="remediation_publication_disabled")
+    allowed = {value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()}
+    try:
+        plan = build_publication_plan(provider=payload.provider, repository=payload.repository, head=payload.head, base=payload.base, idempotency_key=payload.idempotency_key, commit=payload.commit, evidence_verified=payload.evidence_verified, allowed_repositories=allowed)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    request_hash = hashlib.sha256(json.dumps(payload.model_dump(), sort_keys=True).encode()).hexdigest()
+    token = os.environ.get("GITHUB_TOKEN" if plan.provider == "github" else "GITLAB_TOKEN", "")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if not any(event.event_type == "execution_ready" for event in RemediationRepository.list_events(session, remediation_id)):
+            raise HTTPException(status_code=409, detail="validated_execution_artifact_required")
+        existing = session.query(RemediationPublication).filter_by(provider=plan.provider, repository=plan.repository, idempotency_key=plan.idempotency_key).first()
+        if existing and existing.status == "published":
+            return {"publication_id": existing.id, "status": existing.status, "number": existing.provider_number, "url": existing.url, "idempotency_key": existing.idempotency_key}
+        publication = existing or RemediationPublication(remediation_id=remediation_id, provider=plan.provider, repository=plan.repository, idempotency_key=plan.idempotency_key, status="pending", request_hash=request_hash)
+        session.add(publication)
+        session.flush()
+        try:
+            result = publish_validated_plan(provider=plan.provider, repository=plan.repository, title=payload.title, body=payload.body, head=plan.head, base=plan.base, token=token, idempotency_key=plan.idempotency_key, transport=urlopen)
+            publication.status = "published"
+            publication.provider_number = result.number
+            publication.url = result.url
+            publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_published", "provider": result.provider, "url": result.url}, entity_type="remediation")
+            return {"publication_id": publication.id, "status": publication.status, "number": publication.provider_number, "url": publication.url, "idempotency_key": publication.idempotency_key}
+        except Exception as exc:
+            publication.status = "failed"
+            publication.error_message = str(exc)[:1000]
+            publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            raise HTTPException(status_code=502, detail="provider_publication_failed") from exc
 
 
 @router.post("/remediations/post-merge/verify")
