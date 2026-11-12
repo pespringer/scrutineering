@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -92,7 +92,15 @@ class PublicationRecoveryRequest(BaseModel):
 
 class RecoveryStatusRequest(BaseModel):
     status: Literal["acknowledged", "completed", "failed"]
+    reason_code: Literal["operator_reviewed", "provider_confirmed", "manual_intervention", "validation_failed", "timeout", "other"] = "operator_reviewed"
     note: str = Field(default="", max_length=2000)
+
+    @field_validator("note")
+    @classmethod
+    def failure_requires_context(cls, value: str, info):
+        if info.data.get("status") == "failed" and not value.strip():
+            raise ValueError("failed recovery status requires a note")
+        return value
 
 
 class AlertEvidenceRequest(BaseModel):
@@ -869,7 +877,7 @@ def update_publication_recovery_status(publication_id: int, recovery_id: int, pa
                 recovery.error_message = payload.note or "operator marked recovery failed"
         publication = session.get(RemediationPublication, publication_id)
         events = RemediationRepository.list_events(session, publication.remediation_id)
-        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "publication_recovery_status_changed", "sequence": len(events) + 1, "detail": {"publication_id": publication_id, "recovery_request_id": recovery.id, "status": target, "note": payload.note}})
+        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "publication_recovery_status_changed", "sequence": len(events) + 1, "detail": {"publication_id": publication_id, "recovery_request_id": recovery.id, "status": target, "reason_code": payload.reason_code, "note": payload.note}})
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication_id), {"action": "recovery_status_changed", "recovery_request_id": recovery.id, "status": target}, entity_type="publication")
         return {"accepted": True, "recovery_request_id": recovery.id, "status": target, "replayed": False}
 
@@ -933,6 +941,36 @@ def export_publication_evidence(publication_id: int, request: Request) -> dict:
         payload = {"publication_id": publication.id, "repository": publication.repository, "release_evidence": [{"id": item.id, "evidence_key": item.evidence_key, "status": item.status, "expected_digest": item.expected_digest, "observed_digest": item.observed_digest, "scan_status": item.scan_status, "findings_before": item.findings_before, "findings_after": item.findings_after, "created_at": _iso(item.created_at), "verified_at": _iso(item.verified_at)} for item in publication.release_evidence], "alert_evidence": [{"id": item.id, "delivery_key": item.delivery_key, "receiver": item.receiver, "status": item.status, "response_code": item.response_code, "attempt": item.attempt, "detail": item.detail, "created_at": _iso(item.created_at)} for item in publication.alert_evidence]}
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         return {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload}
+
+
+@router.get("/remediations/alert-deliveries")
+def list_alert_deliveries(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=250)) -> dict:
+    _require_role(request, "security-operator", "admin")
+    with get_session() as session:
+        query = session.query(RemediationAlertDelivery)
+        if status:
+            if status not in {"pending", "retrying", "dead_letter", "delivered"}:
+                raise HTTPException(status_code=400, detail="invalid_alert_delivery_status")
+            query = query.filter(RemediationAlertDelivery.status == status)
+        records = query.order_by(RemediationAlertDelivery.created_at.desc()).limit(limit).all()
+    return {"items": [{"id": record.id, "publication_id": record.publication_id, "receiver": record.receiver, "status": record.status, "attempts": record.attempts, "max_attempts": record.max_attempts, "next_attempt_at": _iso(record.next_attempt_at), "last_error": record.last_error, "created_at": _iso(record.created_at)} for record in records], "count": len(records)}
+
+
+@router.post("/remediations/alert-deliveries/{delivery_id}/replay")
+def replay_alert_delivery(delivery_id: int, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    with get_session() as session:
+        record = session.get(RemediationAlertDelivery, delivery_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="alert_delivery_not_found")
+        if record.status != "dead_letter":
+            raise HTTPException(status_code=409, detail="alert_delivery_not_dead_lettered")
+        record.status = "pending"
+        record.next_attempt_at = None
+        record.last_error = None
+        publication = session.get(RemediationPublication, record.publication_id)
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(record.publication_id), {"action": "alert_delivery_replay", "delivery_id": record.id}, entity_type="publication")
+        return {"accepted": True, "delivery_id": record.id, "status": record.status, "publication_id": publication.id if publication else None}
 
 
 @router.post("/webhooks/{provider}")
