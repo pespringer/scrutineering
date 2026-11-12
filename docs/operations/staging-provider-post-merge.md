@@ -67,3 +67,9 @@ idempotency key, and only append an auditable event; they do not call or mutate
 the provider. New deployment evidence can be attached to a merged publication
 through the evidence endpoint, which re-runs the same digest, scan, and finding
 delta policy and updates the durable verification event idempotently.
+
+Recovery requests persist as `requested`, `acknowledged`, `completed`, or
+`failed`. Terminal states cannot be reopened, and the recovery request table
+enforces publication/idempotency-key uniqueness under concurrent operators.
+Reconciliation health is available at
+`/api/dashboard/remediations/publications/reconciliation/health`.
