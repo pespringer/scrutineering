@@ -3,6 +3,7 @@
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 
 def create_celery_app() -> Celery:
@@ -26,6 +27,7 @@ def create_celery_app() -> Celery:
         task_routes={
             "src.scan.tasks.run_scan": {"queue": "scan.normal"},
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
+            "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
             "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},
@@ -33,6 +35,11 @@ def create_celery_app() -> Celery:
             "src.remediation.alert_tasks.deliver_alerts": {"queue": "remediation.normal"},
         },
         beat_schedule={
+            "schedule-active-image-scans": {
+                "task": "src.scan.tasks.schedule_active_scans",
+                "schedule": crontab(minute="0", hour="*/6"),
+                "options": {"queue": "scan.low"},
+            },
             "reconcile-stale-publications": {
                 "task": "src.remediation.reconciliation_tasks.reconcile_stale_publications",
                 "schedule": 300.0,
