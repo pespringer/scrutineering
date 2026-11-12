@@ -48,3 +48,15 @@ registration, provider-failure telemetry, and the dashboard recovery panel.
 The full local recovery drill should also verify that retention cleanup remains
 a dry run by default, dead-letter records can be replayed, provider calls are
 leased across workers, and status changes include an operator reason code.
+
+Run the receiver-independent lifecycle drill with:
+
+```bash
+npm run drill:staging-recovery
+```
+
+This uses only the deterministic fake receiver and never contacts an external
+alert service.
+
+`npm run validate:release-readiness` runs the same gate in CI. It does not
+enable alert delivery or purge retention data.

@@ -29,6 +29,17 @@ class ProviderCircuitOpen(RuntimeError):
     pass
 
 
+def validate_status_payload(provider: str, payload: dict) -> None:
+    if not isinstance(payload, dict):
+        raise ValueError("provider response must be an object")
+    state = payload.get("state")
+    allowed = {"open", "closed", "merged", "opened", "locked", "reopened", "unknown"}
+    if state is not None and state not in allowed:
+        raise ValueError("provider response contains an unsupported state")
+    if provider == "github" and payload.get("merged_at") is not None and not isinstance(payload.get("merged_at"), str):
+        raise ValueError("github merged_at must be a timestamp string")
+
+
 class ProviderCircuitBreaker:
     """Small process-local breaker preventing repeated provider failures."""
     def __init__(self, *, threshold: int = 3, cooldown_seconds: int = 60):
@@ -78,6 +89,7 @@ def fetch_provider_status(*, provider: str, repository: str, number: int, token:
     try:
         response = transport(Request(url, headers=headers), timeout=10)
         payload = json.loads(response.read().decode())
+        validate_status_payload(provider, payload)
         breaker.success()
     except HTTPError as exc:
         breaker.failure()

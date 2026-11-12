@@ -10,6 +10,20 @@ import os
 from src.db.models import RemediationAlertDelivery
 
 
+class FakeReceiver:
+    """Deterministic local receiver used by drills; never performs network I/O."""
+    def deliver(self, payload: dict) -> tuple[int, str]:
+        if payload.get("simulate_failure"):
+            return 503, "simulated receiver failure"
+        return 202, "accepted by deterministic fake receiver"
+
+
+def receiver_for(name: str):
+    if name == "fake":
+        return FakeReceiver()
+    raise ValueError("receiver is not configured for local execution")
+
+
 def delivery_key(publication_id: int, receiver: str, event_type: str, payload: dict) -> str:
     canonical = json.dumps({"publication_id": publication_id, "receiver": receiver, "event_type": event_type, "payload": payload}, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -32,10 +46,11 @@ def dead_letter(record: RemediationAlertDelivery, error: str) -> None:
     record.next_attempt_at = None
 
 
-def schedule_retry(record: RemediationAlertDelivery, now: datetime | None = None) -> None:
+def schedule_retry(record: RemediationAlertDelivery, now: datetime | None = None, *, increment: bool = True) -> None:
     current = now or datetime.now(timezone.utc).replace(tzinfo=None)
     record.status = "retrying"
-    record.attempts = (record.attempts or 0) + 1
+    if increment:
+        record.attempts = (record.attempts or 0) + 1
     max_attempts = record.max_attempts or 5
     if record.attempts >= max_attempts:
         dead_letter(record, record.last_error or "maximum delivery attempts exceeded")

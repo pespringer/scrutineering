@@ -88,3 +88,12 @@ groups:
         annotations:
           summary: "Provider recovery polling is failing or rate limited"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringAlertDeadLetters
+        expr: increase(scrutineering_alert_deliveries_total{outcome="dead_letter"}[15m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: platform-security
+        annotations:
+          summary: "Alert deliveries entered the dead-letter queue"
+          runbook: "docs/operations/staging-provider-post-merge.md"

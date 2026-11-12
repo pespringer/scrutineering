@@ -30,6 +30,8 @@ from src.remediation.provider_publishers import publish_validated_plan
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
 from src.remediation.reconciliation import publication_age_seconds, publication_is_stale
 from src.remediation.evidence_retention import retention_cutoff, retention_days
+from src.remediation.evidence_export import sign_export
+from src.remediation.provider_auth import credential_diagnostics
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -485,12 +487,20 @@ def dashboard_permissions(request: Request) -> dict:
     }
 
 
+@router.get("/provider-credentials/health")
+def provider_credentials_health(request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    return {"providers": [credential_diagnostics("github"), credential_diagnostics("gitlab")]}
+
+
 @router.get("/audit")
 def dashboard_audit(
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     actor: str | None = Query(default=None, max_length=128),
     event_type: str | None = Query(default=None, max_length=64),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
 ) -> dict:
     with get_session() as session:
         query = session.query(AuditLog)
@@ -498,6 +508,10 @@ def dashboard_audit(
             query = query.filter(AuditLog.actor == actor)
         if event_type:
             query = query.filter(AuditLog.event_type == event_type.lower())
+        if since:
+            query = query.filter(AuditLog.timestamp >= since.replace(tzinfo=None))
+        if until:
+            query = query.filter(AuditLog.timestamp <= until.replace(tzinfo=None))
         total = query.order_by(None).count()
         records = query.order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).offset(offset).limit(limit).all()
     items = [{
@@ -514,10 +528,15 @@ def dashboard_audit(
 
 
 @router.get("/audit/export")
-def dashboard_audit_export(request: Request, limit: int = Query(default=1000, ge=1, le=5000)) -> dict:
+def dashboard_audit_export(request: Request, limit: int = Query(default=1000, ge=1, le=5000), actor: str | None = Query(default=None), event_type: str | None = Query(default=None), since: datetime | None = Query(default=None), until: datetime | None = Query(default=None)) -> dict:
     _require_role(request, "security-operator", "admin")
     with get_session() as session:
-        records = session.query(AuditLog).order_by(AuditLog.timestamp.asc(), AuditLog.id.asc()).limit(limit).all()
+        query = session.query(AuditLog)
+        if actor: query = query.filter(AuditLog.actor == actor)
+        if event_type: query = query.filter(AuditLog.event_type == event_type.lower())
+        if since: query = query.filter(AuditLog.timestamp >= since.replace(tzinfo=None))
+        if until: query = query.filter(AuditLog.timestamp <= until.replace(tzinfo=None))
+        records = query.order_by(AuditLog.timestamp.asc(), AuditLog.id.asc()).limit(limit).all()
     items = [{"id": record.id, "timestamp": _iso(record.timestamp), "event_type": _value(record.event_type), "entity_type": record.entity_type, "entity_id": record.entity_id, "detail": record.detail, "actor": record.actor, "actor_kind": record.actor_kind, "record_hash": record.record_hash, "previous_hash": record.previous_hash} for record in records]
     canonical = json.dumps(items, sort_keys=True, separators=(",", ":")).encode()
     return {"format": "scrutineering-audit-v1", "count": len(items), "sha256": hashlib.sha256(canonical).hexdigest(), "records": items}
@@ -940,7 +959,11 @@ def export_publication_evidence(publication_id: int, request: Request) -> dict:
             raise HTTPException(status_code=404, detail="publication_not_found")
         payload = {"publication_id": publication.id, "repository": publication.repository, "release_evidence": [{"id": item.id, "evidence_key": item.evidence_key, "status": item.status, "expected_digest": item.expected_digest, "observed_digest": item.observed_digest, "scan_status": item.scan_status, "findings_before": item.findings_before, "findings_after": item.findings_after, "created_at": _iso(item.created_at), "verified_at": _iso(item.verified_at)} for item in publication.release_evidence], "alert_evidence": [{"id": item.id, "delivery_key": item.delivery_key, "receiver": item.receiver, "status": item.status, "response_code": item.response_code, "attempt": item.attempt, "detail": item.detail, "created_at": _iso(item.created_at)} for item in publication.alert_evidence]}
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        return {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload}
+        export = {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload}
+        secret = os.environ.get("EVIDENCE_EXPORT_SIGNING_SECRET", "")
+        if secret:
+            export["signature"] = sign_export(payload, secret)
+        return export
 
 
 @router.get("/remediations/alert-deliveries")

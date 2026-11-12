@@ -38,6 +38,7 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/remediations/publications/{publication_id}/evidence-export" in paths
     assert "/api/dashboard/remediations/alert-deliveries" in paths
     assert "/api/dashboard/remediations/alert-deliveries/{delivery_id}/replay" in paths
+    assert "/api/dashboard/provider-credentials/health" in paths
     assert "/api/dashboard/remediations/publications/reconciliation/health" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/recovery/{recovery_id}/status" in paths
 

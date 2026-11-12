@@ -63,3 +63,11 @@ def test_provider_rate_limit_exposes_retry_after():
     with pytest.raises(ProviderRateLimited) as error:
         fetch_provider_status(provider="github", repository="org/repo", number=1, token="secret", transport=transport)
     assert error.value.retry_after == 42
+
+
+def test_provider_status_rejects_unknown_schema_state():
+    def transport(request, timeout):
+        return Response({"state": "invented"})
+
+    with pytest.raises(ValueError, match="unsupported state"):
+        fetch_provider_status(provider="github", repository="org/repo", number=1, token="secret", transport=transport)
