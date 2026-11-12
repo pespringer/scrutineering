@@ -60,3 +60,10 @@ Celery Beat runs reconciliation every five minutes and records one durable
 `publication_stale` event per stale publication. The worker consumes the
 `remediation.normal` queue; keep that queue enabled in Compose and Kubernetes
 worker configuration.
+
+Security operators can preview a stale publication before recovery. Recovery
+requests are limited to `request_callback` and `mark_manual_review`, require an
+idempotency key, and only append an auditable event; they do not call or mutate
+the provider. New deployment evidence can be attached to a merged publication
+through the evidence endpoint, which re-runs the same digest, scan, and finding
+delta policy and updates the durable verification event idempotently.

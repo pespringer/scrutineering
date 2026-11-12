@@ -13,6 +13,7 @@ import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
+from typing import Literal
 
 from src.db.connection import get_session
 from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
@@ -20,7 +21,7 @@ from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
-from src.remediation.events import publication_event_exists
+from src.remediation.events import publication_event_exists, recovery_request_exists
 from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
@@ -77,6 +78,12 @@ class PostMergeVerificationRequest(BaseModel):
     findings_before: int = Field(ge=0)
     findings_after: int = Field(ge=0)
     merge_commit: str | None = None
+
+
+class PublicationRecoveryRequest(BaseModel):
+    action: Literal["request_callback", "mark_manual_review"]
+    idempotency_key: str = Field(min_length=1, max_length=256)
+    note: str = Field(default="", max_length=2000)
 
 
 class PublicationRequest(PublicationPlanRequest):
@@ -178,6 +185,31 @@ def _record_operator_event(session, request: Request, event_type: AuditEventType
         actor=getattr(request.state, "principal_id", "dashboard-service"),
         actor_kind="user" if getattr(request.state, "auth_method", "") == "oidc_proxy" else "system",
     )
+
+
+def _apply_post_merge_result(session, publication: RemediationPublication, result: dict, merge_commit: str | None) -> str:
+    """Persist verification and append its lifecycle event exactly once."""
+    publication.verification_status = str(result["status"])
+    publication.verification_detail = result
+    event_type = "rollback_required" if result["status"] == "rollback_required" else "post_merge_verified"
+    if result["status"] == "rollback_required":
+        if merge_commit:
+            try:
+                publication.rollback_command = list(build_rollback_plan(merge_commit).command)
+            except ValueError:
+                publication.rollback_command = []
+    else:
+        publication.rollback_command = []
+    events = RemediationRepository.list_events(session, publication.remediation_id)
+    event_detail = {**result, "publication_id": publication.id}
+    if not publication_event_exists(events, event_type=event_type, publication_id=publication.id, detail=result):
+        RemediationRepository.append_event(session, {
+            "remediation_id": publication.remediation_id,
+            "event_type": event_type,
+            "sequence": len(events) + 1,
+            "detail": event_detail,
+        })
+    return event_type
 
 
 def _remediation_actions(findings: list[ScanFinding]) -> list[dict]:
@@ -711,6 +743,76 @@ def verify_post_merge(payload: PostMergeVerificationRequest, request: Request) -
     return {**result, "rollback_required": False, "rollback": None}
 
 
+@router.get("/remediations/publications/{publication_id}/recovery-preview")
+def publication_recovery_preview(publication_id: int, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        stale = publication_is_stale(publication, stale_after_seconds=stale_after_seconds)
+        return {
+            "publication_id": publication.id,
+            "status": publication.status,
+            "verification_status": publication.verification_status,
+            "age_seconds": publication_age_seconds(publication),
+            "stale": stale,
+            "stale_after_seconds": stale_after_seconds,
+            "allowed_actions": ["request_callback", "mark_manual_review"] if stale else [],
+            "mutates_provider": False,
+        }
+
+
+@router.post("/remediations/publications/{publication_id}/recovery")
+def request_publication_recovery(publication_id: int, payload: PublicationRecoveryRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        if not publication_is_stale(publication, stale_after_seconds=stale_after_seconds):
+            raise HTTPException(status_code=409, detail="publication_not_stale")
+        events = RemediationRepository.list_events(session, publication.remediation_id)
+        prior = recovery_request_exists(events, publication_id=publication.id, idempotency_key=payload.idempotency_key)
+        if prior:
+            return {"accepted": True, "replayed": True, "publication_id": publication.id, "action": prior["action"], "event_type": "publication_recovery_requested"}
+        detail = {"publication_id": publication.id, "action": payload.action, "idempotency_key": payload.idempotency_key, "note": payload.note}
+        RemediationRepository.append_event(session, {
+            "remediation_id": publication.remediation_id,
+            "event_type": "publication_recovery_requested",
+            "sequence": len(events) + 1,
+            "detail": detail,
+        })
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication.id), {"action": payload.action, "idempotency_key": payload.idempotency_key}, entity_type="publication")
+        return {"accepted": True, "replayed": False, "publication_id": publication.id, "action": payload.action, "event_type": "publication_recovery_requested", "mutates_provider": False}
+
+
+@router.post("/remediations/publications/{publication_id}/evidence")
+def attach_publication_evidence(publication_id: int, payload: PostMergeVerificationRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        if publication.status != "merged":
+            raise HTTPException(status_code=409, detail="publication_not_merged")
+        publication.observed_digest = payload.observed_digest or publication.observed_digest
+        publication.scan_status = payload.scan_status
+        publication.findings_before = payload.findings_before
+        publication.findings_after = payload.findings_after
+        result = evaluate_post_merge(
+            expected_digest=payload.expected_digest,
+            observed_digest=payload.observed_digest,
+            required_scan_status=payload.scan_status,
+            findings_before=payload.findings_before,
+            findings_after=payload.findings_after,
+        )
+        event_type = _apply_post_merge_result(session, publication, result, payload.merge_commit or publication.merge_commit)
+        return {"accepted": True, "publication_id": publication.id, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command}
+
+
 @router.post("/webhooks/{provider}")
 async def provider_webhook(provider: str, request: Request) -> dict:
     provider = provider.lower()
@@ -756,19 +858,8 @@ async def provider_webhook(provider: str, request: Request) -> dict:
                 findings_before=callback.findings_before,
                 findings_after=callback.findings_after,
             )
-            publication.verification_status = str(result["status"])
-            publication.verification_detail = result
-            event_type = "rollback_required" if result["status"] == "rollback_required" else "post_merge_verified"
+            _apply_post_merge_result(session, publication, result, callback.merge_commit)
             if result["status"] == "rollback_required":
                 record_provider_callback("rollback_required")
-                if callback.merge_commit:
-                    try:
-                        publication.rollback_command = list(build_rollback_plan(callback.merge_commit).command)
-                    except ValueError:
-                        publication.rollback_command = []
-            events = RemediationRepository.list_events(session, publication.remediation_id)
-            event_detail = {**result, "publication_id": publication.id}
-            if not publication_event_exists(events, event_type=event_type, publication_id=publication.id, detail=result):
-                RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": event_type, "sequence": len(events) + 1, "detail": event_detail})
         record_provider_callback("accepted")
         return {"accepted": True, "matched": True, "publication_id": publication.id, "verification_status": publication.verification_status}
