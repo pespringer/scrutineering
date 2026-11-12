@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 
 from src.db.connection import get_session
 from src.db.models import RemediationRecoveryRequest
 from src.db.repositories import RemediationRepository
-from src.remediation.provider_status import fetch_provider_status
-from src.remediation.recovery import retry_at, transition_recovery_status
+from src.remediation.provider_status import ProviderCircuitOpen, ProviderRateLimited, fetch_provider_status
+from src.remediation.recovery import retry_at, transition_recovery_status, retry_delay_seconds
+from src.telemetry.scan_metrics import record_recovery_poll
 
 
 def _token(provider: str) -> str | None:
@@ -49,15 +50,35 @@ def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
                         acknowledged += 1
                     recovery.error_message = None
                     recovery.next_attempt_at = None
+                    record_recovery_poll("acknowledged")
                 elif recovery.attempts >= recovery.max_attempts:
                     recovery.status = "failed"
                     recovery.completed_at = now
                     recovery.error_message = status.detail or "provider did not report a merged publication"
                     failed += 1
+                    record_recovery_poll("failed")
                 else:
                     recovery.error_message = status.detail or "provider publication is not merged"
-                    recovery.next_attempt_at = retry_at(now, recovery.attempts)
+                    recovery.next_attempt_at = now.replace(microsecond=0) + timedelta(seconds=retry_delay_seconds(recovery.attempts))
                     retried += 1
+                    record_recovery_poll("retrying")
+            except ProviderRateLimited as exc:
+                recovery.error_message = str(exc)
+                if recovery.attempts >= recovery.max_attempts:
+                    recovery.status = "failed"
+                    recovery.completed_at = now
+                    failed += 1
+                    record_recovery_poll("failed")
+                else:
+                    delay = exc.retry_after if exc.retry_after is not None else retry_delay_seconds(recovery.attempts)
+                    recovery.next_attempt_at = now.replace(microsecond=0) + timedelta(seconds=min(delay, 900))
+                    retried += 1
+                    record_recovery_poll("rate_limited")
+            except ProviderCircuitOpen as exc:
+                recovery.error_message = str(exc)
+                recovery.next_attempt_at = now.replace(microsecond=0) + timedelta(seconds=60)
+                retried += 1
+                record_recovery_poll("circuit_open")
             except Exception as exc:
                 recovery.error_message = str(exc)[:1000]
                 if recovery.attempts >= recovery.max_attempts:
@@ -67,6 +88,7 @@ def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
                 else:
                     recovery.next_attempt_at = retry_at(now, recovery.attempts)
                     retried += 1
+                    record_recovery_poll("retrying")
             events = RemediationRepository.list_events(session, publication.remediation_id)
             RemediationRepository.append_event(session, {
                 "remediation_id": publication.remediation_id,
