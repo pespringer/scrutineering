@@ -96,6 +96,12 @@ responses include a SHA-256 over canonical JSON for release-record attachment.
 Evidence retention defaults to 365 days. Purging is disabled unless
 `REMEDIATION_EVIDENCE_PURGE_ENABLED=true` is explicitly configured.
 
+Alert deliveries have a durable, receiver-independent queue. Operators can
+inspect it at `/remediations/alert-deliveries` and replay only terminal
+dead-letter records. Delivery keys are deterministic, so retries do not create
+duplicate notifications. Recovery polling leases requests for five minutes to
+prevent concurrent workers from issuing duplicate provider calls.
+
 Callback recovery polling uses the provider token on the server, retries with
 bounded exponential backoff (15, 30, 60, 120, then 300 seconds), and moves to
 terminal `failed` after the configured attempt limit. Set
