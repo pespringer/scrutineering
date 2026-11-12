@@ -86,6 +86,12 @@ npm run smoke:dashboard
 npm run drill:staging-provider
 ```
 
+The provider webhook path is the one deliberate exception to the internal API
+key boundary: it is not accepted with `PYTHON_API_KEY`; it must pass the
+provider-specific HMAC check and delivery-ID replay check. All other API and
+dashboard routes retain their normal API-key, service-auth, or trusted OIDC
+requirements.
+
 Then use GitHub’s webhook **Test delivery** or create one controlled staging
 pull request. Confirm the delivery is successful, the callback appears in the
 remediation timeline, and reconciliation reports the publication state.

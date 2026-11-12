@@ -33,6 +33,11 @@ def is_service_request_authorized(headers, body: bytes, secret: str, replay_guar
     return replay_guard(signature, int(time.time()))
 
 
+def is_provider_webhook_path(path: str) -> bool:
+    """Provider callbacks authenticate with their provider HMAC, not API keys."""
+    return bool(re.fullmatch(r"/api/dashboard/webhooks/(github|gitlab)", path))
+
+
 def create_app() -> FastAPI:
     application = FastAPI(title="Scrutineering API", version="1.0")
     service_replay_guard = create_replay_guard()
@@ -55,7 +60,8 @@ def create_app() -> FastAPI:
     async def api_auth_middleware(request, call_next):
         expected = os.environ.get("PYTHON_API_KEY", "")
         public_paths = {"/health", "/ready", "/metrics", "/version"}
-        if request.url.path not in public_paths:
+        provider_webhook = is_provider_webhook_path(request.url.path)
+        if request.url.path not in public_paths and not provider_webhook:
             body = await request.body()
             service_secret = os.environ.get("SERVICE_AUTH_SECRET", "")
             service_headers = {key: value for key, value in request.headers.items() if key.startswith("x-service-")}
@@ -85,6 +91,10 @@ def create_app() -> FastAPI:
             request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
             default_roles = [role.strip() for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",") if role.strip()]
             request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else default_roles
+        if provider_webhook:
+            request.state.auth_method = "provider_hmac"
+            request.state.principal_id = f"provider:{request.url.path.rsplit('/', 1)[-1]}"
+            request.state.principal_roles = []
         return await call_next(request)
 
     @application.get("/health", tags=["health"])

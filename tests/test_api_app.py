@@ -44,3 +44,12 @@ def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeyp
     guard = create_replay_guard()
     assert is_service_request_authorized(headers, b"{}", "internal-secret", guard)
     assert not is_service_request_authorized(headers, b"{}", "internal-secret", guard)
+
+
+def test_provider_webhook_path_uses_hmac_boundary():
+    from src.api.app import is_provider_webhook_path
+
+    assert is_provider_webhook_path("/api/dashboard/webhooks/github")
+    assert is_provider_webhook_path("/api/dashboard/webhooks/gitlab")
+    assert not is_provider_webhook_path("/api/dashboard/remediations")
+    assert not is_provider_webhook_path("/api/dashboard/webhooks/github/extra")
