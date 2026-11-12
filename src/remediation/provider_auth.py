@@ -18,4 +18,5 @@ def credential_diagnostics(provider: str) -> dict:
         except ValueError:
             return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": False, "age_days": None}
     max_age = int(os.environ.get("PROVIDER_TOKEN_MAX_AGE_DAYS", "90"))
-    return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": True, "age_days": age_days, "rotation_stale": age_days is not None and age_days > max_age, "max_age_days": max_age, "token_present": bool(token)}
+    required_scopes = [scope for scope in os.environ.get(f"{name}_REQUIRED_SCOPES", "").split(",") if scope]
+    return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": True, "age_days": age_days, "rotation_stale": age_days is not None and age_days > max_age, "max_age_days": max_age, "token_present": bool(token), "required_scopes": required_scopes, "scope_metadata_valid": all(scope.replace("_", "").replace(":", "").isalnum() for scope in required_scopes)}
