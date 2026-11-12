@@ -64,6 +64,12 @@ enable alert delivery or purge retention data.
 Run `npm run validate:migrations` before applying a release. The go-live
 operator checklist is in `docs/operations/recovery-go-live-checklist.md`.
 
+For a real local scan, run `npm run smoke:live-scan`. A `partial` result is
+valid evidence that one scanner completed while another failed; investigate the
+worker log before treating it as a clean scan. The scan record, findings, and
+metrics endpoint must all be present before the live-scan milestone is marked
+complete.
+
 Evidence exports can be signed and verified locally with `npm run evidence:sign`
 and `npm run evidence:verify`; secrets are supplied on the command line or by
 the calling secret manager and are never written to repository files.
