@@ -2,7 +2,7 @@ import hashlib
 import hmac
 
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
-from src.remediation.events import publication_event_exists
+from src.remediation.events import publication_event_exists, recovery_request_exists
 
 
 def test_github_callback_normalizes_native_merge_payload():
@@ -42,3 +42,9 @@ def test_post_merge_event_is_idempotent_per_publication():
     event = type("Event", (), {"event_type": "post_merge_verified", "detail": {**result, "publication_id": 2}})()
     assert publication_event_exists([event], event_type="post_merge_verified", publication_id=2, detail=result)
     assert not publication_event_exists([event], event_type="post_merge_verified", publication_id=3, detail=result)
+
+
+def test_recovery_request_uses_operator_idempotency_key():
+    event = type("Event", (), {"event_type": "publication_recovery_requested", "detail": {"publication_id": 2, "idempotency_key": "retry-1", "action": "request_callback"}})()
+    assert recovery_request_exists([event], publication_id=2, idempotency_key="retry-1")["action"] == "request_callback"
+    assert recovery_request_exists([event], publication_id=2, idempotency_key="retry-2") is None
