@@ -4,6 +4,8 @@ from pathlib import Path
 required = [
     Path("docs/operations/recovery-go-live-checklist.md"),
     Path("scripts/run-staging-recovery-drill.py"),
+    Path("scripts/run-disaster-recovery-drill.py"),
+    Path("docs/operations/platform-hardening.md"),
     Path("scripts/validate-migration-matrix.py"),
     Path("monitoring/prometheus-rules.yaml"),
     Path("monitoring/grafana-dashboard.json"),
