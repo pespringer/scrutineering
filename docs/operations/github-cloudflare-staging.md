@@ -10,6 +10,9 @@ HTTPS URL.
 - Docker Compose is running and `curl http://localhost:8000/health` returns
   `{"status":"ok"}`.
 - You control `pespringer/scrutineering` and its `main` branch is protected.
+- If the repository is private under a personal GitHub Free account, GitHub
+  may reject branch-protection API requests; upgrade the account or use a
+  public/dedicated staging repository before testing publication.
 - The webhook endpoint can be reached through a public HTTPS URL. A Quick
   Tunnel is suitable for one test; use a named tunnel for a stable hostname.
 
@@ -21,6 +24,10 @@ only `pespringer/scrutineering`, set **Metadata: read** and **Pull requests:
 read/write**, **Administration: read**, and give it a short expiration. The
 publisher checks branch
 protection and creates a pull request; it does not merge one.
+
+The publisher intentionally fails closed when it cannot verify branch
+protection. A token with **Administration: read** is necessary but not
+sufficient if the repository’s GitHub plan does not support protected branches.
 
 Generate a separate webhook secret locally:
 
