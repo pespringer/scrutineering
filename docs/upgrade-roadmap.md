@@ -482,3 +482,11 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add bounded audit filters, signed evidence-export envelopes, provider response validation, token-rotation diagnostics, and recovery-drill fixtures.
 - **Completed:** add lease-safe polling, receiver-independent release-readiness commands, dashboard proxy coverage, and dead-letter monitoring.
 - **Deferred:** external alert receiver delivery remains separate and is not enabled by default.
+
+### Next 40 implementation-only slices
+
+- **Completed:** add versioned alert contracts, adapter protocols, payload redaction, archive manifests, and deterministic failure-plan fixtures.
+- **Completed:** add queue deduplication safeguards, bulk cancel/replay foundations, queue depth telemetry, lease metrics, and operator dashboard controls.
+- **Completed:** add signed evidence archive tooling, audit filtering, provider credential diagnostics, migration-chain validation, and receiver-independent chaos/recovery drills.
+- **Completed:** add final recovery go-live checklist and readiness documentation without enabling external receiver delivery.
+- **Deferred:** actual external receiver delivery and receiver evidence remain a separate operator gate.

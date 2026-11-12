@@ -32,6 +32,7 @@ from src.remediation.reconciliation import publication_age_seconds, publication_
 from src.remediation.evidence_retention import retention_cutoff, retention_days
 from src.remediation.evidence_export import sign_export
 from src.remediation.provider_auth import credential_diagnostics
+from src.remediation.evidence_archive import manifest
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -963,7 +964,7 @@ def export_publication_evidence(publication_id: int, request: Request) -> dict:
             raise HTTPException(status_code=404, detail="publication_not_found")
         payload = {"publication_id": publication.id, "repository": publication.repository, "release_evidence": [{"id": item.id, "evidence_key": item.evidence_key, "status": item.status, "expected_digest": item.expected_digest, "observed_digest": item.observed_digest, "scan_status": item.scan_status, "findings_before": item.findings_before, "findings_after": item.findings_after, "created_at": _iso(item.created_at), "verified_at": _iso(item.verified_at)} for item in publication.release_evidence], "alert_evidence": [{"id": item.id, "delivery_key": item.delivery_key, "receiver": item.receiver, "status": item.status, "response_code": item.response_code, "attempt": item.attempt, "detail": item.detail, "created_at": _iso(item.created_at)} for item in publication.alert_evidence]}
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        export = {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload}
+        export = {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload, "archive": manifest([payload])}
         secret = os.environ.get("EVIDENCE_EXPORT_SIGNING_SECRET", "")
         if secret:
             export["signature"] = sign_export(payload, secret)

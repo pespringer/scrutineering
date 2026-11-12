@@ -1,3 +1,4 @@
+from src.remediation.alert_contracts import validate_alert_payload
 from src.remediation.alert_delivery import delivery_key, sanitize_payload, schedule_retry
 from src.db.models import RemediationAlertDelivery
 
@@ -18,3 +19,13 @@ def test_schedule_retry_dead_letters_at_attempt_limit():
 
 def test_alert_payload_redacts_credential_like_fields():
     assert sanitize_payload({"token": "secret", "message": "safe"}) == {"token": "[REDACTED]", "message": "safe"}
+
+
+def test_alert_contract_is_versioned_and_fail_closed():
+    assert validate_alert_payload({"event_type": "stale", "publication_id": 1})["schema_version"] == "alert-v1"
+    try:
+        validate_alert_payload({"event_type": "stale"})
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("invalid alert payload accepted")
