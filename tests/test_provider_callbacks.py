@@ -2,6 +2,7 @@ import hashlib
 import hmac
 
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
+from src.remediation.events import publication_event_exists
 
 
 def test_github_callback_normalizes_native_merge_payload():
@@ -34,3 +35,10 @@ def test_provider_signature_accepts_github_prefix_and_rejects_wrong_secret():
     digest = hmac.new(b"secret", body, hashlib.sha256).hexdigest()
     assert verify_signature(provider="github", body=body, signature=f"sha256={digest}", secret="secret")
     assert not verify_signature(provider="github", body=body, signature=digest, secret="wrong")
+
+
+def test_post_merge_event_is_idempotent_per_publication():
+    result = {"status": "verified", "reasons": [], "findings_delta": -1}
+    event = type("Event", (), {"event_type": "post_merge_verified", "detail": {**result, "publication_id": 2}})()
+    assert publication_event_exists([event], event_type="post_merge_verified", publication_id=2, detail=result)
+    assert not publication_event_exists([event], event_type="post_merge_verified", publication_id=3, detail=result)

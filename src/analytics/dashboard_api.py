@@ -20,6 +20,7 @@ from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
+from src.remediation.events import publication_event_exists
 from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
@@ -766,6 +767,8 @@ async def provider_webhook(provider: str, request: Request) -> dict:
                     except ValueError:
                         publication.rollback_command = []
             events = RemediationRepository.list_events(session, publication.remediation_id)
-            RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": event_type, "sequence": len(events) + 1, "detail": result})
+            event_detail = {**result, "publication_id": publication.id}
+            if not publication_event_exists(events, event_type=event_type, publication_id=publication.id, detail=result):
+                RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": event_type, "sequence": len(events) + 1, "detail": event_detail})
         record_provider_callback("accepted")
         return {"accepted": True, "matched": True, "publication_id": publication.id, "verification_status": publication.verification_status}

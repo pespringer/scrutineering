@@ -26,6 +26,10 @@ delta. Digest drift, incomplete scans, or increased findings produce a durable
 `rollback_required` event and a validated `git revert --no-edit` command; the
 service does not execute that command automatically.
 
+Post-merge lifecycle events are idempotent per publication. A provider retry
+with a new delivery ID updates the publication but does not append a second
+`post_merge_verified` or `rollback_required` event for the same publication.
+
 Before promotion, record the publication URL, callback ID, verification result,
 scan evidence, and rollback decision. Confirm the remediation detail page and
 `/api/dashboard/remediations/publications/reconciliation` agree with the
