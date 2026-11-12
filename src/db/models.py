@@ -600,6 +600,43 @@ class RemediationPublication(Base):
     findings_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
     findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    recovery_requests = relationship("RemediationRecoveryRequest", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
+
+
+class RemediationRecoveryRequest(Base):
+    """Durable, idempotent operator request for a stale publication."""
+    __tablename__ = "remediation_recovery_requests"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "idempotency_key", name="uq_remediation_recovery_request_key"),
+        Index("idx_remediation_recovery_requests_publication_id", "publication_id"),
+        Index("idx_remediation_recovery_requests_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
+    publication = relationship("RemediationPublication", back_populates="recovery_requests", lazy="joined")
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
+    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class RemediationReconciliationRun(Base):
+    """Durable health record for scheduled publication reconciliation."""
+    __tablename__ = "remediation_reconciliation_runs"
+    __table_args__ = (Index("idx_remediation_reconciliation_runs_started_at", "started_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    discovered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    events_recorded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RemediationWebhookEvent(Base):
