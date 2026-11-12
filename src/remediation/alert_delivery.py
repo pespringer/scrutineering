@@ -8,6 +8,7 @@ import json
 import os
 
 from src.db.models import RemediationAlertDelivery
+from src.remediation.alert_contracts import validate_alert_payload
 
 
 class FakeReceiver:
@@ -40,7 +41,7 @@ def enqueue_delivery(session, *, publication_id: int, receiver: str, event_type:
     existing = session.query(RemediationAlertDelivery).filter_by(publication_id=publication_id, delivery_key=key).first()
     if existing:
         return existing, True
-    record = RemediationAlertDelivery(publication_id=publication_id, delivery_key=key, receiver=receiver, max_attempts=min(max(int(os.environ.get("REMEDIATION_ALERT_MAX_ATTEMPTS", "5")), 1), 100), payload={"event_type": event_type, **sanitize_payload(payload)})
+    record = RemediationAlertDelivery(publication_id=publication_id, delivery_key=key, receiver=receiver, max_attempts=min(max(int(os.environ.get("REMEDIATION_ALERT_MAX_ATTEMPTS", "5")), 1), 100), payload=validate_alert_payload({"event_type": event_type, "publication_id": publication_id, **sanitize_payload(payload)}))
     session.add(record)
     session.flush()
     return record, False
