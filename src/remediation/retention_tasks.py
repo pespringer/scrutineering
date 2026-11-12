@@ -8,11 +8,13 @@ from celery import shared_task
 
 from src.db.connection import get_session
 from src.db.models import RemediationAlertEvidence, RemediationReleaseEvidence
-from src.remediation.evidence_retention import purge_enabled, retention_cutoff
+from src.remediation.evidence_retention import purge_enabled, retention_cutoff, retention_days
+from src.platform.controls import RetentionPolicy
 
 
 @shared_task(name="src.remediation.retention_tasks.purge_expired_evidence", acks_late=True)
 def purge_expired_evidence(*, dry_run: bool = True, limit: int = 500) -> dict[str, int | bool]:
+    RetentionPolicy(days=retention_days()).cutoff()
     cutoff = retention_cutoff()
     with get_session() as session:
         releases = session.query(RemediationReleaseEvidence).filter(RemediationReleaseEvidence.created_at < cutoff).limit(limit).all()
