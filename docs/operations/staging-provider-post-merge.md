@@ -44,3 +44,10 @@ Prometheus exposes callback outcomes through
 replayed/unmatched deliveries as staging warnings; treat
 `rollback_required` as a critical alert. The checked-in Grafana dashboard
 includes callback rates and rollback-required counts.
+
+The reconciliation endpoint accepts `status=stale` and marks pending, failed,
+or unverified merged publications older than
+`REMEDIATION_PUBLICATION_STALE_SECONDS` (default 900 seconds). It also updates
+the `scrutineering_stale_publications` gauge; a non-zero value triggers the
+`ScrutineeringStalePublications` warning. Verified merges are terminal and are
+never classified as stale.
