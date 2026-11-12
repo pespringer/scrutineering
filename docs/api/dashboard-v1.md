@@ -84,6 +84,11 @@ provider. `POST /remediations/publications/{publication_id}/evidence` attaches
 deployment scan evidence to a merged publication and re-evaluates its healthy
 or rollback-required decision.
 
+Recovery status updates use `POST
+/remediations/publications/{publication_id}/recovery/{recovery_id}/status` with
+`acknowledged`, `completed`, or `failed`. The reconciliation health endpoint
+reports the latest scheduled run and its discovered/event counts.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

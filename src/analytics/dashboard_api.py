@@ -12,16 +12,18 @@ from urllib.request import urlopen
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
-from src.remediation.events import publication_event_exists, recovery_request_exists
+from src.remediation.events import publication_event_exists
+from src.remediation.recovery import transition_recovery_status
 from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
@@ -72,17 +74,22 @@ class PublicationPlanRequest(BaseModel):
 
 
 class PostMergeVerificationRequest(BaseModel):
-    expected_digest: str
-    observed_digest: str | None = None
-    scan_status: str = Field(min_length=1, max_length=32)
-    findings_before: int = Field(ge=0)
-    findings_after: int = Field(ge=0)
-    merge_commit: str | None = None
+    expected_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    observed_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
+    scan_status: Literal["completed", "failed", "partial", "pending"]
+    findings_before: int = Field(ge=0, le=100000)
+    findings_after: int = Field(ge=0, le=100000)
+    merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
 
 
 class PublicationRecoveryRequest(BaseModel):
     action: Literal["request_callback", "mark_manual_review"]
     idempotency_key: str = Field(min_length=1, max_length=256)
+    note: str = Field(default="", max_length=2000)
+
+
+class RecoveryStatusRequest(BaseModel):
+    status: Literal["acknowledged", "completed", "failed"]
     note: str = Field(default="", max_length=2000)
 
 
@@ -226,6 +233,7 @@ def _remediation_actions(findings: list[ScanFinding]) -> list[dict]:
 
 
 def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
+    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
@@ -234,6 +242,7 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
         "target_severities": remediation.target_severities,
         "approved_by": remediation.approved_by,
         "approved_at": _iso(remediation.approved_at),
+        "stale_publication_count": sum(publication_is_stale(publication, stale_after_seconds=stale_after_seconds) for publication in remediation.publications),
         "actions": actions if actions is not None else [{
             "id": action.id,
             "action_type": _value(action.action_type),
@@ -253,6 +262,8 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "findings_before": publication.findings_before,
             "findings_after": publication.findings_after,
             "rollback_command": publication.rollback_command,
+            "stale": publication_is_stale(publication, stale_after_seconds=min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)),
+            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "error_message": recovery.error_message, "requested_at": _iso(recovery.requested_at), "acknowledged_at": _iso(recovery.acknowledged_at), "completed_at": _iso(recovery.completed_at)} for recovery in publication.recovery_requests],
         } for publication in remediation.publications],
     }
 
@@ -546,6 +557,16 @@ def publication_reconciliation(request: Request, status: str | None = Query(defa
     return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command, "age_seconds": publication_age_seconds(record), "stale": record in stale_records, "stale_after_seconds": stale_after_seconds} for record in records], "count": len(records), "stale_count": len(stale_records), "stale_after_seconds": stale_after_seconds}
 
 
+@router.get("/remediations/publications/reconciliation/health")
+def publication_reconciliation_health(request: Request) -> dict:
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        run = session.query(RemediationReconciliationRun).order_by(RemediationReconciliationRun.started_at.desc()).first()
+    if run is None:
+        return {"status": "never_run", "last_run": None}
+    return {"status": run.status, "last_run": {"id": run.id, "status": run.status, "discovered": run.discovered, "events_recorded": run.events_recorded, "error_message": run.error_message, "started_at": _iso(run.started_at), "completed_at": _iso(run.completed_at)}}
+
+
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
@@ -761,6 +782,7 @@ def publication_recovery_preview(publication_id: int, request: Request) -> dict:
             "stale_after_seconds": stale_after_seconds,
             "allowed_actions": ["request_callback", "mark_manual_review"] if stale else [],
             "mutates_provider": False,
+            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note} for recovery in publication.recovery_requests],
         }
 
 
@@ -774,11 +796,19 @@ def request_publication_recovery(publication_id: int, payload: PublicationRecove
             raise HTTPException(status_code=404, detail="publication_not_found")
         if not publication_is_stale(publication, stale_after_seconds=stale_after_seconds):
             raise HTTPException(status_code=409, detail="publication_not_stale")
+        recovery = session.query(RemediationRecoveryRequest).filter_by(publication_id=publication.id, idempotency_key=payload.idempotency_key).first()
+        if recovery:
+            return {"accepted": True, "replayed": True, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": recovery.action, "status": recovery.status}
+        recovery = RemediationRecoveryRequest(publication_id=publication.id, action=payload.action, idempotency_key=payload.idempotency_key, note=payload.note, status="requested")
+        session.add(recovery)
+        try:
+            session.flush()
+        except IntegrityError:
+            session.rollback()
+            recovery = session.query(RemediationRecoveryRequest).filter_by(publication_id=publication.id, idempotency_key=payload.idempotency_key).one()
+            return {"accepted": True, "replayed": True, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": recovery.action, "status": recovery.status}
         events = RemediationRepository.list_events(session, publication.remediation_id)
-        prior = recovery_request_exists(events, publication_id=publication.id, idempotency_key=payload.idempotency_key)
-        if prior:
-            return {"accepted": True, "replayed": True, "publication_id": publication.id, "action": prior["action"], "event_type": "publication_recovery_requested"}
-        detail = {"publication_id": publication.id, "action": payload.action, "idempotency_key": payload.idempotency_key, "note": payload.note}
+        detail = {"publication_id": publication.id, "recovery_request_id": recovery.id, "action": payload.action, "idempotency_key": payload.idempotency_key, "note": payload.note, "status": recovery.status}
         RemediationRepository.append_event(session, {
             "remediation_id": publication.remediation_id,
             "event_type": "publication_recovery_requested",
@@ -786,7 +816,36 @@ def request_publication_recovery(publication_id: int, payload: PublicationRecove
             "detail": detail,
         })
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication.id), {"action": payload.action, "idempotency_key": payload.idempotency_key}, entity_type="publication")
-        return {"accepted": True, "replayed": False, "publication_id": publication.id, "action": payload.action, "event_type": "publication_recovery_requested", "mutates_provider": False}
+        return {"accepted": True, "replayed": False, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": payload.action, "status": recovery.status, "event_type": "publication_recovery_requested", "mutates_provider": False}
+
+
+@router.post("/remediations/publications/{publication_id}/recovery/{recovery_id}/status")
+def update_publication_recovery_status(publication_id: int, recovery_id: int, payload: RecoveryStatusRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        recovery = session.query(RemediationRecoveryRequest).filter_by(id=recovery_id, publication_id=publication_id).first()
+        if recovery is None:
+            raise HTTPException(status_code=404, detail="recovery_request_not_found")
+        try:
+            target = transition_recovery_status(recovery.status, payload.status)
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail="invalid_recovery_transition") from exc
+        if target == recovery.status:
+            return {"accepted": True, "recovery_request_id": recovery.id, "status": recovery.status, "replayed": True}
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        recovery.status = target
+        recovery.note = payload.note or recovery.note
+        if target == "acknowledged":
+            recovery.acknowledged_at = now
+        if target in {"completed", "failed"}:
+            recovery.completed_at = now
+            if target == "failed":
+                recovery.error_message = payload.note or "operator marked recovery failed"
+        publication = session.get(RemediationPublication, publication_id)
+        events = RemediationRepository.list_events(session, publication.remediation_id)
+        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "publication_recovery_status_changed", "sequence": len(events) + 1, "detail": {"publication_id": publication_id, "recovery_request_id": recovery.id, "status": target, "note": payload.note}})
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication_id), {"action": "recovery_status_changed", "recovery_request_id": recovery.id, "status": target}, entity_type="publication")
+        return {"accepted": True, "recovery_request_id": recovery.id, "status": target, "replayed": False}
 
 
 @router.post("/remediations/publications/{publication_id}/evidence")

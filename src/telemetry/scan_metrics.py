@@ -33,3 +33,9 @@ def set_stale_publications(count: int) -> None:
     if count < 0:
         raise ValueError("stale publication count must be non-negative")
     scan_metrics.set_gauge("scrutineering_stale_publications", count)
+
+
+def record_reconciliation_run(status: str) -> None:
+    if status not in {"completed", "failed"}:
+        raise ValueError("unknown reconciliation run status")
+    scan_metrics.increment("scrutineering_reconciliation_runs_total", labels={"status": status})

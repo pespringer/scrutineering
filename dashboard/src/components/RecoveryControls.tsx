@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 
 type Publication = { id: number; repository: string; status: string; verification_status: string | null };
-type Preview = { publication_id: number; stale: boolean; allowed_actions: string[] };
+type Preview = { publication_id: number; stale: boolean; allowed_actions: string[]; recovery_requests?: Array<{ id: number; action: string; status: string }> };
 
 export default function RecoveryControls({ publications }: { publications: Publication[] }) {
   const [previews, setPreviews] = useState<Record<number, Preview>>({});
@@ -26,5 +26,5 @@ export default function RecoveryControls({ publications }: { publications: Publi
     } finally { setBusy(null); }
   }
 
-  return <>{publications.map((publication) => { const preview = previews[publication.id]; if (!preview?.stale) return null; return <div key={publication.id} className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"><p className="text-xs leading-5 text-slate-400">Stale publication. Recovery requests are audited and do not mutate the provider.</p><div className="mt-2 flex flex-wrap gap-2">{preview.allowed_actions.map((action) => <button key={action} disabled={busy === publication.id} onClick={() => recover(publication, action)} className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200 disabled:opacity-50">{busy === publication.id ? "Saving…" : action.replaceAll("_", " ")}</button>)}</div></div>; })}</>;
+  return <>{publications.map((publication) => { const preview = previews[publication.id]; if (!preview?.stale) return null; const latest = preview.recovery_requests?.at(-1); return <div key={publication.id} className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"><p className="text-xs leading-5 text-slate-400">Stale publication. Recovery requests are audited and do not mutate the provider.</p>{latest && <p className="mt-2 text-xs text-cyan-200">Latest request: {latest.action.replaceAll("_", " ")} · {latest.status}</p>}<div className="mt-2 flex flex-wrap gap-2">{preview.allowed_actions.map((action) => <button key={action} disabled={busy === publication.id} onClick={() => recover(publication, action)} className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:border-cyan-400/50 hover:text-cyan-200 disabled:opacity-50">{busy === publication.id ? "Saving…" : action.replaceAll("_", " ")}</button>)}</div></div>; })}</>;
 }
