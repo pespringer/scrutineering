@@ -18,7 +18,8 @@ HTTPS URL.
 Create a short-lived, fine-grained GitHub token at GitHub **Settings →
 Developer settings → Personal access tokens → Fine-grained tokens**. Select
 only `pespringer/scrutineering`, set **Metadata: read** and **Pull requests:
-read/write**, and give it a short expiration. The publisher checks branch
+read/write**, **Administration: read**, and give it a short expiration. The
+publisher checks branch
 protection and creates a pull request; it does not merge one.
 
 Generate a separate webhook secret locally:
