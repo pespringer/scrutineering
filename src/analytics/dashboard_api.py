@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -80,6 +80,7 @@ class PostMergeVerificationRequest(BaseModel):
     findings_before: int = Field(ge=0, le=100000)
     findings_after: int = Field(ge=0, le=100000)
     merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
+    evidence_key: str = Field(default="", max_length=128)
 
 
 class PublicationRecoveryRequest(BaseModel):
@@ -264,6 +265,7 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "rollback_command": publication.rollback_command,
             "stale": publication_is_stale(publication, stale_after_seconds=min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)),
             "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "error_message": recovery.error_message, "requested_at": _iso(recovery.requested_at), "acknowledged_at": _iso(recovery.acknowledged_at), "completed_at": _iso(recovery.completed_at)} for recovery in publication.recovery_requests],
+            "release_evidence": [{"id": evidence.id, "evidence_key": evidence.evidence_key, "status": evidence.status, "expected_digest": evidence.expected_digest, "observed_digest": evidence.observed_digest, "scan_status": evidence.scan_status, "findings_before": evidence.findings_before, "findings_after": evidence.findings_after, "created_at": _iso(evidence.created_at), "verified_at": _iso(evidence.verified_at)} for evidence in publication.release_evidence],
         } for publication in remediation.publications],
     }
 
@@ -782,7 +784,7 @@ def publication_recovery_preview(publication_id: int, request: Request) -> dict:
             "stale_after_seconds": stale_after_seconds,
             "allowed_actions": ["request_callback", "mark_manual_review"] if stale else [],
             "mutates_provider": False,
-            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note} for recovery in publication.recovery_requests],
+            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "attempts": recovery.attempts, "max_attempts": recovery.max_attempts, "next_attempt_at": _iso(recovery.next_attempt_at), "error_message": recovery.error_message} for recovery in publication.recovery_requests],
         }
 
 
@@ -857,6 +859,10 @@ def attach_publication_evidence(publication_id: int, payload: PostMergeVerificat
             raise HTTPException(status_code=404, detail="publication_not_found")
         if publication.status != "merged":
             raise HTTPException(status_code=409, detail="publication_not_merged")
+        evidence_key = payload.evidence_key or hashlib.sha256(json.dumps(payload.model_dump(exclude={"evidence_key"}), sort_keys=True).encode()).hexdigest()
+        existing_evidence = session.query(RemediationReleaseEvidence).filter_by(publication_id=publication.id, evidence_key=evidence_key).first()
+        if existing_evidence:
+            return {"accepted": True, "publication_id": publication.id, "evidence_id": existing_evidence.id, "evidence_key": evidence_key, "verification_status": existing_evidence.status, "replayed": True}
         publication.observed_digest = payload.observed_digest or publication.observed_digest
         publication.scan_status = payload.scan_status
         publication.findings_before = payload.findings_before
@@ -869,7 +875,10 @@ def attach_publication_evidence(publication_id: int, payload: PostMergeVerificat
             findings_after=payload.findings_after,
         )
         event_type = _apply_post_merge_result(session, publication, result, payload.merge_commit or publication.merge_commit)
-        return {"accepted": True, "publication_id": publication.id, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command}
+        evidence = RemediationReleaseEvidence(publication_id=publication.id, evidence_key=evidence_key, expected_digest=payload.expected_digest, observed_digest=payload.observed_digest, scan_status=payload.scan_status, findings_before=payload.findings_before, findings_after=payload.findings_after, status=str(result["status"]), verification_detail=result, verified_at=datetime.now(timezone.utc).replace(tzinfo=None) if result["status"] == "verified" else None)
+        session.add(evidence)
+        session.flush()
+        return {"accepted": True, "publication_id": publication.id, "evidence_id": evidence.id, "evidence_key": evidence_key, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command, "replayed": False}
 
 
 @router.post("/webhooks/{provider}")
