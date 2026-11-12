@@ -31,3 +31,10 @@ scan evidence, and rollback decision. Confirm the remediation detail page and
 `/api/dashboard/remediations/publications/reconciliation` agree with the
 database. Rotate webhook secrets after the drill and verify old signatures are
 rejected.
+
+For a healthy post-merge decision, the signed callback must include the
+verified artifact digest as `expected_digest`, the deployed digest as
+`observed_digest`, `scan_status: "completed"`, and non-increasing
+`findings_before`/`findings_after` counts. The service then persists
+`post_merge_verified`; missing or regressed evidence produces
+`rollback_required` instead.
