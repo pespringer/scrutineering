@@ -34,6 +34,8 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/remediations/publications/{publication_id}/recovery-preview" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/recovery" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/evidence" in paths
+    assert "/api/dashboard/remediations/publications/reconciliation/health" in paths
+    assert "/api/dashboard/remediations/publications/{publication_id}/recovery/{recovery_id}/status" in paths
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):
