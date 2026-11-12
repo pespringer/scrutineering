@@ -406,7 +406,10 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** make post-merge lifecycle events idempotent per publication so provider retries cannot duplicate verification or rollback events.
 - **Next:** add scheduled stale-publication reconciliation and operator-safe recovery controls.
 - **Completed:** schedule bounded stale-publication reconciliation through Celery Beat and the dedicated `remediation.normal` queue.
-- **Next:** add operator-safe recovery controls for stale publications.
+- **Completed:** add operator-safe stale-publication previews and idempotent, non-mutating recovery requests.
+- **Completed:** attach deployment scan evidence to merged publications and re-evaluate the healthy or rollback-required decision.
+- **Completed:** add dashboard recovery controls and API routes for stale publication operations.
+- **Next:** verify the new evidence attachment path against the live staging publication.
 - **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
 - **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
 
