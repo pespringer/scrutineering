@@ -490,3 +490,11 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add signed evidence archive tooling, audit filtering, provider credential diagnostics, migration-chain validation, and receiver-independent chaos/recovery drills.
 - **Completed:** add final recovery go-live checklist and readiness documentation without enabling external receiver delivery.
 - **Deferred:** actual external receiver delivery and receiver evidence remain a separate operator gate.
+
+### Next 40 governance and archive hardening slices
+
+- **Completed:** add shared alert priority/schema governance, fair queue ordering, and provider-scope diagnostics without exposing credentials.
+- **Completed:** add canonical JSONL audit export, gzip evidence archives, archive verification, and release-package validation.
+- **Completed:** add lease heartbeat/reclaim/version guards and deterministic chaos failure plans to recovery drills.
+- **Completed:** add migration-chain and go-live checklist gates to the local release workflow.
+- **Deferred:** external alert receiver delivery remains disabled and must be validated separately with the operator-provided receiver.
