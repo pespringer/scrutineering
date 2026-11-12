@@ -31,6 +31,7 @@ from src.scan.models import Severity
 from src.db.connection import get_session as get_db_session
 from src.db.models import Image, Scan, ScanStatus
 from src.scan.image_identity import parse_image_reference
+from src.scan.scheduled import schedule_active_scans
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,11 @@ import src.remediation.reconciliation_tasks  # noqa: F401  # register stale-publ
 import src.remediation.recovery_tasks  # noqa: F401  # register provider recovery polling task
 import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
 import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert delivery task
+
+
+@shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)
+def schedule_inventory_scans() -> dict[str, int]:
+    return schedule_active_scans(lambda image_name, priority: enqueue_scan(image_name, priority=priority))
 
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
@@ -70,7 +76,7 @@ def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
         scan.medium_count = (counts or {}).get("medium", 0)
         scan.low_count = (counts or {}).get("low", 0)
         scan.error_message = error_message
-        if status in {ScanStatus.COMPLETED, ScanStatus.FAILED}:
+        if status in {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED}:
             scan.completed_at = now
             image.last_scan_at = now
         image.last_scan_id = scan_id
@@ -277,8 +283,11 @@ def run_scan(
             scan_id,
             image_name,
         )
+        # Keep the Celery result serializable: a dict in FAILURE state is
+        # interpreted as exception metadata by the Redis backend. The durable
+        # Scan row remains the source of truth for the operator-facing status.
         self.update_state(
-            state="FAILURE",
+            state="SCAN_FAILED",
             meta={
                 "scan_id": scan_id,
                 "image_name": image_name,
@@ -340,7 +349,7 @@ def run_scan(
         if severity in counts:
             counts[severity] += 1
     _safe_update_scan_record(
-        scan_id, image_name, ScanStatus.COMPLETED,
+        scan_id, image_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
         total_findings=len(deduped), counts=counts,
         error_message="; ".join(error.get("error", "") for error in errors) or None,
     )
