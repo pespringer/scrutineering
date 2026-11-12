@@ -41,3 +41,6 @@ Recovery polling runs on the `remediation.normal` queue. It reads provider
 credentials only from the API/worker environment, records every attempt in the
 remediation timeline, retries with bounded backoff, and emits an escalation
 event when a publication remains stale for the configured cycle count.
+
+The readiness gate also checks alert-evidence schema coverage, worker task
+registration, provider-failure telemetry, and the dashboard recovery panel.
