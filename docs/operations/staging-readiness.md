@@ -60,3 +60,7 @@ alert service.
 
 `npm run validate:release-readiness` runs the same gate in CI. It does not
 enable alert delivery or purge retention data.
+
+Evidence exports can be signed and verified locally with `npm run evidence:sign`
+and `npm run evidence:verify`; secrets are supplied on the command line or by
+the calling secret manager and are never written to repository files.

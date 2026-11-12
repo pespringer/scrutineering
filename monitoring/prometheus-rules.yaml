@@ -97,3 +97,12 @@ groups:
         annotations:
           summary: "Alert deliveries entered the dead-letter queue"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringRecoveryLeaseContention
+        expr: increase(scrutineering_recovery_leases_total{outcome="contended"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Recovery workers are contending for leases"
+          runbook: "docs/operations/staging-provider-post-merge.md"

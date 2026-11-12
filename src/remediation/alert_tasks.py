@@ -10,7 +10,7 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import RemediationAlertDelivery, RemediationAlertEvidence
 from src.remediation.alert_delivery import dead_letter, receiver_for, schedule_retry
-from src.telemetry.scan_metrics import record_alert_delivery
+from src.telemetry.scan_metrics import record_alert_delivery, set_alert_queue_depth
 
 
 @shared_task(name="src.remediation.alert_tasks.deliver_alerts", acks_late=True)
@@ -24,6 +24,8 @@ def deliver_alerts(limit: int = 100) -> dict[str, int]:
             RemediationAlertDelivery.status.in_(["pending", "retrying"]),
             (RemediationAlertDelivery.next_attempt_at.is_(None) | (RemediationAlertDelivery.next_attempt_at <= now)),
         ).order_by(RemediationAlertDelivery.created_at.asc()).limit(limit).with_for_update(skip_locked=True).all()
+        for status in ("pending", "retrying", "dead_letter", "delivered", "canceled"):
+            set_alert_queue_depth(status, session.query(RemediationAlertDelivery).filter(RemediationAlertDelivery.status == status).count())
         for record in records:
             record.attempts = (record.attempts or 0) + 1
             try:
@@ -35,7 +37,9 @@ def deliver_alerts(limit: int = 100) -> dict[str, int]:
                 record.next_attempt_at = None
                 delivered += 1
                 record_alert_delivery("delivered")
-                session.add(RemediationAlertEvidence(publication_id=record.publication_id, delivery_key=record.delivery_key, receiver=record.receiver, status="delivered", response_code=code, attempt=record.attempts, detail={"message": detail}))
+                existing = session.query(RemediationAlertEvidence).filter_by(publication_id=record.publication_id, delivery_key=record.delivery_key).first()
+                if not existing:
+                    session.add(RemediationAlertEvidence(publication_id=record.publication_id, delivery_key=record.delivery_key, receiver=record.receiver, status="delivered", response_code=code, attempt=record.attempts, detail={"message": detail}))
             except Exception as exc:
                 record.last_error = str(exc)[:1000]
                 if record.attempts >= (record.max_attempts or 5):

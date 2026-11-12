@@ -24,6 +24,12 @@ def receiver_for(name: str):
     raise ValueError("receiver is not configured for local execution")
 
 
+def sanitize_payload(payload: dict) -> dict:
+    """Remove credential-like fields before persisting or delivering alerts."""
+    blocked = {"token", "secret", "authorization", "password"}
+    return {key: ("[REDACTED]" if key.lower() in blocked else value) for key, value in payload.items()}
+
+
 def delivery_key(publication_id: int, receiver: str, event_type: str, payload: dict) -> str:
     canonical = json.dumps({"publication_id": publication_id, "receiver": receiver, "event_type": event_type, "payload": payload}, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()
@@ -34,7 +40,7 @@ def enqueue_delivery(session, *, publication_id: int, receiver: str, event_type:
     existing = session.query(RemediationAlertDelivery).filter_by(publication_id=publication_id, delivery_key=key).first()
     if existing:
         return existing, True
-    record = RemediationAlertDelivery(publication_id=publication_id, delivery_key=key, receiver=receiver, max_attempts=min(max(int(os.environ.get("REMEDIATION_ALERT_MAX_ATTEMPTS", "5")), 1), 100), payload={"event_type": event_type, **payload})
+    record = RemediationAlertDelivery(publication_id=publication_id, delivery_key=key, receiver=receiver, max_attempts=min(max(int(os.environ.get("REMEDIATION_ALERT_MAX_ATTEMPTS", "5")), 1), 100), payload={"event_type": event_type, **sanitize_payload(payload)})
     session.add(record)
     session.flush()
     return record, False

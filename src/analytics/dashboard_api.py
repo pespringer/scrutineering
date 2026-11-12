@@ -114,6 +114,10 @@ class AlertEvidenceRequest(BaseModel):
     detail: dict = Field(default_factory=dict)
 
 
+class AlertBulkRequest(BaseModel):
+    delivery_ids: list[int] = Field(min_length=1, max_length=100)
+
+
 class PublicationRequest(PublicationPlanRequest):
     title: str = Field(min_length=1, max_length=256)
     body: str = Field(min_length=1, max_length=10000)
@@ -972,7 +976,7 @@ def list_alert_deliveries(request: Request, status: str | None = Query(default=N
     with get_session() as session:
         query = session.query(RemediationAlertDelivery)
         if status:
-            if status not in {"pending", "retrying", "dead_letter", "delivered"}:
+            if status not in {"pending", "retrying", "dead_letter", "delivered", "canceled"}:
                 raise HTTPException(status_code=400, detail="invalid_alert_delivery_status")
             query = query.filter(RemediationAlertDelivery.status == status)
         records = query.order_by(RemediationAlertDelivery.created_at.desc()).limit(limit).all()
@@ -994,6 +998,38 @@ def replay_alert_delivery(delivery_id: int, request: Request) -> dict:
         publication = session.get(RemediationPublication, record.publication_id)
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(record.publication_id), {"action": "alert_delivery_replay", "delivery_id": record.id}, entity_type="publication")
         return {"accepted": True, "delivery_id": record.id, "status": record.status, "publication_id": publication.id if publication else None}
+
+
+@router.post("/remediations/alert-deliveries/cancel")
+def cancel_alert_deliveries(payload: AlertBulkRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    with get_session() as session:
+        records = session.query(RemediationAlertDelivery).filter(RemediationAlertDelivery.id.in_(payload.delivery_ids), RemediationAlertDelivery.status.in_(["pending", "retrying"])).all()
+        for record in records:
+            record.status = "canceled"
+            record.next_attempt_at = None
+        return {"accepted": True, "canceled": [record.id for record in records], "skipped": sorted(set(payload.delivery_ids) - {record.id for record in records})}
+
+
+@router.post("/remediations/recovery-bulk-status")
+def bulk_recovery_status(payload: dict, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    ids = payload.get("recovery_ids", [])
+    status = payload.get("status")
+    reason_code = payload.get("reason_code", "operator_reviewed")
+    note = str(payload.get("note", ""))
+    if not isinstance(ids, list) or not ids or len(ids) > 100 or status not in {"acknowledged", "failed"} or (status == "failed" and not note.strip()):
+        raise HTTPException(status_code=400, detail="invalid_bulk_recovery_request")
+    with get_session() as session:
+        records = session.query(RemediationRecoveryRequest).filter(RemediationRecoveryRequest.id.in_(ids), RemediationRecoveryRequest.status.in_(["requested", "acknowledged"])).all()
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for recovery in records:
+            recovery.status = status
+            recovery.note = note or recovery.note
+            recovery.error_message = note if status == "failed" else None
+            if status == "acknowledged": recovery.acknowledged_at = now
+            else: recovery.completed_at = now
+        return {"accepted": True, "updated": [record.id for record in records], "reason_code": reason_code, "skipped": sorted(set(ids) - {record.id for record in records})}
 
 
 @router.post("/webhooks/{provider}")

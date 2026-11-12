@@ -55,3 +55,15 @@ def record_alert_delivery(outcome: str) -> None:
     if outcome not in {"delivered", "retrying", "dead_letter"}:
         raise ValueError("unknown alert delivery outcome")
     scan_metrics.increment("scrutineering_alert_deliveries_total", labels={"outcome": outcome})
+
+
+def set_alert_queue_depth(status: str, count: int) -> None:
+    if status not in {"pending", "retrying", "dead_letter", "delivered", "canceled"} or count < 0:
+        raise ValueError("invalid alert queue gauge")
+    scan_metrics.set_gauge("scrutineering_alert_queue_depth", count, labels={"status": status})
+
+
+def record_recovery_lease(outcome: str) -> None:
+    if outcome not in {"acquired", "reclaimed", "contended"}:
+        raise ValueError("unknown recovery lease outcome")
+    scan_metrics.increment("scrutineering_recovery_leases_total", labels={"outcome": outcome})

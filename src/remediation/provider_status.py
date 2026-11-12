@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from dataclasses import dataclass
 from threading import Lock
@@ -67,6 +68,7 @@ class ProviderCircuitBreaker:
 
 
 _BREAKERS: dict[str, ProviderCircuitBreaker] = {}
+_STATUS_CACHE: dict[tuple[str, str, int], tuple[float, ProviderStatus]] = {}
 
 
 def breaker_for(provider: str) -> ProviderCircuitBreaker:
@@ -76,6 +78,11 @@ def breaker_for(provider: str) -> ProviderCircuitBreaker:
 def fetch_provider_status(*, provider: str, repository: str, number: int, token: str, transport=urlopen) -> ProviderStatus:
     if number is None or number < 1:
         raise ValueError("provider number must be positive")
+    cache_seconds = max(0, int(os.environ.get("PROVIDER_STATUS_CACHE_SECONDS", "0")))
+    cache_key = (provider, repository, number)
+    cached = _STATUS_CACHE.get(cache_key)
+    if cache_seconds and cached and time.monotonic() - cached[0] < cache_seconds:
+        return cached[1]
     if provider == "github":
         url = f"https://api.github.com/repos/{repository}/pulls/{number}"
         headers = {"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}"}
@@ -106,4 +113,7 @@ def fetch_provider_status(*, provider: str, repository: str, number: int, token:
     else:
         state = str(payload.get("state") or "unknown")
         merged = state == "merged"
-    return ProviderStatus(state=state, merged=merged, detail={"provider": provider, "state": state, "merged": merged})
+    result = ProviderStatus(state=state, merged=merged, detail={"provider": provider, "state": state, "merged": merged})
+    if cache_seconds:
+        _STATUS_CACHE[cache_key] = (time.monotonic(), result)
+    return result

@@ -9,3 +9,10 @@ def test_credential_diagnostics_redacts_token_and_accepts_rotation_metadata(monk
     assert result["token_present"] is True
     assert "secret-value" not in str(result)
     assert result["rotation_metadata_valid"] is True
+
+
+def test_credential_diagnostics_marks_old_tokens(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
+    monkeypatch.setenv("GITHUB_TOKEN_ROTATED_AT", "2020-01-01T00:00:00Z")
+    monkeypatch.setenv("PROVIDER_TOKEN_MAX_AGE_DAYS", "30")
+    assert credential_diagnostics("github")["rotation_stale"] is True

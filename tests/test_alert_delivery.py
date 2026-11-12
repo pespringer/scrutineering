@@ -1,4 +1,4 @@
-from src.remediation.alert_delivery import delivery_key, schedule_retry
+from src.remediation.alert_delivery import delivery_key, sanitize_payload, schedule_retry
 from src.db.models import RemediationAlertDelivery
 
 
@@ -14,3 +14,7 @@ def test_schedule_retry_dead_letters_at_attempt_limit():
     schedule_retry(record)
     assert record.status == "dead_letter"
     assert record.next_attempt_at is None
+
+
+def test_alert_payload_redacts_credential_like_fields():
+    assert sanitize_payload({"token": "secret", "message": "safe"}) == {"token": "[REDACTED]", "message": "safe"}
