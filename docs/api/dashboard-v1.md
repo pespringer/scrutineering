@@ -75,6 +75,15 @@ secrets are configured separately; duplicate event IDs are accepted without
 reprocessing. Merge callbacks persist commit/digest/scan findings and append a
 verified or rollback-required timeline event.
 
+Security operators can use `GET
+/remediations/publications/{publication_id}/recovery-preview` to inspect stale
+status and allowed recovery actions. `POST
+/remediations/publications/{publication_id}/recovery` records an idempotent
+`request_callback` or `mark_manual_review` request; it never mutates the
+provider. `POST /remediations/publications/{publication_id}/evidence` attaches
+deployment scan evidence to a merged publication and re-evaluates its healthy
+or rollback-required decision.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.
