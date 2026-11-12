@@ -515,3 +515,11 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** preserve receiver-independent retry, execution, archive, and Kubernetes hardening gates while extending regression coverage.
 - **Next:** continue wiring database backup automation, richer dashboard bulk workflows, provider adapters, and disaster-recovery evidence into production operations.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
+### Next 100 operations and resilience slices
+
+- **Completed:** add backup rotation/restore-drill contracts, export cursors, quarantine expiry, resource budgets, tenant checks, escalation policies, and SLO evaluation helpers.
+- **Completed:** enforce scanner finding limits and forensic snapshot size limits, and add disaster-recovery validation to local CI.
+- **Completed:** add queue starvation, backup freshness, and recovery-SLO monitoring rules plus operational configuration examples.
+- **Next:** continue wiring these contracts into database automation, dashboard bulk workflows, provider adapters, and production telemetry.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.

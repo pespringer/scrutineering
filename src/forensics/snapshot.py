@@ -100,6 +100,12 @@ class ContainerSnapshot:
     # Artifact path
     artifact_path: str = ""
 
+    def validate_limits(self, *, max_filesystem_entries: int = 100_000, max_processes: int = 10_000, max_connections: int = 10_000) -> None:
+        if min(max_filesystem_entries, max_processes, max_connections) < 1:
+            raise ValueError("snapshot limits must be positive")
+        if self.file_count > max_filesystem_entries or self.process_count > max_processes or self.connection_count > max_connections:
+            raise ValueError("forensic snapshot exceeds size limits")
+
     @property
     def file_count(self) -> int:
         return len(self.filesystem)

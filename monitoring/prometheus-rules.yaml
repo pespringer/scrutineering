@@ -106,3 +106,30 @@ groups:
         annotations:
           summary: "Recovery workers are contending for leases"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringQueueStarved
+        expr: scrutineering_queue_oldest_age_seconds > 900 and scrutineering_queue_depth > 0
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Scrutineering work is waiting too long in a queue"
+          runbook: "docs/operations/scan-queues.md"
+      - alert: ScrutineeringBackupStale
+        expr: time() - scrutineering_backup_last_success_timestamp > 86400
+        for: 30m
+        labels:
+          severity: critical
+          owner: platform-security
+        annotations:
+          summary: "Scrutineering backup is stale"
+          runbook: "docs/operations/platform-hardening.md"
+      - alert: ScrutineeringRecoverySloBreach
+        expr: scrutineering_recovery_latency_seconds > 300 or scrutineering_recovery_failure_rate > 0.10
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Scrutineering recovery SLO is breached"
+          runbook: "docs/operations/platform-hardening.md"
