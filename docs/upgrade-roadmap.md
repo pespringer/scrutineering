@@ -400,7 +400,8 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** expose post-merge evidence and rollback output in remediation detail payloads.
 - **Completed:** run the live staging publication against the public, protected test repository; publication record `2` created PR `1` and an idempotency retry reused it.
 - **Completed:** attach signed deployment scan evidence to the merged staging publication; matching digest, completed scan, and reduced findings produced `post_merge_verified`.
-- **Next:** attach callback outcome metrics and alert validation to the promotion record.
+- **Completed:** add callback outcome metrics, Prometheus rules, Grafana panels, and staging-readiness coverage for provider callback outcomes.
+- **Next:** verify alert delivery with live staging receivers and reconcile stale publications.
 - **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
 - **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
 
