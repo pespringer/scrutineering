@@ -29,6 +29,7 @@ def create_celery_app() -> Celery:
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
             "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},
+            "src.remediation.retention_tasks.purge_expired_evidence": {"queue": "remediation.normal"},
         },
         beat_schedule={
             "reconcile-stale-publications": {
@@ -39,6 +40,12 @@ def create_celery_app() -> Celery:
             "poll-publication-recoveries": {
                 "task": "src.remediation.recovery_tasks.poll_recovery_requests",
                 "schedule": 60.0,
+                "options": {"queue": "remediation.normal"},
+            },
+            "purge-expired-evidence-dry-run": {
+                "task": "src.remediation.retention_tasks.purge_expired_evidence",
+                "schedule": 86400.0,
+                "kwargs": {"dry_run": True},
                 "options": {"queue": "remediation.normal"},
             },
         },
