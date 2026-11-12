@@ -1,5 +1,8 @@
 # Staging Provider-to-Post-Merge Drill
 
+For the complete GitHub plus Cloudflare setup, see
+[GitHub and Cloudflare staging callback setup](github-cloudflare-staging.md).
+
 Live provider publication remains disabled unless
 `REMEDIATION_PUBLICATION_ENABLED=true` is explicitly configured. Run the
 deterministic local preflight with:

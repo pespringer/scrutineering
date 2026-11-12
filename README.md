@@ -258,6 +258,7 @@ remediation timeline.
 - [Database Schema Design](docs/db-schema-design.md)
 - [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)
 - [Operations Playbook](docs/operations/on-call-playbook.md)
+- [GitHub and Cloudflare staging callback setup](docs/operations/github-cloudflare-staging.md)
 - [GitHub Publication Boundary](docs/operations/github-publication.md)
 - [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
