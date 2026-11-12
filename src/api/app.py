@@ -13,6 +13,7 @@ from src.scan.api import router as scan_router
 from src.scan.api import set_scan_data_provider
 from src.scan.db_provider import SqlAlchemyScanDataProvider
 from src.db.connection import get_session
+from src.db.models import Scan
 from src.api.readiness import check_database
 from src.telemetry.scan_metrics import scan_metrics as metrics
 from src.api.auth import is_api_key_authorized
@@ -113,7 +114,15 @@ def create_app() -> FastAPI:
 
     @application.get("/metrics", tags=["health"], response_class=PlainTextResponse)
     def prometheus_metrics():
-        return PlainTextResponse(metrics.render(), media_type="text/plain; version=0.0.4")
+        rendered = metrics.render()
+        try:
+            with get_session() as session:
+                for status in ("pending", "running", "completed", "failed", "cancelled", "partial"):
+                    count = session.query(Scan).filter(Scan.status == status).count()
+                    rendered += f'scrutineering_persisted_scans{{status="{status}"}} {count}\n'
+        except Exception:
+            rendered += "scrutineering_persisted_scans_unavailable 1\n"
+        return PlainTextResponse(rendered, media_type="text/plain; version=0.0.4")
 
     return application
 
