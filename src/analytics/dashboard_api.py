@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -29,6 +29,7 @@ from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
 from src.remediation.reconciliation import publication_age_seconds, publication_is_stale
+from src.remediation.evidence_retention import retention_cutoff, retention_days
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -92,6 +93,15 @@ class PublicationRecoveryRequest(BaseModel):
 class RecoveryStatusRequest(BaseModel):
     status: Literal["acknowledged", "completed", "failed"]
     note: str = Field(default="", max_length=2000)
+
+
+class AlertEvidenceRequest(BaseModel):
+    delivery_key: str = Field(min_length=1, max_length=128)
+    receiver: str = Field(min_length=1, max_length=128)
+    status: Literal["delivered", "failed", "retrying"]
+    response_code: int | None = Field(default=None, ge=100, le=599)
+    attempt: int = Field(default=1, ge=1, le=100)
+    detail: dict = Field(default_factory=dict)
 
 
 class PublicationRequest(PublicationPlanRequest):
@@ -266,6 +276,7 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "stale": publication_is_stale(publication, stale_after_seconds=min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)),
             "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "error_message": recovery.error_message, "requested_at": _iso(recovery.requested_at), "acknowledged_at": _iso(recovery.acknowledged_at), "completed_at": _iso(recovery.completed_at)} for recovery in publication.recovery_requests],
             "release_evidence": [{"id": evidence.id, "evidence_key": evidence.evidence_key, "status": evidence.status, "expected_digest": evidence.expected_digest, "observed_digest": evidence.observed_digest, "scan_status": evidence.scan_status, "findings_before": evidence.findings_before, "findings_after": evidence.findings_after, "created_at": _iso(evidence.created_at), "verified_at": _iso(evidence.verified_at)} for evidence in publication.release_evidence],
+            "alert_evidence": [{"id": evidence.id, "delivery_key": evidence.delivery_key, "receiver": evidence.receiver, "status": evidence.status, "response_code": evidence.response_code, "attempt": evidence.attempt, "detail": evidence.detail, "created_at": _iso(evidence.created_at)} for evidence in publication.alert_evidence],
         } for publication in remediation.publications],
     }
 
@@ -494,6 +505,16 @@ def dashboard_audit(
     return _page(items, limit, offset, total)
 
 
+@router.get("/audit/export")
+def dashboard_audit_export(request: Request, limit: int = Query(default=1000, ge=1, le=5000)) -> dict:
+    _require_role(request, "security-operator", "admin")
+    with get_session() as session:
+        records = session.query(AuditLog).order_by(AuditLog.timestamp.asc(), AuditLog.id.asc()).limit(limit).all()
+    items = [{"id": record.id, "timestamp": _iso(record.timestamp), "event_type": _value(record.event_type), "entity_type": record.entity_type, "entity_id": record.entity_id, "detail": record.detail, "actor": record.actor, "actor_kind": record.actor_kind, "record_hash": record.record_hash, "previous_hash": record.previous_hash} for record in records]
+    canonical = json.dumps(items, sort_keys=True, separators=(",", ":")).encode()
+    return {"format": "scrutineering-audit-v1", "count": len(items), "sha256": hashlib.sha256(canonical).hexdigest(), "records": items}
+
+
 @router.post("/remediations/preview")
 def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
@@ -541,7 +562,7 @@ def list_remediations(
 
 
 @router.get("/remediations/publications/reconciliation")
-def publication_reconciliation(request: Request, status: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=250)) -> dict:
+def publication_reconciliation(request: Request, status: str | None = Query(default=None), recovery_status: str | None = Query(default=None), min_attempts: int = Query(default=0, ge=0, le=100), limit: int = Query(default=100, ge=1, le=250)) -> dict:
     _require_role(request, "security-operator")
     stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     with get_session() as session:
@@ -556,7 +577,10 @@ def publication_reconciliation(request: Request, status: str | None = Query(defa
     set_stale_publications(len(stale_records))
     if status == "stale":
         records = stale_records
-    return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command, "age_seconds": publication_age_seconds(record), "stale": record in stale_records, "stale_after_seconds": stale_after_seconds} for record in records], "count": len(records), "stale_count": len(stale_records), "stale_after_seconds": stale_after_seconds}
+    items = [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command, "age_seconds": publication_age_seconds(record), "stale": record in stale_records, "stale_after_seconds": stale_after_seconds, "recovery_requests": [{"id": recovery.id, "status": recovery.status, "attempts": recovery.attempts, "max_attempts": recovery.max_attempts, "next_attempt_at": _iso(recovery.next_attempt_at)} for recovery in record.recovery_requests if (not recovery_status or recovery.status == recovery_status) and recovery.attempts >= min_attempts]} for record in records]
+    if recovery_status or min_attempts:
+        items = [item for item in items if item["recovery_requests"]]
+    return {"items": items, "count": len(items), "stale_count": len(stale_records), "stale_after_seconds": stale_after_seconds, "evidence_retention_days": retention_days(), "evidence_cutoff": retention_cutoff().isoformat()}
 
 
 @router.get("/remediations/publications/reconciliation/health")
@@ -879,6 +903,36 @@ def attach_publication_evidence(publication_id: int, payload: PostMergeVerificat
         session.add(evidence)
         session.flush()
         return {"accepted": True, "publication_id": publication.id, "evidence_id": evidence.id, "evidence_key": evidence_key, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command, "replayed": False}
+
+
+@router.post("/remediations/publications/{publication_id}/alert-evidence")
+def attach_alert_evidence(publication_id: int, payload: AlertEvidenceRequest, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        existing = session.query(RemediationAlertEvidence).filter_by(publication_id=publication.id, delivery_key=payload.delivery_key).first()
+        if existing:
+            return {"accepted": True, "replayed": True, "publication_id": publication.id, "alert_evidence_id": existing.id, "status": existing.status}
+        evidence = RemediationAlertEvidence(publication_id=publication.id, delivery_key=payload.delivery_key, receiver=payload.receiver, status=payload.status, response_code=payload.response_code, attempt=payload.attempt, detail=payload.detail)
+        session.add(evidence)
+        session.flush()
+        events = RemediationRepository.list_events(session, publication.remediation_id)
+        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "alert_delivery_recorded", "sequence": len(events) + 1, "detail": {"publication_id": publication.id, "alert_evidence_id": evidence.id, "receiver": payload.receiver, "status": payload.status, "attempt": payload.attempt}})
+        return {"accepted": True, "replayed": False, "publication_id": publication.id, "alert_evidence_id": evidence.id, "status": evidence.status}
+
+
+@router.get("/remediations/publications/{publication_id}/evidence-export")
+def export_publication_evidence(publication_id: int, request: Request) -> dict:
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        payload = {"publication_id": publication.id, "repository": publication.repository, "release_evidence": [{"id": item.id, "evidence_key": item.evidence_key, "status": item.status, "expected_digest": item.expected_digest, "observed_digest": item.observed_digest, "scan_status": item.scan_status, "findings_before": item.findings_before, "findings_after": item.findings_after, "created_at": _iso(item.created_at), "verified_at": _iso(item.verified_at)} for item in publication.release_evidence], "alert_evidence": [{"id": item.id, "delivery_key": item.delivery_key, "receiver": item.receiver, "status": item.status, "response_code": item.response_code, "attempt": item.attempt, "detail": item.detail, "created_at": _iso(item.created_at)} for item in publication.alert_evidence]}
+        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
+        return {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload}
 
 
 @router.post("/webhooks/{provider}")
