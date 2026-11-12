@@ -25,8 +25,8 @@ Restore drills must validate the manifest before loading records.
 
 ## Kubernetes and release checks
 
-`k8s/network-policies.yaml` provides default-deny traffic with explicit service
-exceptions, while `k8s/pod-security.yaml` enables restricted Pod Security
+`k8s/network-policies.yaml` provides default-deny traffic with explicit service,
+DNS, registry, and provider-HTTPS exceptions, while `k8s/pod-security.yaml` enables restricted Pod Security
 Admission labels. Validate locally with:
 
 ```bash
