@@ -52,7 +52,7 @@ def main():
         connection.connection.create_function("char_length", 1, len)
     Base.metadata.create_all(engine)
     tables = set(inspect(engine).get_table_names())
-    assert {"audit_log", "audit_chain_anchors", "remediation_events", "remediation_recovery_requests", "remediation_reconciliation_runs", "remediation_release_evidence", "remediation_alert_evidence"} <= tables
+    assert {"audit_log", "audit_chain_anchors", "remediation_events", "remediation_recovery_requests", "remediation_reconciliation_runs", "remediation_release_evidence", "remediation_alert_evidence", "remediation_alert_deliveries"} <= tables
     print("PASS staging database schema and migration targets")
 
     body = b'{"scan":"staging"}'
@@ -108,10 +108,12 @@ def main():
     assert "ScrutineeringStalePublications" in rules
     assert "ScrutineeringPublicationRecoveryEscalated" in rules
     assert "ScrutineeringRecoveryProviderFailures" in rules
+    assert "ScrutineeringAlertDeadLetters" in rules
     assert len(dashboard.get("panels", [])) >= 8
     from src.scan.tasks import app
     assert "src.remediation.recovery_tasks.poll_recovery_requests" in app.tasks
     assert "src.remediation.retention_tasks.purge_expired_evidence" in app.tasks
+    assert "src.remediation.alert_tasks.deliver_alerts" in app.tasks
     print("PASS monitoring alerts and dashboard coverage")
 
 
