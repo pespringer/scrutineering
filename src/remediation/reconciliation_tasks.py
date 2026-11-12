@@ -21,7 +21,6 @@ def stale_threshold_seconds() -> int:
 @shared_task(
     name="src.remediation.reconciliation_tasks.reconcile_stale_publications",
     acks_late=True,
-    time_limit=300,
 )
 def reconcile_stale_publications(limit: int = 250) -> dict[str, int]:
     """Record one durable operator event for each newly stale publication."""
