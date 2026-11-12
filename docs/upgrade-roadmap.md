@@ -398,8 +398,10 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** add deterministic healthy-merge and regression rollback staging fixtures.
 - **Completed:** document staging webhook setup, secret rotation, callback evidence, and rollback review.
 - **Completed:** expose post-merge evidence and rollback output in remediation detail payloads.
-- **Next:** run the live staging publication and signed callback exercise with real provider delivery.
+- **Completed:** run the live staging publication against the public, protected test repository; publication record `2` created PR `1` and an idempotency retry reused it.
 - **Next:** attach deployment scan evidence and alert validation to the promotion record.
+- **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
+- **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
 
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch
