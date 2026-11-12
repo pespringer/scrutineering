@@ -32,7 +32,7 @@ def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
             RemediationRecoveryRequest.action == "request_callback",
             RemediationRecoveryRequest.status.in_(["requested", "acknowledged"]),
             (RemediationRecoveryRequest.lease_until.is_(None) | (RemediationRecoveryRequest.lease_until <= now)),
-        ).order_by(RemediationRecoveryRequest.requested_at.asc()).with_for_update(skip_locked=True).limit(limit).all()
+        ).order_by(RemediationRecoveryRequest.requested_at.asc()).with_for_update(skip_locked=True, of=RemediationRecoveryRequest).limit(limit).all()
         for recovery in requests:
             if recovery.next_attempt_at and recovery.next_attempt_at > now:
                 continue
