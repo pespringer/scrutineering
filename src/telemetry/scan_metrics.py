@@ -43,3 +43,9 @@ def record_reconciliation_run(status: str) -> None:
 
 def record_recovery_escalation() -> None:
     scan_metrics.increment("scrutineering_recovery_escalations_total")
+
+
+def record_recovery_poll(outcome: str) -> None:
+    if outcome not in {"acknowledged", "retrying", "failed", "rate_limited", "circuit_open"}:
+        raise ValueError("unknown recovery poll outcome")
+    scan_metrics.increment("scrutineering_recovery_polls_total", labels={"outcome": outcome})
