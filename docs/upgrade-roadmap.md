@@ -498,3 +498,12 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add lease heartbeat/reclaim/version guards and deterministic chaos failure plans to recovery drills.
 - **Completed:** add migration-chain and go-live checklist gates to the local release workflow.
 - **Deferred:** external alert receiver delivery remains disabled and must be validated separately with the operator-provided receiver.
+
+### Next 50 receiver-independent hardening slices
+
+- **Completed:** add retention, pagination, bounded output, changed-file, retry, provider-page, backup-manifest, and queue-starvation contracts with regression tests.
+- **Completed:** enforce remediation output and changed-file limits at execution time and classify validation failures for operator review.
+- **Completed:** add default-deny Kubernetes networking, restricted Pod Security Admission labels, deployment validation, and a platform-hardening release gate.
+- **Completed:** document lifecycle, recovery, execution, provider, disaster-recovery, and platform controls.
+- **Next:** continue wiring these contracts into database retention, dashboard bulk workflows, provider adapters, backup automation, and disaster-recovery drills.
+- **Deferred:** live external alert receiver delivery and receiver evidence remain separate operator-gated slices.
