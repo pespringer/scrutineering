@@ -12,11 +12,15 @@ from src.db.models import RemediationPublication, RemediationReconciliationRun
 from src.db.repositories import RemediationRepository
 from src.remediation.events import publication_event_exists
 from src.remediation.reconciliation import publication_age_seconds, publication_is_stale
-from src.telemetry.scan_metrics import record_reconciliation_run
+from src.telemetry.scan_metrics import record_reconciliation_run, record_recovery_escalation
 
 
 def stale_threshold_seconds() -> int:
     return min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
+
+
+def escalation_age_seconds(threshold: int) -> int:
+    return threshold * min(max(int(os.environ.get("REMEDIATION_PUBLICATION_ESCALATION_CYCLES", "3")), 2), 10)
 
 
 @shared_task(
@@ -49,6 +53,15 @@ def reconcile_stale_publications(limit: int = 250) -> dict[str, int]:
                 }
                 events = RemediationRepository.list_events(session, publication.remediation_id)
                 if publication_event_exists(events, event_type="publication_stale", publication_id=publication.id, detail=detail):
+                    if detail["age_seconds"] >= escalation_age_seconds(threshold) and not any(event.event_type == "publication_recovery_escalated" and event.detail.get("publication_id") == publication.id for event in events):
+                        RemediationRepository.append_event(session, {
+                            "remediation_id": publication.remediation_id,
+                            "event_type": "publication_recovery_escalated",
+                            "sequence": len(events) + 1,
+                            "detail": {**detail, "reason": "publication remained stale beyond escalation window"},
+                        })
+                        record_recovery_escalation()
+                        recorded += 1
                     continue
                 RemediationRepository.append_event(session, {
                     "remediation_id": publication.remediation_id,
