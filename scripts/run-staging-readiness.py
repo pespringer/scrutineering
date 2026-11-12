@@ -109,7 +109,8 @@ def main():
     assert "ScrutineeringPublicationRecoveryEscalated" in rules
     assert "ScrutineeringRecoveryProviderFailures" in rules
     assert "ScrutineeringAlertDeadLetters" in rules
-    assert len(dashboard.get("panels", [])) >= 8
+    assert "ScrutineeringRecoveryLeaseContention" in rules
+    assert len(dashboard.get("panels", [])) >= 10
     from src.scan.tasks import app
     assert "src.remediation.recovery_tasks.poll_recovery_requests" in app.tasks
     assert "src.remediation.retention_tasks.purge_expired_evidence" in app.tasks
