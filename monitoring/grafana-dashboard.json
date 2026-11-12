@@ -66,6 +66,13 @@
       "title": "Alert delivery outcomes",
       "targets": [{"expr": "sum by (outcome) (rate(scrutineering_alert_deliveries_total[10m]))"}],
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Recovery lease outcomes",
+      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_leases_total[10m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}
     }
   ]
 }
