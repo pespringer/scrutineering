@@ -44,3 +44,7 @@ event when a publication remains stale for the configured cycle count.
 
 The readiness gate also checks alert-evidence schema coverage, worker task
 registration, provider-failure telemetry, and the dashboard recovery panel.
+
+The full local recovery drill should also verify that retention cleanup remains
+a dry run by default, dead-letter records can be replayed, provider calls are
+leased across workers, and status changes include an operator reason code.
