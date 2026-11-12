@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from celery import shared_task
 
 from src.db.connection import get_session
@@ -21,4 +23,6 @@ def purge_expired_evidence(*, dry_run: bool = True, limit: int = 500) -> dict[st
             for item in [*releases, *alerts]:
                 session.delete(item)
             purged = eligible
-    return {"dry_run": dry_run, "purge_enabled": purge_enabled(), "eligible": eligible, "purged": purged}
+    report = {"cutoff": cutoff.isoformat(), "dry_run": dry_run, "purge_enabled": purge_enabled(), "eligible": eligible, "purged": purged}
+    report["report_sha256"] = hashlib.sha256(json.dumps(report, sort_keys=True).encode()).hexdigest()
+    return report
