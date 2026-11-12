@@ -33,3 +33,31 @@ groups:
         annotations:
           summary: "Runtime events were dead-lettered"
           runbook: "docs/operations/runtime-backpressure.md"
+      - alert: ScrutineeringProviderCallbackRejected
+        expr: increase(scrutineering_provider_callbacks_total{outcome="rejected"}[10m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Provider webhook signatures were rejected"
+          runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringProviderCallbackReplayOrUnmatched
+        expr: >-
+          increase(scrutineering_provider_callbacks_total{outcome=~"duplicate|unmatched"}[10m]) > 0
+        for: 2m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Provider callbacks were replayed or unmatched"
+          runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringProviderCallbackRollbackRequired
+        expr: increase(scrutineering_provider_callbacks_total{outcome="rollback_required"}[10m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          owner: platform-security
+        annotations:
+          summary: "A provider callback requires remediation rollback"
+          runbook: "docs/operations/staging-provider-post-merge.md"
