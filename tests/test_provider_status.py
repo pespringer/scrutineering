@@ -1,8 +1,9 @@
 import json
+from urllib.error import HTTPError
 
 import pytest
 
-from src.remediation.provider_status import fetch_provider_status
+from src.remediation.provider_status import ProviderCircuitBreaker, ProviderRateLimited, fetch_provider_status
 from src.remediation.recovery import retry_delay_seconds
 
 
@@ -45,3 +46,20 @@ def test_retry_backoff_is_bounded_and_rejects_zero():
     assert retry_delay_seconds(99) == 300
     with pytest.raises(ValueError):
         retry_delay_seconds(0)
+
+
+def test_provider_circuit_breaker_opens_after_repeated_failures():
+    breaker = ProviderCircuitBreaker(threshold=2, cooldown_seconds=60)
+    breaker.failure()
+    breaker.failure()
+    with pytest.raises(Exception, match="circuit"):
+        breaker.before_call()
+
+
+def test_provider_rate_limit_exposes_retry_after():
+    def transport(request, timeout):
+        raise HTTPError(request.full_url, 429, "slow down", {"Retry-After": "42"}, None)
+
+    with pytest.raises(ProviderRateLimited) as error:
+        fetch_provider_status(provider="github", repository="org/repo", number=1, token="secret", transport=transport)
+    assert error.value.retry_after == 42
