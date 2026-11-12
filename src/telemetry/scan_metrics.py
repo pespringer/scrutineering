@@ -27,3 +27,9 @@ def record_provider_callback(outcome: str) -> None:
     if outcome not in {"accepted", "rejected", "duplicate", "unmatched", "rollback_required"}:
         raise ValueError("unknown provider callback outcome")
     scan_metrics.increment("scrutineering_provider_callbacks_total", labels={"outcome": outcome})
+
+
+def set_stale_publications(count: int) -> None:
+    if count < 0:
+        raise ValueError("stale publication count must be non-negative")
+    scan_metrics.set_gauge("scrutineering_stale_publications", count)

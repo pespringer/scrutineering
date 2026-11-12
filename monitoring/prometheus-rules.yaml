@@ -61,3 +61,12 @@ groups:
         annotations:
           summary: "A provider callback requires remediation rollback"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringStalePublications
+        expr: scrutineering_stale_publications > 0
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Provider publications require reconciliation"
+          runbook: "docs/operations/staging-provider-post-merge.md"

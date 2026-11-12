@@ -248,6 +248,9 @@ requires the existing allowlisted GitHub/GitLab publisher boundary and
 post-merge verification.
 Live publication is disabled by default and requires explicit provider tokens,
 repository allowlists, and `REMEDIATION_PUBLICATION_ENABLED=true`.
+Set `REMEDIATION_PUBLICATION_STALE_SECONDS` (default `900`) to control when
+pending, failed, or unverified merged publications appear in the stale
+reconciliation view and trigger the stale-publication alert.
 Provider callbacks require separate HMAC webhook secrets and are replay-safe;
 merge verification and rollback-required outcomes are retained in the
 remediation timeline.

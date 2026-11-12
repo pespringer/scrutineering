@@ -38,6 +38,13 @@
       "title": "Rollback-required callbacks",
       "targets": [{"expr": "increase(scrutineering_provider_callbacks_total{outcome=\"rollback_required\"}[1h])"}],
       "gridPos": {"h": 6, "w": 8, "x": 0, "y": 14}
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Stale publications",
+      "targets": [{"expr": "scrutineering_stale_publications"}],
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 14}
     }
   ]
 }

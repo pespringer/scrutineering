@@ -24,7 +24,8 @@ from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
 from src.remediation.provider_publishers import publish_validated_plan
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
-from src.telemetry.scan_metrics import record_provider_callback
+from src.remediation.reconciliation import publication_age_seconds, publication_is_stale
+from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -496,14 +497,20 @@ def list_remediations(
 @router.get("/remediations/publications/reconciliation")
 def publication_reconciliation(request: Request, status: str | None = Query(default=None), limit: int = Query(default=100, ge=1, le=250)) -> dict:
     _require_role(request, "security-operator")
+    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     with get_session() as session:
         query = session.query(RemediationPublication).filter(RemediationPublication.status.in_(["pending", "failed", "merged"]))
         if status:
-            if status not in {"pending", "failed", "merged"}:
+            if status not in {"pending", "failed", "merged", "stale"}:
                 raise HTTPException(status_code=400, detail="invalid_reconciliation_status")
-            query = query.filter(RemediationPublication.status == status)
+            if status != "stale":
+                query = query.filter(RemediationPublication.status == status)
         records = query.order_by(RemediationPublication.created_at.asc()).limit(limit).all()
-    return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command} for record in records], "count": len(records)}
+    stale_records = [record for record in records if publication_is_stale(record, stale_after_seconds=stale_after_seconds)]
+    set_stale_publications(len(stale_records))
+    if status == "stale":
+        records = stale_records
+    return {"items": [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command, "age_seconds": publication_age_seconds(record), "stale": record in stale_records, "stale_after_seconds": stale_after_seconds} for record in records], "count": len(records), "stale_count": len(stale_records), "stale_after_seconds": stale_after_seconds}
 
 
 @router.post("/remediations", status_code=201)
