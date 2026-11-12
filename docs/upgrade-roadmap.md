@@ -409,6 +409,7 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** add operator-safe stale-publication previews and idempotent, non-mutating recovery requests.
 - **Completed:** attach deployment scan evidence to merged publications and re-evaluate the healthy or rollback-required decision.
 - **Completed:** add dashboard recovery controls and API routes for stale publication operations.
+- **Completed:** validate strict evidence fields, durable recovery states, concurrency-safe idempotency, recovery timeline details, stale queue visibility, reconciliation health, and the deterministic recovery lifecycle drill.
 - **Next:** verify the new evidence attachment path against the live staging publication.
 - **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
 - **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
