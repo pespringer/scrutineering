@@ -475,3 +475,10 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add recovery leases, provider failure classification, circuit-breaker metrics, and operator reason codes.
 - **Completed:** add recovery registration, migration, monitoring, staging-drill, and release-readiness coverage.
 - **Deferred:** live receiver delivery validation remains separate and requires the external receiver setup.
+
+### Next 20 implementation-only slices
+
+- **Completed:** add deterministic fake-receiver execution, delivery attempts, retry/dead-letter metrics, and a dead-letter dashboard page.
+- **Completed:** add bounded audit filters, signed evidence-export envelopes, provider response validation, token-rotation diagnostics, and recovery-drill fixtures.
+- **Completed:** add lease-safe polling, receiver-independent release-readiness commands, dashboard proxy coverage, and dead-letter monitoring.
+- **Deferred:** external alert receiver delivery remains separate and is not enabled by default.
