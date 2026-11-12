@@ -14,7 +14,7 @@ npm run drill:staging-provider
 ```
 
 The drill verifies that the database model creates the audit, anchoring, and
-remediation-event tables; service requests authenticate and reject replay;
+remediation-event and release-evidence tables; service requests authenticate and reject replay;
 Redis-backed scan caching and checkpointed runtime delivery work together;
 audit heads can be durably anchored; keyless release evidence accepts the
 configured production identity; and the checked-in Prometheus/Grafana
@@ -36,3 +36,8 @@ are attached to the release record.
 The provider drill covers the publication-to-merge-to-verification path. It is
 deterministic locally; live staging must additionally deliver a real signed
 provider callback and attach deployment scan evidence.
+
+Recovery polling runs on the `remediation.normal` queue. It reads provider
+credentials only from the API/worker environment, records every attempt in the
+remediation timeline, retries with bounded backoff, and emits an escalation
+event when a publication remains stale for the configured cycle count.
