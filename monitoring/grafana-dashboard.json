@@ -59,6 +59,13 @@
       "title": "Recovery poll outcomes",
       "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_polls_total[10m]))"}],
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Alert delivery outcomes",
+      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_alert_deliveries_total[10m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
     }
   ]
 }
