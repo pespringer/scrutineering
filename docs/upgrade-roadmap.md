@@ -516,6 +516,14 @@ The first production release requires green Node and Python suites, authenticate
 - **Next:** continue wiring database backup automation, richer dashboard bulk workflows, provider adapters, and disaster-recovery evidence into production operations.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Next 18 live scanning milestone slices
+
+- **Completed:** add a dashboard-to-Celery live-scan smoke command for public images with terminal-state polling and metrics reachability checks.
+- **Completed:** add bounded active-inventory scheduling through Celery Beat and cover the scheduler contract with tests.
+- **Completed:** document migrations, worker health, live scan setup, public/private registry behavior, and troubleshooting.
+- **Next:** execute the live smoke against the running Compose stack, then add failure, cancellation, cache, metrics, cleanup, and staging evidence assertions.
+- **Deferred:** alert receiver delivery and external notification evidence remain outside this milestone.
+
 ### Next 100 operations and resilience slices
 
 - **Completed:** add backup rotation/restore-drill contracts, export cursors, quarantine expiry, resource budgets, tenant checks, escalation policies, and SLO evaluation helpers.
