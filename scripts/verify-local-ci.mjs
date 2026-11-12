@@ -15,6 +15,7 @@ const commands = [
   ["npm", ["run", "validate:migrations"]],
   ["npm", ["run", "validate:release-package"]],
   ["npm", ["run", "validate:platform-hardening"]],
+  ["npm", ["run", "drill:staging-disaster-recovery"]],
   ["uv", ["run", "--with-requirements", "requirements.txt", "--with", "pytest", "pytest", "tests/", "-q"]],
 ];
 
