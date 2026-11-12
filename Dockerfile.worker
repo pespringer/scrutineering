@@ -44,4 +44,4 @@ ENV CELERY_BROKER_URL=redis://redis:6379/0
 CMD celery --app=src.scan.tasks:app worker \
   --loglevel=${CELERY_LOG_LEVEL:-info} \
   --concurrency=${CELERY_CONCURRENCY:-2} \
-  --queues=${CELERY_QUEUES:-scan}
+  --queues=${CELERY_QUEUES:-scan,remediation.normal}
