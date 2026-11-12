@@ -24,6 +24,20 @@
       "title": "Runtime events dead-lettered",
       "targets": [{"expr": "increase(scrutineering_runtime_events_dead_lettered_total[1h])"}],
       "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Provider callback outcomes",
+      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_provider_callbacks_total[10m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 8, "y": 8}
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Rollback-required callbacks",
+      "targets": [{"expr": "increase(scrutineering_provider_callbacks_total{outcome=\"rollback_required\"}[1h])"}],
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 14}
     }
   ]
 }
