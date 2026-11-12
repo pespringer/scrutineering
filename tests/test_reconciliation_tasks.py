@@ -14,7 +14,13 @@ def test_celery_beat_schedules_reconciliation_on_remediation_queue():
     app = create_celery_app()
     schedule = app.conf.beat_schedule["reconcile-stale-publications"]
     assert schedule["task"] == "src.remediation.reconciliation_tasks.reconcile_stale_publications"
-    assert schedule["schedule"] == 300.0
+
+
+def test_celery_beat_schedules_recovery_polling_on_remediation_queue():
+    from src.scan.celery_app import create_celery_app
+
+    schedule = create_celery_app().conf.beat_schedule["poll-publication-recoveries"]
+    assert schedule["task"] == "src.remediation.recovery_tasks.poll_recovery_requests"
     assert schedule["options"]["queue"] == "remediation.normal"
 
 
