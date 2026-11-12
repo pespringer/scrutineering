@@ -8,6 +8,7 @@ import pytest
 
 from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.models import Severity
+from src.scan.utils.db import _finding_source
 
 
 def _make_finding(cve=None, pkg="openssl", version="1.1.1", severity=Severity.HIGH, title=None):
@@ -30,6 +31,9 @@ def _make_finding(cve=None, pkg="openssl", version="1.1.1", severity=Severity.HI
 
 class TestRunScan:
     """Tests for the run_scan Celery task."""
+
+    def test_merged_findings_keep_a_valid_single_source_enum(self):
+        assert _finding_source({"sources": ["trivy", "grype"]}, "trivy,grype").value == "grype"
 
     @patch('src.scan.tasks.run_scanner_sync')
     @patch('src.scan.tasks.persist_findings')
@@ -100,6 +104,7 @@ class TestRunScan:
         assert result["scanners_completed"] == []
         assert len(result["scanners_failed"]) == 2
         assert len(result["errors"]) == 2
+        assert mock_self.update_state.call_args.kwargs["state"] == "SCAN_FAILED"
 
     @patch('src.scan.tasks.run_scanner_sync')
     @patch('src.scan.tasks.persist_findings')
