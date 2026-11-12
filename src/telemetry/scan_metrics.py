@@ -49,3 +49,9 @@ def record_recovery_poll(outcome: str) -> None:
     if outcome not in {"acknowledged", "retrying", "failed", "rate_limited", "circuit_open"}:
         raise ValueError("unknown recovery poll outcome")
     scan_metrics.increment("scrutineering_recovery_polls_total", labels={"outcome": outcome})
+
+
+def record_alert_delivery(outcome: str) -> None:
+    if outcome not in {"delivered", "retrying", "dead_letter"}:
+        raise ValueError("unknown alert delivery outcome")
+    scan_metrics.increment("scrutineering_alert_deliveries_total", labels={"outcome": outcome})
