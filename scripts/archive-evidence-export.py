@@ -11,5 +11,5 @@ if args.verify:
     if not verify_manifest(value): raise SystemExit("evidence archive verification failed")
     print("PASS evidence archive")
 else:
-    records = value.get("records", value if isinstance(value, list) else [value])
+    records = value if isinstance(value, list) else value.get("records", [value])
     print(json.dumps(manifest(records), indent=2, sort_keys=True))
