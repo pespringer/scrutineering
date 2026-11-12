@@ -38,3 +38,9 @@ verified artifact digest as `expected_digest`, the deployed digest as
 `findings_before`/`findings_after` counts. The service then persists
 `post_merge_verified`; missing or regressed evidence produces
 `rollback_required` instead.
+
+Prometheus exposes callback outcomes through
+`scrutineering_provider_callbacks_total`. Treat rejected signatures and
+replayed/unmatched deliveries as staging warnings; treat
+`rollback_required` as a critical alert. The checked-in Grafana dashboard
+includes callback rates and rollback-required counts.
