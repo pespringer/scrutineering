@@ -602,6 +602,7 @@ class RemediationPublication(Base):
     rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     recovery_requests = relationship("RemediationRecoveryRequest", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
     release_evidence = relationship("RemediationReleaseEvidence", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
+    alert_evidence = relationship("RemediationAlertEvidence", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
 
 
 class RemediationReleaseEvidence(Base):
@@ -651,6 +652,27 @@ class RemediationRecoveryRequest(Base):
     requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class RemediationAlertEvidence(Base):
+    """Durable receipt for an external alert delivery attempt."""
+    __tablename__ = "remediation_alert_evidence"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "delivery_key", name="uq_remediation_alert_evidence_key"),
+        Index("idx_remediation_alert_evidence_publication_id", "publication_id"),
+        Index("idx_remediation_alert_evidence_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
+    publication = relationship("RemediationPublication", back_populates="alert_evidence", lazy="joined")
+    delivery_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    receiver: Mapped[str] = mapped_column(String(128), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
 class RemediationReconciliationRun(Base):
