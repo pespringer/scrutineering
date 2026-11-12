@@ -17,4 +17,5 @@ def credential_diagnostics(provider: str) -> dict:
             age_days = max(0, (datetime.now(timezone.utc) - timestamp).days)
         except ValueError:
             return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": False, "age_days": None}
-    return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": True, "age_days": age_days, "token_present": bool(token)}
+    max_age = int(os.environ.get("PROVIDER_TOKEN_MAX_AGE_DAYS", "90"))
+    return {"provider": provider, "configured": bool(token), "rotation_metadata_valid": True, "age_days": age_days, "rotation_stale": age_days is not None and age_days > max_age, "max_age_days": max_age, "token_present": bool(token)}
