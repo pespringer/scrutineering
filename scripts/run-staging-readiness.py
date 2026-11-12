@@ -52,7 +52,7 @@ def main():
         connection.connection.create_function("char_length", 1, len)
     Base.metadata.create_all(engine)
     tables = set(inspect(engine).get_table_names())
-    assert {"audit_log", "audit_chain_anchors", "remediation_events"} <= tables
+    assert {"audit_log", "audit_chain_anchors", "remediation_events", "remediation_recovery_requests", "remediation_reconciliation_runs"} <= tables
     print("PASS staging database schema and migration targets")
 
     body = b'{"scan":"staging"}'
