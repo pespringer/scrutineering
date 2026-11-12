@@ -466,3 +466,12 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** provider rate-limit parsing, bounded retry delays, process-local circuit breaking, and recovery outcome metrics.
 - **Completed:** recovery queue filters, provider-failure alerts, recovery dashboard telemetry, worker-registration regression coverage, and expanded staging-readiness checks.
 - **Deferred:** live receiver delivery validation remains an operator-only slice until the receiver is available.
+
+### Next 20 implementation-only slices
+
+- **Completed:** add opt-in scheduled evidence retention cleanup with dry-run defaults and queue registration.
+- **Completed:** add canonical evidence/audit export controls and dashboard proxy routes.
+- **Completed:** add durable alert queue, deterministic deduplication keys, dead-letter state, and operator replay controls.
+- **Completed:** add recovery leases, provider failure classification, circuit-breaker metrics, and operator reason codes.
+- **Completed:** add recovery registration, migration, monitoring, staging-drill, and release-readiness coverage.
+- **Deferred:** live receiver delivery validation remains separate and requires the external receiver setup.

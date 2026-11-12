@@ -38,6 +38,7 @@ app = create_celery_app()
 import src.remediation.worker  # noqa: F401  # register remediation task with the worker app
 import src.remediation.reconciliation_tasks  # noqa: F401  # register stale-publication task
 import src.remediation.recovery_tasks  # noqa: F401  # register provider recovery polling task
+import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
 
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,

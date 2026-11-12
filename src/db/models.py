@@ -649,6 +649,8 @@ class RemediationRecoveryRequest(Base):
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
     next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    lease_owner: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -672,6 +674,29 @@ class RemediationAlertEvidence(Base):
     response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class RemediationAlertDelivery(Base):
+    """Queue state for receiver-independent alert delivery attempts."""
+    __tablename__ = "remediation_alert_deliveries"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "delivery_key", name="uq_remediation_alert_delivery_key"),
+        Index("idx_remediation_alert_deliveries_status", "status"),
+        Index("idx_remediation_alert_deliveries_next_attempt_at", "next_attempt_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
+    publication = relationship("RemediationPublication", lazy="joined")
+    delivery_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    receiver: Mapped[str] = mapped_column(String(128), nullable=False)
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

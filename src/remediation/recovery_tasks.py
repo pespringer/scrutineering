@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import socket
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
@@ -23,16 +25,20 @@ def _token(provider: str) -> str | None:
 def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
     """Poll requested callback recoveries and schedule bounded retries."""
     now = datetime.now(timezone.utc).replace(tzinfo=None)
+    owner = f"{socket.gethostname()}:{uuid.uuid4()}"
     processed = acknowledged = failed = retried = 0
     with get_session() as session:
         requests = session.query(RemediationRecoveryRequest).filter(
             RemediationRecoveryRequest.action == "request_callback",
             RemediationRecoveryRequest.status.in_(["requested", "acknowledged"]),
-        ).order_by(RemediationRecoveryRequest.requested_at.asc()).limit(limit).all()
+            (RemediationRecoveryRequest.lease_until.is_(None) | (RemediationRecoveryRequest.lease_until <= now)),
+        ).order_by(RemediationRecoveryRequest.requested_at.asc()).with_for_update(skip_locked=True).limit(limit).all()
         for recovery in requests:
             if recovery.next_attempt_at and recovery.next_attempt_at > now:
                 continue
             publication = recovery.publication
+            recovery.lease_owner = owner
+            recovery.lease_until = now + timedelta(minutes=5)
             processed += 1
             recovery.attempts += 1
             token = _token(publication.provider)
@@ -96,4 +102,6 @@ def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
                 "sequence": len(events) + 1,
                 "detail": {"publication_id": publication.id, "recovery_request_id": recovery.id, "attempt": recovery.attempts, "status": recovery.status, "next_attempt_at": recovery.next_attempt_at.isoformat() if recovery.next_attempt_at else None},
             })
+            recovery.lease_owner = None
+            recovery.lease_until = None
     return {"processed": processed, "acknowledged": acknowledged, "failed": failed, "retried": retried}
