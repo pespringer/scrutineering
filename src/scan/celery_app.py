@@ -28,11 +28,17 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
+            "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},
         },
         beat_schedule={
             "reconcile-stale-publications": {
                 "task": "src.remediation.reconciliation_tasks.reconcile_stale_publications",
                 "schedule": 300.0,
+                "options": {"queue": "remediation.normal"},
+            },
+            "poll-publication-recoveries": {
+                "task": "src.remediation.recovery_tasks.poll_recovery_requests",
+                "schedule": 60.0,
                 "options": {"queue": "remediation.normal"},
             },
         },

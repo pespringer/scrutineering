@@ -601,6 +601,31 @@ class RemediationPublication(Base):
     findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     recovery_requests = relationship("RemediationRecoveryRequest", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
+    release_evidence = relationship("RemediationReleaseEvidence", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
+
+
+class RemediationReleaseEvidence(Base):
+    """Durable deployment evidence attached to a provider publication."""
+    __tablename__ = "remediation_release_evidence"
+    __table_args__ = (
+        UniqueConstraint("publication_id", "evidence_key", name="uq_remediation_release_evidence_key"),
+        Index("idx_remediation_release_evidence_publication_id", "publication_id"),
+        Index("idx_remediation_release_evidence_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
+    publication = relationship("RemediationPublication", back_populates="release_evidence", lazy="joined")
+    evidence_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    expected_digest: Mapped[str] = mapped_column(String(71), nullable=False)
+    observed_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    scan_status: Mapped[str] = mapped_column(String(32), nullable=False)
+    findings_before: Mapped[int] = mapped_column(Integer, nullable=False)
+    findings_after: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    verification_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RemediationRecoveryRequest(Base):
@@ -620,6 +645,9 @@ class RemediationRecoveryRequest(Base):
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
     note: Mapped[str] = mapped_column(Text, nullable=False, default="")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

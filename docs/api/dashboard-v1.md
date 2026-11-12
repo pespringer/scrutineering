@@ -89,6 +89,12 @@ Recovery status updates use `POST
 `acknowledged`, `completed`, or `failed`. The reconciliation health endpoint
 reports the latest scheduled run and its discovered/event counts.
 
+Callback recovery polling uses the provider token on the server, retries with
+bounded exponential backoff (15, 30, 60, 120, then 300 seconds), and moves to
+terminal `failed` after the configured attempt limit. Set
+`REMEDIATION_PUBLICATION_ESCALATION_CYCLES` to control when prolonged stale
+records receive an audit-visible escalation.
+
 These endpoints stop before repository mutation. A future execution worker must
 consume only approved records and enforce evidence, worktree, validation, and
 rollback gates.

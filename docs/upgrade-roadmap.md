@@ -410,9 +410,11 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** attach deployment scan evidence to merged publications and re-evaluate the healthy or rollback-required decision.
 - **Completed:** add dashboard recovery controls and API routes for stale publication operations.
 - **Completed:** validate strict evidence fields, durable recovery states, concurrency-safe idempotency, recovery timeline details, stale queue visibility, reconciliation health, and the deterministic recovery lifecycle drill.
-- **Next:** verify the new evidence attachment path against the live staging publication.
+- **Completed:** persist idempotent release-evidence records with expected/observed digests, scan outcomes, finding deltas, and verification detail.
+- **Completed:** add scheduled provider recovery polling for GitHub and GitLab with server-side credentials, bounded exponential backoff, terminal failure, and dashboard reconciliation health.
+- **Completed:** add audit-visible stale-publication escalation after a configurable number of stale cycles and include the evidence table in readiness schema checks.
 - **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
-- **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
+- **Next:** verify alert delivery with a live staging receiver and attach the receiver evidence to the release record.
 
 The current hardening batch also covers unsigned-token rejection, bounded OIDC
 clock skew, Redis lifecycle health, limiter-key validation, provider branch

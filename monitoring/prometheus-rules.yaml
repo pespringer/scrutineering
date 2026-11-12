@@ -70,3 +70,12 @@ groups:
         annotations:
           summary: "Provider publications require reconciliation"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringPublicationRecoveryEscalated
+        expr: increase(scrutineering_recovery_escalations_total[15m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+          owner: platform-security
+        annotations:
+          summary: "A stale provider publication has escalated to manual review"
+          runbook: "docs/operations/staging-provider-post-merge.md"

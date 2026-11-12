@@ -52,7 +52,7 @@ def main():
         connection.connection.create_function("char_length", 1, len)
     Base.metadata.create_all(engine)
     tables = set(inspect(engine).get_table_names())
-    assert {"audit_log", "audit_chain_anchors", "remediation_events", "remediation_recovery_requests", "remediation_reconciliation_runs"} <= tables
+    assert {"audit_log", "audit_chain_anchors", "remediation_events", "remediation_recovery_requests", "remediation_reconciliation_runs", "remediation_release_evidence"} <= tables
     print("PASS staging database schema and migration targets")
 
     body = b'{"scan":"staging"}'
@@ -106,7 +106,8 @@ def main():
     assert "ScrutineeringProviderCallbackRejected" in rules
     assert "ScrutineeringProviderCallbackRollbackRequired" in rules
     assert "ScrutineeringStalePublications" in rules
-    assert len(dashboard.get("panels", [])) >= 6
+    assert "ScrutineeringPublicationRecoveryEscalated" in rules
+    assert len(dashboard.get("panels", [])) >= 7
     print("PASS monitoring alerts and dashboard coverage")
 
 

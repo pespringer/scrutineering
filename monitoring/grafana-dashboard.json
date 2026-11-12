@@ -46,5 +46,12 @@
       "targets": [{"expr": "scrutineering_stale_publications"}],
       "gridPos": {"h": 6, "w": 8, "x": 8, "y": 14}
     }
+    ,{
+      "id": 7,
+      "type": "stat",
+      "title": "Recovery escalations",
+      "targets": [{"expr": "increase(scrutineering_recovery_escalations_total[1h])"}],
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 14}
+    }
   ]
 }

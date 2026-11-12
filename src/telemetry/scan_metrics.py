@@ -39,3 +39,7 @@ def record_reconciliation_run(status: str) -> None:
     if status not in {"completed", "failed"}:
         raise ValueError("unknown reconciliation run status")
     scan_metrics.increment("scrutineering_reconciliation_runs_total", labels={"status": status})
+
+
+def record_recovery_escalation() -> None:
+    scan_metrics.increment("scrutineering_recovery_escalations_total")
