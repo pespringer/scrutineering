@@ -149,6 +149,7 @@ class ScanStatus(str, enum.Enum):
     PENDING    = "pending"
     RUNNING    = "running"
     COMPLETED  = "completed"
+    PARTIAL    = "partial"
     FAILED     = "failed"
     CANCELLED  = "cancelled"
 
