@@ -79,3 +79,12 @@ groups:
         annotations:
           summary: "A stale provider publication has escalated to manual review"
           runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringRecoveryProviderFailures
+        expr: increase(scrutineering_recovery_polls_total{outcome=~"rate_limited|circuit_open|failed"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Provider recovery polling is failing or rate limited"
+          runbook: "docs/operations/staging-provider-post-merge.md"
