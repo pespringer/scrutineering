@@ -33,7 +33,10 @@
     "validate:docs": "node scripts/validate-doc-links.mjs",
     "validate:frontend": "node scripts/validate-frontend-config.mjs",
     "validate:release": "node scripts/validate-release-config.mjs",
-    "smoke:dashboard": "node scripts/smoke-dashboard.mjs"
+    "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
+    "smoke:live-scan": "node scripts/smoke-live-scan.mjs",
+    "drill:staging-live-scan": "npm run smoke:live-scan",
+    "verify:live-scan-edges": "node scripts/verify-live-scan-edges.mjs"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

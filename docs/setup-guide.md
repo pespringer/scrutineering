@@ -48,6 +48,30 @@ curl -I http://localhost:3001/dashboard
 docker compose ps
 ```
 
+### Live scan smoke test
+
+After the containers are healthy and migrations are applied, run a real public
+image scan and wait for the persisted result:
+
+```bash
+npm run smoke:live-scan
+```
+
+Validate failure and cancellation handling with:
+
+```bash
+npm run verify:live-scan-edges
+```
+
+Set `SCAN_IMAGE` for another public image. The command submits through the
+dashboard, polls the API until terminal state, and checks that the metrics
+endpoint is reachable. Private registries additionally require their matching
+credentials in `.env`.
+
+`partial` is a valid terminal state: it means at least one configured scanner
+completed and another failed. Review the worker logs before treating it as a
+clean multi-scanner result.
+
 ## Local Development (Without Containers)
 
 ### Node.js Services
@@ -103,6 +127,7 @@ Key variables:
 - `TRIVY_SEVERITY` — Severity levels for Trivy (default: CRITICAL,HIGH)
 - `GRYPE_SEVERITY_THRESHOLD` — Minimum severity for Grype (default: High)
 - `SCANNER_TIMEOUT` — Scanner timeout in seconds (default: 1800)
+- `GRYPE_DB_CACHE_DIR` — Writable Grype vulnerability database cache path
 - `SCHEDULE_CRON_SCAN` — Cron schedule for periodic scans (default: every 6 hours)
 - `OIDC_ISSUER` and `OIDC_AUDIENCE` — HTTPS issuer and audience for planner
   provider authentication; the configured server fetches and refreshes JWKS

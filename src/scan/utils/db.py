@@ -67,6 +67,12 @@ def _make_fingerprint(cve_id: str, package_name: str,
     return hashlib.sha256(raw.encode()).hexdigest()[:64]
 
 
+def _finding_source(finding: dict, default: str) -> FindingSource:
+    """Map merged multi-scanner provenance to the single legacy enum column."""
+    sources = finding.get("sources") or [part for part in default.split(",") if part]
+    return FindingSource(sorted(sources)[0])
+
+
 def persist_findings(
     scan_id: str,
     image_name: str,
@@ -150,7 +156,7 @@ def persist_findings(
                     title=finding.get("title", ""),
                     description=finding.get("description"),
                     severity=severity_enum,
-                    source=FindingSource(source_name),
+                    source=_finding_source(finding, source_name),
                     fixed_version=finding.get("fixed_version"),
                     fix_available=bool(finding.get("fixed_version")),
                 )
