@@ -46,7 +46,12 @@ Provider callback outcomes are also exposed as
 `scrutineering_provider_callbacks_total{outcome=...}` with rejected,
 duplicate, unmatched, accepted, and rollback-required outcomes. The Prometheus
 rules warn on rejected/replayed/unmatched deliveries and page on
-rollback-required callbacks.
+rollback-required callbacks. The dashboard also shows the current stale
+publication gauge.
+The reconciliation endpoint updates `scrutineering_stale_publications` with
+the number of pending, failed, or unverified merged publications older than
+the configured threshold. A non-zero value routes the
+`ScrutineeringStalePublications` warning to platform security.
 
 ## Weekly Reporting Contract
 
