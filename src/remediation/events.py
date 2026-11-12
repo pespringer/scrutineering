@@ -31,3 +31,14 @@ def publication_event_exists(events, *, event_type: str, publication_id: int, de
         if "publication_id" not in event_detail and event_detail == detail:
             return True
     return False
+
+
+def recovery_request_exists(events, *, publication_id: int, idempotency_key: str):
+    """Return a prior recovery request matching the operator idempotency key."""
+    for event in events:
+        if event.event_type != "publication_recovery_requested":
+            continue
+        detail = event.detail or {}
+        if detail.get("publication_id") == publication_id and detail.get("idempotency_key") == idempotency_key:
+            return detail
+    return None
