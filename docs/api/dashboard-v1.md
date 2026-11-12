@@ -96,6 +96,16 @@ responses include a SHA-256 over canonical JSON for release-record attachment.
 Evidence retention defaults to 365 days. Purging is disabled unless
 `REMEDIATION_EVIDENCE_PURGE_ENABLED=true` is explicitly configured.
 
+Audit exports accept actor, event type, and time-window filters. The export is
+bounded by `limit` and includes the chain hashes needed for downstream
+verification. Provider credential health reports only presence and rotation
+metadata; token values are never returned.
+
+The local delivery worker is disabled by default with
+`REMEDIATION_ALERT_DELIVERY_ENABLED=false`; enabling it is separate from live
+receiver validation and should initially use only the deterministic `fake`
+receiver.
+
 Alert deliveries have a durable, receiver-independent queue. Operators can
 inspect it at `/remediations/alert-deliveries` and replay only terminal
 dead-letter records. Delivery keys are deterministic, so retries do not create
