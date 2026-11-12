@@ -403,6 +403,8 @@ and production-like PostgreSQL/Redis services.
 - **Completed:** add callback outcome metrics, Prometheus rules, Grafana panels, and staging-readiness coverage for provider callback outcomes.
 - **Completed:** verify the healthy live staging merge record and make stale publication state explicit through the reconciliation API, metric, alert, and deterministic drill.
 - **Next:** verify alert delivery with a live staging receiver and attach the receiver evidence to the release record.
+- **Completed:** make post-merge lifecycle events idempotent per publication so provider retries cannot duplicate verification or rollback events.
+- **Next:** add scheduled stale-publication reconciliation and operator-safe recovery controls.
 - **Completed:** merge the controlled staging PR through protected `main`; signed callback delivery persisted the merge commit and appended `rollback_required` because deployment digest and completed scan evidence were absent.
 - **Next:** attach deployment scan evidence to a subsequent callback and verify the healthy `post_merge_verified` path.
 
