@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
@@ -10,6 +11,7 @@ from typing import Callable, Sequence
 from .worktree import RemediationWorktree
 from .approval import verify_approval
 from src.scan.evidence import EvidenceVerificationError, verify_evidence, verify_release_evidence
+from src.platform.controls import bounded_output, classify_validation_failure, guard_changed_files
 
 
 @dataclass
@@ -81,7 +83,9 @@ def execute_remediation(
                 )
                 command_results.append({
                     "command": list(command), "returncode": result.returncode,
-                    "stdout": result.stdout[-2000:], "stderr": result.stderr[-2000:],
+                    "stdout": bounded_output(result.stdout, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))),
+                    "stderr": bounded_output(result.stderr, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))),
+                    "failure_class": classify_validation_failure(result.returncode, result.stderr),
                 })
                 if result.returncode != 0:
                     return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=f"validation failed: {command[0]}")
@@ -90,6 +94,13 @@ def execute_remediation(
                 capture_output=True, text=True,
             )
             changed_files = [line for line in diff.stdout.splitlines() if line]
+            try:
+                changed_files = guard_changed_files(
+                    changed_files,
+                    maximum=int(os.environ.get("REMEDIATION_MAX_CHANGED_FILES", "50")),
+                )
+            except ValueError as exc:
+                return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=str(exc))
             commit = None
             if commit_message and changed_files:
                 subprocess.run(["git", "add", "--all"], cwd=worktree, check=True, capture_output=True, text=True)

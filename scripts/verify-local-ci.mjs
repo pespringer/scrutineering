@@ -14,6 +14,7 @@ const commands = [
   ["npm", ["run", "validate:release"]],
   ["npm", ["run", "validate:migrations"]],
   ["npm", ["run", "validate:release-package"]],
+  ["npm", ["run", "validate:platform-hardening"]],
   ["uv", ["run", "--with-requirements", "requirements.txt", "--with", "pytest", "pytest", "tests/", "-q"]],
 ];
 
