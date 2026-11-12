@@ -23,7 +23,7 @@ def deliver_alerts(limit: int = 100) -> dict[str, int]:
         records = session.query(RemediationAlertDelivery).filter(
             RemediationAlertDelivery.status.in_(["pending", "retrying"]),
             (RemediationAlertDelivery.next_attempt_at.is_(None) | (RemediationAlertDelivery.next_attempt_at <= now)),
-        ).order_by(RemediationAlertDelivery.created_at.asc()).limit(limit).with_for_update(skip_locked=True).all()
+        ).order_by(RemediationAlertDelivery.created_at.asc()).limit(limit).with_for_update(skip_locked=True, of=RemediationAlertDelivery).all()
         for status in ("pending", "retrying", "dead_letter", "delivered", "canceled"):
             set_alert_queue_depth(status, session.query(RemediationAlertDelivery).filter(RemediationAlertDelivery.status == status).count())
         for record in records:
