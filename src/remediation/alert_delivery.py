@@ -9,6 +9,7 @@ import os
 
 from src.db.models import RemediationAlertDelivery
 from src.remediation.alert_contracts import validate_alert_payload
+from src.remediation.alert_governance import QueuePolicy
 
 
 class FakeReceiver:
@@ -37,6 +38,7 @@ def delivery_key(publication_id: int, receiver: str, event_type: str, payload: d
 
 
 def enqueue_delivery(session, *, publication_id: int, receiver: str, event_type: str, payload: dict):
+    QueuePolicy(max_batch=100).validate(priority=payload.get("priority", "normal"))
     key = delivery_key(publication_id, receiver, event_type, payload)
     existing = session.query(RemediationAlertDelivery).filter_by(publication_id=publication_id, delivery_key=key).first()
     if existing:

@@ -16,3 +16,11 @@ def test_credential_diagnostics_marks_old_tokens(monkeypatch):
     monkeypatch.setenv("GITHUB_TOKEN_ROTATED_AT", "2020-01-01T00:00:00Z")
     monkeypatch.setenv("PROVIDER_TOKEN_MAX_AGE_DAYS", "30")
     assert credential_diagnostics("github")["rotation_stale"] is True
+
+
+def test_credential_diagnostics_reports_scope_metadata(monkeypatch):
+    monkeypatch.setenv("GITHUB_TOKEN", "secret")
+    monkeypatch.setenv("GITHUB_TOKEN_REQUIRED_SCOPES", "pull_requests:read,contents_read")
+    result = credential_diagnostics("github")
+    assert result["required_scopes"] == ["pull_requests:read", "contents_read"]
+    assert result["scope_metadata_valid"] is True

@@ -10,6 +10,7 @@ from src.remediation.alert_delivery import FakeReceiver, delivery_key, schedule_
 from src.remediation.evidence_export import sign_export, verify_export
 from src.remediation.chaos import FailurePlan
 from src.remediation.evidence_archive import manifest, verify_manifest
+from src.remediation.concurrency import LeaseState, heartbeat, reclaim
 
 
 def main():
@@ -23,6 +24,9 @@ def main():
     assert verify_export(export, sign_export(export, "staging-secret"), "staging-secret")
     assert [FailurePlan(2, "timeout").outcome(i) for i in range(1, 4)] == ["timeout", "timeout", "success"]
     assert verify_manifest(manifest([export]))
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    lease = heartbeat(LeaseState("drill", now, 1), owner="drill", until=now)
+    assert reclaim(lease, now=now).owner is None
     print("PASS receiver-independent recovery, dead-letter, and signed export drill")
 
 

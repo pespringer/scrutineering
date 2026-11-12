@@ -115,6 +115,7 @@ def main():
     assert "src.remediation.recovery_tasks.poll_recovery_requests" in app.tasks
     assert "src.remediation.retention_tasks.purge_expired_evidence" in app.tasks
     assert "src.remediation.alert_tasks.deliver_alerts" in app.tasks
+    assert Path("docs/operations/recovery-go-live-checklist.md").exists()
     print("PASS monitoring alerts and dashboard coverage")
 
 

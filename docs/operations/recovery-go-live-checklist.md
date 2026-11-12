@@ -13,3 +13,11 @@ receiver delivery remains a separate operator gate.
 - [ ] Review signed evidence and audit export verification results.
 - [ ] Exercise rollback and recovery with the deterministic fixtures.
 - [ ] Record the release commit, migration head, test results, and operator approval.
+
+Local artifact checks:
+
+```bash
+npm run validate:migrations
+npm run validate:release-package
+npm run drill:staging-recovery
+```
