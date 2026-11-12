@@ -458,3 +458,11 @@ Deployment validation now asserts worker health checks, quota memory limits, and
 pod-disruption availability settings before release promotion.
 
 The first production release requires green Node and Python suites, authenticated control-plane endpoints, no default production credentials, digest-based evidence, one supported dashboard, a tested rollback path, dashboard CI builds, and a staging run that proves a failed policy or CI check cannot auto-merge.
+
+### Slices 2–20 — Recovery evidence and operator hardening
+
+- **Completed:** durable alert-delivery evidence, idempotent alert receipts, and publication evidence exports with canonical SHA-256 digests.
+- **Completed:** audit export snapshots, bounded evidence-retention settings, and explicit opt-in purge configuration.
+- **Completed:** provider rate-limit parsing, bounded retry delays, process-local circuit breaking, and recovery outcome metrics.
+- **Completed:** recovery queue filters, provider-failure alerts, recovery dashboard telemetry, worker-registration regression coverage, and expanded staging-readiness checks.
+- **Deferred:** live receiver delivery validation remains an operator-only slice until the receiver is available.

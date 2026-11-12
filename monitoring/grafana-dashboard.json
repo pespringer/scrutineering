@@ -52,6 +52,13 @@
       "title": "Recovery escalations",
       "targets": [{"expr": "increase(scrutineering_recovery_escalations_total[1h])"}],
       "gridPos": {"h": 6, "w": 8, "x": 16, "y": 14}
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Recovery poll outcomes",
+      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_polls_total[10m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
     }
   ]
 }

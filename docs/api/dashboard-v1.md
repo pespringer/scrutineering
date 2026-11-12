@@ -89,6 +89,13 @@ Recovery status updates use `POST
 `acknowledged`, `completed`, or `failed`. The reconciliation health endpoint
 reports the latest scheduled run and its discovered/event counts.
 
+Security operators can export a bounded, hash-addressed audit snapshot from
+`GET /audit/export`. Publication evidence can be exported from
+`GET /remediations/publications/{publication_id}/evidence-export`; both
+responses include a SHA-256 over canonical JSON for release-record attachment.
+Evidence retention defaults to 365 days. Purging is disabled unless
+`REMEDIATION_EVIDENCE_PURGE_ENABLED=true` is explicitly configured.
+
 Callback recovery polling uses the provider token on the server, retries with
 bounded exponential backoff (15, 30, 60, 120, then 300 seconds), and moves to
 terminal `failed` after the configured attempt limit. Set
