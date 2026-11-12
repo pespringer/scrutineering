@@ -55,3 +55,8 @@ or unverified merged publications older than
 the `scrutineering_stale_publications` gauge; a non-zero value triggers the
 `ScrutineeringStalePublications` warning. Verified merges are terminal and are
 never classified as stale.
+
+Celery Beat runs reconciliation every five minutes and records one durable
+`publication_stale` event per stale publication. The worker consumes the
+`remediation.normal` queue; keep that queue enabled in Compose and Kubernetes
+worker configuration.
