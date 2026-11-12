@@ -25,6 +25,7 @@
     "evidence:verify": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/verify-evidence-export.py",
     "evidence:archive": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/archive-evidence-export.py",
     "audit:jsonl": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/export-audit-jsonl.py",
+    "backup:manifest": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-manifest.py",
     "validate:release-package": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/validate-release-package.py",
     "validate:platform-hardening": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/validate-platform-hardening.py",
     "validate:deployment": "node scripts/validate-deployment-config.mjs",

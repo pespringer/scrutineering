@@ -507,3 +507,11 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** document lifecycle, recovery, execution, provider, disaster-recovery, and platform controls.
 - **Next:** continue wiring these contracts into database retention, dashboard bulk workflows, provider adapters, backup automation, and disaster-recovery drills.
 - **Deferred:** live external alert receiver delivery and receiver evidence remain separate operator-gated slices.
+
+### Next 50 lifecycle, operations, and resilience slices
+
+- **Completed:** wire retention policy validation into cleanup, add deterministic backup manifests and restore preflight, and add bounded provider response/page contracts.
+- **Completed:** add dashboard audit actor/event filters with paginated navigation and expose a portable backup-manifest command.
+- **Completed:** preserve receiver-independent retry, execution, archive, and Kubernetes hardening gates while extending regression coverage.
+- **Next:** continue wiring database backup automation, richer dashboard bulk workflows, provider adapters, and disaster-recovery evidence into production operations.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.

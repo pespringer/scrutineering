@@ -35,5 +35,8 @@ npm run validate:deployment
 npm run drill:staging-readiness
 ```
 
+Backup exports can be checked before restore with `npm run backup:manifest`;
+the manifest binds the record count and canonical SHA-256 digest to the export.
+
 External alert receiver delivery remains disabled and is intentionally not part
 of these controls.
