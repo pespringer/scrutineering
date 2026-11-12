@@ -103,7 +103,9 @@ def main():
     assert "ScrutineeringScanFailureRateHigh" in rules
     assert "ScrutineeringScanLatencyP95High" in rules
     assert "ScrutineeringRuntimeEventsDeadLettered" in rules
-    assert len(dashboard.get("panels", [])) >= 3
+    assert "ScrutineeringProviderCallbackRejected" in rules
+    assert "ScrutineeringProviderCallbackRollbackRequired" in rules
+    assert len(dashboard.get("panels", [])) >= 5
     print("PASS monitoring alerts and dashboard coverage")
 
 

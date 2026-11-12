@@ -42,6 +42,11 @@ in as `monitoring/prometheus-rules.yaml` and
 `monitoring/grafana-dashboard.json`. They cover scan failure rate, scan P95
 latency, and runtime-event dead letters. Route alerts to the platform-security
 owner and follow the referenced runbooks before increasing automation.
+Provider callback outcomes are also exposed as
+`scrutineering_provider_callbacks_total{outcome=...}` with rejected,
+duplicate, unmatched, accepted, and rollback-required outcomes. The Prometheus
+rules warn on rejected/replayed/unmatched deliveries and page on
+rollback-required callbacks.
 
 ## Weekly Reporting Contract
 
