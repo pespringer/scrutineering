@@ -29,7 +29,7 @@ COPY src/ ./src/
 
 # Keep runtime state writable only in /tmp and run the worker as an unprivileged user.
 RUN addgroup --system scanner && adduser --system --ingroup scanner scanner && \
-    mkdir -p /tmp/scanner-cache && chown -R scanner:scanner /app /tmp/scanner-cache
+    mkdir -p /tmp/scanner-cache /tmp/grype && chown -R scanner:scanner /app /tmp/scanner-cache /tmp/grype
 USER scanner
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
@@ -37,7 +37,9 @@ HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
 
 # Celery needs to run from the project root so "src.scan" is importable
 ENV PYTHONPATH=/app
-ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    HOME=/tmp \
+    GRYPE_DB_CACHE_DIR=/tmp/grype
 ENV CELERY_BROKER_URL=redis://redis:6379/0
 
 # Default command runs the Celery worker
