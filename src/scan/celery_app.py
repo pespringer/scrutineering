@@ -27,6 +27,14 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.run_scan": {"queue": "scan.normal"},
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
+            "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
+        },
+        beat_schedule={
+            "reconcile-stale-publications": {
+                "task": "src.remediation.reconciliation_tasks.reconcile_stale_publications",
+                "schedule": 300.0,
+                "options": {"queue": "remediation.normal"},
+            },
         },
         task_acks_late=True,
         task_time_limit=3600,
