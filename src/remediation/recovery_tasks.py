@@ -14,7 +14,7 @@ from src.db.models import RemediationRecoveryRequest
 from src.db.repositories import RemediationRepository
 from src.remediation.provider_status import ProviderCircuitOpen, ProviderRateLimited, fetch_provider_status
 from src.remediation.recovery import retry_at, transition_recovery_status, retry_delay_seconds
-from src.telemetry.scan_metrics import record_recovery_poll
+from src.telemetry.scan_metrics import record_recovery_lease, record_recovery_poll
 
 
 def _token(provider: str) -> str | None:
@@ -39,6 +39,7 @@ def poll_recovery_requests(limit: int = 100) -> dict[str, int]:
             publication = recovery.publication
             recovery.lease_owner = owner
             recovery.lease_until = now + timedelta(minutes=5)
+            record_recovery_lease("acquired")
             processed += 1
             recovery.attempts += 1
             token = _token(publication.provider)
