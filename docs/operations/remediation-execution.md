@@ -62,7 +62,7 @@ with `REMEDIATION_HOST_REPOSITORY_ROOT` and
 `REMEDIATION_HOST_EVIDENCE_ROOT`; keep the container-side paths at their
 defaults. The checkout must be separate from the main working tree and writable
 by the worker's unprivileged `scanner` user. The worker image includes Git,
-Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
+Node/npm, Syft, Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
 trusted release workflow.
 
 ### Generate the local test bundle
