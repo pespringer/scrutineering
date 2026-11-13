@@ -9,6 +9,10 @@ export interface ScanResult {
   high_count: number;
   medium_count: number;
   low_count: number;
+  archived?: boolean;
+  scanner_versions?: Record<string, string>;
+  vulnerability_db_versions?: Record<string, string>;
+  error_message?: string | null;
 }
 
 export interface Page<T> {
@@ -34,6 +38,8 @@ export interface VulnerabilityFinding {
   first_seen: string;
   last_seen: string;
   remediated: boolean;
+  acknowledged?: boolean;
+  assigned_to?: string | null;
 }
 
 export interface PostureSummary {
