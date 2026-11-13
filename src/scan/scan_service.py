@@ -17,6 +17,7 @@ from dataclasses import replace
 from typing import Optional
 
 from .registry import detect_registry, authenticate_to_registry, resolve_image_digest_with_fallback
+from .registry_diagnostics import classify_registry_error, diagnose_registry, private_registry_evidence
 from .image_identity import parse_image_reference
 from .cache import ScanCache
 from src.db.models import Severity
@@ -124,6 +125,7 @@ class ScanService:
         # Detect registry and attempt auth
         registry = detect_registry(image_name)
         logger.info("Detected registry '%s' for image '%s'", registry, image_name)
+        registry_diagnostic = diagnose_registry(registry, dict(os.environ))
 
         registry_creds = None
         if registry != "dockerhub":
@@ -178,7 +180,7 @@ class ScanService:
             source = scanner.source.value
             if isinstance(result, Exception):
                 logger.error("Scanner '%s' failed: %s", source, result)
-                errors.append({"scanner": source, "error": str(result)})
+                errors.append({"scanner": source, "error": str(result), "category": classify_registry_error(result) if registry != "dockerhub" else "scanner_failed"})
                 scanners_failed.append(source)
             else:
                 all_findings.extend([(f, source) for f in result])
@@ -230,6 +232,18 @@ class ScanService:
             "resolved_digest": resolved_digest,
             "identity_verified": resolved_digest is not None,
             "registry": registry,
+            "registry_diagnostic": {
+                "configured": registry_diagnostic.configured,
+                "required_keys": registry_diagnostic.required_keys,
+                "missing_keys": registry_diagnostic.missing_keys,
+                "message": registry_diagnostic.message,
+            },
+            "identity_evidence": private_registry_evidence(
+                registry=registry,
+                digest=resolved_digest,
+                authenticated=bool(registry_creds),
+                credential_keys=registry_diagnostic.required_keys,
+            ) if registry != "dockerhub" and resolved_digest else None,
             "status": status,
             "findings": len(deduped),
             "dedup_summary": dedup_summary,

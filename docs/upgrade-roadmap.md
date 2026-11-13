@@ -539,3 +539,13 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add queue starvation, backup freshness, and recovery-SLO monitoring rules plus operational configuration examples.
 - **Next:** continue wiring these contracts into database automation, dashboard bulk workflows, provider adapters, and production telemetry.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
+### Slices 1–30 — Database, scan reliability, and private registries
+
+- **Completed:** add backup rotation/freshness planning and fail-closed restore preflight contracts.
+- **Completed:** add scheduled scan cooldown suppression and active-scan reliability helpers.
+- **Completed:** classify scanner timeout, authentication, rate-limit, missing-image, and vulnerability-database failures.
+- **Completed:** add private-registry configuration diagnostics and redacted digest evidence.
+- **Completed:** add dry-run rotation and registry diagnostic commands with setup/runbook coverage.
+- **Next:** wire backup rotation and restore preflight into scheduled production automation after operator approval.
+- **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.

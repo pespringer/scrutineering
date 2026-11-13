@@ -46,3 +46,10 @@ the report first; `SCAN_RETENTION_DAYS` defaults to 90 days.
 
 External alert receiver delivery remains disabled and is intentionally not part
 of these controls.
+## Scan and backup operations
+
+Scheduled scans suppress images inside `SCAN_COOLDOWN_SECONDS` and report
+discovered, queued, and suppressed counts. Stale running scans and scanner
+failures are classified for operator review. Configure `BACKUP_ROTATION_KEEP`
+and `BACKUP_MAX_AGE_DAYS`, review the dry-run rotation report, and perform
+restore drills only against isolated targets.

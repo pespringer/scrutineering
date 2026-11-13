@@ -171,3 +171,15 @@ The worker image exposes a lightweight import health check and Compose uses it
 to detect broken worker images early.
 Set `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` explicitly when tuning production
 database concurrency; both values are bounded by configuration validation.
+## Backup and registry operations
+
+Backups are dry-run-first. Use `npm run backup:postgres` to preview a logical
+backup, then pass `--execute` only from an approved maintenance context. Use
+`npm run backup:rotation-report -- <metadata.json>` to plan rotation and check
+freshness; the report never deletes artifacts. Restore preflight requires a
+valid manifest, an isolated target, and explicit operator confirmation.
+
+Private registry scans require the matching credential variables in `.env`.
+`npm run registry:diagnostics -- ghcr.io` reports missing variable names only;
+it never prints token values. Scan results retain registry, digest, and
+authentication evidence while keeping credentials redacted.
