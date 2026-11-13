@@ -17,7 +17,10 @@ Callers can also supply `max_age_seconds` to reject stale evidence.
 
 `CosignVerifier` is the concrete provider adapter. It invokes
 `cosign verify-blob` without a shell, passes the certificate identity and
-optional OIDC issuer, and returns false on any non-zero verification result.
+embedded certificate, passes the optional OIDC issuer, and returns false on any
+non-zero verification result. Keyless Cosign evidence must therefore include
+the PEM certificate in the envelope's `signature.certificate` field alongside
+the signature value.
 
 `verify_release_evidence` applies the configured keyless policy before invoking
 Cosign. Production requires a Cosign provider, an explicit certificate

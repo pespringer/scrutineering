@@ -37,6 +37,11 @@ class CosignVerifier:
                 self.cosign_bin, "verify-blob", "--signature", str(signature_path),
                 "--certificate-identity", identity,
             ]
+            certificate = signature.get("certificate")
+            if certificate:
+                certificate_path = Path(temp_dir) / "certificate.pem"
+                certificate_path.write_text(certificate)
+                command.extend(["--certificate", str(certificate_path)])
             if self.oidc_issuer:
                 command.extend(["--certificate-oidc-issuer", self.oidc_issuer])
             command.append(str(artifact_path))

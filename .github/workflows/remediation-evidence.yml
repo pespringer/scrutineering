@@ -77,15 +77,15 @@ jobs:
 
           artifact = Path("evidence-artifact.json").read_bytes()
           signature = Path("evidence-artifact.sig").read_text(encoding="utf-8").strip()
+          certificate = Path("evidence-artifact.pem").read_text(encoding="utf-8")
           subject_digest = Path("subject-digest.txt").read_text(encoding="utf-8").strip()
           envelope = {
               "version": "1.0.0",
-              "artifactType": "remediation-evidence",
-              "format": "json",
+              "artifactType": "provenance",
+              "format": "slsa-provenance",
               "subject": {
                   "digest": subject_digest,
                   "repository": os.environ["GITHUB_REPOSITORY"],
-                  "revision": os.environ["REVISION"],
               },
               "artifactDigest": "sha256:" + __import__("hashlib").sha256(artifact).hexdigest(),
               "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -94,6 +94,7 @@ jobs:
                   "provider": "cosign",
                   "identity": os.environ["SIGNING_IDENTITY"],
                   "value": signature,
+                  "certificate": certificate,
               },
           }
           Path("envelope.json").write_text(json.dumps(envelope, sort_keys=True, indent=2) + "\n", encoding="utf-8")
