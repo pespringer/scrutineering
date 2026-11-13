@@ -329,6 +329,9 @@ class ScanFinding(Base):
                                                          nullable=True)
     package_type: Mapped[str | None] = mapped_column(String(64),
                                                       nullable=True)
+    # Repository source coordinate, when the scanner inspected a checkout.
+    # Container image package findings intentionally leave this null.
+    file_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     # Vulnerability data
     cve_id: Mapped[str | None] = mapped_column(String(32), nullable=True)

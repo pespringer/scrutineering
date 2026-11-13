@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import json
+import subprocess
 
 from celery import shared_task
 
@@ -11,6 +12,7 @@ from src.db.connection import get_session
 from src.db.models import Remediation, RemediationStatus
 from src.db.repositories import RemediationRepository
 from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
+from .publisher import publish_remediation_branch
 
 
 def execution_enabled() -> bool:
@@ -69,6 +71,20 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
             return _blocked(session, remediation_id, f"execution_plan_invalid:{exc}")
         if result.status != "ready":
             return _blocked(session, remediation_id, result.error or "execution_failed")
+        branch_name = None
+        if os.environ.get("REMEDIATION_PUSH_ENABLED", "false").lower() in {"1", "true", "yes"}:
+            if not result.commit:
+                return _blocked(session, remediation_id, "validated_changes_did_not_produce_commit")
+            branch_name = f"{os.environ.get('REMEDIATION_BRANCH_PREFIX', 'scrutineering/remediation').strip('/')}/{remediation_id}"
+            try:
+                published = publish_remediation_branch(
+                    repository_root, result.commit, branch_name,
+                    token=os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"),
+                    remote=os.environ.get("REMEDIATION_GIT_REMOTE", "origin"),
+                )
+            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+                return _blocked(session, remediation_id, f"branch_publication_failed:{exc}")
+            remediation.branch_name = published["branch_name"]
         events = RemediationRepository.list_events(session, remediation_id)
-        RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": {"commit": result.commit, "changed_files": result.changed_files}})
-        return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "changed_files": result.changed_files}
+        RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}})
+        return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}

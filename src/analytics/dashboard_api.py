@@ -203,6 +203,7 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "package_name": finding.package_name,
         "package_version": finding.package_version,
         "package_type": finding.package_type,
+        "file_path": getattr(finding, "file_path", None),
         "severity": severity.upper() if severity else "UNKNOWN",
         "title": finding.title,
         "description": finding.description,
@@ -279,9 +280,10 @@ def _remediation_actions(findings: list[ScanFinding]) -> list[dict]:
         "package_name": finding.package_name,
         "from_version": finding.package_version,
         "to_version": finding.fixed_version,
+        "file_path": getattr(finding, "file_path", None),
         "cve_id": finding.cve_id,
         "severity": _value(finding.severity),
-        "safe_to_apply": bool(finding.fix_available and finding.fixed_version),
+        "safe_to_apply": bool(finding.fix_available and finding.fixed_version and getattr(finding, "file_path", None)),
     } for finding in findings]
 
 
@@ -855,8 +857,9 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         for finding, action in zip(findings, actions):
             RemediationRepository.add_action(
                 session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
+                file_path=getattr(finding, "file_path", None),
                 before_value=finding.package_version, after_value=finding.fixed_version,
-                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id},
+                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id, "file_path": getattr(finding, "file_path", None)},
             )
         _record_operator_event(session, request, AuditEventType.REMEDIATION_STARTED, str(remediation.id), {"action": "remediation_requested", "finding_ids": payload.finding_ids}, entity_type="remediation")
         return _remediation_payload(remediation, actions)

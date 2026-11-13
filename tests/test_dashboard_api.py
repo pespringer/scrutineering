@@ -19,7 +19,7 @@ def test_dashboard_serializers_match_frontend_contract():
         id=9, image_id=7, fingerprint="fingerprint", cve_id="CVE-2026-0001",
         package_name="openssl", package_version="3.0.0", package_type="apk",
         severity=Severity.HIGH, title="Example finding", description="Details",
-        fixed_version="3.0.1", fix_available=True, first_seen=datetime(2026, 1, 1),
+        fixed_version="3.0.1", file_path="requirements.txt", fix_available=True, first_seen=datetime(2026, 1, 1),
         last_seen=datetime(2026, 1, 2), remediated=False, acknowledged=False, assigned_to=None,
     )
     scan = SimpleNamespace(
@@ -61,3 +61,10 @@ def test_remediation_request_is_bounded_and_preview_actions_fail_closed():
     action = _remediation_actions([finding])[0]
     assert request.finding_ids == [11]
     assert action["safe_to_apply"] is False
+
+
+def test_remediation_preview_requires_scanner_source_coordinate():
+    finding = SimpleNamespace(id=12, package_name="requests", package_version="2.0.0", fixed_version="2.0.1", cve_id="CVE-2026-2", severity=Severity.HIGH, fix_available=True, file_path="requirements.txt")
+    action = _remediation_actions([finding])[0]
+    assert action["file_path"] == "requirements.txt"
+    assert action["safe_to_apply"] is True

@@ -198,6 +198,7 @@ class TrivyScanner(ScannerAdapter):
                     description=vuln.get("Description"),
                     severity=severity,
                     fixed_version=vuln.get("FixedVersion"),
+                    file_path=vuln.get("PkgPath") or vuln.get("FilePath"),
                     cvss_scores=cvss["scores"],
                     cvss_vector=cvss.get("vector"),
                 )
