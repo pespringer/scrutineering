@@ -63,6 +63,11 @@ Validate failure and cancellation handling with:
 npm run verify:live-scan-edges
 ```
 
+Generate a dry-run scan retention report with `npm run scan:retention-report
+-- export.json`. PostgreSQL backups are planned without mutation by default;
+use `npm run backup:postgres -- backups/scrutineering.dump --execute` only from
+an approved backup environment.
+
 Set `SCAN_IMAGE` for another public image. The command submits through the
 dashboard, polls the API until terminal state, and checks that the metrics
 endpoint is reachable. Private registries additionally require their matching
