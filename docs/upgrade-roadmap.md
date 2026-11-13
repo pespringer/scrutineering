@@ -594,6 +594,16 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add a 100-slice receiver-independent workflow manifest covering slices 401–500.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Slices 501–600 — Production maturity and promotion readiness
+
+- **Completed:** add scan orchestration reports, tenant/concurrency controls, scanner/database version evidence, reproducibility checks, and failure-rate helpers.
+- **Completed:** add backup destination health, key-age checks, restore audit records, provider credential/permission/allowlist readiness, and publication replay keys.
+- **Completed:** add dashboard report contracts, percentile and trend analytics, database quality metrics, scaling recommendations, and identity-security scorecards.
+- **Completed:** add documentation freshness checks, API/throughput/migration/load-test promotion gates, and receiver-independent maturity evidence.
+- **Completed:** add `drill:production-maturity` for scan, backup, provider, database, scaling, security, and promotion checks.
+- **Completed:** add a 100-slice receiver-independent maturity manifest covering slices 501–600.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.

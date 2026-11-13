@@ -228,6 +228,15 @@ Run the production workflow drill as well:
 npm run drill:production-workflows
 ```
 
+Run the production maturity drill before a promotion review:
+
+```bash
+npm run drill:production-maturity
+```
+
+It validates receiver-independent scan orchestration, backup/provider readiness,
+database quality, scaling, identity security, and promotion evidence.
+
 This validates scan evidence, backup and restore checks, provider conformance,
 post-merge decisions, recovery timing, and release security evidence using
 deterministic fixtures.
