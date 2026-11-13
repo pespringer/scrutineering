@@ -24,6 +24,20 @@ def execution_enabled() -> bool:
 
 
 def _blocked(session, remediation_id: int, reason: str) -> dict:
+    remediation = RemediationRepository.get_by_id(session, remediation_id)
+    if remediation is not None:
+        terminal = {
+            RemediationStatus.COMPLETED,
+            RemediationStatus.FAILED,
+            RemediationStatus.SKIPPED,
+        }
+        if remediation.status not in terminal:
+            RemediationRepository.update_status(
+                session, remediation_id, RemediationStatus.FAILED,
+                error_message=reason,
+            )
+        else:
+            remediation.error_message = reason
     events = RemediationRepository.list_events(session, remediation_id)
     RemediationRepository.append_event(session, {
         "remediation_id": remediation_id,
