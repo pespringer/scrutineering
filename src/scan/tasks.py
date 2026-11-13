@@ -12,6 +12,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
+import time
 import uuid
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -32,6 +33,7 @@ from src.db.connection import get_session as get_db_session
 from src.db.models import Image, Scan, ScanStatus
 from src.scan.image_identity import parse_image_reference
 from src.scan.scheduled import schedule_active_scans
+from src.telemetry.scan_metrics import record_scan, record_scan_latency
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +43,7 @@ import src.remediation.reconciliation_tasks  # noqa: F401  # register stale-publ
 import src.remediation.recovery_tasks  # noqa: F401  # register provider recovery polling task
 import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
 import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert delivery task
+import src.scan.retention_tasks  # noqa: F401  # register scan retention reporting task
 
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)
@@ -67,7 +70,7 @@ def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
         if scan is None:
             scan = Scan(scan_id=scan_id, image_id=image.id, started_at=now)
             session.add(scan)
-        elif scan.status == ScanStatus.CANCELLED and status != ScanStatus.FAILED:
+        elif scan.status == ScanStatus.CANCELLED and status not in {ScanStatus.FAILED, ScanStatus.PARTIAL}:
             return
         scan.status = status.value
         scan.total_findings = total_findings
@@ -129,6 +132,7 @@ def run_scanner_sync(scanner, image_name: str, source_name: str, cache=None) -> 
     if cache is not None:
         cached = cache.get_sync(source_name, image_name)
         if cached is not None:
+            record_scan("cache_hit", source_name)
             return [(ScannerFinding(**{
                 **finding,
                 "severity": Severity(finding["severity"]) if finding.get("severity") else None,
@@ -137,7 +141,15 @@ def run_scanner_sync(scanner, image_name: str, source_name: str, cache=None) -> 
     async def _run():
         findings = await scanner.scan(image_name)
         return [(f, source_name) for f in findings]
-    findings = asyncio.run(_run())
+    started = time.monotonic()
+    try:
+        findings = asyncio.run(_run())
+        record_scan("completed", source_name)
+        record_scan_latency(time.monotonic() - started, source_name)
+    except Exception:
+        record_scan("failed", source_name)
+        record_scan_latency(time.monotonic() - started, source_name)
+        raise
     if cache is not None:
         cache.set_sync(source_name, image_name, [{
             **asdict(finding),

@@ -36,7 +36,9 @@
     "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
     "smoke:live-scan": "node scripts/smoke-live-scan.mjs",
     "drill:staging-live-scan": "npm run smoke:live-scan",
-    "verify:live-scan-edges": "node scripts/verify-live-scan-edges.mjs"
+    "verify:live-scan-edges": "node scripts/verify-live-scan-edges.mjs",
+    "scan:retention-report": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/scan-retention-report.py",
+    "backup:postgres": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-postgres.py"
   },
   "devDependencies": {
     "ajv": "^8.17.1",

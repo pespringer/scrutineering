@@ -34,6 +34,7 @@ from src.remediation.evidence_export import sign_export
 from src.remediation.provider_auth import credential_diagnostics
 from src.remediation.evidence_archive import manifest
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
+from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
 
@@ -355,6 +356,13 @@ def scan_history(
     return _page([_scan_payload(scan) for scan in scans], limit, offset, total)
 
 
+@router.get("/scans/health")
+def scan_health(limit: int = Query(default=100, ge=1, le=1000)) -> dict:
+    with get_session() as session:
+        records = session.query(Scan).order_by(Scan.started_at.desc()).limit(limit).all()
+    return summarize_scan_health([_scan_payload(scan) for scan in records])
+
+
 @router.get("/scans/{scan_id}")
 def scan_status(scan_id: str) -> dict:
     with get_session() as session:
@@ -371,7 +379,7 @@ def cancel_scan(scan_id: str, request: Request) -> dict:
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
             raise HTTPException(status_code=404, detail="scan_not_found")
-        if scan.status in {ScanStatus.COMPLETED, ScanStatus.FAILED, ScanStatus.CANCELLED}:
+        if scan.status in {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}:
             return _scan_payload(scan)
         scan.status = ScanStatus.CANCELLED.value
         scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)

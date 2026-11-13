@@ -40,5 +40,9 @@ the manifest binds the record count and canonical SHA-256 digest to the export.
 Run `npm run drill:staging-disaster-recovery` to validate backup rotation,
 restore preflight, artifact quarantine expiry, and recovery escalation contracts.
 
+Scan history retention is scheduled as a dry-run report through Celery Beat.
+Set `SCAN_PURGE_ENABLED=true` only with an approved retention change and run
+the report first; `SCAN_RETENTION_DAYS` defaults to 90 days.
+
 External alert receiver delivery remains disabled and is intentionally not part
 of these controls.
