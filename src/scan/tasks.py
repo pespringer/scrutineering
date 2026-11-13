@@ -44,6 +44,7 @@ import src.remediation.recovery_tasks  # noqa: F401  # register provider recover
 import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
 import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert delivery task
 import src.scan.retention_tasks  # noqa: F401  # register scan retention reporting task
+import src.platform.backup_tasks  # noqa: F401  # register backup freshness task
 
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)
