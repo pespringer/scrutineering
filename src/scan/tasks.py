@@ -48,7 +48,9 @@ import src.scan.retention_tasks  # noqa: F401  # register scan retention reporti
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)
 def schedule_inventory_scans() -> dict[str, int]:
-    return schedule_active_scans(lambda image_name, priority: enqueue_scan(image_name, priority=priority))
+    from src.scan.reliability import ScanCooldown
+    cooldown = ScanCooldown(int(os.environ.get("SCAN_COOLDOWN_SECONDS", "3600")))
+    return schedule_active_scans(lambda image_name, priority: enqueue_scan(image_name, priority=priority), cooldown=cooldown)
 
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
