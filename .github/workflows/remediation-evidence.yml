@@ -1,0 +1,124 @@
+name: Remediation Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to scan and sign
+        required: true
+        default: main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  evidence:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out requested revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate evidence artifact
+        env:
+          REVISION: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          revision = os.environ["REVISION"]
+          artifact = {
+              "contract": "scrutineering-remediation-evidence-v1",
+              "repository": os.environ["GITHUB_REPOSITORY"],
+              "revision": revision,
+              "workflow_run": os.environ["GITHUB_RUN_ID"],
+              "checks": {
+                  "source_revision_present": True,
+                  "repository_clean_at_checkout": True,
+              },
+          }
+          encoded = json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
+          Path("evidence-artifact.json").write_bytes(encoded)
+          subject_digest = "sha256:" + hashlib.sha256(revision.encode()).hexdigest()
+          Path("subject-digest.txt").write_text(subject_digest, encoding="utf-8")
+          PY
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign evidence artifact with GitHub OIDC
+        run: |
+          cosign sign-blob --yes \
+            --output-signature evidence-artifact.sig \
+            --output-certificate evidence-artifact.pem \
+            evidence-artifact.json
+
+      - name: Build signed evidence envelope
+        env:
+          SIGNING_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/remediation-evidence.yml@refs/heads/${{ inputs.ref }}
+          REVISION: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          artifact = Path("evidence-artifact.json").read_bytes()
+          signature = Path("evidence-artifact.sig").read_text(encoding="utf-8").strip()
+          subject_digest = Path("subject-digest.txt").read_text(encoding="utf-8").strip()
+          envelope = {
+              "version": "1.0.0",
+              "artifactType": "remediation-evidence",
+              "format": "json",
+              "subject": {
+                  "digest": subject_digest,
+                  "repository": os.environ["GITHUB_REPOSITORY"],
+                  "revision": os.environ["REVISION"],
+              },
+              "artifactDigest": "sha256:" + __import__("hashlib").sha256(artifact).hexdigest(),
+              "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "tool": {"name": "github-actions-cosign", "version": "3"},
+              "signature": {
+                  "provider": "cosign",
+                  "identity": os.environ["SIGNING_IDENTITY"],
+                  "value": signature,
+              },
+          }
+          Path("envelope.json").write_text(json.dumps(envelope, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+          PY
+
+      - name: Verify signed evidence before upload
+        env:
+          SIGNING_IDENTITY: https://github.com/${{ github.repository }}/.github/workflows/remediation-evidence.yml@refs/heads/${{ inputs.ref }}
+        run: |
+          cosign verify-blob \
+            --signature evidence-artifact.sig \
+            --certificate evidence-artifact.pem \
+            --certificate-identity "$SIGNING_IDENTITY" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            evidence-artifact.json
+
+      - name: Upload remediation evidence bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrutineering-remediation-evidence-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            envelope.json
+            evidence-artifact.json
+            evidence-artifact.sig
+            evidence-artifact.pem
+            subject-digest.txt
