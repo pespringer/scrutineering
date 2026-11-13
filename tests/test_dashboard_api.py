@@ -20,7 +20,7 @@ def test_dashboard_serializers_match_frontend_contract():
         package_name="openssl", package_version="3.0.0", package_type="apk",
         severity=Severity.HIGH, title="Example finding", description="Details",
         fixed_version="3.0.1", fix_available=True, first_seen=datetime(2026, 1, 1),
-        last_seen=datetime(2026, 1, 2), remediated=False,
+        last_seen=datetime(2026, 1, 2), remediated=False, acknowledged=False, assigned_to=None,
     )
     scan = SimpleNamespace(
         scan_id="scan-7", image=image, status=ScanStatus.COMPLETED,
