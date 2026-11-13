@@ -27,8 +27,12 @@ uses a short-lived Git askpass credential, and records the branch in the
 `execution_ready` event. It does not merge or open a pull request.
 
 To enable the handoff in a disposable checkout, set `REMEDIATION_PUSH_ENABLED=true`
-and provide `GITHUB_TOKEN` with repository contents-write permission. The
-checkout's `origin` must point at the intended repository; use
+and provide `GITHUB_TOKEN` with repository Contents **Read and write** and Pull
+requests **Read and write** permissions for the target repository. A
+fine-grained token must be granted access to that repository; a classic token
+needs the `repo` scope. A token that can read administration settings but
+cannot write repository contents will authenticate and still fail at `git push`
+with HTTP 403. The checkout's `origin` must point at the intended repository; use
 `REMEDIATION_GIT_REMOTE` only for an explicitly configured remote. Leave the
 flag false for dry-run execution.
 

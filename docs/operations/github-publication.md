@@ -6,7 +6,10 @@ true` before calling GitHub. It uses the GitHub JSON API and never logs the
 token.
 
 Production should use a GitHub App installation token scoped to pull-request
-creation and contents read/write for the target repositories. Publication
+creation and contents read/write for the target repositories. The Compose
+worker's `GITHUB_TOKEN` must also have repository Contents **Read and write**
+and Pull requests **Read and write** permissions; administration read-only
+access does not permit the branch push. Publication
 requires an idempotency key, protects `main`/`master`, and reuses a prior
 result for duplicate keys within the publisher process. The adapter does not
 merge, approve, bypass branch protection, or support arbitrary repository
