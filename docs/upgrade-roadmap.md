@@ -550,6 +550,16 @@ The first production release requires green Node and Python suites, authenticate
 - **Next:** wire backup rotation and restore preflight into scheduled production automation after operator approval.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
 
+### Slices 101–200 — Resilience, scale, and production promotion
+
+- **Completed:** add remediation lease renewal, retry budgets, execution resource limits, quarantine expiry, replay guards, and tenant execution capacity controls.
+- **Completed:** add deployment image/secret/security/resource checks, configuration drift detection, rollout health, and provider payload redaction/request budgets.
+- **Completed:** add database archival, tenant retention, growth reports, approval-gated backup deletion, queue quotas, autoscaling recommendations, and queue recovery plans.
+- **Completed:** add failover/worker-loss rehearsal contracts, scan detail UI, release promotion gate, platform maturity drill, and production gate command.
+- **Completed:** add provider circuit-state diagnostics and receiver-independent production scorecard coverage.
+- **Next:** add authenticated provider fixtures, deeper database restore execution, and production telemetry dashboard adoption.
+- **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.
