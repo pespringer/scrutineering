@@ -61,6 +61,11 @@ The production workflow drill (`npm run drill:production-workflows`) adds
 receiver-independent verification for live-scan evidence, backup/restore
 readiness, provider conformance, post-merge decisions, recovery timing, and
 release security checks.
+
+The production maturity drill adds bounded checks for scan orchestration,
+backup destinations, provider readiness, database quality, scaling decisions,
+identity security, documentation freshness, and promotion evidence. It does
+not contact an external alert receiver.
 ## Scan and backup operations
 
 Scheduled scans suppress images inside `SCAN_COOLDOWN_SECONDS` and report
