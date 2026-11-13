@@ -516,6 +516,14 @@ The first production release requires green Node and Python suites, authenticate
 - **Next:** continue wiring database backup automation, richer dashboard bulk workflows, provider adapters, and disaster-recovery evidence into production operations.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Next 100 live-operations follow-through slices
+
+- **Completed:** add scan retention planning/reporting, duplicate-scan contracts, scan-health summaries, backup command scaffolding, and active inventory retention scheduling.
+- **Completed:** add persisted scan health APIs, worker cache/latency metric recording, scanner lifecycle telemetry, and dashboard scan-health boundaries.
+- **Completed:** add scanner failure/partial-state tracking, writable Grype database configuration, multi-scanner persistence normalization, and production smoke checks.
+- **Next:** continue wiring private-registry evidence, richer dashboard bulk workflows, provider adapters, and production backup/telemetry automation.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Next 18 live scanning milestone slices
 
 - **Completed:** add a dashboard-to-Celery live-scan smoke command for public images with terminal-state polling and metrics reachability checks.
