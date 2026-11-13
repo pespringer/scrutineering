@@ -343,8 +343,11 @@ and production-like PostgreSQL/Redis services.
   missing evidence/configuration remains a durable blocked event.
 - **Completed:** successful local artifacts are reported with changed files and
   commit identity; PR publication and merge remain separate guarded steps.
-- **Next:** connect validated artifacts to the existing allowlisted PR
-  publishers and post-merge rollback coordinator.
+- **Completed:** validated remediation branches can now be handed to the
+  existing allowlisted PR publishers when publication is explicitly enabled;
+  PR URL, number, status, and idempotency records are persisted.
+- **Next:** exercise the end-to-end flow against the configured GitHub test
+  repository and verify the post-merge scan/rollback coordinator.
 
 ### Batch 22 — Publication and rollback handoff
 
@@ -355,8 +358,9 @@ and production-like PostgreSQL/Redis services.
   regressions as `rollback_required` with a validated revert command.
 - **Completed:** dashboard proxy routes expose both handoffs without leaking
   provider credentials or bypassing the existing publisher implementations.
-- **Next:** connect the plan to live provider publication and persist PR/merge
-  outcomes on remediation records.
+- **Completed:** the approved worker path now connects pushed branches to the
+  provider publisher and persists PR outcomes with replay-safe keys.
+- **Next:** run the live GitHub test-repository publication and callback flow.
 
 ### Batch 23 — Provider publication outcomes
 

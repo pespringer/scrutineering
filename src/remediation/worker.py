@@ -5,14 +5,18 @@ from __future__ import annotations
 import os
 import json
 import subprocess
+import hashlib
+from datetime import datetime, timezone
 
 from celery import shared_task
 
 from src.db.connection import get_session
-from src.db.models import Remediation, RemediationStatus
+from src.db.models import Remediation, RemediationPublication, RemediationStatus
 from src.db.repositories import RemediationRepository
 from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
 from .publisher import publish_remediation_branch
+from .publication import build_publication_plan
+from .provider_publishers import publish_validated_plan
 
 
 def execution_enabled() -> bool:
@@ -28,6 +32,58 @@ def _blocked(session, remediation_id: int, reason: str) -> dict:
         "detail": {"reason": reason},
     })
     return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
+
+
+def _publish_branch(session, remediation, branch_name: str, commit: str) -> dict:
+    """Publish one validated branch through the existing provider gates."""
+    provider = os.environ.get("REMEDIATION_PUBLICATION_PROVIDER", "github").strip().lower()
+    repository = os.environ.get("REMEDIATION_PUBLICATION_REPOSITORY", "").strip()
+    base = os.environ.get("REMEDIATION_PUBLICATION_BASE", "main").strip()
+    allowed = {value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()}
+    idempotency_key = f"remediation-{remediation.id}-{commit}"
+    plan = build_publication_plan(
+        provider=provider, repository=repository, head=branch_name, base=base,
+        idempotency_key=idempotency_key, commit=commit, evidence_verified=True,
+        allowed_repositories=allowed,
+    )
+    title = f"Apply verified security remediation #{remediation.id}"
+    body = ("This pull request was created by Scrutineering after approval, "
+            "signed evidence verification, isolated validation, and a clean "
+            f"remediation commit ({commit}).\n\nRemediation: {remediation.id}")
+    request_hash = hashlib.sha256(json.dumps({"provider": plan.provider, "repository": plan.repository, "head": plan.head, "base": plan.base, "commit": commit}, sort_keys=True).encode()).hexdigest()
+    publication = session.query(RemediationPublication).filter_by(
+        provider=plan.provider, repository=plan.repository,
+        idempotency_key=plan.idempotency_key,
+    ).first()
+    if publication and publication.status == "published":
+        return {"publication_id": publication.id, "status": publication.status, "number": publication.provider_number, "url": publication.url}
+    publication = publication or RemediationPublication(
+        remediation_id=remediation.id, provider=plan.provider,
+        repository=plan.repository, idempotency_key=plan.idempotency_key,
+        status="pending", request_hash=request_hash,
+    )
+    session.add(publication)
+    session.flush()
+    token = os.environ.get("GITHUB_TOKEN" if plan.provider == "github" else "GITLAB_TOKEN", "")
+    try:
+        result = publish_validated_plan(
+            provider=plan.provider, repository=plan.repository, title=title,
+            body=body, head=plan.head, base=plan.base, token=token,
+            idempotency_key=plan.idempotency_key,
+        )
+    except Exception as exc:
+        publication.status = "failed"
+        publication.error_message = str(exc)[:1000]
+        publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        raise
+    publication.status = "published"
+    publication.provider_number = result.number
+    publication.url = result.url
+    publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    remediation.pr_url = result.url
+    remediation.pr_number = result.number
+    remediation.status = RemediationStatus.PR_OPENED
+    return {"publication_id": publication.id, "status": publication.status, "number": result.number, "url": result.url}
 
 
 @shared_task(bind=True, name="src.remediation.worker.execute_approved_remediation", acks_late=True, task_time_limit=3600)
@@ -85,6 +141,17 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
             except (OSError, ValueError, subprocess.SubprocessError) as exc:
                 return _blocked(session, remediation_id, f"branch_publication_failed:{exc}")
             remediation.branch_name = published["branch_name"]
+        publication = None
+        if os.environ.get("REMEDIATION_PUBLICATION_ENABLED", "false").lower() in {"1", "true", "yes"}:
+            if not branch_name:
+                return _blocked(session, remediation_id, "publication_requires_branch_push")
+            try:
+                publication = _publish_branch(session, remediation, branch_name, result.commit or "")
+            except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
+                return _blocked(session, remediation_id, f"provider_publication_failed:{exc}")
         events = RemediationRepository.list_events(session, remediation_id)
-        RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}})
-        return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}
+        detail = {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}
+        if publication:
+            detail["publication"] = publication
+        RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": detail})
+        return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "branch_name": branch_name, "publication": publication, "changed_files": result.changed_files}

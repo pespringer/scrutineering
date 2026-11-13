@@ -32,6 +32,15 @@ checkout's `origin` must point at the intended repository; use
 `REMEDIATION_GIT_REMOTE` only for an explicitly configured remote. Leave the
 flag false for dry-run execution.
 
+To create the GitHub PR automatically after the branch is pushed, also set
+`REMEDIATION_PUBLICATION_ENABLED=true`,
+`REMEDIATION_PUBLICATION_PROVIDER=github`,
+`REMEDIATION_PUBLICATION_REPOSITORY=owner/repository`, and
+`REMEDIATION_ALLOWED_REPOSITORIES=owner/repository`. The worker reuses the
+existing evidence, allowlist, protected-base, and idempotency gates, then
+persists the PR URL and number on the remediation record. It will block rather
+than publish if any gate or token is missing.
+
 ## Recovery and validation
 
 Remediation lifecycle transitions emit ordered events through the durable event
