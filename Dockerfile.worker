@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system deps needed for psycopg2 and scanner binaries
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libpq-dev gcc curl jq && \
+      libpq-dev gcc curl jq git && \
     rm -rf /var/lib/apt/lists/*
 
 # Install a pinned Trivy release (avoid executing a moving install script).
@@ -19,6 +19,11 @@ RUN curl -sSfL "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY
 ARG GRYPE_VERSION=0.121.0
 RUN curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
     | tar -xz -C /usr/local/bin grype
+
+# Install a pinned Cosign release for signed release-evidence verification.
+ARG COSIGN_VERSION=3.1.4
+RUN curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
+    -o /usr/local/bin/cosign && chmod 0755 /usr/local/bin/cosign
 
 # Install Python deps
 COPY requirements.txt ./

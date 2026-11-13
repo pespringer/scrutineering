@@ -35,3 +35,14 @@ Python ecosystem.
 Production callers can set `release_evidence=True` on `execute_remediation()`
 to force the configured Cosign keyless policy through `verify_release_evidence`;
 the executor blocks before creating a worktree when that gate fails.
+
+## Compose test workspace
+
+The Compose worker mounts a disposable Git checkout at `/workspace/repository`
+and signed evidence at `/workspace/evidence`. Configure the host directories
+with `REMEDIATION_HOST_REPOSITORY_ROOT` and
+`REMEDIATION_HOST_EVIDENCE_ROOT`; keep the container-side paths at their
+defaults. The checkout must be separate from the main working tree and writable
+by the worker's unprivileged `scanner` user. The worker image includes Git,
+Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
+trusted release workflow.
