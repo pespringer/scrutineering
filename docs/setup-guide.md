@@ -222,6 +222,16 @@ Run the deterministic execution drill before promoting operational changes:
 npm run drill:operations-execution
 ```
 
+Run the production workflow drill as well:
+
+```bash
+npm run drill:production-workflows
+```
+
+This validates scan evidence, backup and restore checks, provider conformance,
+post-merge decisions, recovery timing, and release security evidence using
+deterministic fixtures.
+
 The drill exercises live-scan, provider, restore, recovery, and production
 security contracts without contacting an external alert receiver.
 

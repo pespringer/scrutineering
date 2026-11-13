@@ -56,6 +56,11 @@ configuration drift, tenant capacity, and release health. Its API contract is
 Run `npm run drill:operations-execution` to validate the receiver-independent
 execution contracts. The drill uses deterministic fixtures and does not run a
 destructive backup, restore, provider publication, or external notification.
+
+The production workflow drill (`npm run drill:production-workflows`) adds
+receiver-independent verification for live-scan evidence, backup/restore
+readiness, provider conformance, post-merge decisions, recovery timing, and
+release security checks.
 ## Scan and backup operations
 
 Scheduled scans suppress images inside `SCAN_COOLDOWN_SECONDS` and report
