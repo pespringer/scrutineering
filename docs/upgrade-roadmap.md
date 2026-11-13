@@ -549,3 +549,14 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add dry-run rotation and registry diagnostic commands with setup/runbook coverage.
 - **Next:** wire backup rotation and restore preflight into scheduled production automation after operator approval.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
+
+### Slices 31–70 — Dashboard bulk operations and private-registry readiness
+
+- **Completed:** add durable scan archive state, finding acknowledgement/assignment state, and migration `20261113_16`.
+- **Completed:** add bounded bulk scan cancel/retry/archive controls with audit events and isolated retry identities.
+- **Completed:** add bulk image archive, finding acknowledgement, assignment, and deterministic findings export APIs.
+- **Completed:** add dashboard proxy routes and scan/finding selection controls for operator workflows.
+- **Completed:** add scheduled dry-run backup freshness/rotation reporting and restore-safe operational documentation.
+- **Completed:** add private-registry scan diagnostics, redacted evidence payloads, and failure categories for operator review.
+- **Next:** add provider-specific authenticated end-to-end fixtures and production backup execution automation after approval.
+- **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.

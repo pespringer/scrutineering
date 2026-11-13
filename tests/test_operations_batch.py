@@ -6,6 +6,7 @@ from src.platform.backup_lifecycle import BackupArtifact, backup_fresh, restore_
 from src.platform.operations import BackupRotation
 from src.scan.reliability import ScanCooldown, classify_scan_failure, cooldown_active, stale_running_scan
 from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry, private_registry_evidence
+from src.platform.backup_tasks import report_backup_freshness
 
 
 def test_backup_rotation_is_dry_run_and_freshness_is_bounded():
@@ -37,3 +38,7 @@ def test_registry_diagnostics_never_expose_secret_values():
     assert classify_registry_error("429 too many requests") == "rate_limited"
     evidence = private_registry_evidence(registry="ghcr.io", digest="sha256:" + "a" * 64, authenticated=True, credential_keys=("GITHUB_TOKEN",))
     assert evidence["credentials_redacted"] is True
+
+
+def test_backup_task_is_explicitly_not_configured_without_metadata():
+    assert report_backup_freshness(metadata_path="", dry_run=True)["status"] == "not_configured"

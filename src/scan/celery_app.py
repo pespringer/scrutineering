@@ -29,6 +29,7 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
             "src.scan.retention_tasks.report_expired_scans": {"queue": "remediation.normal"},
+            "src.platform.backup_tasks.report_backup_freshness": {"queue": "remediation.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
             "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},
@@ -38,6 +39,12 @@ def create_celery_app() -> Celery:
         beat_schedule={
             "report-expired-scans": {
                 "task": "src.scan.retention_tasks.report_expired_scans",
+                "schedule": 86400.0,
+                "kwargs": {"dry_run": True},
+                "options": {"queue": "remediation.normal"},
+            },
+            "report-backup-freshness": {
+                "task": "src.platform.backup_tasks.report_backup_freshness",
                 "schedule": 86400.0,
                 "kwargs": {"dry_run": True},
                 "options": {"queue": "remediation.normal"},

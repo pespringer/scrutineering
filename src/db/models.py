@@ -281,6 +281,7 @@ class Scan(Base):
 
     # Error
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Metadata
     scheduler_type: Mapped[str | None] = mapped_column(
@@ -353,6 +354,8 @@ class ScanFinding(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime,
                                                  server_default=func.now())
     remediated: Mapped[bool] = mapped_column(Boolean, default=False)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    assigned_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     remediation_id: Mapped[int | None] = mapped_column(
         BigInteger, ForeignKey("remediations.id", ondelete="SET NULL"),
         nullable=True)

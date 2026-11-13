@@ -55,6 +55,22 @@ class ScanRequest(BaseModel):
         return value
 
 
+class BulkIdsRequest(BaseModel):
+    ids: list[int | str] = Field(min_length=1, max_length=100)
+
+
+class BulkFindingAssignmentRequest(BaseModel):
+    finding_ids: list[int] = Field(min_length=1, max_length=100)
+    assignee: str | None = Field(default=None, max_length=128)
+
+    @field_validator("assignee")
+    @classmethod
+    def assignee_is_safe(cls, value: str | None) -> str | None:
+        if value is not None and any(char.isspace() for char in value.strip()):
+            raise ValueError("assignee must not contain whitespace")
+        return value.strip() if value else None
+
+
 class RemediationRequest(BaseModel):
     image_id: int = Field(gt=0)
     finding_ids: list[int] = Field(min_length=1, max_length=50)
@@ -150,6 +166,10 @@ def _scan_payload(scan: Scan) -> dict:
         "high_count": scan.high_count or 0,
         "medium_count": scan.medium_count or 0,
         "low_count": scan.low_count or 0,
+        "archived": bool(getattr(scan, "archived", False)),
+        "scanner_versions": getattr(scan, "scanner_versions", None) or {},
+        "vulnerability_db_versions": getattr(scan, "vulnerability_db_versions", None) or {},
+        "error_message": getattr(scan, "error_message", None),
     }
 
 
@@ -187,6 +207,8 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "first_seen": _iso(finding.first_seen),
         "last_seen": _iso(finding.last_seen),
         "remediated": bool(finding.remediated),
+        "acknowledged": bool(getattr(finding, "acknowledged", False)),
+        "assigned_to": getattr(finding, "assigned_to", None),
     }
 
 
@@ -340,9 +362,12 @@ def scan_history(
     offset: int = Query(default=0, ge=0),
     status: str | None = Query(default=None),
     search: str | None = Query(default=None, max_length=200),
+    include_archived: bool = Query(default=False),
 ) -> dict:
     with get_session() as session:
         query = session.query(Scan).join(Image)
+        if not include_archived:
+            query = query.filter(Scan.archived.is_(False))
         if status and status.lower() != "all":
             try:
                 ScanStatus(status.lower())
@@ -363,15 +388,6 @@ def scan_health(limit: int = Query(default=100, ge=1, le=1000)) -> dict:
     return summarize_scan_health([_scan_payload(scan) for scan in records])
 
 
-@router.get("/scans/{scan_id}")
-def scan_status(scan_id: str) -> dict:
-    with get_session() as session:
-        scan = session.query(Scan).filter_by(scan_id=scan_id).first()
-        if scan is None:
-            raise HTTPException(status_code=404, detail="scan_not_found")
-        return _scan_payload(scan)
-
-
 @router.post("/scans/{scan_id}/cancel")
 def cancel_scan(scan_id: str, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")
@@ -386,6 +402,63 @@ def cancel_scan(scan_id: str, request: Request) -> dict:
         _record_operator_event(session, request, AuditEventType.SCAN_CANCELLED, scan_id, {"action": "cancel_scan"})
     celery_app.control.revoke(scan_id, terminate=False)
     return {"scan_id": scan_id, "status": "cancelled"}
+
+
+@router.post("/scans/bulk-cancel")
+def bulk_cancel_scans(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    scan_ids = [str(value) for value in payload.ids]
+    changed: list[str] = []
+    with get_session() as session:
+        scans = session.query(Scan).filter(Scan.scan_id.in_(scan_ids)).all()
+        for scan in scans:
+            if scan.status in {ScanStatus.PENDING, ScanStatus.RUNNING}:
+                scan.status = ScanStatus.CANCELLED.value
+                scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                changed.append(scan.scan_id)
+                _record_operator_event(session, request, AuditEventType.SCAN_CANCELLED, scan.scan_id, {"action": "bulk_cancel_scan"})
+    for scan_id in changed:
+        celery_app.control.revoke(scan_id, terminate=False)
+    return {"requested": scan_ids, "cancelled": changed, "count": len(changed)}
+
+
+@router.post("/scans/bulk-archive")
+def bulk_archive_scans(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    scan_ids = [str(value) for value in payload.ids]
+    archived: list[str] = []
+    with get_session() as session:
+        for scan in session.query(Scan).filter(Scan.scan_id.in_(scan_ids), Scan.status.notin_([ScanStatus.PENDING, ScanStatus.RUNNING])).all():
+            scan.archived = True
+            archived.append(scan.scan_id)
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, scan.scan_id, {"action": "archive_scan"})
+    return {"requested": scan_ids, "archived": archived, "count": len(archived)}
+
+
+@router.post("/scans/bulk-retry", status_code=202)
+def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    retried: list[dict] = []
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_session() as session:
+        scans = session.query(Scan).join(Image).filter(Scan.scan_id.in_([str(value) for value in payload.ids]), Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED])).all()
+        for scan in scans:
+            retry_id = uuid.uuid4().hex
+            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, started_at=now, image_digest=scan.image_digest))
+            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id, {"action": "retry_scan", "source_scan_id": scan.scan_id})
+            retried.append({"source_scan_id": scan.scan_id, "scan_id": retry_id, "image_name": scan.image.full_name})
+    for item in retried:
+        enqueue_scan(item["image_name"], scan_id=item["scan_id"])
+    return {"requested": payload.ids, "retried": retried, "count": len(retried)}
+
+
+@router.get("/scans/{scan_id}")
+def scan_status(scan_id: str) -> dict:
+    with get_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).first()
+        if scan is None:
+            raise HTTPException(status_code=404, detail="scan_not_found")
+        return _scan_payload(scan)
 
 
 @router.post("/scans", status_code=202)
@@ -451,6 +524,19 @@ def image_inventory(
     return _page([_image_payload(image, findings_by_image[image.id]) for image in images], limit, offset, total)
 
 
+@router.post("/images/bulk-archive")
+def bulk_archive_images(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    image_ids = [int(value) for value in payload.ids]
+    archived: list[int] = []
+    with get_session() as session:
+        for image in session.query(Image).filter(Image.id.in_(image_ids), Image.active.is_(True)).all():
+            image.active = False
+            archived.append(image.id)
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(image.id), {"action": "archive_image"}, entity_type="image")
+    return {"requested": image_ids, "archived": archived, "count": len(archived)}
+
+
 @router.get("/images/{image_id}")
 def image_detail(
     image_id: int,
@@ -474,6 +560,48 @@ def image_detail(
         "findings": [_finding_payload(finding) for finding in findings],
         "findings_page": _page([_finding_payload(finding) for finding in findings], limit, offset, total),
     }
+
+
+@router.post("/findings/bulk-acknowledge")
+def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    finding_ids = [int(value) for value in payload.ids]
+    changed: list[int] = []
+    with get_session() as session:
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(finding_ids), ScanFinding.remediated.is_(False)).all():
+            finding.acknowledged = True
+            changed.append(finding.id)
+        if changed:
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, ",".join(map(str, changed)), {"action": "acknowledge_findings", "finding_ids": changed}, entity_type="finding")
+    return {"requested": finding_ids, "acknowledged": changed, "count": len(changed)}
+
+
+@router.post("/findings/bulk-assign")
+def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    changed: list[int] = []
+    with get_session() as session:
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.remediated.is_(False)).all():
+            finding.assigned_to = payload.assignee
+            changed.append(finding.id)
+        if changed:
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, ",".join(map(str, changed)), {"action": "assign_findings", "finding_ids": changed, "assignee": payload.assignee}, entity_type="finding")
+    return {"requested": payload.finding_ids, "assigned": changed, "assignee": payload.assignee, "count": len(changed)}
+
+
+@router.get("/findings/export")
+def export_findings(request: Request, limit: int = Query(default=1000, ge=1, le=5000), severity: str | None = Query(default=None), image_id: int | None = Query(default=None), acknowledged: bool | None = Query(default=None)) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator")
+    severity_value = _severity_filter(severity)
+    with get_session() as session:
+        query = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False))
+        if severity_value: query = query.filter(ScanFinding.severity == severity_value.value)
+        if image_id: query = query.filter(ScanFinding.image_id == image_id)
+        if acknowledged is not None: query = query.filter(ScanFinding.acknowledged.is_(acknowledged))
+        findings = query.order_by(ScanFinding.id.asc()).limit(limit).all()
+    records = [_finding_payload(finding) for finding in findings]
+    canonical = json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
+    return {"format": "scrutineering-findings-v1", "count": len(records), "sha256": hashlib.sha256(canonical).hexdigest(), "records": records}
 
 
 @router.get("/session")
