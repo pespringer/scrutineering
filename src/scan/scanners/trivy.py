@@ -15,6 +15,7 @@ from typing import Optional
 
 from .base import ScannerAdapter, ScannerFinding, ScannerError
 from src.scan.models import FindingSource, Severity
+from src.scan.source_target import filesystem_path, relative_source_path
 
 logger = logging.getLogger(__name__)
 
@@ -81,15 +82,17 @@ class TrivyScanner(ScannerAdapter):
         Raises:
             ScannerError: If Trivy fails to run or produces malformed output.
         """
-        # Build command
+        root = filesystem_path(image_name)
+        mode = "fs" if root is not None else "image"
+        scan_target = str(root) if root is not None else image_name
         cmd = [
             self.trivy_cmd,
-            "image",
+            mode,
             "--format", "json",
             "--scanners", "vuln",
             "--severity", self.severities,
             "--cache-dir", self.cache_dir,
-            image_name,
+            scan_target,
         ]
 
         # Add registry auth if provided
@@ -135,12 +138,12 @@ class TrivyScanner(ScannerAdapter):
             )
 
         if len(stdout) > self.max_output_bytes: raise ScannerError("trivy", "scan output exceeds size limit")
-        findings = self._parse_trivy_output(stdout.decode(errors="replace"))
+        findings = self._parse_trivy_output(stdout.decode(errors="replace"), root_path=root)
         if len(findings) > self.max_findings:
             raise ScannerError("trivy", "scan findings exceed size limit")
         return findings
 
-    def _parse_trivy_output(self, raw_json: str) -> list[ScannerFinding]:
+    def _parse_trivy_output(self, raw_json: str, root_path=None) -> list[ScannerFinding]:
         """Parse Trivy JSON output into normalized ScannerFinding list.
 
         Trivy output structure:
@@ -198,7 +201,7 @@ class TrivyScanner(ScannerAdapter):
                     description=vuln.get("Description"),
                     severity=severity,
                     fixed_version=vuln.get("FixedVersion"),
-                    file_path=vuln.get("PkgPath") or vuln.get("FilePath"),
+                    file_path=(relative_source_path(vuln.get("PkgPath") or vuln.get("FilePath"), root_path) or relative_source_path(result.get("Target"), root_path)) if root_path else None,
                     cvss_scores=cvss["scores"],
                     cvss_vector=cvss.get("vector"),
                 )

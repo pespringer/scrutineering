@@ -95,3 +95,22 @@ changing `.env`:
 ```bash
 docker compose up -d --build celery-worker
 ```
+
+### Source-file scan test mode
+
+Container image scans remain the default. For a disposable checkout, the
+Celery scan task also accepts an explicit `fs:/absolute/path` target. Trivy and
+Grype then scan the checkout directory, normalize scanner locations to relative
+paths such as `requirements.txt`, and persist a local scan record. The public
+dashboard image endpoint does not accept filesystem targets.
+
+Example from the worker container:
+
+```bash
+docker compose exec celery-worker python -c \
+  'from src.scan.tasks import run_scan; print(run_scan.run("fs:/workspace/repository", scanners=["trivy", "grype"]))'
+```
+
+Only source paths explicitly returned by a filesystem scanner can become
+remediation actions; image findings without a repository coordinate continue to
+block safely.
