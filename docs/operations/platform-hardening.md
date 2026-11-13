@@ -64,3 +64,8 @@ Provider outages are classified as timeout, rate-limited, permission-denied,
 not-found, or unavailable. Queue depth, backup freshness, provider outcomes,
 and SLO status are emitted as bounded Prometheus series. Run
 `npm run drill:receiver-independent-failures` before release promotion.
+
+Remediation retries require an active lease, an approved state, and a recorded
+artifact fingerprint. Provider payloads are redacted before diagnostics are
+persisted. Database archival, backup deletion, tenant retention, and queue
+recovery plans are dry-run or approval-gated by default.
