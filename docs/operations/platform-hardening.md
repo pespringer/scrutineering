@@ -89,3 +89,7 @@ Remediation retries require an active lease, an approved state, and a recorded
 artifact fingerprint. Provider payloads are redacted before diagnostics are
 persisted. Database archival, backup deletion, tenant retention, and queue
 recovery plans are dry-run or approval-gated by default.
+
+The v1.0 readiness drill additionally checks persistent scan state, backup
+failover, restore lifecycle, provider credential lifecycle, database forecasts,
+scaling recommendations, identity controls, and promotion inputs.
