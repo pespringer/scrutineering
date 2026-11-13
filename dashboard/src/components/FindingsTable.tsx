@@ -6,7 +6,7 @@ import type { VulnerabilityFinding } from "@/types";
 
 type SortKey = "cve_id" | "severity" | "package_name" | "package_version" | "first_seen";
 
-export default function FindingsTable({ findings }: { findings: VulnerabilityFinding[] }) {
+export default function FindingsTable({ findings, selectable = false, selected = [], onSelect }: { findings: VulnerabilityFinding[]; selectable?: boolean; selected?: number[]; onSelect?: (id: number, checked: boolean) => void }) {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [filterSeverity, setFilterSeverity] = useState<string>("");
@@ -72,6 +72,7 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
         <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-slate-900/40">
             <tr className="border-b border-slate-700/50">
+              {selectable && <th className="w-10 px-3 py-3" />}
               {cols.map((c) => (
                 <th
                   key={c.key}
@@ -91,12 +92,13 @@ export default function FindingsTable({ findings }: { findings: VulnerabilityFin
           <tbody className="divide-y divide-slate-800/50">
             {sorted.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-3 py-8 text-center text-slate-500">
+                <td colSpan={selectable ? 8 : 7} className="px-3 py-8 text-center text-slate-500">
                   No findings match your filter.
                 </td>
               </tr>
             ) : sorted.map((f, i) => (
               <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
+                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400" /></td>}
                 <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
                   {f.cve_id ? (
                     <a
