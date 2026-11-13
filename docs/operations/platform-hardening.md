@@ -52,6 +52,10 @@ surfaces the release scorecard and telemetry panel catalog for scan latency,
 queue depth, backup freshness, provider health, recovery SLOs, worker health,
 configuration drift, tenant capacity, and release health. Its API contract is
 `GET /api/dashboard/production-operations`.
+
+Run `npm run drill:operations-execution` to validate the receiver-independent
+execution contracts. The drill uses deterministic fixtures and does not run a
+destructive backup, restore, provider publication, or external notification.
 ## Scan and backup operations
 
 Scheduled scans suppress images inside `SCAN_COOLDOWN_SECONDS` and report

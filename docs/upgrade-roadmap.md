@@ -572,6 +572,17 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add `validate:production-operations` to the local release workflow and cover the contracts with regression tests.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Slices 301–400 — Operations execution and recovery evidence
+
+- **Completed:** add live-scan smoke execution contracts for terminal state, metrics, cleanup, cancellation, cache, and staging evidence.
+- **Completed:** add encrypted backup execution evidence, isolated restore runs, checksum/migration/timeout checks, and restore cleanup results.
+- **Completed:** add authenticated provider end-to-end fixtures, deployment observation polling, finding-delta reconciliation, and rollback decisions.
+- **Completed:** add bounded bulk execution summaries, telemetry history, archive execution plans, and recovery chaos scenario scoring.
+- **Completed:** add production security gates for image digests, secret restrictions, drift, quotas, accessibility, and API contracts.
+- **Completed:** add `drill:operations-execution` for deterministic live-scan, provider, restore, recovery, and security validation.
+- **Completed:** add a 100-slice receiver-independent execution manifest covering slices 301–400.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.

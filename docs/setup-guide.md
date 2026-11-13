@@ -216,5 +216,14 @@ tenant, drift, worker, and release-health panel definitions through
 npm run validate:production-operations
 ```
 
+Run the deterministic execution drill before promoting operational changes:
+
+```bash
+npm run drill:operations-execution
+```
+
+The drill exercises live-scan, provider, restore, recovery, and production
+security contracts without contacting an external alert receiver.
+
 External alert delivery remains deferred and is intentionally not enabled by
 this dashboard or its local validation command.
