@@ -58,3 +58,9 @@ Bulk dashboard actions are bounded to 100 IDs, require an elevated operator
 role, and emit audit events. Scan archiving never touches active work, retry
 creates a new scan identity, and finding acknowledgement/assignment never
 changes the original scanner evidence.
+
+Provider adapters expose capability diagnostics without returning credentials.
+Provider outages are classified as timeout, rate-limited, permission-denied,
+not-found, or unavailable. Queue depth, backup freshness, provider outcomes,
+and SLO status are emitted as bounded Prometheus series. Run
+`npm run drill:receiver-independent-failures` before release promotion.
