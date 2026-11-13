@@ -254,6 +254,21 @@ It validates scan orchestration, backup failover, provider lifecycle,
 database/scaling health, identity security, and the receiver-independent v1.0
 promotion gate.
 
+## Practical milestone smoke test
+
+Run the live scan-to-findings boundary against the Compose API with:
+
+```bash
+npm run smoke:milestone1
+```
+
+The command queues a real Celery scan, polls the durable PostgreSQL-backed scan
+record, fetches persisted findings, and verifies the scan-detail remediation
+boundary. Set `MILESTONE_IMAGE` for a different public image. The remediation
+proposal, repository execution, provider publication, and post-merge checks are
+then completed from the dashboard with their existing approval and provider
+gates.
+
 It validates receiver-independent scan orchestration, backup/provider readiness,
 database quality, scaling, identity security, and promotion evidence.
 

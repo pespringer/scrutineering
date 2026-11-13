@@ -641,3 +641,16 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add private-registry scan diagnostics, redacted evidence payloads, and failure categories for operator review.
 - **Next:** add provider-specific authenticated end-to-end fixtures and production backup execution automation after approval.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
+
+### Practical milestone — live scan to dashboard findings
+
+- **In progress:** wire the dashboard scan action to the real API, Celery worker,
+  Trivy/Grype execution, PostgreSQL persistence, and a persisted findings API.
+- **In progress:** expose fixable findings in scan detail and preserve the guarded
+  remediation proposal boundary; execution remains approval-gated.
+- **Verified locally:** the Compose stack queued and completed a real `alpine:3.20`
+  scan with both scanners and a durable scan record.
+- **Next:** verify findings returned for repeat scans, then exercise the guarded
+  remediation proposal, provider PR publication, and post-merge verification with
+  the configured GitHub test project.
+- **Deferred:** live external alert receiver delivery remains separately gated.
