@@ -49,7 +49,8 @@
     "drill:operations-execution": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-operations-execution-drill.py",
     "drill:production-workflows": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-production-workflow-drill.py",
     "drill:production-maturity": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-production-maturity-drill.py",
-    "drill:v1-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-v1-readiness-drill.py"
+    "drill:v1-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-v1-readiness-drill.py",
+    "drill:v1-1-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-v1-1-readiness-drill.py"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
