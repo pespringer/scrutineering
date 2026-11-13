@@ -550,6 +550,15 @@ The first production release requires green Node and Python suites, authenticate
 - **Next:** wire backup rotation and restore preflight into scheduled production automation after operator approval.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
 
+### Slices 71–100 — Provider, recovery, and observability operations
+
+- **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.
+- **Completed:** add backup/restore readiness checks, deterministic provider/queue/worker/restore failure drills, and release-health evaluation.
+- **Completed:** add queue, backup, provider-request, and SLO Prometheus metrics with operational alert rules.
+- **Completed:** add receiver-independent release-health reporting and operator documentation.
+- **Next:** add provider-specific authenticated fixtures, deeper failover simulations, and production telemetry dashboards.
+- **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
+
 ### Slices 31–70 — Dashboard bulk operations and private-registry readiness
 
 - **Completed:** add durable scan archive state, finding acknowledgement/assignment state, and migration `20261113_16`.
