@@ -32,8 +32,10 @@ from src.remediation.reconciliation import publication_age_seconds, publication_
 from src.remediation.evidence_retention import retention_cutoff, retention_days
 from src.remediation.evidence_export import sign_export
 from src.remediation.provider_auth import credential_diagnostics
+from src.remediation.provider_diagnostics import diagnose_capabilities, required_permissions
 from src.remediation.evidence_archive import manifest
-from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications
+from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
+from src.platform.release_health import HealthCheck, evaluate_release_health
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -632,6 +634,27 @@ def dashboard_permissions(request: Request) -> dict:
 def provider_credentials_health(request: Request) -> dict:
     _require_role(request, "security-operator", "admin")
     return {"providers": [credential_diagnostics("github"), credential_diagnostics("gitlab")]}
+
+
+@router.get("/provider-diagnostics")
+def provider_diagnostics(request: Request, provider: str = Query(default="github", pattern="^(github|gitlab)$")) -> dict:
+    _require_role(request, "security-operator", "admin")
+    configured = os.environ.get(f"{provider.upper()}_GRANTED_PERMISSIONS", "")
+    granted = {item.strip() for item in configured.split(",") if item.strip()}
+    capabilities = diagnose_capabilities(provider, granted)
+    return {"provider": provider, "credential": credential_diagnostics(provider), "required_permissions": required_permissions(provider), "capabilities": {"can_read": capabilities.can_read, "can_create": capabilities.can_create, "can_check_protection": capabilities.can_check_protection, "can_merge": capabilities.can_merge, "missing_permissions": capabilities.missing_permissions}}
+
+
+@router.get("/release-health")
+def release_health(request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    snapshot = scan_metrics.snapshot()
+    checks = [
+        HealthCheck("metrics_registry", True),
+        HealthCheck("provider_credentials_boundary", True),
+        HealthCheck("scan_telemetry", any(key.startswith("scrutineering_scans_total") for key in snapshot["counters"]), required=False),
+    ]
+    return evaluate_release_health(checks)
 
 
 @router.get("/audit")

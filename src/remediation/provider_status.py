@@ -10,6 +10,8 @@ from threading import Lock
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
+from src.remediation.provider_diagnostics import provider_request_outcome
+from src.telemetry.scan_metrics import record_provider_request
 
 
 @dataclass(frozen=True)
@@ -98,8 +100,10 @@ def fetch_provider_status(*, provider: str, repository: str, number: int, token:
         payload = json.loads(response.read().decode())
         validate_status_payload(provider, payload)
         breaker.success()
+        record_provider_request(provider, provider_request_outcome(200))
     except HTTPError as exc:
         breaker.failure()
+        record_provider_request(provider, provider_request_outcome(exc.code))
         if exc.code == 429:
             value = exc.headers.get("Retry-After") if exc.headers else None
             raise ProviderRateLimited(int(value) if value and value.isdigit() else None, "provider rate limit exceeded") from exc

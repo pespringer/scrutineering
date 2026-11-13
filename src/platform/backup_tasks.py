@@ -10,6 +10,7 @@ from celery import shared_task
 
 from src.platform.backup_lifecycle import BackupArtifact, backup_fresh, rotation_plan
 from src.platform.operations import BackupRotation
+from src.telemetry.scan_metrics import set_backup_last_success
 
 
 @shared_task(name="src.platform.backup_tasks.report_backup_freshness", acks_late=True)
@@ -23,6 +24,8 @@ def report_backup_freshness(*, metadata_path: str | None = None, dry_run: bool =
     keep = int(os.environ.get("BACKUP_ROTATION_KEEP", "7"))
     max_age = int(os.environ.get("BACKUP_MAX_AGE_DAYS", "30"))
     now = datetime.now().astimezone()
+    if artifacts:
+        set_backup_last_success(max(artifact.created_at.timestamp() for artifact in artifacts))
     return {
         "status": "ok",
         "dry_run": dry_run,

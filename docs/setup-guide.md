@@ -189,3 +189,10 @@ The worker schedules a dry-run backup freshness report when
 finding actions require an operator or security-operator role and are recorded
 in the audit chain. Findings exports are bounded and include a deterministic
 SHA-256 digest for handoff.
+
+Provider diagnostics are available at the dashboard API's
+`/api/dashboard/provider-diagnostics?provider=github` endpoint for security
+operators. Set only permission names in `GITHUB_GRANTED_PERMISSIONS` or
+`GITLAB_GRANTED_PERMISSIONS`; never place tokens or token values in those
+variables. The receiver-independent release report is available through
+`npm run report:release-health -- <checks.json>`.
