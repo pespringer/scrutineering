@@ -38,7 +38,9 @@
     "drill:staging-live-scan": "npm run smoke:live-scan",
     "verify:live-scan-edges": "node scripts/verify-live-scan-edges.mjs",
     "scan:retention-report": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/scan-retention-report.py",
-    "backup:postgres": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-postgres.py"
+    "backup:postgres": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-postgres.py",
+    "backup:rotation-report": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-rotation-report.py",
+    "registry:diagnostics": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/registry-diagnostics.py"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
