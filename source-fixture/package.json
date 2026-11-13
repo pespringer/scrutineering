@@ -1,0 +1,11 @@
+{
+  "name": "scrutineering-source-fixture",
+  "private": true,
+  "scripts": {
+    "test": "node -e \"require('lodash'); console.log('fixture tests passed')\"",
+    "build": "node -e \"console.log('fixture build passed')\""
+  },
+  "dependencies": {
+    "lodash": "4.17.20"
+  }
+}
