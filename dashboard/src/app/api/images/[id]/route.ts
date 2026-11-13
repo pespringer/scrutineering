@@ -6,7 +6,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  return dashboardResponse(`/api/dashboard/images/${id}`, () => {
+  const query = new URL(req.url).search;
+  return dashboardResponse(`/api/dashboard/images/${id}${query}`, () => {
     const img = getImageById(id);
     if (!img) return { error: "not_found" };
     return { image: img, findings: getFindingsByImage(id) };
