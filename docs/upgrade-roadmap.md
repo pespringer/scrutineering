@@ -583,6 +583,17 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add a 100-slice receiver-independent execution manifest covering slices 301–400.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Slices 401–500 — Production workflow verification
+
+- **Completed:** add live-scan evidence bundles for public/private images, failure categories, cancellation cleanup, cache behavior, and staging runs.
+- **Completed:** add approved backup scheduling, encrypted destination checks, restore record/checksum verification, and disposable-target cleanup evidence.
+- **Completed:** add provider conformance reports for reads, pagination, permissions, branch protection, rate-limit recovery, and timeout recovery.
+- **Completed:** add deployment polling, post-merge evidence, finding-delta decisions, rollback-required classification, and bounded dashboard workflow previews.
+- **Completed:** add telemetry trend-series contracts, lifecycle execution verification, recovery-time reporting, and production security evidence.
+- **Completed:** add `drill:production-workflows` for deterministic scan, backup, restore, provider, publication, recovery, and release checks.
+- **Completed:** add a 100-slice receiver-independent workflow manifest covering slices 401–500.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.

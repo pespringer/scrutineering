@@ -46,7 +46,8 @@
     "gate:production-promotion": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/production-promotion-gate.py",
     "drill:platform-maturity": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-platform-maturity-drill.py",
     "validate:production-operations": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/validate-production-operations.py",
-    "drill:operations-execution": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-operations-execution-drill.py"
+    "drill:operations-execution": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-operations-execution-drill.py",
+    "drill:production-workflows": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-production-workflow-drill.py"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
