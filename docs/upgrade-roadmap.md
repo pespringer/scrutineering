@@ -648,6 +648,8 @@ The first production release requires green Node and Python suites, authenticate
   Trivy/Grype execution, PostgreSQL persistence, and a persisted findings API.
 - **In progress:** expose fixable findings in scan detail and preserve the guarded
   remediation proposal boundary; execution remains approval-gated.
+- **Completed:** Compose now mounts a disposable remediation checkout and signed
+  evidence directory into the worker and includes Git, Trivy, Grype, and Cosign.
 - **Verified locally:** the Compose stack queued and completed a real `alpine:3.20`
   scan with both scanners and a durable scan record.
 - **Next:** verify findings returned for repeat scans, then exercise the guarded

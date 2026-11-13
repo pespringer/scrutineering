@@ -61,6 +61,9 @@ not bypass the server-side role, evidence, or validation gates.
 When enabled, the worker additionally requires evidence envelope/artifact paths
 and a supported provider/ecosystem pair. It applies only exact-match edits in a
 detached worktree and runs install, test, build, SBOM, and rescan gates in order.
+Compose mounts the disposable host checkout from
+`REMEDIATION_HOST_REPOSITORY_ROOT` at `/workspace/repository` and mounts signed
+evidence from `REMEDIATION_HOST_EVIDENCE_ROOT` at `/workspace/evidence`.
 
 `POST /remediations/{id}/publication-plan` creates a validated handoff envelope
 for the existing GitHub/GitLab publishers. It requires an allowlisted
