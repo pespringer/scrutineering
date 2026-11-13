@@ -184,6 +184,14 @@ Private registry scans require the matching credential variables in `.env`.
 it never prints token values. Scan results retain registry, digest, and
 authentication evidence while keeping credentials redacted.
 
+## Resilience and promotion checks
+
+Run `npm run drill:platform-maturity` for deterministic deployment, failover,
+queue, and scaling checks. The production gate consumes a JSON object through
+`npm run gate:production-promotion -- <checks.json>` and blocks unless tests,
+migrations, deployment, backup freshness, recovery readiness, and
+configuration checks all pass.
+
 The worker schedules a dry-run backup freshness report when
 `BACKUP_METADATA_PATH` points to a JSON metadata file. Dashboard bulk scan and
 finding actions require an operator or security-operator role and are recorded
