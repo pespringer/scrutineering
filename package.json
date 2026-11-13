@@ -42,7 +42,9 @@
     "backup:rotation-report": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/backup-rotation-report.py",
     "registry:diagnostics": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/registry-diagnostics.py",
     "report:release-health": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/release-health-report.py",
-    "drill:receiver-independent-failures": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-receiver-independent-failure-drills.py"
+    "drill:receiver-independent-failures": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-receiver-independent-failure-drills.py",
+    "gate:production-promotion": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/production-promotion-gate.py",
+    "drill:platform-maturity": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-platform-maturity-drill.py"
   },
   "devDependencies": {
     "ajv": "^8.17.1",
