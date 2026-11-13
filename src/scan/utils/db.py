@@ -144,6 +144,8 @@ def persist_findings(
                 if severity_enum:
                     existing.severity = severity_enum
                 existing.title = finding.get("title", existing.title)
+                if finding.get("file_path"):
+                    existing.file_path = finding["file_path"]
                 if finding.get("fixed_version"):
                     existing.fixed_version = finding["fixed_version"]
                     existing.fix_available = True
@@ -155,6 +157,7 @@ def persist_findings(
                     package_name=pkg_name,
                     package_version=finding.get("package_version"),
                     package_type=finding.get("package_type"),
+                    file_path=finding.get("file_path"),
                     cve_id=cve_id,
                     title=finding.get("title", ""),
                     description=finding.get("description"),

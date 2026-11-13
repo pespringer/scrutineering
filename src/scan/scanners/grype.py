@@ -98,6 +98,8 @@ class GrypeScanner(ScannerAdapter):
             # Fix info
             fix_info = vuln.get("fix", {})
             fixed_version = fix_info.get("versions", [None])[0] if fix_info.get("versions") else None
+            locations = artifact.get("locations") or []
+            file_path = next((location.get("path") for location in locations if location.get("path")), None)
 
             finding = ScannerFinding(
                 package_name=artifact.get("name", ""),
@@ -108,6 +110,7 @@ class GrypeScanner(ScannerAdapter):
                 description=vuln.get("description"),
                 severity=severity,
                 fixed_version=fixed_version,
+                file_path=file_path,
             )
             findings.append(finding)
 

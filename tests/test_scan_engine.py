@@ -40,6 +40,7 @@ class TestTrivyParser:
                     "PkgName": "openssl",
                     "InstalledVersion": "1.1.1",
                     "FixedVersion": "1.1.2",
+                    "PkgPath": "requirements.txt",
                     "CVSS": {
                         "nvd": {"V3Score": 9.8, "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"},
                         "redhat": {"V3Score": 8.6, "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"}
@@ -56,6 +57,7 @@ class TestTrivyParser:
         assert f.package_version == "1.1.1"
         assert f.severity == Severity.HIGH
         assert f.fixed_version == "1.1.2"
+        assert f.file_path == "requirements.txt"
         assert f.cvss_scores == {"nvd": 9.8, "redhat": 8.6}
         assert "CVSS:3.1/AV:N/AC:L" in f.cvss_vector
 
@@ -147,7 +149,8 @@ class TestGrypeParser:
                 "artifact": {
                     "name": "libfoo",
                     "version": "2.0.0",
-                    "type": "deb"
+                    "type": "deb",
+                    "locations": [{"path": "package-lock.json"}]
                 }
             }]
         }
@@ -158,6 +161,7 @@ class TestGrypeParser:
         assert f.cve_id == "CVE-2021-5678"
         assert f.severity == Severity.CRITICAL
         assert f.package_name == "libfoo"
+        assert f.file_path == "package-lock.json"
 
     def test_parse_no_matches(self):
         scanner = GrypeScanner(grype_cmd="echo")

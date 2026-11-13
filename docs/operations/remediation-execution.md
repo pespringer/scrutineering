@@ -7,9 +7,11 @@ changes only inside a detached worktree, executes validation commands without a
 shell, captures bounded command output, and returns `ready` only when every
 command passes.
 
-The executor never commits, pushes, or opens a pull request. Parser-aware edit
-adapters and post-change SBOM/rescan commands should be added before enabling
-publication. Guarded `replace_text` edits can build on this boundary. Callers should provide `evidence_envelope`, `evidence_artifact`,
+The executor creates a local commit only after all gates pass. The worker can
+optionally push that commit to a new branch when `REMEDIATION_PUSH_ENABLED=true`;
+it still never merges or opens a pull request. Parser-aware edit adapters and
+post-change SBOM/rescan commands should be added before enabling publication.
+Guarded `replace_text` edits can build on this boundary. Callers should provide `evidence_envelope`, `evidence_artifact`,
 and the provider verifier rather than asserting a boolean in production.
 
 `run_validation_pipeline` defines those publication gates explicitly: install,
@@ -20,8 +22,15 @@ first failed command block the run, and later phases are not attempted.
 published commit. It never executes the rollback; operators must run the plan
 inside an isolated worktree and repeat verification gates before publication.
 Validated execution can optionally create a local commit artifact with
-`commit_message`. The executor never pushes or merges that commit; publication
-remains behind the separate provider policy boundary.
+`commit_message`. The worker's branch publisher refuses existing branch names,
+uses a short-lived Git askpass credential, and records the branch in the
+`execution_ready` event. It does not merge or open a pull request.
+
+To enable the handoff in a disposable checkout, set `REMEDIATION_PUSH_ENABLED=true`
+and provide `GITHUB_TOKEN` with repository contents-write permission. The
+checkout's `origin` must point at the intended repository; use
+`REMEDIATION_GIT_REMOTE` only for an explicitly configured remote. Leave the
+flag false for dry-run execution.
 
 ## Recovery and validation
 

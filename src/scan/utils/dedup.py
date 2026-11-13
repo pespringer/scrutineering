@@ -111,6 +111,7 @@ def _build_merged_finding(
     all_package_types = [f.package_type for f, _ in group if f.package_type]
     all_fixed_versions = [f.fixed_version for f, _ in group if f.fixed_version]
     all_versions = [f.package_version for f, _ in group if f.package_version]
+    all_file_paths = [f.file_path for f, _ in group if f.file_path]
 
     merged = {
         "fingerprint": fingerprint,
@@ -122,6 +123,7 @@ def _build_merged_finding(
         "description": max(all_descriptions, key=len) if all_descriptions else base_finding.description,
         "severity": best_severity.value if best_severity else None,
         "fixed_version": all_fixed_versions[0] if all_fixed_versions else base_finding.fixed_version,
+        "file_path": all_file_paths[0] if all_file_paths else base_finding.file_path,
         "sources": sources,
         "source_count": len(sources),
     }
