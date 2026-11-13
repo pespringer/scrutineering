@@ -183,3 +183,9 @@ Private registry scans require the matching credential variables in `.env`.
 `npm run registry:diagnostics -- ghcr.io` reports missing variable names only;
 it never prints token values. Scan results retain registry, digest, and
 authentication evidence while keeping credentials redacted.
+
+The worker schedules a dry-run backup freshness report when
+`BACKUP_METADATA_PATH` points to a JSON metadata file. Dashboard bulk scan and
+finding actions require an operator or security-operator role and are recorded
+in the audit chain. Findings exports are bounded and include a deterministic
+SHA-256 digest for handoff.
