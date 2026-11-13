@@ -46,3 +46,34 @@ defaults. The checkout must be separate from the main working tree and writable
 by the worker's unprivileged `scanner` user. The worker image includes Git,
 Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
 trusted release workflow.
+
+### Generate the local test bundle
+
+The repository includes `.github/workflows/remediation-evidence.yml`. Run it
+manually from **Actions → Remediation Evidence → Run workflow**, keep `ref` set
+to `main`, and wait for the job to finish. It uses GitHub's OIDC identity to
+Cosign-sign the evidence artifact and uploads a seven-day bundle.
+
+Download and unpack the workflow artifact into the local evidence mount:
+
+```bash
+mkdir -p .local/remediation-evidence
+unzip scrutineering-remediation-evidence-*.zip -d .local/remediation-evidence
+cp .local/remediation-evidence/evidence-artifact.json .local/remediation-evidence/artifact.json
+```
+
+Set the certificate identity in `.env` to the workflow identity used by the
+run (for this repository's `main` workflow):
+
+```dotenv
+COSIGN_CERTIFICATE_IDENTITY=https://github.com/pespringer/scrutineering/.github/workflows/remediation-evidence.yml@refs/heads/main
+COSIGN_OIDC_ISSUER=https://token.actions.githubusercontent.com
+```
+
+The worker consumes only `envelope.json` and `artifact.json`; retain the
+signature and certificate files for audit evidence. Rebuild the worker after
+changing `.env`:
+
+```bash
+docker compose up -d --build celery-worker
+```
