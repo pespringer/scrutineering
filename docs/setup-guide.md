@@ -234,6 +234,16 @@ Run the production maturity drill before a promotion review:
 npm run drill:production-maturity
 ```
 
+Run the v1.0 readiness drill before a release review:
+
+```bash
+npm run drill:v1-readiness
+```
+
+It validates scan orchestration, backup failover, provider lifecycle,
+database/scaling health, identity security, and the receiver-independent v1.0
+promotion gate.
+
 It validates receiver-independent scan orchestration, backup/provider readiness,
 database quality, scaling, identity security, and promotion evidence.
 
