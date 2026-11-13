@@ -8,7 +8,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink } from "lucide-react";
+import { Package, ArrowLeft, Filter, ExternalLink, Check } from "lucide-react";
 import Link from "next/link";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
@@ -25,6 +25,9 @@ export default function ImageDetailPage() {
   const [severityFilter, setSeverityFilter] = useState(initialSeverity);
   const [findingsOffset, setFindingsOffset] = useState(0);
   const [findingsTotal, setFindingsTotal] = useState(0);
+  const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
+  const [canManage, setCanManage] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
 
   const loadData = useCallback(async () => {
@@ -49,6 +52,15 @@ export default function ImageDetailPage() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => { fetch("/api/permissions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((permissions) => setCanManage(Boolean(permissions?.can_manage_scans))).catch(() => undefined); }, []);
+
+  async function acknowledgeSelected() {
+    if (!selectedFindings.length) return;
+    const response = await fetch("/api/findings/bulk-acknowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: selectedFindings }) });
+    setNotice(response.ok ? "Selected findings acknowledged." : "Unable to acknowledge findings.");
+    if (response.ok) { setSelectedFindings([]); loadData(); }
+  }
 
   const handleSeverityChange = (sev: string) => {
     setSeverityFilter(sev);
@@ -137,8 +149,10 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
+      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
+      {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
       <div className="panel rounded-2xl p-4 sm:p-6">
-        <FindingsTable findings={findings} />
+        <FindingsTable findings={findings} selectable={canManage} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />
       </div>
       <div className="mt-4 flex justify-end gap-3 text-xs"><button disabled={findingsOffset === 0} onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))} className="text-cyan-300 disabled:text-slate-700">Previous</button><button disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal} onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)} className="text-cyan-300 disabled:text-slate-700">Next</button></div>
     </Layout>
