@@ -73,6 +73,20 @@
       "title": "Recovery lease outcomes",
       "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_leases_total[10m]))"}],
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Provider request outcomes",
+      "targets": [{"expr": "sum by (provider, outcome) (rate(scrutineering_provider_requests_total[10m]))"}],
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Receiver-independent SLO status",
+      "targets": [{"expr": "scrutineering_slo_pass"}, {"expr": "scrutineering_slo_observed"}, {"expr": "scrutineering_slo_target"}],
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36}
     }
   ]
 }
