@@ -53,3 +53,8 @@ discovered, queued, and suppressed counts. Stale running scans and scanner
 failures are classified for operator review. Configure `BACKUP_ROTATION_KEEP`
 and `BACKUP_MAX_AGE_DAYS`, review the dry-run rotation report, and perform
 restore drills only against isolated targets.
+
+Bulk dashboard actions are bounded to 100 IDs, require an elevated operator
+role, and emit audit events. Scan archiving never touches active work, retry
+creates a new scan identity, and finding acknowledgement/assignment never
+changes the original scanner evidence.
