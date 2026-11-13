@@ -14,7 +14,11 @@ _BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 
 
 def _git(repository: Path, *args: str, check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["git", "-C", str(repository), *args], check=check, capture_output=True, text=True, env=env)
+    git_env = os.environ.copy()
+    git_env.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(repository)})
+    if env:
+        git_env.update(env)
+    return subprocess.run(["git", "-C", str(repository), *args], check=check, capture_output=True, text=True, env=git_env)
 
 
 def publish_remediation_branch(
@@ -54,7 +58,11 @@ def publish_remediation_branch(
                 askpass_path = askpass.name
             os.chmod(askpass_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
             env.update({"GIT_ASKPASS": askpass_path, "GIT_TERMINAL_PROMPT": "0", "SCRUTINEERING_GIT_TOKEN": token})
-        _git(root, "push", remote, f"{branch_name}:refs/heads/{branch_name}", env=env)
+        try:
+            _git(root, "push", remote, f"{branch_name}:refs/heads/{branch_name}", env=env)
+        except subprocess.CalledProcessError as exc:
+            detail = (exc.stderr or exc.stdout or "git push failed").strip().replace("\n", " ")
+            raise RuntimeError(f"git push failed: {detail[:500]}") from exc
     except Exception:
         _git(root, "branch", "-D", branch_name, check=False)
         raise

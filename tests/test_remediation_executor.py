@@ -48,7 +48,7 @@ def test_executor_can_commit_validated_changes_in_isolation(tmp_path):
         [], evidence_verified=True, base_dir=tmp_path, commit_message="Apply validated fix",
     )
     assert result.status == "ready"
-    assert result.commit
+    assert result.commit and len(result.commit) == 40 and all(char in "0123456789abcdef" for char in result.commit)
     assert "config.txt" in result.changed_files
 
 
