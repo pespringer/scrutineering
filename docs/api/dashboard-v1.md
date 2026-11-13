@@ -53,6 +53,11 @@ Execution blocks are persisted as remediation lifecycle events so operators
 can distinguish a policy denial, missing adapter configuration, and an actual
 worker failure.
 
+The remediation detail view exposes these approval-token, approval, and queued
+execution actions. Tokens remain in browser memory only. Publication status is
+rendered with explicit `verified` and `rollback_required` states; the UI does
+not bypass the server-side role, evidence, or validation gates.
+
 When enabled, the worker additionally requires evidence envelope/artifact paths
 and a supported provider/ecosystem pair. It applies only exact-match edits in a
 detached worktree and runs install, test, build, SBOM, and rescan gates in order.
