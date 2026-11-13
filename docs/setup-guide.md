@@ -240,6 +240,16 @@ Run the v1.0 readiness drill before a release review:
 npm run drill:v1-readiness
 ```
 
+Run the v1.1 hardening drill before promotion:
+
+```bash
+npm run drill:v1-1-readiness
+```
+
+It validates scan, registry, database, backup/recovery, provider, capacity,
+identity, security, Kubernetes, compliance, and promotion controls without an
+external alert receiver.
+
 It validates scan orchestration, backup failover, provider lifecycle,
 database/scaling health, identity security, and the receiver-independent v1.0
 promotion gate.

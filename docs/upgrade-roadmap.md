@@ -614,6 +614,14 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add a 100-slice receiver-independent v1.0 manifest covering slices 601–700.
 - **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
 
+### Slices 701–900 — v1.1 hardening and promotion
+
+- **Completed:** add scan/registry/database reliability contracts, cache/replay policies, lifecycle quality checks, backup recovery, provider lifecycle, and publication state gates.
+- **Completed:** add dashboard accessibility, telemetry quality, SLO, capacity, identity/audit, security baseline, disaster-recovery, and Kubernetes readiness contracts.
+- **Completed:** add compliance traceability, v1.1 promotion scoring, and a 200-slice receiver-independent manifest.
+- **Completed:** add `drill:v1-1-readiness` for the v1.1 hardening and promotion checks.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.
