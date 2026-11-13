@@ -133,3 +133,21 @@ groups:
         annotations:
           summary: "Scrutineering recovery SLO is breached"
           runbook: "docs/operations/platform-hardening.md"
+      - alert: ScrutineeringProviderUnavailable
+        expr: increase(scrutineering_provider_requests_total{outcome=~"unavailable|permission_denied"}[15m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "Provider adapter requests are failing"
+          runbook: "docs/operations/staging-provider-post-merge.md"
+      - alert: ScrutineeringSloBreach
+        expr: scrutineering_slo_pass == 0
+        for: 10m
+        labels:
+          severity: warning
+          owner: platform-security
+        annotations:
+          summary: "A receiver-independent service SLO is breached"
+          runbook: "docs/operations/production-readiness-checklist.md"
