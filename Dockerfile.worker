@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system deps needed for psycopg2 and scanner binaries
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libpq-dev gcc curl jq git && \
+      libpq-dev gcc curl jq git nodejs npm && \
     rm -rf /var/lib/apt/lists/*
 
 # Install a pinned Trivy release (avoid executing a moving install script).
@@ -24,6 +24,15 @@ RUN curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERS
 ARG COSIGN_VERSION=3.1.4
 RUN curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
     -o /usr/local/bin/cosign && chmod 0755 /usr/local/bin/cosign
+
+# Install a pinned Syft release for the SBOM validation gate.
+ARG SYFT_VERSION=1.57.1
+ARG SYFT_SHA256=bf52519eb57f675d47c07d43213cb6dff6449f3d6d1147ff6701ed91f44eef0c
+RUN curl -sSfL "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz" \
+    -o /tmp/syft.tar.gz && \
+    echo "${SYFT_SHA256}  /tmp/syft.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/syft.tar.gz -C /usr/local/bin syft && \
+    rm -f /tmp/syft.tar.gz
 
 # Install Python deps
 COPY requirements.txt ./
