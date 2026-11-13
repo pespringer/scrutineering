@@ -137,6 +137,9 @@ def persist_findings(
             ).scalar_one_or_none()
 
             if existing:
+                # Reattach recurring findings to the scan that most recently
+                # observed them so scan-detail views remain accurate.
+                existing.scan_id = scan_id
                 existing.last_seen = now
                 if severity_enum:
                     existing.severity = severity_enum

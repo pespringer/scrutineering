@@ -160,6 +160,7 @@ def _severity_counts(findings: list[ScanFinding]) -> dict[str, int]:
 def _scan_payload(scan: Scan) -> dict:
     return {
         "scan_id": scan.scan_id,
+        "image_id": getattr(scan, "image_id", None),
         "image_name": scan.image.full_name if scan.image else "unknown",
         "status": _value(scan.status),
         "started_at": _iso(scan.started_at),
@@ -462,6 +463,30 @@ def scan_status(scan_id: str) -> dict:
         if scan is None:
             raise HTTPException(status_code=404, detail="scan_not_found")
         return _scan_payload(scan)
+
+
+@router.get("/scans/{scan_id}/findings")
+def scan_findings(
+    scan_id: str,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    severity: str | None = Query(default=None),
+    fixable_only: bool = Query(default=False),
+) -> dict:
+    """Return the persisted findings produced by one live scan."""
+    severity_value = _severity_filter(severity)
+    with get_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).first()
+        if scan is None:
+            raise HTTPException(status_code=404, detail="scan_not_found")
+        query = session.query(ScanFinding).filter(ScanFinding.scan_id == scan_id)
+        if severity_value:
+            query = query.filter(ScanFinding.severity == severity_value.value)
+        if fixable_only:
+            query = query.filter(ScanFinding.fix_available.is_(True), ScanFinding.remediated.is_(False))
+        total = query.order_by(None).count()
+        findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
+    return {"scan_id": scan_id, "image_id": scan.image_id, **_page([_finding_payload(finding) for finding in findings], limit, offset, total)}
 
 
 @router.post("/scans", status_code=202)
