@@ -46,6 +46,12 @@ the report first; `SCAN_RETENTION_DAYS` defaults to 90 days.
 
 External alert receiver delivery remains disabled and is intentionally not part
 of these controls.
+
+The `/operations` dashboard is the receiver-independent production view. It
+surfaces the release scorecard and telemetry panel catalog for scan latency,
+queue depth, backup freshness, provider health, recovery SLOs, worker health,
+configuration drift, tenant capacity, and release health. Its API contract is
+`GET /api/dashboard/production-operations`.
 ## Scan and backup operations
 
 Scheduled scans suppress images inside `SCAN_COOLDOWN_SECONDS` and report

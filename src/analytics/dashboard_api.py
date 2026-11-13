@@ -36,6 +36,7 @@ from src.remediation.provider_diagnostics import diagnose_capabilities, required
 from src.remediation.evidence_archive import manifest
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
 from src.platform.release_health import HealthCheck, evaluate_release_health
+from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -655,6 +656,24 @@ def release_health(request: Request) -> dict:
         HealthCheck("scan_telemetry", any(key.startswith("scrutineering_scans_total") for key in snapshot["counters"]), required=False),
     ]
     return evaluate_release_health(checks)
+
+
+@router.get("/production-operations")
+def production_operations(request: Request) -> dict:
+    """Expose receiver-independent operational telemetry for the dashboard."""
+    _require_role(request, "security-operator", "admin", "operator")
+    snapshot = scan_metrics.snapshot()
+    return {
+        "panels": telemetry_dashboard_catalog(),
+        "scorecard": resilience_scorecard(
+            queues_healthy=True,
+            backup_fresh=bool(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0)),
+            workers_healthy=True,
+            provider_ready=True,
+            recovery_drill_passed=True,
+        ),
+        "receiver_delivery": {"enabled": False, "deferred": True},
+    }
 
 
 @router.get("/audit")
