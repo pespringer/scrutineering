@@ -7,6 +7,7 @@ from typing import Optional
 
 from .base import ScannerAdapter, ScannerFinding, ScannerError
 from src.scan.models import FindingSource, Severity
+from src.scan.source_target import filesystem_path, relative_source_path
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +47,13 @@ class GrypeScanner(ScannerAdapter):
         Raises:
             ScannerError: If Grype fails to run or produces malformed output.
         """
+        root = filesystem_path(image_name)
+        scan_target = f"dir:{root}" if root is not None else image_name
         result = await asyncio.create_subprocess_exec(
             self.grype_cmd,
             "-o", "json",
             "-q",
-            image_name,
+            scan_target,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -74,9 +77,9 @@ class GrypeScanner(ScannerAdapter):
             )
 
         if len(stdout) > self.max_output_bytes: raise ScannerError("grype", "scan output exceeds size limit")
-        return self._parse_grype_output(stdout.decode(errors="replace"))
+        return self._parse_grype_output(stdout.decode(errors="replace"), root_path=root)
 
-    def _parse_grype_output(self, raw_json: str) -> list[ScannerFinding]:
+    def _parse_grype_output(self, raw_json: str, root_path=None) -> list[ScannerFinding]:
         """Parse Grype JSON output into normalized findings."""
         try:
             data = json.loads(raw_json)
@@ -99,7 +102,8 @@ class GrypeScanner(ScannerAdapter):
             fix_info = vuln.get("fix", {})
             fixed_version = fix_info.get("versions", [None])[0] if fix_info.get("versions") else None
             locations = artifact.get("locations") or []
-            file_path = next((location.get("path") for location in locations if location.get("path")), None)
+            raw_path = next((location.get("path") for location in locations if location.get("path")), None)
+            file_path = relative_source_path(raw_path, root_path) if root_path else None
 
             finding = ScannerFinding(
                 package_name=artifact.get("name", ""),

@@ -32,6 +32,7 @@ from src.scan.models import Severity
 from src.db.connection import get_session as get_db_session
 from src.db.models import Image, Scan, ScanStatus
 from src.scan.image_identity import parse_image_reference
+from src.scan.source_target import storage_reference
 from src.scan.scheduled import schedule_active_scans
 from src.telemetry.scan_metrics import record_scan, record_scan_latency
 
@@ -259,6 +260,7 @@ def run_scan(
     scan_id = scan_id or str(uuid.uuid4())
     scanners = scanners or ["trivy", "grype"]
 
+    storage_name = storage_reference(image_name)
     logger.info(
         "Starting scan %s for image '%s' (scanners: %s)",
         scan_id,
@@ -266,7 +268,7 @@ def run_scan(
         scanners,
     )
 
-    _safe_update_scan_record(scan_id, image_name, ScanStatus.RUNNING)
+    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING)
 
     # Task state tracking
     self.update_state(
@@ -310,7 +312,7 @@ def run_scan(
                 "errors": errors,
             },
         )
-        _safe_update_scan_record(scan_id, image_name, ScanStatus.FAILED,
+        _safe_update_scan_record(scan_id, storage_name, ScanStatus.FAILED,
                                  error_message="all configured scanners failed")
         return {
             "scan_id": scan_id,
@@ -341,7 +343,7 @@ def run_scan(
         try:
             persisted = persist_findings(
                 scan_id=scan_id,
-                image_name=image_name,
+                image_name=storage_name,
                 deduped_findings=deduped,
                 source_name=",".join(scanners_completed),
             )
@@ -364,7 +366,7 @@ def run_scan(
         if severity in counts:
             counts[severity] += 1
     _safe_update_scan_record(
-        scan_id, image_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
+        scan_id, storage_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
         total_findings=len(deduped), counts=counts,
         error_message="; ".join(error.get("error", "") for error in errors) or None,
     )

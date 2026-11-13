@@ -57,7 +57,7 @@ class TestTrivyParser:
         assert f.package_version == "1.1.1"
         assert f.severity == Severity.HIGH
         assert f.fixed_version == "1.1.2"
-        assert f.file_path == "requirements.txt"
+        assert f.file_path is None, "image scans must not invent repository paths"
         assert f.cvss_scores == {"nvd": 9.8, "redhat": 8.6}
         assert "CVSS:3.1/AV:N/AC:L" in f.cvss_vector
 
@@ -66,6 +66,12 @@ class TestTrivyParser:
         clean_json = '{"Results": []}'
         findings = scanner._parse_trivy_output(clean_json)
         assert findings == []
+
+    def test_parse_filesystem_target_as_source_path(self, tmp_path):
+        scanner = TrivyScanner(trivy_cmd="echo")
+        raw = '{"Results": [{"Target": "package-lock.json", "Type": "npm", "Vulnerabilities": [{"VulnerabilityID": "CVE-FS", "Severity": "HIGH", "PkgName": "lodash", "InstalledVersion": "4.17.20", "FixedVersion": "4.17.21"}]}]}'
+        findings = scanner._parse_trivy_output(raw, root_path=tmp_path)
+        assert findings[0].file_path == "package-lock.json"
 
     def test_parse_multiple_results(self):
         scanner = TrivyScanner(trivy_cmd="echo")
@@ -161,7 +167,13 @@ class TestGrypeParser:
         assert f.cve_id == "CVE-2021-5678"
         assert f.severity == Severity.CRITICAL
         assert f.package_name == "libfoo"
-        assert f.file_path == "package-lock.json"
+        assert f.file_path is None, "image scans must not invent repository paths"
+
+    def test_parse_filesystem_locations_as_relative_paths(self, tmp_path):
+        scanner = GrypeScanner(grype_cmd="echo")
+        raw = '{"matches": [{"vulnerability": {"id": "CVE-FS", "severity": "High"}, "artifact": {"name": "requests", "version": "2.0", "type": "python", "locations": [{"path": "' + str(tmp_path / "requirements.txt") + '"}]}}]}'
+        findings = scanner._parse_grype_output(raw, root_path=tmp_path)
+        assert findings[0].file_path == "requirements.txt"
 
     def test_parse_no_matches(self):
         scanner = GrypeScanner(grype_cmd="echo")
