@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, ArrowUpRight, ClipboardList, LayoutDashboard, Radar, ShieldCheck } from "lucide-react";
+import { Activity, ArrowUpRight, ClipboardList, Gauge, LayoutDashboard, Radar, ShieldCheck } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,6 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink>
             <NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scan history</NavLink>
             <NavLink href="/audit" active={pathname.startsWith("/audit")} icon={<ClipboardList className="h-4 w-4" />}>Audit trail</NavLink>
+            <NavLink href="/operations" active={pathname.startsWith("/operations")} icon={<Gauge className="h-4 w-4" />}>Operations</NavLink>
             <NavLink href="/remediations" active={pathname.startsWith("/remediations")} icon={<ShieldCheck className="h-4 w-4" />}>Remediations</NavLink>
           </nav>
           <div className="mt-auto rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
@@ -33,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="hidden items-center gap-2 text-sm text-slate-400 sm:flex"><Activity className="h-4 w-4 text-emerald-400" /> Live posture monitoring</div>
               <div className="ml-auto flex items-center gap-3"><span className="hidden rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400 sm:inline-flex">v0.1.0 · Local</span><div className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-xs font-semibold text-cyan-300">PS</div></div>
             </div>
-            <nav className="flex gap-1 overflow-x-auto border-t border-slate-800/50 px-5 py-2 lg:hidden"><NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink><NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scans</NavLink><NavLink href="/audit" active={pathname.startsWith("/audit")} icon={<ClipboardList className="h-4 w-4" />}>Audit</NavLink><NavLink href="/remediations" active={pathname.startsWith("/remediations")} icon={<ShieldCheck className="h-4 w-4" />}>Fixes</NavLink></nav>
+          <nav className="flex gap-1 overflow-x-auto border-t border-slate-800/50 px-5 py-2 lg:hidden"><NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink><NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scans</NavLink><NavLink href="/audit" active={pathname.startsWith("/audit")} icon={<ClipboardList className="h-4 w-4" />}>Audit</NavLink><NavLink href="/operations" active={pathname.startsWith("/operations")} icon={<Gauge className="h-4 w-4" />}>Ops</NavLink><NavLink href="/remediations" active={pathname.startsWith("/remediations")} icon={<ShieldCheck className="h-4 w-4" />}>Fixes</NavLink></nav>
           </header>
           <main className="mx-auto w-full max-w-[1360px] flex-1 px-5 py-8 sm:px-8 lg:px-10">{children}</main>
           <footer className="border-t border-slate-800/70 px-5 py-5 text-xs text-slate-600 sm:px-8 lg:px-10"><div className="mx-auto flex max-w-[1360px] items-center justify-between"><span>Container Sentinel · Security posture control plane</span><span className="hidden items-center gap-1 sm:flex">Protected by <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /></span></div></footer>

@@ -560,6 +560,18 @@ The first production release requires green Node and Python suites, authenticate
 - **Next:** add authenticated provider fixtures, deeper database restore execution, and production telemetry dashboard adoption.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
 
+### Slices 201–300 — Live operations and production telemetry
+
+- **Completed:** add deterministic live-scan evidence contracts covering terminal states, cancellation, cache behavior, cleanup verification, and staging evidence.
+- **Completed:** add encrypted backup automation planning, freshness/retention checks, restore execution preflight, checksum and migration compatibility gates, and fail-closed confirmation requirements.
+- **Completed:** add authenticated GitHub/GitLab fixture contracts, permission and branch-protection readiness checks, provider response/retry boundaries, and publication reconciliation decisions.
+- **Completed:** add post-merge finding/digest reconciliation, rollback-readiness evidence, bounded bulk workflow previews, and destructive-action confirmation requirements.
+- **Completed:** add a production operations dashboard with scan, queue, backup, provider, recovery, tenant, drift, worker, and release-health telemetry panels.
+- **Completed:** add lifecycle archive previews, bounded batch planning, resilience scorecards, and a 100-slice receiver-independent validation manifest.
+- **Completed:** expose receiver-independent production operations through `/api/dashboard/production-operations` and `/operations` without enabling external alert delivery.
+- **Completed:** add `validate:production-operations` to the local release workflow and cover the contracts with regression tests.
+- **Deferred:** live external alert receiver delivery, receiver retries, and receiver evidence remain separate operator-gated slices.
+
 ### Slices 71–100 — Provider, recovery, and observability operations
 
 - **Completed:** add provider capability/permission diagnostics, outage classification, response outcome metrics, and safe dashboard diagnostics.

@@ -204,3 +204,17 @@ operators. Set only permission names in `GITHUB_GRANTED_PERMISSIONS` or
 `GITLAB_GRANTED_PERMISSIONS`; never place tokens or token values in those
 variables. The receiver-independent release report is available through
 `npm run report:release-health -- <checks.json>`.
+
+## Production operations dashboard
+
+The receiver-independent operations view is available at `/operations` when the
+dashboard is running. It reports scan, queue, backup, provider, recovery,
+tenant, drift, worker, and release-health panel definitions through
+`/api/dashboard/production-operations`. Validate the checked-in contract with:
+
+```bash
+npm run validate:production-operations
+```
+
+External alert delivery remains deferred and is intentionally not enabled by
+this dashboard or its local validation command.
