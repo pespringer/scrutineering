@@ -43,6 +43,7 @@ def execute_remediation(
     approval_token: str | None = None,
     approval_secret: str | None = None,
     remediation_id: str | None = None,
+    validation_working_directory: str | Path | None = None,
 ) -> RemediationExecution:
     """Apply supplied changes and run all validation commands in a worktree."""
     if evidence_envelope is not None:
@@ -71,6 +72,14 @@ def execute_remediation(
 
     try:
         with RemediationWorktree(repository, base_dir) as worktree:
+            validation_cwd = worktree
+            if validation_working_directory:
+                relative_validation_dir = Path(validation_working_directory)
+                if relative_validation_dir.is_absolute() or ".." in relative_validation_dir.parts:
+                    return RemediationExecution(status="blocked", worktree=str(worktree), error="validation working directory must be relative")
+                validation_cwd = (worktree / relative_validation_dir).resolve()
+                if worktree not in validation_cwd.parents or not validation_cwd.is_dir():
+                    return RemediationExecution(status="blocked", worktree=str(worktree), error="validation working directory is unavailable")
             for change in changes:
                 apply_change(worktree, change)
             command_results = []
@@ -78,7 +87,7 @@ def execute_remediation(
                 if not command:
                     return RemediationExecution(status="failed", worktree=str(worktree), error="empty validation command")
                 result = subprocess.run(
-                    list(command), cwd=worktree, check=False, capture_output=True,
+                    list(command), cwd=validation_cwd, check=False, capture_output=True,
                     text=True, timeout=timeout_seconds,
                 )
                 command_results.append({
@@ -108,7 +117,10 @@ def execute_remediation(
                     ["git", "-c", "user.name=Scrutineering", "-c", "user.email=security@example.invalid", "commit", "-m", commit_message],
                     cwd=worktree, check=True, capture_output=True, text=True,
                 )
-                commit = committed.stdout.strip().split()[-1]
+                commit = subprocess.run(
+                    ["git", "rev-parse", "HEAD"], cwd=worktree, check=True,
+                    capture_output=True, text=True,
+                ).stdout.strip()
             return RemediationExecution(status="ready", worktree=str(worktree), commands=command_results, changed_files=changed_files, commit=commit)
     except subprocess.TimeoutExpired as exc:
         return RemediationExecution(status="failed", error=f"validation timed out: {exc.cmd}")

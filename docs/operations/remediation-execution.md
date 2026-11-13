@@ -114,3 +114,7 @@ docker compose exec celery-worker python -c \
 Only source paths explicitly returned by a filesystem scanner can become
 remediation actions; image findings without a repository coordinate continue to
 block safely.
+
+For monorepos, set `REMEDIATION_VALIDATION_WORKING_DIRECTORY` to a safe
+relative project directory such as `services/api`. Validation runs there while
+the Git worktree and changed-file guard remain rooted at the repository.

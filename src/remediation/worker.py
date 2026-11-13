@@ -122,6 +122,7 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
                 evidence_artifact=artifact,
                 evidence_env=dict(os.environ),
                 remediation_id=str(remediation_id),
+                validation_working_directory=os.environ.get("REMEDIATION_VALIDATION_WORKING_DIRECTORY") or None,
             )
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             return _blocked(session, remediation_id, f"execution_plan_invalid:{exc}")
@@ -138,7 +139,7 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
                     token=os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"),
                     remote=os.environ.get("REMEDIATION_GIT_REMOTE", "origin"),
                 )
-            except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
                 return _blocked(session, remediation_id, f"branch_publication_failed:{exc}")
             remediation.branch_name = published["branch_name"]
         publication = None

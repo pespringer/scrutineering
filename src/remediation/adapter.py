@@ -56,6 +56,7 @@ def execute_repository_adapter(
     evidence_env: dict[str, str] | None = None,
     commit_message: str = "Apply verified security remediation",
     remediation_id: str,
+    validation_working_directory: str | Path | None = None,
 ) -> RemediationExecution:
     changes = build_exact_match_changes(actions)
     return execute_remediation(
@@ -69,4 +70,5 @@ def execute_repository_adapter(
         evidence_env=evidence_env,
         commit_message=commit_message,
         remediation_id=remediation_id,
+        validation_working_directory=validation_working_directory,
     )
