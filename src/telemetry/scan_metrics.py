@@ -67,3 +67,31 @@ def record_recovery_lease(outcome: str) -> None:
     if outcome not in {"acquired", "reclaimed", "contended"}:
         raise ValueError("unknown recovery lease outcome")
     scan_metrics.increment("scrutineering_recovery_leases_total", labels={"outcome": outcome})
+
+
+def set_queue_health(queue: str, depth: int, oldest_age_seconds: int) -> None:
+    if not queue or depth < 0 or oldest_age_seconds < 0:
+        raise ValueError("invalid queue health")
+    labels = {"queue": queue}
+    scan_metrics.set_gauge("scrutineering_queue_depth", depth, labels=labels)
+    scan_metrics.set_gauge("scrutineering_queue_oldest_age_seconds", oldest_age_seconds, labels=labels)
+
+
+def set_backup_last_success(timestamp: float) -> None:
+    if timestamp < 0:
+        raise ValueError("backup timestamp must not be negative")
+    scan_metrics.set_gauge("scrutineering_backup_last_success_timestamp", timestamp)
+
+
+def record_provider_request(provider: str, outcome: str) -> None:
+    if not provider or outcome not in {"success", "permission_denied", "not_found", "rate_limited", "unavailable", "client_error"}:
+        raise ValueError("invalid provider request metric")
+    scan_metrics.increment("scrutineering_provider_requests_total", labels={"provider": provider, "outcome": outcome})
+
+
+def record_slo(name: str, observed: float, target: float, passed: bool) -> None:
+    if not name or observed < 0 or target < 0:
+        raise ValueError("invalid SLO metric")
+    scan_metrics.set_gauge("scrutineering_slo_observed", observed, labels={"slo": name})
+    scan_metrics.set_gauge("scrutineering_slo_target", target, labels={"slo": name})
+    scan_metrics.set_gauge("scrutineering_slo_pass", int(passed), labels={"slo": name})
