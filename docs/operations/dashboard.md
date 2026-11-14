@@ -61,6 +61,10 @@ The dashboard is organized as a security operations console:
   ping results, and backup-evidence freshness. Provider publication,
   deployment observation, and external alert delivery remain explicitly
   labeled as deferred rather than counted as healthy.
+- Operations also displays live registry summaries for API request volume,
+  5xx errors, error rate, P95 API latency, scan failures, and runtime dead
+  letters. Empty metrics are represented as zero or unavailable; they are not
+  inferred to be healthy.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
   not blank screens.
 

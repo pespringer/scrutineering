@@ -19,6 +19,7 @@ from src.platform.production_operations import (
     restore_execution_status,
     scan_edge_assertions,
     telemetry_dashboard_catalog,
+    telemetry_dashboard_summary,
 )
 
 
@@ -71,6 +72,26 @@ def test_telemetry_catalog_and_scorecard_are_complete():
     assert len(telemetry_dashboard_catalog()) >= 10
     result = resilience_scorecard(queues_healthy=True, backup_fresh=True, workers_healthy=True, provider_ready=True, recovery_drill_passed=False)
     assert result["status"] == "blocked"
+
+
+def test_telemetry_dashboard_summary_aggregates_live_values():
+    summary = telemetry_dashboard_summary({
+        "counters": {
+            'scrutineering_http_requests_total|method="GET",route="/health",status="200"': 3,
+            'scrutineering_http_requests_total|method="GET",route="/api",status="500"': 1,
+            "scrutineering_scans_total|status=failed": 2,
+            "scrutineering_runtime_events_dead_lettered_total|": 1,
+        },
+        "histograms": {"scrutineering_http_request_duration_seconds|method=GET,route=/health": [0.1, 0.2, 0.4]},
+    })
+    assert summary == {
+        "http_requests": 4,
+        "http_5xx": 1,
+        "http_error_rate": 0.25,
+        "http_latency_p95_seconds": 0.4,
+        "scan_failures": 2,
+        "runtime_dead_letters": 1,
+    }
 
 
 def test_resilience_scorecard_excludes_deferred_checks_when_unavailable():

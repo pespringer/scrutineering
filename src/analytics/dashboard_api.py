@@ -45,7 +45,7 @@ from src.remediation.deployment_config import configured_deployment_target
 from src.remediation.deployment_tasks import collect_deployment_observation, probe_deployment_observation
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
 from src.platform.release_health import HealthCheck, evaluate_release_health
-from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog
+from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog, telemetry_dashboard_summary
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -1459,6 +1459,7 @@ def production_operations(request: Request) -> dict:
     provider_states = {provider: credential_diagnostics(provider) for provider in ("github", "gitlab")}
     return {
         "panels": telemetry_dashboard_catalog(),
+        "telemetry": telemetry_dashboard_summary(snapshot),
         "scorecard": resilience_scorecard(
             queues_healthy=broker_reachable,
             backup_fresh=backup_fresh,

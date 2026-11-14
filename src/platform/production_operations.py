@@ -218,6 +218,38 @@ def telemetry_dashboard_catalog() -> list[dict[str, object]]:
     return [{"key": p.key, "title": p.title, "metric": p.metric, "unit": p.unit, "threshold": p.threshold} for p in TELEMETRY_PANELS]
 
 
+def telemetry_dashboard_summary(snapshot: dict[str, dict[str, object]]) -> dict[str, object]:
+    """Condense registry series into safe, operator-facing dashboard values."""
+    counters = snapshot.get("counters", {})
+    histograms = snapshot.get("histograms", {})
+
+    def total(prefix: str) -> float:
+        return sum(float(value) for key, value in counters.items() if key.split("|", 1)[0] == prefix)
+
+    latencies = [
+        float(value)
+        for key, values in histograms.items()
+        if key.split("|", 1)[0] == "scrutineering_http_request_duration_seconds"
+        for value in values
+    ]
+    latencies.sort()
+    p95 = latencies[min(len(latencies) - 1, int(len(latencies) * 0.95))] if latencies else None
+    requests = total("scrutineering_http_requests_total")
+    errors = sum(
+        float(value)
+        for key, value in counters.items()
+        if key.startswith("scrutineering_http_requests_total|") and 'status="5' in key
+    )
+    return {
+        "http_requests": int(requests),
+        "http_5xx": int(errors),
+        "http_error_rate": round(errors / requests, 4) if requests else 0,
+        "http_latency_p95_seconds": p95,
+        "scan_failures": total("scrutineering_scans_total"),
+        "runtime_dead_letters": total("scrutineering_runtime_events_dead_lettered_total"),
+    }
+
+
 @dataclass(frozen=True)
 class LifecyclePlan:
     archive_before: datetime
