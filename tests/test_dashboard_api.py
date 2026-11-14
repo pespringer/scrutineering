@@ -197,6 +197,7 @@ def test_finding_state_prioritizes_suppression_and_preserves_reopen_state():
     assert _finding_state(finding) == "open"
     finding.acknowledged = True
     assert _finding_state(finding) == "acknowledged"
+    assert _finding_state(finding, policy_exempt=True) == "policy_exempt"
     finding.reopened_at = datetime(2026, 1, 1)
     assert _finding_state(finding) == "reopened"
     finding.resolved_at = datetime(2026, 1, 2)
