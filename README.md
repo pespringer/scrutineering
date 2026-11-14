@@ -237,6 +237,8 @@ bounded recurring scan schedules; see [Finding Governance](docs/operations/findi
 and [Scan Schedules](docs/operations/scan-schedules.md).
 The [Policy Engine](docs/operations/policy-engine.md) evaluates enabled
 severity and image policies on completed scans and records each result.
+The [Compliance Reports](docs/operations/compliance-reports.md) page generates
+durable NIST, PCI DSS, SOC 2, HIPAA, and GDPR evidence snapshots from live data.
 The Audit Trail is available at `/audit`; local operator access defaults to the
 roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
 verified OIDC ingress identity.
@@ -287,6 +289,7 @@ remediation timeline.
 - [Finding Governance](docs/operations/finding-governance.md)
 - [Scan Schedules](docs/operations/scan-schedules.md)
 - [Policy Engine](docs/operations/policy-engine.md)
+- [Compliance Reports](docs/operations/compliance-reports.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
 - [Staging Readiness Validation](docs/operations/staging-readiness.md)

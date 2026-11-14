@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
+from src.analytics.dashboard_api import ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -105,6 +105,16 @@ def test_policy_request_requires_bounded_name():
     assert PolicyRequest(name="release gate", policy_type="severity_threshold", rules={"max_critical": 0}).policy_type == "severity_threshold"
     with pytest.raises(ValueError):
         PolicyRequest(name="x", policy_type="severity_threshold")
+
+
+def test_compliance_report_request_limits_framework_and_format():
+    request = ComplianceReportRequest(framework="soc2", output_format="markdown")
+    assert request.framework == "soc2"
+    assert request.output_format == "markdown"
+    with pytest.raises(ValueError):
+        ComplianceReportRequest(framework="iso27001")
+    with pytest.raises(ValueError):
+        ComplianceReportRequest(framework="nist", output_format="pdf")
 
 
 def test_deployment_evidence_request_is_digest_only():
