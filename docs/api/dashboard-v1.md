@@ -94,6 +94,10 @@ or rollback-required decision. When the publication has a correlated
 post-merge scan, `POST /remediations/publications/{publication_id}/deployment-evidence`
 accepts only expected/deployed digests and derives the scan status and finding
 counts from that persisted scan; repeated evidence keys are replay-safe.
+Release workflows can submit the same evidence through
+`POST /deployment-evidence` using `x-deployment-event-id` and an
+`x-deployment-signature: sha256=...` HMAC header. The server validates the
+signature and replay ID before looking up the persisted scan.
 
 Recovery status updates use `POST
 /remediations/publications/{publication_id}/recovery/{recovery_id}/status` with

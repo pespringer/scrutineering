@@ -35,6 +35,7 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/remediations/publications/{publication_id}/recovery" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/evidence" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/deployment-evidence" in paths
+    assert "/api/dashboard/deployment-evidence" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/alert-evidence" in paths
     assert "/api/dashboard/remediations/publications/{publication_id}/evidence-export" in paths
     assert "/api/dashboard/remediations/alert-deliveries" in paths
@@ -66,5 +67,6 @@ def test_provider_webhook_path_uses_hmac_boundary():
 
     assert is_provider_webhook_path("/api/dashboard/webhooks/github")
     assert is_provider_webhook_path("/api/dashboard/webhooks/gitlab")
+    assert is_provider_webhook_path("/api/dashboard/deployment-evidence")
     assert not is_provider_webhook_path("/api/dashboard/remediations")
     assert not is_provider_webhook_path("/api/dashboard/webhooks/github/extra")

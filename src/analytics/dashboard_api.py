@@ -35,6 +35,7 @@ from src.remediation.provider_auth import credential_diagnostics
 from src.remediation.provider_diagnostics import diagnose_capabilities, required_permissions
 from src.remediation.evidence_archive import manifest
 from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
+from src.remediation.deployment_evidence import verify_deployment_signature
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
 from src.platform.release_health import HealthCheck, evaluate_release_health
 from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog
@@ -113,6 +114,10 @@ class DeploymentEvidenceRequest(BaseModel):
     observed_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
     merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
     evidence_key: str = Field(default="", max_length=128)
+
+
+class DeploymentEvidenceCallbackRequest(DeploymentEvidenceRequest):
+    publication_id: int = Field(gt=0)
 
 
 class PublicationRecoveryRequest(BaseModel):
@@ -1212,6 +1217,49 @@ def attach_deployment_evidence(publication_id: int, payload: DeploymentEvidenceR
             findings_before=findings_before, findings_after=scan.total_findings or 0,
             merge_commit=payload.merge_commit, evidence_key=payload.evidence_key,
         )
+
+
+@router.post("/deployment-evidence")
+async def receive_deployment_evidence(request: Request) -> dict:
+    """Accept signed deployment output from a release workflow or deployer."""
+    event_id = request.headers.get("x-deployment-event-id", "")
+    signature = request.headers.get("x-deployment-signature", "")
+    secret = os.environ.get("DEPLOYMENT_EVIDENCE_SECRET", "")
+    body = await request.body()
+    if not event_id or not verify_deployment_signature(body=body, signature=signature, secret=secret):
+        record_provider_callback("rejected")
+        raise HTTPException(status_code=401, detail="invalid_deployment_signature")
+    try:
+        payload = DeploymentEvidenceCallbackRequest.model_validate(json.loads(body.decode()))
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="invalid_deployment_payload") from exc
+    with get_session() as session:
+        existing_event = session.query(RemediationWebhookEvent).filter_by(provider="deployment", event_id=event_id).first()
+        if existing_event:
+            record_provider_callback("duplicate")
+            return {"accepted": True, "duplicate": True, "event_id": event_id}
+        publication = session.get(RemediationPublication, payload.publication_id)
+        if publication is None:
+            record_provider_callback("unmatched")
+            return {"accepted": True, "matched": False, "event_id": event_id}
+        if publication.status != "merged":
+            raise HTTPException(status_code=409, detail="publication_not_merged")
+        scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first() if publication.post_merge_scan_id else None
+        if scan is None:
+            raise HTTPException(status_code=409, detail="post_merge_scan_not_found")
+        scan_status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
+        if scan_status in {ScanStatus.PENDING.value, ScanStatus.RUNNING.value}:
+            raise HTTPException(status_code=409, detail="post_merge_scan_pending")
+        session.add(RemediationWebhookEvent(remediation_id=publication.remediation_id, provider="deployment", event_id=event_id, event_type="deployment_evidence"))
+        result = _attach_publication_evidence(
+            session, publication, expected_digest=payload.expected_digest,
+            observed_digest=payload.observed_digest, scan_status=scan_status,
+            findings_before=publication.findings_before if publication.findings_before is not None else publication.remediation.finding_count,
+            findings_after=scan.total_findings or 0, merge_commit=payload.merge_commit or publication.merge_commit,
+            evidence_key=payload.evidence_key or event_id,
+        )
+        record_provider_callback("accepted")
+        return {**result, "event_id": event_id, "source": "deployment_callback"}
 
 
 @router.post("/remediations/publications/{publication_id}/alert-evidence")
