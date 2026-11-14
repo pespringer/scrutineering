@@ -4,6 +4,11 @@
 
 Turn Scrutineering into a trustworthy security control plane: one coherent API and dashboard, evidence-backed vulnerability decisions, guarded autonomous remediation, and production-grade runtime monitoring.
 
+The current practical completion plan is documented in
+[`docs/meaningful-milestone-plan.md`](meaningful-milestone-plan.md). It
+prioritizes authenticated access, real container scanning, finding lifecycle,
+and one verified remediation loop before commercial expansion.
+
 ## Current Baseline
 
 - Node.js planner logic and Python scanning/runtime services are split across separate control paths.

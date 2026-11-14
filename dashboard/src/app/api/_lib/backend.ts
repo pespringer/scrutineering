@@ -24,12 +24,14 @@ export async function backendJson<T>(path: string, init?: RequestInit): Promise<
 
 export function trustedIdentityHeaders(request: Request): Record<string, string> {
   const headers: Record<string, string> = {};
-  for (const name of ["x-authenticated-sub", "x-authenticated-email", "x-authenticated-roles"]) {
-    const value = request.headers.get(name);
-    if (value) headers[name] = value;
-  }
-  if (process.env.DASHBOARD_TRUSTED_PROXY_SECRET) {
-    headers["x-dashboard-proxy-secret"] = process.env.DASHBOARD_TRUSTED_PROXY_SECRET;
+  const configuredSecret = process.env.DASHBOARD_TRUSTED_PROXY_SECRET;
+  const suppliedSecret = request.headers.get("x-dashboard-proxy-secret");
+  if (configuredSecret && suppliedSecret === configuredSecret) {
+    for (const name of ["x-authenticated-sub", "x-authenticated-email", "x-authenticated-roles"]) {
+      const value = request.headers.get(name);
+      if (value) headers[name] = value;
+    }
+    headers["x-dashboard-proxy-secret"] = configuredSecret;
   }
   return headers;
 }

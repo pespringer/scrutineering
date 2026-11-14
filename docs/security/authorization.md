@@ -37,3 +37,12 @@ JWKS keys by `kid`, refreshes on rotation, and applies bounded clock skew before
 mapping claims into the authorization principal.
 Internal service requests additionally bind the body and timestamp to a
 validated service identity, with replay guards available at the receiver.
+
+## Dashboard proxy trust
+
+The Next.js dashboard only forwards `x-authenticated-sub`,
+`x-authenticated-email`, and `x-authenticated-roles` when the incoming request
+also carries the exact `DASHBOARD_TRUSTED_PROXY_SECRET`. Direct dashboard
+requests therefore cannot manufacture a proxy identity. Configure that secret
+only between the external identity proxy and the dashboard; do not expose it
+to browser code or client-side environment variables.
