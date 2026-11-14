@@ -317,17 +317,44 @@ def _remediation_file_path(finding: ScanFinding, image: Image | None = None) -> 
 
 
 def _remediation_actions(findings: list[ScanFinding], image: Image | None = None) -> list[dict]:
-    return [{
-        "finding_id": finding.id,
-        "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
-        "package_name": finding.package_name,
-        "from_version": finding.package_version,
-        "to_version": finding.fixed_version,
-        "file_path": _remediation_file_path(finding, image),
-        "cve_id": finding.cve_id,
-        "severity": _value(finding.severity),
-        "safe_to_apply": bool(finding.fix_available and finding.fixed_version and _remediation_file_path(finding, image)),
-    } for finding in findings]
+    actions = []
+    impact_by_severity = {
+        "critical": "Immediate risk reduction required; prioritize this fix before lower-severity work.",
+        "high": "Significant exposure; schedule this fix in the next remediation window.",
+        "medium": "Moderate exposure; include this fix in the next planned dependency update.",
+        "low": "Lower exposure; bundle this fix with routine maintenance when practical.",
+    }
+    for finding in findings:
+        file_path = _remediation_file_path(finding, image)
+        severity = str(_value(getattr(finding, "severity", None)) or "unknown").lower()
+        safe_to_apply = bool(getattr(finding, "fix_available", False) and finding.fixed_version and file_path)
+        confidence = "high" if safe_to_apply else "low"
+        if safe_to_apply:
+            next_action = f"Review the exact {finding.package_name} change in {file_path}, then request security-operator approval."
+        elif not file_path:
+            next_action = "Obtain a repository coordinate before proposing an automated change; this finding is not safe to apply automatically."
+        elif not finding.fixed_version:
+            next_action = "Investigate the upstream advisory manually; no fixed version is currently available."
+        else:
+            next_action = "Confirm the scanner fix metadata before proposing an automated change."
+        actions.append({
+            "finding_id": finding.id,
+            "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
+            "package_name": finding.package_name,
+            "from_version": finding.package_version,
+            "to_version": finding.fixed_version,
+            "file_path": file_path,
+            "cve_id": finding.cve_id,
+            "severity": _value(finding.severity),
+            "fix_available": bool(getattr(finding, "fix_available", False)),
+            "safe_to_apply": safe_to_apply,
+            "guidance": {
+                "impact": impact_by_severity.get(severity, "Review the exposure and confirm ownership before acting."),
+                "confidence": confidence,
+                "next_operator_action": next_action,
+            },
+        })
+    return actions
 
 
 def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
@@ -349,6 +376,10 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "after_value": action.after_value,
             "success": action.success,
             "detail": action.detail,
+            "package_name": (action.detail or {}).get("package_name"),
+            "cve_id": (action.detail or {}).get("cve_id"),
+            "severity": (action.detail or {}).get("severity"),
+            "guidance": (action.detail or {}).get("guidance", {}),
         } for action in remediation.actions],
         "publications": [{
             "id": publication.id, "provider": publication.provider,
@@ -904,7 +935,14 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
                 session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
                 file_path=_remediation_file_path(finding, image),
                 before_value=finding.package_version, after_value=finding.fixed_version,
-                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id, "file_path": _remediation_file_path(finding, image)},
+                detail={
+                    "finding_id": finding.id,
+                    "package_name": finding.package_name,
+                    "cve_id": finding.cve_id,
+                    "severity": _value(finding.severity),
+                    "file_path": _remediation_file_path(finding, image),
+                    "guidance": action["guidance"],
+                },
             )
         _record_operator_event(session, request, AuditEventType.REMEDIATION_STARTED, str(remediation.id), {"action": "remediation_requested", "finding_ids": payload.finding_ids}, entity_type="remediation")
         return _remediation_payload(remediation, actions)

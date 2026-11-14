@@ -69,7 +69,26 @@ npm test
 - Confirm health/readiness endpoints, resource quotas, pod disruption budgets,
   and database migrations are green after deployment.
 
-## 7. Go/No-Go Gate
+## 7. Practical Home-Lab Milestone Gate
+
+- [x] Real image scan completed through Celery with durable findings.
+- [x] Runtime discovery verified with Docker socket access and bounded queueing.
+- [x] Guarded source remediation verified with signed evidence, isolated
+  worktree, ordered validation, and a clean rescan.
+- [x] Remediation guidance exposes impact, package/CVE/file coordinates,
+  confidence, and the next operator action.
+- [ ] **Deferred:** provider PR publication and merge callback verified against
+  the configured GitHub test project.
+- [ ] **Deferred:** deployed-digest observation verified.
+- [ ] **Deferred:** external alert delivery, retry, and dead-letter behavior
+  verified.
+
+The completed local evidence is recorded in
+[`milestone-acceptance.md`](milestone-acceptance.md). The unchecked items are
+infrastructure-dependent and deferred; they must not be treated as passing or
+failing based on the local fixture run.
+
+## 8. Go/No-Go Gate
 
 Go live only when all of the following are true:
 
