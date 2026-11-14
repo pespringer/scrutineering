@@ -94,6 +94,9 @@ and one verified remediation loop before commercial expansion.
   readiness from live Redis/Celery/telemetry checks instead of hard-coded
   healthy values, while separately labeling infrastructure-dependent gates as
   deferred.
+- **Completed:** operators can configure bounded, durable per-image scan
+  schedules, pause them without archiving inventory, and see the next planned
+  run in the dashboard.
 
 - **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, a local digest-keyed TTL cache, and explicit scan queue priorities; shared caching remains.
 - **Completed:** the scan cache now supports explicit invalidation and expired-entry pruning for shared-worker maintenance.

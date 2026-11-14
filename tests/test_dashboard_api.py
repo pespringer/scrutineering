@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -83,6 +83,22 @@ def test_expired_or_revoked_suppression_is_not_active():
     payload = _finding_payload(finding)
     assert payload["suppressed"] is False
     assert payload["suppression"] is None
+
+
+def test_scan_schedule_contract_is_bounded_and_serializable():
+    request = ScanScheduleRequest(enabled=True, interval_seconds=3600)
+    assert request.interval_seconds == 3600
+    assert _schedule_payload(None)["configured"] is False
+    schedule = SimpleNamespace(
+        id=3, enabled=True, interval_seconds=3600,
+        next_run_at=datetime(2026, 1, 2), last_queued_at=None, created_by="operator",
+    )
+    assert _schedule_payload(schedule) == {
+        "configured": True, "id": 3, "enabled": True, "interval_seconds": 3600,
+        "next_run_at": "2026-01-02T00:00:00", "last_queued_at": None, "created_by": "operator",
+    }
+    with pytest.raises(ValueError):
+        ScanScheduleRequest(interval_seconds=60)
 
 
 def test_deployment_evidence_request_is_digest_only():

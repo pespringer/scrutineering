@@ -28,6 +28,7 @@ export default function ImageDetailPage() {
   const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [schedule, setSchedule] = useState<{ configured: boolean; enabled: boolean; interval_seconds: number | null; next_run_at: string | null }>({ configured: false, enabled: false, interval_seconds: null, next_run_at: null });
   const FINDINGS_PAGE_SIZE = 25;
 
   const loadData = useCallback(async () => {
@@ -43,6 +44,10 @@ export default function ImageDetailPage() {
       const findingsData = await findingsRes.json();
       setFindings(findingsData.findings || []);
       setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
+      try {
+        const scheduleRes = await fetch(`/api/images/${imageId}/schedule`, { cache: "no-store" });
+        if (scheduleRes.ok) setSchedule((await scheduleRes.json()).schedule);
+      } catch { /* schedule controls remain at their safe default */ }
     } catch {
       setImage(null);
     }
@@ -70,6 +75,13 @@ export default function ImageDetailPage() {
     const response = await fetch("/api/findings/suppress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ finding_ids: selectedFindings, reason: reason.trim(), expires_at: expires }) });
     setNotice(response.ok ? "Selected findings suppressed for 30 days." : "Unable to suppress findings.");
     if (response.ok) { setSelectedFindings([]); loadData(); }
+  }
+
+  async function updateSchedule(enabled: boolean, intervalSeconds: number) {
+    const response = await fetch(`/api/images/${imageId}/schedule`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ enabled, interval_seconds: intervalSeconds }) });
+    if (!response.ok) { setNotice("Unable to update the scan schedule."); return; }
+    setSchedule((await response.json()).schedule);
+    setNotice(enabled ? "Recurring scanning enabled." : "Recurring scanning paused.");
   }
 
   const handleSeverityChange = (sev: string) => {
@@ -126,6 +138,11 @@ export default function ImageDetailPage() {
         </div>
       </div>
 
+      <div className="panel mb-6 flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div><div className="eyebrow mb-1">Automated scanning</div><p className="text-sm text-slate-400">{schedule.enabled ? `Runs every ${formatInterval(schedule.interval_seconds)}${schedule.next_run_at ? ` · next run ${new Date(schedule.next_run_at).toLocaleString()}` : ""}` : "Recurring scanning is paused for this image."}</p></div>
+        {canManage && <div className="flex flex-wrap items-center gap-2"><select aria-label="Scan interval" value={schedule.interval_seconds || 21600} onChange={(event) => updateSchedule(true, Number(event.target.value))} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"><option value="3600">Every hour</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Daily</option><option value="604800">Weekly</option></select><button onClick={() => updateSchedule(!schedule.enabled, schedule.interval_seconds || 21600)} className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10">{schedule.enabled ? "Pause" : "Enable"}</button></div>}
+      </div>
+
       {/* Severity filter */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <Filter className="w-4 h-4 text-slate-500" />
@@ -167,4 +184,12 @@ export default function ImageDetailPage() {
       <div className="mt-4 flex justify-end gap-3 text-xs"><button disabled={findingsOffset === 0} onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))} className="text-cyan-300 disabled:text-slate-700">Previous</button><button disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal} onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)} className="text-cyan-300 disabled:text-slate-700">Next</button></div>
     </Layout>
   );
+}
+
+function formatInterval(seconds: number | null) {
+  if (!seconds) return "configured cadence";
+  if (seconds % 604800 === 0) return `${seconds / 604800} week${seconds === 604800 ? "" : "s"}`;
+  if (seconds % 86400 === 0) return `${seconds / 86400} day${seconds === 86400 ? "" : "s"}`;
+  if (seconds % 3600 === 0) return `${seconds / 3600} hour${seconds === 3600 ? "" : "s"}`;
+  return `${Math.round(seconds / 60)} minutes`;
 }

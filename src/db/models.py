@@ -214,6 +214,7 @@ class Image(Base):
     scans = relationship("Scan", back_populates="image", lazy="selectin")
     findings = relationship("ScanFinding", back_populates="image",
                             lazy="selectin")
+    scan_schedule = relationship("ScanSchedule", back_populates="image", uselist=False, cascade="all, delete-orphan", lazy="joined")
 
     @property
     def full_name(self) -> str:
@@ -224,6 +225,28 @@ class Image(Base):
         if prefix:
             return f"{prefix}/{self.repo_name}:{self.tag}"
         return f"{self.repo_name}:{self.tag}"
+
+
+class ScanSchedule(Base):
+    """Durable per-image scan cadence managed by operators."""
+
+    __tablename__ = "scan_schedules"
+    __table_args__ = (
+        UniqueConstraint("image_id", name="uq_scan_schedules_image_id"),
+        Index("idx_scan_schedules_next_run_at", "next_run_at"),
+        Index("idx_scan_schedules_enabled", "enabled"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    image_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("images.id", ondelete="CASCADE"), nullable=False)
+    image = relationship("Image", back_populates="scan_schedule", lazy="joined")
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    interval_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=21600)
+    next_run_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_queued_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False, default="system")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
 class Scan(Base):

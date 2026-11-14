@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -93,6 +93,11 @@ class FindingSuppressionRequest(BaseModel):
         if len(value) < 3:
             raise ValueError("suppression reason must contain at least three characters")
         return value
+
+
+class ScanScheduleRequest(BaseModel):
+    enabled: bool = True
+    interval_seconds: int = Field(default=21600, ge=300, le=2592000)
 
 
 class RemediationRequest(BaseModel):
@@ -272,6 +277,20 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "assigned_to": getattr(finding, "assigned_to", None),
         "suppressed": suppression is not None,
         "suppression": {"id": suppression.id, "reason": suppression.reason, "created_by": suppression.created_by, "created_at": _iso(suppression.created_at), "expires_at": _iso(suppression.expires_at)} if suppression else None,
+    }
+
+
+def _schedule_payload(schedule: ScanSchedule | None) -> dict:
+    if schedule is None:
+        return {"configured": False, "enabled": False, "interval_seconds": None, "next_run_at": None, "last_queued_at": None}
+    return {
+        "configured": True,
+        "id": schedule.id,
+        "enabled": bool(schedule.enabled),
+        "interval_seconds": schedule.interval_seconds,
+        "next_run_at": _iso(schedule.next_run_at),
+        "last_queued_at": _iso(schedule.last_queued_at),
+        "created_by": schedule.created_by,
     }
 
 
@@ -693,6 +712,38 @@ def image_detail(
         "findings": [_finding_payload(finding) for finding in findings],
         "findings_page": _page([_finding_payload(finding) for finding in findings], limit, offset, total),
     }
+
+
+@router.get("/images/{image_id}/schedule")
+def image_scan_schedule(image_id: int, request: Request) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        image = session.get(Image, image_id)
+        if image is None:
+            raise HTTPException(status_code=404, detail="image_not_found")
+        schedule = session.query(ScanSchedule).filter_by(image_id=image_id).one_or_none()
+    return {"image_id": image_id, "schedule": _schedule_payload(schedule)}
+
+
+@router.post("/images/{image_id}/schedule")
+def configure_image_scan_schedule(image_id: int, payload: ScanScheduleRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator", "admin")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_session() as session:
+        image = session.get(Image, image_id)
+        if image is None:
+            raise HTTPException(status_code=404, detail="image_not_found")
+        schedule = session.query(ScanSchedule).filter_by(image_id=image_id).one_or_none()
+        if schedule is None:
+            schedule = ScanSchedule(image_id=image_id, created_by=getattr(request.state, "principal_id", "dashboard-service"))
+            session.add(schedule)
+        schedule.enabled = payload.enabled
+        schedule.interval_seconds = payload.interval_seconds
+        schedule.next_run_at = now if payload.enabled else None
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(image_id), {"action": "configure_scan_schedule", "enabled": payload.enabled, "interval_seconds": payload.interval_seconds}, entity_type="image")
+        session.flush()
+        result = _schedule_payload(schedule)
+    return {"image_id": image_id, "schedule": result}
 
 
 @router.post("/findings/bulk-acknowledge")
