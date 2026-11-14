@@ -98,6 +98,10 @@ Release workflows can submit the same evidence through
 `POST /deployment-evidence` using `x-deployment-event-id` and an
 `x-deployment-signature: sha256=...` HMAC header. The server validates the
 signature and replay ID before looking up the persisted scan.
+Security operators can queue automatic runtime collection with
+`POST /remediations/publications/{publication_id}/collect-deployment-observation`.
+The worker resolves the target from `DEPLOYMENT_COLLECTOR_TARGETS_JSON`, so the
+request contains no digest or scan-count fields.
 
 Recovery status updates use `POST
 /remediations/publications/{publication_id}/recovery/{recovery_id}/status` with

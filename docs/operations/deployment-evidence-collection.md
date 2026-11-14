@@ -34,3 +34,20 @@ digests, and unverified user input fail closed.
 The GitHub Actions workflow in `.github/workflows/deployment-evidence.yml`
 remains useful for environments Scrutineering cannot reach, but it is a
 fallback integration and not a prerequisite for local or connected deployments.
+
+## Current configuration boundary
+
+Automatic collection is selected by repository with
+`DEPLOYMENT_COLLECTOR_TARGETS_JSON`:
+
+```dotenv
+DEPLOYMENT_COLLECTOR_TARGETS_JSON={"acme/api":{"provider":"kubernetes","namespace":"security","selector":"app=api"},"local/api":{"provider":"docker","container":"api"}}
+```
+
+Operators request collection through the dashboard/API action
+`POST /api/dashboard/remediations/publications/{id}/collect-deployment-observation`.
+The worker returns a task ID while the runtime observation and reconciliation
+are persisted asynchronously. Runtime command access is intentionally a
+deployment decision: Docker collection requires access to the Docker runtime,
+and Kubernetes collection requires a scoped `kubectl` context or service
+account; neither is silently enabled by the API container.
