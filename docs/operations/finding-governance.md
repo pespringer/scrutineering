@@ -12,8 +12,11 @@ dashboard displays a `Suppressed` badge and keeps the exception visible in the
 finding payload. Expiration is automatic; an expired exception is no longer
 active and the finding remains open.
 
-Operators can select findings and choose **Revoke suppression** in the same
-dashboard action bar. The API form is also available for automation:
+Operators can select findings and choose **Assign** to route ownership, or
+**Revoke suppression** in the same dashboard action bar. Security operators can
+also choose **Propose fix** for selected findings with available fixed
+versions; Scrutineering creates a reviewable remediation proposal and never
+executes it automatically. The API form is also available for automation:
 
 ```bash
 curl -X POST http://localhost:3001/api/findings/unsuppress \
@@ -31,6 +34,8 @@ revokes active exceptions without deleting their history.
 
 Only `operator` and `security-operator` roles may change suppression state.
 Read-only dashboard users can see the suppression status but cannot mutate it.
+Remediation proposals require the `remediator` or `security-operator` role and
+remain approval-gated.
 
 Apply migrations before using the endpoints:
 

@@ -8,7 +8,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck, ShieldOff } from "lucide-react";
+import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck, ShieldOff, UserRound, Wand2 } from "lucide-react";
 import Link from "next/link";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
@@ -27,6 +27,9 @@ export default function ImageDetailPage() {
   const [findingsTotal, setFindingsTotal] = useState(0);
   const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
   const [canManage, setCanManage] = useState(false);
+  const [canRemediate, setCanRemediate] = useState(false);
+  const [assignee, setAssignee] = useState("");
+  const [suppressionReason, setSuppressionReason] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [schedule, setSchedule] = useState<{ configured: boolean; enabled: boolean; interval_seconds: number | null; next_run_at: string | null }>({ configured: false, enabled: false, interval_seconds: null, next_run_at: null });
   const FINDINGS_PAGE_SIZE = 25;
@@ -58,7 +61,7 @@ export default function ImageDetailPage() {
     loadData();
   }, [loadData]);
 
-  useEffect(() => { fetch("/api/permissions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((permissions) => setCanManage(Boolean(permissions?.can_manage_scans))).catch(() => undefined); }, []);
+  useEffect(() => { fetch("/api/permissions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((permissions) => { setCanManage(Boolean(permissions?.can_manage_scans)); setCanRemediate(Boolean(permissions?.can_remediate)); }).catch(() => undefined); }, []);
 
   async function acknowledgeSelected() {
     if (!selectedFindings.length) return;
@@ -69,12 +72,28 @@ export default function ImageDetailPage() {
 
   async function suppressSelected() {
     if (!selectedFindings.length) return;
-    const reason = window.prompt("Why should these findings be suppressed? (required)");
-    if (!reason?.trim()) return;
+    const reason = suppressionReason.trim();
+    if (!reason) { setNotice("Enter a suppression reason before applying it."); return; }
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
     const response = await fetch("/api/findings/suppress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ finding_ids: selectedFindings, reason: reason.trim(), expires_at: expires }) });
     setNotice(response.ok ? "Selected findings suppressed for 30 days." : "Unable to suppress findings.");
-    if (response.ok) { setSelectedFindings([]); loadData(); }
+    if (response.ok) { setSelectedFindings([]); setSuppressionReason(""); loadData(); }
+  }
+
+  async function assignSelected() {
+    if (!selectedFindings.length || !assignee.trim()) { setNotice("Enter an assignee before assigning findings."); return; }
+    const response = await fetch("/api/findings/bulk-assign", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ finding_ids: selectedFindings, assignee: assignee.trim() }) });
+    setNotice(response.ok ? `Assigned ${selectedFindings.length} finding(s) to ${assignee.trim()}.` : "Unable to assign findings.");
+    if (response.ok) { setSelectedFindings([]); setAssignee(""); loadData(); }
+  }
+
+  async function createRemediation() {
+    const fixable = findings.filter((finding) => selectedFindings.includes(finding.id) && finding.fix_available).map((finding) => finding.id);
+    if (!fixable.length) { setNotice("Select at least one finding with an available fix."); return; }
+    const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: fixable }) });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) { setNotice(payload.detail || "Unable to create remediation proposal."); return; }
+    window.location.assign(`/remediations/${payload.id}`);
   }
 
   async function unsuppressSelected() {
@@ -183,10 +202,10 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
-      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={suppressSelected} className="inline-flex items-center gap-1 rounded-lg border border-amber-400/30 px-2.5 py-1.5 text-amber-200"><ShieldOff className="h-3.5 w-3.5" /> Suppress 30 days</button><button onClick={unsuppressSelected} className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-2.5 py-1.5 text-emerald-200"><ShieldCheck className="h-3.5 w-3.5" /> Revoke suppression</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
+      {(canManage || canRemediate) && selectedFindings.length > 0 && <div className="mb-4 flex flex-col gap-3 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><div className="flex flex-wrap items-center gap-2"><span>{selectedFindings.length} selected</span>{canManage && <><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={unsuppressSelected} className="inline-flex items-center gap-1 rounded-lg border border-emerald-400/30 px-2.5 py-1.5 text-emerald-200"><ShieldCheck className="h-3.5 w-3.5" /> Revoke suppression</button></>}{canRemediate && <button onClick={createRemediation} className="inline-flex items-center gap-1 rounded-lg border border-violet-400/30 px-2.5 py-1.5 text-violet-200"><Wand2 className="h-3.5 w-3.5" /> Propose fix</button>}<button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>{canManage && <div className="flex flex-col gap-2 sm:flex-row"><div className="flex min-w-0 flex-1 gap-2"><UserRound className="mt-2.5 h-4 w-4 shrink-0 text-slate-500" /><input value={assignee} onChange={(event) => setAssignee(event.target.value)} placeholder="Assignee (for example, platform-team)" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600" /><button onClick={assignSelected} className="rounded-lg border border-cyan-400/30 px-2.5 py-1.5 text-cyan-100">Assign</button></div><div className="flex min-w-0 flex-1 gap-2"><ShieldOff className="mt-2.5 h-4 w-4 shrink-0 text-slate-500" /><input value={suppressionReason} onChange={(event) => setSuppressionReason(event.target.value)} placeholder="Suppression reason (30 days)" className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950/60 px-2.5 py-2 text-xs text-slate-200 placeholder:text-slate-600" /><button onClick={suppressSelected} className="rounded-lg border border-amber-400/30 px-2.5 py-1.5 text-amber-200">Suppress</button></div></div>}</div>}
       {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
       <div className="panel rounded-2xl p-4 sm:p-6">
-        <FindingsTable findings={findings} selectable={canManage} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />
+        <FindingsTable findings={findings} selectable={canManage || canRemediate} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />
       </div>
       <div className="mt-4 flex justify-end gap-3 text-xs"><button disabled={findingsOffset === 0} onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))} className="text-cyan-300 disabled:text-slate-700">Previous</button><button disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal} onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)} className="text-cyan-300 disabled:text-slate-700">Next</button></div>
     </Layout>
