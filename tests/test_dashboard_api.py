@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -48,6 +48,8 @@ def test_deployment_evidence_request_is_digest_only():
         observed_digest="sha256:" + "a" * 64,
     )
     assert request.merge_commit is None
+    callback = DeploymentEvidenceCallbackRequest(publication_id=7, **request.model_dump())
+    assert callback.publication_id == 7
 
 
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():

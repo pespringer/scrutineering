@@ -58,6 +58,27 @@ Once that scan is terminal, a security operator can submit only the expected
 and observed digests to `/api/dashboard/remediations/publications/{id}/deployment-evidence`;
 the API derives the scan counts and applies the same idempotent verification
 policy.
+For an automated release source, configure `DEPLOYMENT_EVIDENCE_SECRET` and
+POST the same digest payload to `/api/dashboard/deployment-evidence` with a
+unique `x-deployment-event-id` and HMAC-SHA256 `x-deployment-signature`.
+Rotate this secret with the deployment workflow credentials; missing or
+replayed signatures fail closed.
+
+A deployment workflow can send the observation after rollout verification:
+
+```bash
+payload=$(jq -nc --argjson publication_id "$PUBLICATION_ID" \
+  --arg expected_digest "$EXPECTED_DIGEST" --arg observed_digest "$DEPLOYED_DIGEST" \
+  '{publication_id:$publication_id,expected_digest:$expected_digest,observed_digest:$observed_digest}')
+signature=$(printf %s "$payload" | openssl dgst -sha256 -hmac "$DEPLOYMENT_EVIDENCE_SECRET" -hex | awk '{print $2}')
+curl --fail-with-body -X POST "$SCRUTINEERING_URL/api/dashboard/deployment-evidence" \
+  -H 'content-type: application/json' -H "x-deployment-event-id: $GITHUB_RUN_ID" \
+  -H "x-deployment-signature: sha256=$signature" --data "$payload"
+```
+
+The deployer, not the scanner, is the source of `DEPLOYED_DIGEST`; it should
+come from the orchestrator's resolved image or rollout status rather than a
+mutable tag.
 
 ## Recovery and validation
 

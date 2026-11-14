@@ -36,7 +36,7 @@ def is_service_request_authorized(headers, body: bytes, secret: str, replay_guar
 
 def is_provider_webhook_path(path: str) -> bool:
     """Provider callbacks authenticate with their provider HMAC, not API keys."""
-    return bool(re.fullmatch(r"/api/dashboard/webhooks/(github|gitlab)", path))
+    return bool(re.fullmatch(r"/api/dashboard/webhooks/(github|gitlab)", path)) or path == "/api/dashboard/deployment-evidence"
 
 
 def create_app() -> FastAPI:
