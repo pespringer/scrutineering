@@ -119,6 +119,11 @@ Only source paths explicitly returned by a filesystem scanner can become
 remediation actions; image findings without a repository coordinate continue to
 block safely.
 
+For filesystem targets, dashboard-created remediation actions preserve the
+scanned checkout directory (for example, `source-fixture/package-lock.json`)
+so the action remains rooted correctly when the worker opens the repository
+worktree.
+
 For monorepos, set `REMEDIATION_VALIDATION_WORKING_DIRECTORY` to a safe
 relative project directory such as `services/api`. Validation runs there while
 the Git worktree and changed-file guard remain rooted at the repository.

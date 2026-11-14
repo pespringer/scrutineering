@@ -273,17 +273,29 @@ def _apply_post_merge_result(session, publication: RemediationPublication, resul
     return event_type
 
 
-def _remediation_actions(findings: list[ScanFinding]) -> list[dict]:
+def _remediation_file_path(finding: ScanFinding, image: Image | None = None) -> str | None:
+    file_path = getattr(finding, "file_path", None)
+    if not file_path or image is None:
+        return file_path
+    repository_name = str(getattr(image, "repo_name", ""))
+    if getattr(image, "tag", None) == "filesystem" and repository_name.startswith("local/"):
+        source_directory = repository_name.removeprefix("local/")
+        if source_directory and not file_path.startswith(f"{source_directory}/"):
+            return f"{source_directory}/{file_path}"
+    return file_path
+
+
+def _remediation_actions(findings: list[ScanFinding], image: Image | None = None) -> list[dict]:
     return [{
         "finding_id": finding.id,
         "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
         "package_name": finding.package_name,
         "from_version": finding.package_version,
         "to_version": finding.fixed_version,
-        "file_path": getattr(finding, "file_path", None),
+        "file_path": _remediation_file_path(finding, image),
         "cve_id": finding.cve_id,
         "severity": _value(finding.severity),
-        "safe_to_apply": bool(finding.fix_available and finding.fixed_version and getattr(finding, "file_path", None)),
+        "safe_to_apply": bool(finding.fix_available and finding.fixed_version and _remediation_file_path(finding, image)),
     } for finding in findings]
 
 
@@ -766,7 +778,7 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
         raise HTTPException(status_code=404, detail="image_not_found")
     if len(findings) != len(set(payload.finding_ids)):
         raise HTTPException(status_code=400, detail="findings_must_belong_to_image")
-    actions = _remediation_actions(findings)
+    actions = _remediation_actions(findings, image)
     return {
         "image": _image_payload(image, findings),
         "finding_ids": [finding.id for finding in findings],
@@ -853,13 +865,13 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             target_severities=dict(severities),
         )
         remediation.status = RemediationStatus.REQUIRES_REVIEW
-        actions = _remediation_actions(findings)
+        actions = _remediation_actions(findings, image)
         for finding, action in zip(findings, actions):
             RemediationRepository.add_action(
                 session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
-                file_path=getattr(finding, "file_path", None),
+                file_path=_remediation_file_path(finding, image),
                 before_value=finding.package_version, after_value=finding.fixed_version,
-                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id, "file_path": getattr(finding, "file_path", None)},
+                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id, "file_path": _remediation_file_path(finding, image)},
             )
         _record_operator_event(session, request, AuditEventType.REMEDIATION_STARTED, str(remediation.id), {"action": "remediation_requested", "finding_ids": payload.finding_ids}, entity_type="remediation")
         return _remediation_payload(remediation, actions)

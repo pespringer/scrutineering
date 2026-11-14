@@ -659,6 +659,9 @@ The first production release requires green Node and Python suites, authenticate
 - **Verified locally:** the supported dashboard smoke queued two repeat `alpine:3.20`
   scans, confirmed both terminal records and stable persisted findings, and
   verified the findings endpoint identity for each run.
+- **Completed:** dashboard remediation proposals preserve the checkout directory
+  for filesystem scan findings, allowing the approval-gated worker to apply the
+  same source coordinate returned by the scanner.
 - **Next:** exercise the guarded
   remediation proposal, provider PR publication, and post-merge verification with
   the configured GitHub test project.
