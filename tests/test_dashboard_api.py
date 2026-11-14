@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -40,6 +40,14 @@ def test_dashboard_page_and_scan_request_contracts():
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
+
+
+def test_deployment_evidence_request_is_digest_only():
+    request = DeploymentEvidenceRequest(
+        expected_digest="sha256:" + "a" * 64,
+        observed_digest="sha256:" + "a" * 64,
+    )
+    assert request.merge_commit is None
 
 
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():

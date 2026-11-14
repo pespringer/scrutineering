@@ -54,6 +54,10 @@ the verifier persists its findings but does not claim success until deployment
 digest evidence is supplied. For filesystem remediations, set
 `REMEDIATION_SCAN_REPOSITORY_ROOT` to the path visible inside the worker
 (Compose defaults to `/workspace/repository`).
+Once that scan is terminal, a security operator can submit only the expected
+and observed digests to `/api/dashboard/remediations/publications/{id}/deployment-evidence`;
+the API derives the scan counts and applies the same idempotent verification
+policy.
 
 ## Recovery and validation
 
