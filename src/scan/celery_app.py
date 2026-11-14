@@ -32,6 +32,7 @@ def create_celery_app() -> Celery:
             "src.scan.retention_tasks.report_expired_scans": {"queue": "remediation.normal"},
             "src.platform.backup_tasks.report_backup_freshness": {"queue": "remediation.normal"},
             "src.platform.backup_tasks.execute_postgres_backup": {"queue": "remediation.normal"},
+            "src.platform.backup_tasks.schedule_postgres_backup": {"queue": "remediation.normal"},
     "src.platform.backup_tasks.verify_postgres_restore": {"queue": "remediation.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
@@ -50,6 +51,11 @@ def create_celery_app() -> Celery:
                 "task": "src.platform.backup_tasks.report_backup_freshness",
                 "schedule": 86400.0,
                 "kwargs": {"dry_run": True},
+                "options": {"queue": "remediation.normal"},
+            },
+            "schedule-postgres-backup": {
+                "task": "src.platform.backup_tasks.schedule_postgres_backup",
+                "schedule": crontab(minute="0"),
                 "options": {"queue": "remediation.normal"},
             },
             "schedule-active-image-scans": {

@@ -19,6 +19,14 @@ dedicated backup volume, records its SHA-256 and size, and emits success or
 failure audit evidence. The endpoint rejects requests without explicit
 confirmation and is disabled by default.
 
+Scheduled execution is also disabled by default. To opt in, set
+`BACKUP_SCHEDULED_EXECUTION_ENABLED=true` and choose
+`BACKUP_MIN_INTERVAL_SECONDS` (the default is 86400). Celery Beat evaluates
+the durable latest verified artifact hourly and queues one backup only after
+the freshness window is due. The queued execution, task ID, and result remain
+in `BackupExecution` and the audit trail; failed executions do not make the
+freshness gate pass.
+
 ## Restore verification
 
 An operator can verify a stored artifact with
