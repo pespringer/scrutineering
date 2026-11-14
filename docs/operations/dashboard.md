@@ -45,6 +45,8 @@ The dashboard is organized as a security operations console:
 - Scan history supports repository search, status filters, outcome counts, and
   runtime details, server-side pagination, targeted scan submission, and
   queued-scan polling.
+- Image detail pages allow operators to configure or pause a bounded recurring
+  scan schedule and show the next planned run.
 - Image detail pages provide severity filtering, sortable findings, CVE links,
   fix availability, auditable expiring suppression actions, and responsive
   layouts.
@@ -82,3 +84,5 @@ build check when changing its routing or dependencies.
 
 Finding suppression behavior and its audit requirements are documented in
 [`finding-governance.md`](finding-governance.md).
+Scan cadence behavior is documented in
+[`scan-schedules.md`](scan-schedules.md).
