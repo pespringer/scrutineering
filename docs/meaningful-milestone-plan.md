@@ -72,8 +72,12 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   completed scans and managed from the dashboard.
 - Compliance report generation now persists framework evidence snapshots from
   the live posture and audit trail.
+- Backup freshness runs now persist idempotent artifact observations, including
+  verification state and size, so operations readiness can show durable
+  evidence rather than only a process-local timestamp.
 - The remaining product work is multi-user source onboarding, richer backup
-  execution evidence, and end-to-end remediation/provider operation. The
+  backup execution/restore workflow, and end-to-end remediation/provider
+  operation. The
   provider publication, deployed-digest, and external-alert items listed
   above remain deferred until their infrastructure is available.
 

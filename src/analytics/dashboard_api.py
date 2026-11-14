@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, BackupExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -898,6 +898,27 @@ def compliance_reports(request: Request, limit: int = Query(default=25, ge=1, le
     return {"items": [{"id": record.id, "title": record.title, "report_format": record.report_format, "scope": record.scope, "generated_at": _iso(record.generated_at), "summary": record.summary, "generated_by": record.generated_by} for record in records], "count": len(records)}
 
 
+@router.get("/backup-evidence")
+def backup_evidence(request: Request, limit: int = Query(default=25, ge=1, le=100)) -> dict:
+    """Return durable backup observations without exposing artifact contents."""
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        records = session.query(BackupExecution).order_by(BackupExecution.observed_at.desc(), BackupExecution.id.desc()).limit(limit).all()
+    return {"items": [{
+        "id": record.id,
+        "artifact_name": record.artifact_name,
+        "source": record.source,
+        "status": record.status,
+        "artifact_created_at": _iso(record.artifact_created_at),
+        "observed_at": _iso(record.observed_at),
+        "size_bytes": record.size_bytes,
+        "verified": record.verified,
+        "sha256": record.sha256,
+        "error_message": record.error_message,
+        "recorded_by": record.recorded_by,
+    } for record in records], "count": len(records)}
+
+
 @router.post("/compliance/reports")
 def generate_compliance_report(payload: ComplianceReportRequest, request: Request) -> dict:
     _require_role(request, "security-operator", "admin")
@@ -1119,7 +1140,11 @@ def production_operations(request: Request) -> dict:
         worker_names = sorted(workers)
     except Exception:
         worker_names = []
+    with get_session() as session:
+        latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
     backup_timestamp = float(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0) or 0)
+    if latest_backup is not None:
+        backup_timestamp = max(backup_timestamp, latest_backup.artifact_created_at.replace(tzinfo=timezone.utc).timestamp())
     freshness_hours = max(1, int(os.environ.get("BACKUP_FRESHNESS_HOURS", "30")))
     backup_fresh = backup_timestamp > 0 and (datetime.now(timezone.utc).timestamp() - backup_timestamp) <= freshness_hours * 3600
     provider_states = {provider: credential_diagnostics(provider) for provider in ("github", "gitlab")}
@@ -1133,7 +1158,7 @@ def production_operations(request: Request) -> dict:
         "checks": {
             "queues": {"status": "ready" if broker_reachable else "blocked", "message": "Redis broker is reachable." if broker_reachable else "Redis broker is unavailable.", "depths": queue_depths},
             "workers": {"status": "ready" if worker_names else "blocked", "message": f"{len(worker_names)} Celery worker(s) responded to ping." if worker_names else "No Celery workers responded to ping.", "workers": worker_names},
-            "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours},
+            "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours, "latest_artifact": latest_backup.artifact_name if latest_backup else None, "latest_size_bytes": latest_backup.size_bytes if latest_backup else None, "latest_verified": latest_backup.verified if latest_backup else False},
         },
         "deferred_checks": {
             "provider_publication": {"status": "deferred", "message": "Live provider publication and merge callbacks require the external test repository."},

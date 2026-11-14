@@ -92,3 +92,9 @@ Policy evaluation and management are documented in
 [`policy-engine.md`](policy-engine.md).
 Compliance report generation and evidence scope are documented in
 [`compliance-reports.md`](compliance-reports.md).
+
+Backup readiness uses durable artifact observations recorded by the scheduled
+freshness task. The operations API exposes artifact name, age, size, and
+verification state without exposing backup contents; see the production
+readiness checklist for the remaining restore and external-infrastructure
+gates.

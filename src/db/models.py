@@ -478,6 +478,29 @@ class SeveritySnapshot(Base):
     newly_fixed: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class BackupExecution(Base):
+    """Durable evidence for a backup artifact observed by the scheduler."""
+    __tablename__ = "backup_executions"
+    __table_args__ = (
+        UniqueConstraint("artifact_name", "artifact_created_at", name="uq_backup_artifact_observation"),
+        Index("idx_backup_executions_observed_at", "observed_at"),
+        Index("idx_backup_executions_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    artifact_name: Mapped[str] = mapped_column(String(512), nullable=False)
+    source: Mapped[str] = mapped_column(String(128), nullable=False, default="postgres")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="observed")
+    artifact_created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    size_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    manifest: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recorded_by: Mapped[str] = mapped_column(String(128), nullable=False, default="backup-scheduler")
+
+
 # -- Security Policies ------------------------------------------------------ #
 
 class SecurityPolicy(Base):

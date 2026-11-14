@@ -6,6 +6,7 @@ from src.platform.backup_lifecycle import BackupArtifact, backup_fresh, restore_
 from src.platform.operations import BackupRotation
 from src.scan.reliability import ScanCooldown, classify_scan_failure, cooldown_active, stale_running_scan
 from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry, private_registry_evidence
+from src.platform import backup_tasks
 from src.platform.backup_tasks import report_backup_freshness
 
 
@@ -42,3 +43,45 @@ def test_registry_diagnostics_never_expose_secret_values():
 
 def test_backup_task_is_explicitly_not_configured_without_metadata():
     assert report_backup_freshness(metadata_path="", dry_run=True)["status"] == "not_configured"
+
+
+def test_backup_observation_is_persisted_once_with_audit_evidence(monkeypatch):
+    class FakeQuery:
+        def filter_by(self, **_filters):
+            return self
+
+        def one_or_none(self):
+            return None
+
+    class FakeSession:
+        def __init__(self):
+            self.added = []
+
+        def query(self, _model):
+            return FakeQuery()
+
+        def add(self, value):
+            self.added.append(value)
+
+        def flush(self):
+            for value in self.added:
+                if value.__class__.__name__ == "BackupExecution":
+                    value.id = 41
+
+    session = FakeSession()
+
+    class SessionContext:
+        def __enter__(self):
+            return session
+
+        def __exit__(self, *_args):
+            return False
+
+    monkeypatch.setattr(backup_tasks, "get_session", lambda: SessionContext())
+    backup_tasks._record_artifact_observation(
+        BackupArtifact("verified.dump", datetime.now(timezone.utc), 512, verified=True),
+        source="test",
+    )
+
+    assert any(item.__class__.__name__ == "BackupExecution" and item.verified for item in session.added)
+    assert any(item.__class__.__name__ == "AuditLog" for item in session.added)

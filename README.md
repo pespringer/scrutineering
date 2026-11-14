@@ -52,6 +52,11 @@ selected.
 The worker image and Compose service expose health checks for early failure
 detection.
 
+Operations readiness records durable backup artifact evidence (age, size, and
+verification state) from the scheduled freshness task; it does not claim a
+restore has succeeded. See [backup evidence](docs/operations/backup-evidence.md)
+for the metadata contract.
+
 Provider publication and callbacks are gated by explicit configuration. Use
 `npm run drill:staging-provider` to exercise normalized merge callbacks,
 post-merge verification, and rollback output with deterministic fixtures.
