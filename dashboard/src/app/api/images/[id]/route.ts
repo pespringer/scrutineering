@@ -1,4 +1,3 @@
-import { getImageById, getFindingsByImage } from "@/lib/seed";
 import { dashboardResponse } from "../../_lib/backend";
 
 export async function GET(
@@ -7,9 +6,5 @@ export async function GET(
 ) {
   const { id } = await params;
   const query = new URL(req.url).search;
-  return dashboardResponse(`/api/dashboard/images/${id}${query}`, () => {
-    const img = getImageById(id);
-    if (!img) return { error: "not_found" };
-    return { image: img, findings: getFindingsByImage(id) };
-  }, req);
+  return dashboardResponse(`/api/dashboard/images/${id}${query}`, undefined, req);
 }

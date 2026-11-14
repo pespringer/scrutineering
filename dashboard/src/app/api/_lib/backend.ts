@@ -38,15 +38,13 @@ export function trustedIdentityHeaders(request: Request): Record<string, string>
 
 export async function dashboardResponse<T>(
   path: string,
-  fallback: () => T | Promise<T>,
+  _fallback: (() => T | Promise<T>) | undefined = undefined,
   request?: Request,
 ) {
   try {
     const payload = process.env.DASHBOARD_API_URL
       ? await backendJson<T>(path, request ? { headers: trustedIdentityHeaders(request) } : undefined)
-      : process.env.DASHBOARD_DEMO_MODE === "true"
-        ? await fallback()
-        : await Promise.reject(new Error("DASHBOARD_API_URL is not configured"));
+      : await Promise.reject(new Error("DASHBOARD_API_URL is not configured"));
     return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof BackendError) {

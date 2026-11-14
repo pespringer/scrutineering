@@ -1,4 +1,3 @@
-import { getImages, getImageById, getFindingsByImage } from "@/lib/seed";
 import { dashboardResponse } from "../_lib/backend";
 
 export async function GET(req: Request) {
@@ -7,17 +6,10 @@ export async function GET(req: Request) {
   const severity = url.searchParams.get("severity");
 
   if (id) {
-    return dashboardResponse(`/api/dashboard/images/${id}${severity ? `?severity=${encodeURIComponent(severity)}` : ""}`, () => {
-      const img = getImageById(id);
-      if (!img) return { error: "not_found" };
-      return { image: img, findings: getFindingsByImage(id, severity || undefined) };
-    }, req);
+    return dashboardResponse(`/api/dashboard/images/${id}${severity ? `?severity=${encodeURIComponent(severity)}` : ""}`, undefined, req);
   }
 
   const query = new URLSearchParams(url.searchParams);
   if (!query.has("limit")) query.set("limit", "20");
-  return dashboardResponse(`/api/dashboard/images?${query}`, () => {
-    const items = getImages();
-    return { items, limit: items.length, offset: 0, count: items.length, total: items.length };
-  }, req);
+  return dashboardResponse(`/api/dashboard/images?${query}`, undefined, req);
 }

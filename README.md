@@ -228,8 +228,7 @@ risk-first posture summaries, severity trends, scan triage, responsive image
 inventory, and explicit loading/error/empty states. Open it at
 `http://localhost:3001/dashboard` after `docker compose up --build -d`.
 The dashboard now uses the authenticated Python data API when Compose sets
-`DASHBOARD_API_URL`; seed data remains available for standalone frontend work
-when that variable is unset.
+`DASHBOARD_API_URL`; it fails clearly when the live data service is unavailable.
 Scan history supports server-side search, status filters, pagination, targeted
 scan submission, and polling of queued scan status. Apply database migrations
 before using scan controls.
