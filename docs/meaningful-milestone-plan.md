@@ -106,6 +106,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   gated cleanup queue; purge remains disabled unless explicitly configured.
 - Trusted-proxy tenant IDs now flow through the dashboard session boundary and
   are visible as scope context; local API-key mode remains deployment-local.
+- Image investigation now supports a direct JSON findings export that retains
+  the canonical record count and SHA-256 integrity field.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The

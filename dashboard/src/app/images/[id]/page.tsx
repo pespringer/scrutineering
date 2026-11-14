@@ -8,7 +8,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, ScanResult, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck, ShieldOff, UserRound, Wand2 } from "lucide-react";
+import { Package, ArrowLeft, Download, Filter, ExternalLink, Check, ShieldCheck, ShieldOff, UserRound, Wand2 } from "lucide-react";
 import Link from "next/link";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
@@ -112,6 +112,21 @@ export default function ImageDetailPage() {
     setNotice(enabled ? "Recurring scanning enabled." : "Recurring scanning paused.");
   }
 
+  async function exportFindings() {
+    const query = new URLSearchParams({ image_id: imageId, limit: "5000" });
+    if (severityFilter !== "all") query.set("severity", severityFilter);
+    const response = await fetch(`/api/findings/export?${query}`, { cache: "no-store" });
+    if (!response.ok) { setNotice("Unable to export findings."); return; }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `scrutineering-findings-image-${imageId}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    setNotice("Findings export downloaded.");
+  }
+
   const handleSeverityChange = (sev: string) => {
     setSeverityFilter(sev);
     setFindingsOffset(0);
@@ -198,6 +213,7 @@ export default function ImageDetailPage() {
             </button>
           ))}
         </div>
+        <button onClick={exportFindings} className="ml-auto inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-xs text-slate-300 hover:border-cyan-400/40 hover:text-white"><Download className="h-3.5 w-3.5" /> Export JSON</button>
       </div>
 
       {/* Findings count */}
