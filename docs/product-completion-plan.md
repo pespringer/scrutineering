@@ -25,8 +25,8 @@ Turn findings into decisions rather than isolated tables.
 
 The first slice is complete: `/findings` now provides a paginated,
 cross-image queue with search, lifecycle, severity, acknowledgement, and fix
-availability filters, bulk acknowledgement/assignment/suppression, export,
-and direct image links.
+availability filters, bulk acknowledgement/assignment/suppression, governed
+same-image remediation proposals, export, and direct image links.
 
 - Add filters, saved views, bulk actions, and stable URL state for severity,
   image, package, lifecycle, policy, and owner.
