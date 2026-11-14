@@ -102,6 +102,14 @@ state (`analyzing`, `patching`, `building`, `verifying`, or `pr_opened`), the
 page refreshes automatically. A failed run is not retried implicitly; correct
 the missing configuration or evidence and create a new reviewed proposal.
 
+After execution reaches `completed` or `pr_opened`, use **Run verification
+scan** on the remediation detail page. The API queues one correlated high-
+priority scan and records its ID. The verification worker compares the
+post-change scan findings with each proposed package/CVE coordinate and marks
+verification `passed` only when none remain. Failed or partial scans, and scans
+where a proposed finding remains, are recorded as `failed` with the reason and
+can be run again after the underlying issue is corrected.
+
 Production callers can set `release_evidence=True` on `execute_remediation()`
 to force the configured Cosign keyless policy through `verify_release_evidence`;
 the executor blocks before creating a worktree when that gate fails.

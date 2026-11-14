@@ -168,5 +168,7 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
         detail = {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}
         if publication:
             detail["publication"] = publication
+        if remediation.status == RemediationStatus.ANALYZING:
+            RemediationRepository.update_status(session, remediation_id, RemediationStatus.COMPLETED)
         RemediationRepository.append_event(session, {"remediation_id": remediation_id, "event_type": "execution_ready", "sequence": len(events) + 1, "detail": detail})
         return {"remediation_id": remediation_id, "status": "ready", "commit": result.commit, "branch_name": branch_name, "publication": publication, "changed_files": result.changed_files}
