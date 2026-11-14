@@ -24,6 +24,12 @@ def test_celery_beat_schedules_recovery_polling_on_remediation_queue():
     assert schedule["options"]["queue"] == "remediation.normal"
 
 
+def test_celery_beat_schedules_disabled_by_default_backup_execution():
+    schedule = create_celery_app().conf.beat_schedule["schedule-postgres-backup"]
+    assert schedule["task"] == "src.platform.backup_tasks.schedule_postgres_backup"
+    assert schedule["options"]["queue"] == "remediation.normal"
+
+
 def test_reconciliation_run_metric_rejects_unknown_status():
     scan_metrics.clear()
     record_reconciliation_run("completed")

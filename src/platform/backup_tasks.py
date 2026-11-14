@@ -23,6 +23,17 @@ from src.db.models import AuditEventType, BackupExecution, BackupRestoreExecutio
 from src.db.repositories import AuditLogRepository
 
 
+def backup_due(last_success: datetime | None, *, now: datetime | None = None, minimum_interval_seconds: int = 86400) -> bool:
+    """Return whether an approved scheduled backup should be queued."""
+    if minimum_interval_seconds <= 0:
+        raise ValueError("backup interval must be positive")
+    if last_success is None:
+        return True
+    current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
+    previous = last_success.astimezone(timezone.utc)
+    return (current - previous).total_seconds() >= minimum_interval_seconds
+
+
 def _pg_dump_database_url(database_url: str) -> str:
     """Convert an application SQLAlchemy URL into a pg_dump-compatible URI."""
     return make_url(database_url).set(drivername="postgresql").render_as_string(hide_password=False)
@@ -109,6 +120,43 @@ def execute_postgres_backup(execution_id: int) -> dict[str, object]:
             record.status = "failed"
             record.error_message = error
         return {"id": execution_id, "status": "failed", "error": error}
+
+
+@shared_task(name="src.platform.backup_tasks.schedule_postgres_backup", acks_late=True)
+def schedule_postgres_backup() -> dict[str, object]:
+    """Queue an approved backup only when the durable freshness window is due."""
+    enabled = os.environ.get("BACKUP_SCHEDULED_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
+    if not enabled:
+        return {"status": "disabled"}
+    interval = max(60, int(os.environ.get("BACKUP_MIN_INTERVAL_SECONDS", "86400")))
+    now = datetime.now(timezone.utc)
+    with get_session() as session:
+        latest = session.query(BackupExecution).filter_by(status="verified").order_by(BackupExecution.artifact_created_at.desc()).first()
+        latest_at = latest.artifact_created_at.replace(tzinfo=timezone.utc) if latest and latest.artifact_created_at else None
+        if not backup_due(latest_at, now=now, minimum_interval_seconds=interval):
+            return {"status": "fresh", "backup_id": latest.id if latest else None}
+        record = BackupExecution(
+            artifact_name=f"scheduled-backup-{uuid.uuid4().hex}.dump",
+            source="postgres-pg_dump",
+            status="queued",
+            artifact_created_at=now.replace(tzinfo=None),
+            size_bytes=0,
+            verified=False,
+            recorded_by="backup-scheduler",
+        )
+        session.add(record)
+        session.flush()
+        AuditLogRepository.record(
+            session,
+            event_type=AuditEventType.CONFIG_CHANGED,
+            entity_type="backup_execution",
+            entity_id=str(record.id),
+            detail={"action": "scheduled_backup_queued", "interval_seconds": interval},
+            actor="backup-scheduler",
+            actor_kind="scheduler",
+        )
+        task = execute_postgres_backup.apply_async(args=[record.id], queue="remediation.normal")
+    return {"status": "queued", "backup_id": record.id, "task_id": task.id}
 
     try:
         # SQLAlchemy URLs commonly include a driver suffix (for example,
