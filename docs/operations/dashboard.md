@@ -90,3 +90,5 @@ Scan cadence behavior is documented in
 [`scan-schedules.md`](scan-schedules.md).
 Policy evaluation and management are documented in
 [`policy-engine.md`](policy-engine.md).
+Compliance report generation and evidence scope are documented in
+[`compliance-reports.md`](compliance-reports.md).

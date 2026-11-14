@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -117,6 +117,11 @@ class PolicyRequest(BaseModel):
         if len(value) < 3:
             raise ValueError("policy name must contain at least three characters")
         return value
+
+
+class ComplianceReportRequest(BaseModel):
+    framework: str = Field(pattern="^(nist|pci_dss|soc2|hipaa|gdpr)$")
+    output_format: str = Field(default="json", pattern="^(json|markdown)$")
 
 
 class RemediationRequest(BaseModel):
@@ -876,6 +881,53 @@ def evaluate_security_policies(scan_id: str, request: Request) -> dict:
             results.append(result)
         _record_operator_event(session, request, AuditEventType.POLICY_VIOLATED if any(result["violated"] for result in results) else AuditEventType.POLICY_UPDATED, scan_id, {"action": "evaluate_policies", "violations": sum(result["violated"] for result in results)}, entity_type="scan")
     return {"scan_id": scan_id, "results": results, "violations": sum(result["violated"] for result in results)}
+
+
+@router.get("/compliance/frameworks")
+def compliance_frameworks(request: Request) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    from src.analytics.compliance import FRAMEWORKS
+    return {"frameworks": [{"key": key, "name": value["name"]} for key, value in FRAMEWORKS.items()]}
+
+
+@router.get("/compliance/reports")
+def compliance_reports(request: Request, limit: int = Query(default=25, ge=1, le=100)) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        records = session.query(ComplianceReport).order_by(ComplianceReport.generated_at.desc(), ComplianceReport.id.desc()).limit(limit).all()
+    return {"items": [{"id": record.id, "title": record.title, "report_format": record.report_format, "scope": record.scope, "generated_at": _iso(record.generated_at), "summary": record.summary, "generated_by": record.generated_by} for record in records], "count": len(records)}
+
+
+@router.post("/compliance/reports")
+def generate_compliance_report(payload: ComplianceReportRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    from src.analytics.compliance import ComplianceReporter
+    with get_session() as session:
+        images = session.query(Image).filter(Image.active.is_(True)).all()
+        findings = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False)).all()
+        audit_count = session.query(AuditLog).count()
+    counts = Counter(_value(finding.severity) or "unknown" for finding in findings)
+    report = ComplianceReporter().generate(
+        payload.framework,
+        posture_data={"total_images": len(images), "findings_by_severity": dict(counts)},
+        audit_data={"total_records": audit_count},
+        anomaly_data={},
+        trend_data={},
+    )
+    content = ComplianceReporter().export_markdown(report) if payload.output_format == "markdown" else None
+    with get_session() as session:
+        record = ComplianceReport(
+            title=f"{report['framework_name']} — {report['report_id']}",
+            report_format=payload.output_format,
+            scope={"framework": payload.framework, "active_images": len(images)},
+            summary={"report": report, "content": content} if content else {"report": report},
+            generated_by=getattr(request.state, "principal_id", "dashboard-service"),
+        )
+        session.add(record)
+        session.flush()
+        _record_operator_event(session, request, AuditEventType.COMPLIANCE_REPORT_GENERATED, str(record.id), {"action": "generate_compliance_report", "framework": payload.framework, "format": payload.output_format}, entity_type="compliance_report")
+        result = {"id": record.id, "report": report, "content": content}
+    return result
 
 
 @router.post("/findings/bulk-acknowledge")
