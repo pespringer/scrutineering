@@ -10,9 +10,11 @@ import json
 import uuid
 from urllib.request import urlopen
 import os
+from redis import Redis
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import text
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
@@ -719,6 +721,40 @@ def dashboard_session(request: Request) -> dict:
         "email": getattr(request.state, "principal_email", None),
         "roles": getattr(request.state, "principal_roles", []),
     }
+
+
+@router.get("/system/health")
+def dashboard_system_health(request: Request) -> dict:
+    """Return actionable control-plane checks for onboarding and the operations UI."""
+    _require_role(request, "dashboard", "operator", "remediator", "security-operator", "admin")
+    checks: dict[str, dict[str, object]] = {}
+    try:
+        with get_session() as session:
+            session.execute(text("SELECT 1"))
+        checks["database"] = {"status": "ready", "message": "PostgreSQL is reachable."}
+    except Exception as exc:
+        checks["database"] = {"status": "blocked", "message": f"Database unavailable: {str(exc)[:160]}"}
+    try:
+        broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+        redis_client = Redis.from_url(broker_url, socket_connect_timeout=2, socket_timeout=2)
+        redis_client.ping()
+        redis_client.close()
+        checks["redis"] = {"status": "ready", "message": "Queue broker is reachable."}
+    except Exception as exc:
+        checks["redis"] = {"status": "blocked", "message": f"Queue broker unavailable: {str(exc)[:160]}"}
+    auth_mode = os.environ.get("DASHBOARD_AUTH_MODE", "local")
+    checks["authentication"] = {
+        "status": "ready" if auth_mode in {"local", "trusted-proxy"} else "blocked",
+        "message": "Local API-key bootstrap is active." if auth_mode == "local" else "Trusted-proxy identity forwarding is active.",
+        "mode": auth_mode,
+    }
+    discovery_enabled = os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() in {"1", "true", "yes"}
+    checks["runtime_discovery"] = {
+        "status": "ready" if discovery_enabled else "optional",
+        "message": "Runtime discovery is enabled." if discovery_enabled else "Runtime discovery is disabled by configuration.",
+    }
+    blocked = [name for name, check in checks.items() if check["status"] == "blocked"]
+    return {"status": "blocked" if blocked else "ready", "checks": checks, "blocked_checks": blocked}
 
 
 @router.get("/permissions")

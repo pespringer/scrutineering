@@ -17,6 +17,7 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/scans/{scan_id}" in paths
     assert "/api/dashboard/scans/{scan_id}/cancel" in paths
     assert "/api/dashboard/session" in paths
+    assert "/api/dashboard/system/health" in paths
     assert "/api/dashboard/permissions" in paths
     assert "/api/dashboard/audit" in paths
     assert "/api/dashboard/remediations/preview" in paths

@@ -49,7 +49,15 @@ findings cannot produce a ready artifact.
 ## Deferred follow-up
 
 The following are intentionally deferred and tracked for a later infrastructure
-pass: GitHub PR publication and merge callbacks; deployed-digest observation
-and post-merge deployment verification; and external alert delivery, retry,
-and dead-letter validation. They are disabled unless explicitly configured and
-must not be inferred from this local acceptance run.
+pass:
+
+- GitHub PR publication and merge-callback verification.
+- Deployed image-digest observation and post-merge deployment verification.
+- External alert delivery, retry, and dead-letter validation.
+
+These are disabled unless explicitly configured and must not be inferred from
+this local acceptance run. Re-entry requires a reachable GitHub test project,
+an environment exposing deployed-digest/rollout evidence, and an authenticated
+alert receiver that retains delivery evidence. See the
+[production readiness checklist](production-readiness-checklist.md) for the
+unchecked gates.

@@ -223,7 +223,7 @@ and production-like PostgreSQL/Redis services.
   findings.
 - **Completed:** dashboard Next.js routes now proxy to the Python API on the
   server side, keeping API credentials out of browser JavaScript while
-  retaining seed data for standalone frontend development.
+  failing clearly when the live data service is unavailable.
 - **Completed:** Compose now builds and health-checks the Python API service,
   connects the dashboard to it, and exposes port 8000 for local diagnostics.
 - **Next:** add paginated server-side filtering, scan controls/status polling,

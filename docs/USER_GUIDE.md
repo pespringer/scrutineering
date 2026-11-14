@@ -154,8 +154,8 @@ npm run dev        # Development mode with hot reload (port 3001)
 In Docker Compose, the dashboard uses server-side routes to call the authenticated
 Python data API. Set `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the
 server environment; do not expose the API key through `NEXT_PUBLIC_*` variables.
-When running the frontend standalone without `DASHBOARD_API_URL`, deterministic
-seed data is used for UI development.
+The frontend requires `DASHBOARD_API_URL` and reports a clear unavailable-data
+error when the authenticated API is not configured.
 
 ### Kubernetes (Production)
 ```bash
