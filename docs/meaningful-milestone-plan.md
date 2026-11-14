@@ -94,8 +94,11 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   emits optional OpenTelemetry request spans for production SLO visibility.
 - The Operations page now consumes those metrics and shows live request,
   latency, scan-failure, and dead-letter summaries beside infrastructure health.
+- The Setup page now provides an operator-ready first-scan launcher with
+  source selection, live worker polling, and a direct handoff to scan findings.
 - The remaining product work is richer source discovery, finding-to-remediation
-  workflow completion, and end-to-end remediation/provider operation. The
+  workflow completion, investigation workspace, and end-to-end
+  remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
   above remain deferred until their infrastructure is available.
 

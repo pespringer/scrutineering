@@ -17,6 +17,12 @@ shown separately. The first useful path is:
 3. Enable explicit backup execution only after reviewing its destination.
 4. Configure an isolated restore admin URL and verify recovery from Operations.
 
+After the checks load, operators can run the first scan directly from `/setup`.
+Enter a public image such as `nginx:1.27`, or select a verified source and enter
+its tagged reference. The page polls the queued scan and links to its result
+when it reaches a terminal state. This keeps the first-run path in one control
+surface; `/scans` remains available for history, filters, and bulk operations.
+
 The same response includes redacted registry readiness for Docker Hub, GHCR,
 GitLab, ECR, GCR, and any hosts listed in `REGISTRY_HOSTS`. It reports missing
 environment variable names—not their values—so operators can select a source
