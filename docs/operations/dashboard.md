@@ -25,6 +25,10 @@ API. Configure `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the server
 environment. The dashboard should not call internal database, Redis, or scanner
 services directly.
 
+Demo fixtures are disabled by default. Set `DASHBOARD_DEMO_MODE=true` only for
+an isolated UI preview; production and connected local stacks use the
+authenticated API and show an unavailable-data error when it is missing.
+
 For OIDC deployments, set `DASHBOARD_AUTH_MODE=trusted-proxy`. The ingress must
 validate the bearer token and forward `x-authenticated-sub` plus optional
 email/roles headers and the exact `x-dashboard-proxy-secret` value. The

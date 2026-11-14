@@ -44,7 +44,9 @@ export async function dashboardResponse<T>(
   try {
     const payload = process.env.DASHBOARD_API_URL
       ? await backendJson<T>(path, request ? { headers: trustedIdentityHeaders(request) } : undefined)
-      : await fallback();
+      : process.env.DASHBOARD_DEMO_MODE === "true"
+        ? await fallback()
+        : await Promise.reject(new Error("DASHBOARD_API_URL is not configured"));
     return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof BackendError) {
