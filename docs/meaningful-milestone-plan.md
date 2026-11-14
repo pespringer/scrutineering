@@ -18,6 +18,14 @@ coordinates, confidence, and the next operator action. See
 [`docs/operations/milestone-acceptance.md`](operations/milestone-acceptance.md)
 for commands, evidence, and limitations.
 
+### Deferred infrastructure work
+
+The following remain intentionally deferred for a later infrastructure pass:
+
+- GitHub PR publication and merge-callback verification.
+- Deployed image-digest observation and post-merge deployment verification.
+- External alert receiver delivery, retry, and dead-letter validation.
+
 ## Work Plan
 
 1. **Close the dashboard identity boundary.** Strip caller-supplied identity

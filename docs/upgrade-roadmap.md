@@ -681,4 +681,6 @@ The first production release requires green Node and Python suites, authenticate
   coordinates, fix confidence, and the next operator action in the dashboard.
 - **Next:** exercise provider PR publication and post-merge verification with
   the configured GitHub test project.
-- **Deferred:** live external alert receiver delivery remains separately gated.
+- **Deferred:** provider PR publication, merge callbacks, deployed-digest
+  observation, and live external alert receiver delivery remain separately
+  tracked for a later infrastructure pass.

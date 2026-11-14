@@ -46,9 +46,10 @@ rescan passed all five gates with zero vulnerabilities. The first attempted
 partial fix failed closed at the rescan gate, demonstrating that unresolved
 findings cannot produce a ready artifact.
 
-## Known limitations
+## Deferred follow-up
 
-Provider PR publication, merge callbacks, deployed-digest observation, and
-external alert delivery remain separate infrastructure-gated checks. They are
-disabled unless explicitly configured and must not be inferred from this local
-acceptance run.
+The following are intentionally deferred and tracked for a later infrastructure
+pass: GitHub PR publication and merge callbacks; deployed-digest observation
+and post-merge deployment verification; and external alert delivery, retry,
+and dead-letter validation. They are disabled unless explicitly configured and
+must not be inferred from this local acceptance run.
