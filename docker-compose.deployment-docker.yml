@@ -1,0 +1,9 @@
+# Opt-in runtime access for Docker/Compose deployment observation.
+# This grants the worker access to the Docker Engine API; use only on a
+# dedicated host and set DOCKER_SOCKET_GID to the host socket's group ID.
+services:
+  celery-worker:
+    group_add:
+      - "${DOCKER_SOCKET_GID:-999}"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

@@ -51,3 +51,17 @@ are persisted asynchronously. Runtime command access is intentionally a
 deployment decision: Docker collection requires access to the Docker runtime,
 and Kubernetes collection requires a scoped `kubectl` context or service
 account; neither is silently enabled by the API container.
+
+For local Docker collection, rebuild the worker and opt into the dedicated
+overlay only on a host where the worker is trusted to inspect the Docker
+Engine:
+
+```bash
+export DOCKER_SOCKET_GID="$(stat -c '%g' /var/run/docker.sock)"
+docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml up --build -d celery-worker
+```
+
+The default Compose stack does not mount `/var/run/docker.sock`. Kubernetes
+deployments should apply `k8s/deployment-observation-rbac.yaml` and configure
+the worker target selector in `DEPLOYMENT_COLLECTOR_TARGETS_JSON`; the role is
+limited to reading pod status and does not permit workload mutation.
