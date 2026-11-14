@@ -105,7 +105,9 @@ and one verified remediation loop before commercial expansion.
 - **Completed:** the scan cache now supports explicit invalidation and expired-entry pruning for shared-worker maintenance.
 - **Completed:** a Redis-backed scan cache adapter now supports shared worker results with digest-derived keys and TTLs.
 - **Completed:** scan worker configuration now validates that all priority queues are present.
-- **Started:** the canonical FastAPI app exposes a Prometheus-compatible metrics registry at `/metrics`, including scanner outcomes; OpenTelemetry traces and production SLO instrumentation remain.
+- **Completed:** the canonical FastAPI app exposes a Prometheus-compatible
+  metrics registry at `/metrics`, including scanner outcomes, bounded request
+  status/latency series, and optional OpenTelemetry request spans.
 - **Completed:** the metrics registry exposes a lock-protected structured snapshot for diagnostics without parsing Prometheus text.
 - **Completed:** the metrics registry now supports P50/P95 observations for production latency SLOs.
 - **Completed:** service code now has an optional OpenTelemetry span bridge that remains usable without the SDK installed.

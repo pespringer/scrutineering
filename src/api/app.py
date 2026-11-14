@@ -22,6 +22,8 @@ import os
 import time
 import hmac
 from fastapi.responses import JSONResponse
+from src.telemetry.scan_metrics import record_http_request
+from src.telemetry.tracing import span
 
 
 def is_service_request_authorized(headers, body: bytes, secret: str, replay_guard, *, max_skew_seconds: int = 300) -> bool:
@@ -55,6 +57,20 @@ def create_app() -> FastAPI:
         request_id = supplied if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", supplied) else str(uuid4())
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
+        return response
+
+    @application.middleware("http")
+    async def telemetry_middleware(request, call_next):
+        started = time.perf_counter()
+        route_name = request.url.path if len(request.url.path) <= 160 else "/unmatched"
+        with span("http.request", {"http.method": request.method, "http.route": route_name}):
+            try:
+                response = await call_next(request)
+            except Exception:
+                record_http_request(request.method, route_name, 500, time.perf_counter() - started)
+                raise
+        resolved_route = getattr(request.scope.get("route"), "path", route_name)
+        record_http_request(request.method, str(resolved_route)[:160], response.status_code, time.perf_counter() - started)
         return response
 
     @application.middleware("http")

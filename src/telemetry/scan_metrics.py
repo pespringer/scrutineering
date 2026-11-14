@@ -95,3 +95,16 @@ def record_slo(name: str, observed: float, target: float, passed: bool) -> None:
     scan_metrics.set_gauge("scrutineering_slo_observed", observed, labels={"slo": name})
     scan_metrics.set_gauge("scrutineering_slo_target", target, labels={"slo": name})
     scan_metrics.set_gauge("scrutineering_slo_pass", int(passed), labels={"slo": name})
+
+
+def record_http_request(method: str, route: str, status_code: int, seconds: float) -> None:
+    """Record bounded API request outcomes and latency for SLO evaluation."""
+    if not method or not route or not 100 <= status_code <= 599 or seconds < 0:
+        raise ValueError("invalid HTTP request metric")
+    labels = {"method": method.upper(), "route": route, "status": str(status_code)}
+    scan_metrics.increment("scrutineering_http_requests_total", labels=labels)
+    scan_metrics.observe(
+        "scrutineering_http_request_duration_seconds",
+        seconds,
+        labels={"method": method.upper(), "route": route},
+    )

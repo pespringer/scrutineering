@@ -53,6 +53,13 @@ the number of pending, failed, or unverified merged publications older than
 the configured threshold. A non-zero value routes the
 `ScrutineeringStalePublications` warning to platform security.
 
+The canonical FastAPI application also records bounded request metrics:
+`scrutineering_http_requests_total` by method, route template, and status, and
+`scrutineering_http_request_duration_seconds` for P50/P95 latency. Each
+request is wrapped in an optional `http.request` OpenTelemetry span when the
+SDK and `OTEL_EXPORTER_OTLP_ENDPOINT` are configured; the dependency-free
+fallback preserves request behavior when tracing is not installed.
+
 ## Weekly Reporting Contract
 
 Weekly reporting uses generated telemetry output to auto-populate:

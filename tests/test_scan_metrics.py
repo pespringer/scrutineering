@@ -1,4 +1,4 @@
-from src.telemetry.scan_metrics import record_provider_callback, record_scan, record_scan_latency, scan_metrics, set_stale_publications
+from src.telemetry.scan_metrics import record_http_request, record_provider_callback, record_scan, record_scan_latency, scan_metrics, set_stale_publications
 
 
 def test_scan_metrics_record_outcomes():
@@ -24,3 +24,11 @@ def test_stale_publication_gauge_is_rendered():
     scan_metrics.clear()
     set_stale_publications(2)
     assert "scrutineering_stale_publications 2" in scan_metrics.render()
+
+
+def test_http_request_metrics_record_status_and_latency():
+    scan_metrics.clear()
+    record_http_request("get", "/health", 200, 0.25)
+    output = scan_metrics.render()
+    assert 'scrutineering_http_requests_total{method="GET",route="/health",status="200"} 1' in output
+    assert 'scrutineering_http_request_duration_seconds{method="GET",route="/health",quantile="0.5"} 0.25' in output
