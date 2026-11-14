@@ -107,6 +107,11 @@ class DockerComposeCollector:
         state = record.get("State") or {}
         if not state.get("Running"):
             raise DeploymentCollectorError("docker container is not running")
+        health = (state.get("Health") or {}).get("Status")
+        if health in {"starting", "unhealthy"}:
+            raise DeploymentCollectorError(f"docker container health is {health}")
+        if health and health != "healthy":
+            raise DeploymentCollectorError("docker container returned an invalid health status")
         digest = str(record.get("Image") or "")
         if not DIGEST_PATTERN.fullmatch(digest):
             repo_digests = record.get("RepoDigests") or []

@@ -68,4 +68,7 @@ limited to reading pod status and does not permit workload mutation. When the
 worker runs in Kubernetes, the collector uses the standard service-account
 token and CA mount together with `KUBERNETES_SERVICE_HOST`; outside the cluster,
 `kubectl` uses its normal kubeconfig/context. Do not broaden the role to permit
-deployments, pods, or other workload mutation.
+deployments, pods, or other workload mutation. Docker observations require a
+running container and reject containers whose configured health check is still
+starting or unhealthy; containers without a Docker health check retain the
+running-state check.

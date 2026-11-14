@@ -35,6 +35,30 @@ def test_docker_collector_rejects_stopped_or_mutable_container():
         collector.collect("scrutineering-api")
 
 
+@pytest.mark.parametrize("health", ["starting", "unhealthy"])
+def test_docker_collector_requires_healthy_container(health):
+    collector = DockerComposeCollector(
+        runner=lambda command, timeout: json.dumps([{
+            "Image": DIGEST,
+            "State": {"Running": True, "Health": {"Status": health}},
+        }])
+    )
+
+    with pytest.raises(DeploymentCollectorError, match=f"health is {health}"):
+        collector.collect("scrutineering-api")
+
+
+def test_docker_collector_accepts_healthy_container():
+    collector = DockerComposeCollector(
+        runner=lambda command, timeout: json.dumps([{
+            "Image": DIGEST,
+            "State": {"Running": True, "Health": {"Status": "healthy"}},
+        }])
+    )
+
+    assert collector.collect("scrutineering-api").rollout_status == "ready"
+
+
 def test_kubernetes_collector_requires_one_ready_digest():
     payload = {"items": [{"status": {"phase": "Running", "containerStatuses": [{"ready": True, "imageID": f"docker-pullable://registry/app@{DIGEST}"}]}}]}
     collector = KubernetesCollector(runner=lambda command, timeout: json.dumps(payload))
