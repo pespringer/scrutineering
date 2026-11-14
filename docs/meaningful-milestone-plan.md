@@ -114,6 +114,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Source onboarding now includes an explicit worker-backed Docker/containerd
   runtime discovery action that returns redaction-safe inventory and queues a
   selected discovered image for scanning.
+- Runtime discovery now returns redaction-safe Compose/Kubernetes workload
+  context (service, project, namespace, workload, and owner) so operators can
+  identify an image's origin without reading runtime labels or logs.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts

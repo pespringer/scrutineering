@@ -18,7 +18,8 @@ access.
 - Add a source connection wizard for Docker, Compose, Kubernetes, and OCI
   registries, with readiness checks and actionable errors.
 - Discover images with immutable digest, workload, namespace, and ownership
-  context; deduplicate them into one inventory.
+  context; deduplicate them into one inventory. Runtime discovery now returns
+  an allowlisted subset of Compose/Kubernetes context alongside each image.
 - Let operators select discovered images, set scan cadence, and launch a
   first scan without copying values between pages.
 

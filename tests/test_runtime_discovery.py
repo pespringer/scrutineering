@@ -1,4 +1,4 @@
-from src.scan.runtime_discovery import select_runtime_images
+from src.scan.runtime_discovery import safe_runtime_context, select_runtime_images
 
 
 def test_runtime_discovery_filters_and_deduplicates_images():
@@ -18,3 +18,16 @@ def test_runtime_discovery_excludes_container_names_and_images():
     ]
 
     assert select_runtime_images(containers, exclude=["*:dev"], exclude_containers=["api-prod"]) == []
+
+
+def test_runtime_context_allows_workload_coordinates_but_redacts_arbitrary_labels():
+    container = {
+        "labels": {
+            "com.docker.compose.project": "payments",
+            "com.docker.compose.service": "api",
+            "app.kubernetes.io/part-of": "platform",
+            "SECRET_TOKEN": "do-not-return",
+        }
+    }
+
+    assert safe_runtime_context(container) == {"project": "payments", "service": "api", "owner": "platform"}

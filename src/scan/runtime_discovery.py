@@ -7,6 +7,21 @@ import os
 from typing import Any
 
 
+_SAFE_CONTEXT_LABELS = {
+    "com.docker.compose.project": "project",
+    "com.docker.compose.service": "service",
+    "com.docker.compose.container-number": "replica",
+    "io.kubernetes.pod.name": "pod",
+    "io.kubernetes.container.name": "container",
+    "io.kubernetes.namespace": "namespace",
+    "k8s.namespace.name": "namespace",
+    "namespace": "namespace",
+    "app.kubernetes.io/name": "workload",
+    "app.kubernetes.io/part-of": "owner",
+    "app": "workload",
+}
+
+
 def _patterns(name: str) -> list[str]:
     return [item.strip() for item in os.environ.get(name, "").split(",") if item.strip()]
 
@@ -20,6 +35,24 @@ def _labels_match(labels: Any, expression: str | None) -> bool:
     if isinstance(labels, str):
         labels = dict(item.split("=", 1) for item in labels.split(",") if "=" in item)
     return isinstance(labels, dict) and labels.get(key) == expected
+
+
+def safe_runtime_context(container: dict[str, Any]) -> dict[str, str]:
+    """Return only known, non-secret workload coordinates for the dashboard."""
+    context: dict[str, str] = {}
+    for field in ("namespace", "workload", "owner"):
+        value = str(container.get(field) or "").strip()
+        if value:
+            context[field] = value[:128]
+    labels = container.get("labels")
+    if isinstance(labels, str):
+        labels = dict(item.split("=", 1) for item in labels.split(",") if "=" in item)
+    if isinstance(labels, dict):
+        for label, field in _SAFE_CONTEXT_LABELS.items():
+            value = str(labels.get(label) or "").strip()
+            if value and field not in context:
+                context[field] = value[:128]
+    return context
 
 
 def select_runtime_images(containers: list[dict[str, Any]], *, include: list[str] | None = None,

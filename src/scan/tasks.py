@@ -33,7 +33,7 @@ from src.db.connection import get_session as get_db_session
 from src.db.models import Image, Scan, ScanStatus
 from src.scan.image_identity import parse_image_reference
 from src.scan.source_target import storage_reference
-from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
+from src.scan.runtime_discovery import discover_runtime_containers, safe_runtime_context, select_runtime_images
 from src.scan.scheduled import schedule_active_scans
 from src.telemetry.scan_metrics import record_scan, record_scan_latency
 
@@ -91,7 +91,13 @@ def discover_runtime_inventory() -> dict[str, object]:
     ))
     limit = int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100"))
     images = select_runtime_images(containers, limit=limit)
-    safe_containers = [{key: value for key, value in container.items() if key in {"id", "names", "image", "status", "created", "ports", "namespace"}} for container in containers]
+    safe_containers = []
+    for container in containers:
+        safe_container = {key: value for key, value in container.items() if key in {"id", "names", "image", "status", "created", "ports", "namespace"}}
+        context = safe_runtime_context(container)
+        if context:
+            safe_container["context"] = context
+        safe_containers.append(safe_container)
     return {"status": "ready", "containers": safe_containers, "images": images, "discovered": len(containers), "image_count": len(images)}
 
 
