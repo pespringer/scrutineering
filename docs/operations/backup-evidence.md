@@ -19,6 +19,23 @@ dedicated backup volume, records its SHA-256 and size, and emits success or
 failure audit evidence. The endpoint rejects requests without explicit
 confirmation and is disabled by default.
 
+## Restore verification
+
+An operator can verify a stored artifact with
+`POST /api/dashboard/backup-evidence/{id}/restore` and body
+`{"confirm": true}`. This operation is disabled unless both
+`BACKUP_RESTORE_ENABLED=true` and `BACKUP_RESTORE_TARGET_ISOLATED=true` are set.
+The worker also requires `BACKUP_RESTORE_ADMIN_DATABASE_URL`, using a PostgreSQL
+credential with `CREATEDB` permission. For each run it creates a uniquely named
+temporary database, restores the custom-format dump with `pg_restore`, records
+table and selected row counts, then drops the temporary database. A successful
+run is only marked verified when cleanup succeeds; failure and cleanup evidence
+are retained in `backup_restore_executions` and the audit log.
+
+The target is intentionally disposable. Never point the admin URL at a
+production credential or enable this operation without confirming that the
+credential can create and drop isolated databases.
+
 Metadata entries use this shape:
 
 ```json
@@ -32,6 +49,6 @@ Metadata entries use this shape:
 ]
 ```
 
-This is execution evidence, not a restore proof. A restore must still target
-an isolated database and pass the documented restore preflight before it can
-be treated as a recovery gate.
+Backup execution and restore verification are separate evidence records. A
+fresh backup without a successful isolated restore remains insufficient for a
+recovery gate.

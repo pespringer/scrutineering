@@ -50,7 +50,12 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: backup-data
+              mountPath: /var/lib/scrutineering/backups
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 1Gi
+        - name: backup-data
+          persistentVolumeClaim:
+            claimName: scrutineering-backup-data

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, BackupExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupRestoreExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -125,6 +125,10 @@ class ComplianceReportRequest(BaseModel):
 
 
 class BackupExecutionRequest(BaseModel):
+    confirm: bool = Field(default=False)
+
+
+class BackupRestoreRequest(BaseModel):
     confirm: bool = Field(default=False)
 
 
@@ -908,6 +912,10 @@ def backup_evidence(request: Request, limit: int = Query(default=25, ge=1, le=10
     _require_role(request, "dashboard", "operator", "security-operator", "admin")
     with get_session() as session:
         records = session.query(BackupExecution).order_by(BackupExecution.observed_at.desc(), BackupExecution.id.desc()).limit(limit).all()
+        restore_records = session.query(BackupRestoreExecution).filter(BackupRestoreExecution.backup_execution_id.in_([record.id for record in records])).order_by(BackupRestoreExecution.started_at.desc(), BackupRestoreExecution.id.desc()).all() if records else []
+        restores_by_backup: dict[int, BackupRestoreExecution] = {}
+        for restore in restore_records:
+            restores_by_backup.setdefault(restore.backup_execution_id, restore)
     return {"items": [{
         "id": record.id,
         "artifact_name": record.artifact_name,
@@ -920,6 +928,21 @@ def backup_evidence(request: Request, limit: int = Query(default=25, ge=1, le=10
         "sha256": record.sha256,
         "error_message": record.error_message,
         "recorded_by": record.recorded_by,
+        "restore": (
+            {
+                "id": restore.id,
+                "status": restore.status,
+                "started_at": _iso(restore.started_at),
+                "completed_at": _iso(restore.completed_at),
+                "duration_seconds": restore.duration_seconds,
+                "table_count": restore.table_count,
+                "row_counts": restore.row_counts,
+                "cleanup_verified": restore.cleanup_verified,
+                "error_message": restore.error_message,
+            }
+            if (restore := restores_by_backup.get(record.id)) is not None
+            else None
+        ),
     } for record in records], "count": len(records)}
 
 
@@ -947,6 +970,30 @@ def execute_backup(payload: BackupExecutionRequest, request: Request) -> dict:
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(record.id), {"action": "backup_execution_requested"}, entity_type="backup_execution")
         task = execute_postgres_backup.apply_async(args=[record.id], queue="remediation.normal")
     return {"id": record.id, "task_id": task.id, "status": "queued"}
+
+
+@router.post("/backup-evidence/{backup_id}/restore")
+def verify_backup_restore(backup_id: int, payload: BackupRestoreRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="explicit_restore_confirmation_required")
+    if os.environ.get("BACKUP_RESTORE_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=409, detail="backup_restore_disabled")
+    if os.environ.get("BACKUP_RESTORE_TARGET_ISOLATED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=409, detail="isolated_restore_target_required")
+    from src.platform.backup_tasks import verify_postgres_restore
+    with get_session() as session:
+        backup = session.get(BackupExecution, backup_id)
+        if backup is None:
+            raise HTTPException(status_code=404, detail="backup_execution_not_found")
+        if not backup.verified:
+            raise HTTPException(status_code=409, detail="backup_artifact_not_verified")
+        restore = BackupRestoreExecution(backup_execution_id=backup.id, recorded_by=getattr(request.state, "principal_id", "dashboard-service"))
+        session.add(restore)
+        session.flush()
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(restore.id), {"action": "backup_restore_requested", "backup_execution_id": backup.id}, entity_type="backup_restore_execution")
+        task = verify_postgres_restore.apply_async(args=[restore.id], queue="remediation.normal")
+    return {"id": restore.id, "task_id": task.id, "status": "queued"}
 
 
 @router.post("/compliance/reports")
@@ -1172,6 +1219,7 @@ def production_operations(request: Request) -> dict:
         worker_names = []
     with get_session() as session:
         latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
+        latest_restore = session.query(BackupRestoreExecution).filter(BackupRestoreExecution.backup_execution_id == latest_backup.id).order_by(BackupRestoreExecution.started_at.desc(), BackupRestoreExecution.id.desc()).first() if latest_backup else None
     backup_timestamp = float(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0) or 0)
     if latest_backup is not None:
         backup_timestamp = max(backup_timestamp, latest_backup.artifact_created_at.replace(tzinfo=timezone.utc).timestamp())
@@ -1188,7 +1236,7 @@ def production_operations(request: Request) -> dict:
         "checks": {
             "queues": {"status": "ready" if broker_reachable else "blocked", "message": "Redis broker is reachable." if broker_reachable else "Redis broker is unavailable.", "depths": queue_depths},
             "workers": {"status": "ready" if worker_names else "blocked", "message": f"{len(worker_names)} Celery worker(s) responded to ping." if worker_names else "No Celery workers responded to ping.", "workers": worker_names},
-            "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours, "latest_artifact": latest_backup.artifact_name if latest_backup else None, "latest_size_bytes": latest_backup.size_bytes if latest_backup else None, "latest_verified": latest_backup.verified if latest_backup else False},
+            "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours, "latest_backup_id": latest_backup.id if latest_backup else None, "latest_artifact": latest_backup.artifact_name if latest_backup else None, "latest_size_bytes": latest_backup.size_bytes if latest_backup else None, "latest_verified": latest_backup.verified if latest_backup else False, "latest_restore": {"status": latest_restore.status, "cleanup_verified": latest_restore.cleanup_verified} if latest_restore else None},
         },
         "deferred_checks": {
             "provider_publication": {"status": "deferred", "message": "Live provider publication and merge callbacks require the external test repository."},
