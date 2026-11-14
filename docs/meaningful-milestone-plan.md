@@ -100,6 +100,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   the same image, separating new, resolved, and persisting exposure.
 - Remediation detail now offers a portable, secret-free review bundle with
   actions, lifecycle evidence, publication state, and explicit deferred gates.
+- Image detail now includes a recent scan timeline with terminal status,
+  finding counts, and immutable digest context for each run.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The

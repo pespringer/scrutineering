@@ -27,6 +27,10 @@ Completed scan detail also compares the result with the previous completed
 scan for the same image, making new, resolved, and persisting exposure visible
 without exporting data or manually comparing two reports.
 
+Image detail includes the recent scan timeline so operators can follow status,
+finding counts, and immutable image digests across runs before opening an
+individual scan record.
+
 The same response includes redacted registry readiness for Docker Hub, GHCR,
 GitLab, ECR, GCR, and any hosts listed in `REGISTRY_HOSTS`. It reports missing
 environment variable names—not their values—so operators can select a source

@@ -304,6 +304,7 @@ def _scan_payload(scan: Scan) -> dict:
         "scan_id": scan.scan_id,
         "image_id": getattr(scan, "image_id", None),
         "image_name": scan.image.full_name if scan.image else "unknown",
+        "image_digest": getattr(scan, "image_digest", None),
         "status": _value(scan.status),
         "started_at": _iso(scan.started_at),
         "completed_at": _iso(scan.completed_at),
@@ -1001,10 +1002,12 @@ def image_detail(
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
         all_findings = session.query(ScanFinding).filter_by(image_id=image_id, remediated=False).all()
+        scan_history = session.query(Scan).filter_by(image_id=image_id).order_by(Scan.started_at.desc()).limit(20).all()
     return {
         "image": _image_payload(image, all_findings),
         "findings": [_finding_payload(finding) for finding in findings],
         "findings_page": _page([_finding_payload(finding) for finding in findings], limit, offset, total),
+        "scan_history": [_scan_payload(scan) for scan in scan_history],
     }
 
 

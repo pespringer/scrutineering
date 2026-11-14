@@ -7,7 +7,7 @@ import FindingsTable from "@/components/FindingsTable";
 import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
-import type { ImageDetail, VulnerabilityFinding } from "@/types";
+import type { ImageDetail, ScanResult, VulnerabilityFinding } from "@/types";
 import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck, ShieldOff, UserRound, Wand2 } from "lucide-react";
 import Link from "next/link";
 
@@ -25,6 +25,7 @@ export default function ImageDetailPage() {
   const [severityFilter, setSeverityFilter] = useState(initialSeverity);
   const [findingsOffset, setFindingsOffset] = useState(0);
   const [findingsTotal, setFindingsTotal] = useState(0);
+  const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [canRemediate, setCanRemediate] = useState(false);
@@ -47,6 +48,7 @@ export default function ImageDetailPage() {
       const findingsData = await findingsRes.json();
       setFindings(findingsData.findings || []);
       setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
+      setScanHistory(findingsData.scan_history || []);
       try {
         const scheduleRes = await fetch(`/api/images/${imageId}/schedule`, { cache: "no-store" });
         if (scheduleRes.ok) setSchedule((await scheduleRes.json()).schedule);
@@ -168,6 +170,8 @@ export default function ImageDetailPage() {
         <div><div className="eyebrow mb-1">Automated scanning</div><p className="text-sm text-slate-400">{schedule.enabled ? `Runs every ${formatInterval(schedule.interval_seconds)}${schedule.next_run_at ? ` · next run ${new Date(schedule.next_run_at).toLocaleString()}` : ""}` : "Recurring scanning is paused for this image."}</p></div>
         {canManage && <div className="flex flex-wrap items-center gap-2"><select aria-label="Scan interval" value={schedule.interval_seconds || 21600} onChange={(event) => updateSchedule(true, Number(event.target.value))} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200"><option value="3600">Every hour</option><option value="21600">Every 6 hours</option><option value="43200">Every 12 hours</option><option value="86400">Daily</option><option value="604800">Weekly</option></select><button onClick={() => updateSchedule(!schedule.enabled, schedule.interval_seconds || 21600)} className="rounded-xl border border-cyan-400/30 px-3 py-2 text-sm text-cyan-200 hover:bg-cyan-400/10">{schedule.enabled ? "Pause" : "Enable"}</button></div>}
       </div>
+
+      <section className="panel mb-6 rounded-2xl p-5 sm:p-6"><div className="mb-4 flex items-end justify-between gap-3"><div><div className="eyebrow mb-1">Investigation timeline</div><h2 className="text-lg font-semibold text-white">Recent scan history</h2><p className="mt-1 text-sm text-slate-500">Track findings and scan health for this image over time.</p></div><span className="text-xs text-slate-600">{scanHistory.length} recent runs</span></div><div className="space-y-2">{scanHistory.map((scan) => <Link key={scan.scan_id} href={`/scans/${scan.scan_id}`} className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/30 p-3 transition hover:border-cyan-400/30 hover:bg-slate-900/50 sm:flex-row sm:items-center sm:justify-between"><div className="flex min-w-0 items-center gap-3"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${scan.status === "completed" ? "bg-emerald-300" : scan.status === "failed" ? "bg-rose-300" : "bg-amber-300"}`} /><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-medium capitalize text-slate-200">{scan.status}</span><span className="font-mono text-[10px] text-slate-600">{scan.scan_id}</span></div><div className="mt-1 truncate text-xs text-slate-500">{new Date(scan.completed_at || scan.started_at).toLocaleString()}{scan.image_digest ? ` · ${scan.image_digest}` : ""}</div></div></div><div className="flex items-center gap-4 pl-5 text-right"><div><div className="text-sm font-semibold text-slate-200">{scan.findings}</div><div className="text-[10px] uppercase tracking-wider text-slate-600">findings</div></div><div className="text-xs text-rose-300">{scan.critical_count} critical</div></div></Link>)}{!scanHistory.length && <p className="rounded-xl border border-slate-800 p-4 text-sm text-slate-500">No scan history is available for this image yet.</p>}</div></section>
 
       {/* Severity filter */}
       <div className="mb-5 flex flex-wrap items-center gap-2">

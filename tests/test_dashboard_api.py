@@ -34,6 +34,19 @@ def test_dashboard_serializers_match_frontend_contract():
     assert _finding_payload(finding)["severity"] == "HIGH"
 
 
+def test_scan_payload_exposes_digest_and_terminal_status_for_timelines():
+    scan = SimpleNamespace(
+        scan_id="scan-history", image=SimpleNamespace(full_name="nginx:1.27"), image_id=3,
+        image_digest="sha256:abc", status=ScanStatus.COMPLETED,
+        started_at=datetime(2026, 1, 2), completed_at=datetime(2026, 1, 2, 0, 5),
+        total_findings=2, critical_count=1, high_count=1, medium_count=0, low_count=0,
+        archived=False, scanner_versions={}, vulnerability_db_versions={}, error_message=None,
+    )
+    payload = _scan_payload(scan)
+    assert payload["status"] == "completed"
+    assert payload["image_digest"] == "sha256:abc"
+
+
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
