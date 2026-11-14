@@ -30,6 +30,10 @@ def configured_deployment_target(repository: str, raw: str | None = None) -> dic
         raise DeploymentCollectorError("docker collector target requires container")
     if target["provider"] == "kubernetes" and (not target.get("namespace") or not target.get("selector")):
         raise DeploymentCollectorError("kubernetes collector target requires namespace and selector")
+    if target["provider"] == "kubernetes" and target.get("workload") is not None:
+        workload = target["workload"]
+        if not isinstance(workload, str) or not workload or any(char.isspace() for char in workload):
+            raise DeploymentCollectorError("kubernetes workload must be a non-empty name")
     return target
 
 
@@ -107,7 +111,10 @@ def collect_deployment_observation(publication_id: int) -> dict:
         if target["provider"] == "docker":
             observation = DockerComposeCollector(timeout_seconds=timeout).collect(target["container"])
         else:
-            observation = KubernetesCollector(timeout_seconds=timeout).collect(namespace=target["namespace"], selector=target["selector"])
+            observation = KubernetesCollector(timeout_seconds=timeout).collect(
+                namespace=target["namespace"], selector=target["selector"],
+                workload=target.get("workload"),
+            )
         scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first() if publication.post_merge_scan_id else None
         detail = _reconcile_observation(session, publication, observation_payload(observation), scan)
         return {"publication_id": publication_id, "status": detail["status"], "verification_status": publication.verification_status, "observation": observation_payload(observation)}

@@ -69,6 +69,28 @@ def test_kubernetes_collector_requires_one_ready_digest():
     assert observation.observed_digest == DIGEST
 
 
+def test_kubernetes_collector_verifies_deployment_rollout_before_pods():
+    commands = []
+    payload = {"items": [{"status": {"phase": "Running", "containerStatuses": [
+        {"ready": True, "imageID": f"docker-pullable://registry/app@{DIGEST}"},
+    ]}}]}
+
+    def runner(command, timeout):
+        commands.append(command)
+        return "deployment successfully rolled out" if command[1] == "rollout" else json.dumps(payload)
+
+    observation = KubernetesCollector(runner=runner).collect(
+        namespace="security", selector="app=sentinel", workload="sentinel",
+    )
+
+    assert commands[0] == [
+        "kubectl", "rollout", "status", "deployment/sentinel",
+        "--namespace", "security", "--timeout=20s",
+    ]
+    assert observation.target == "security/sentinel"
+    assert observation.source == "kubectl rollout status and pod status"
+
+
 def test_kubernetes_collector_rejects_mixed_rollout_digests():
     payload = {"items": [{"status": {"phase": "Running", "containerStatuses": [
         {"ready": True, "imageID": f"docker-pullable://registry/app@{DIGEST}"},
@@ -122,3 +144,12 @@ def test_collector_target_is_selected_by_publication_repository():
 def test_collector_target_configuration_fails_closed():
     with pytest.raises(DeploymentCollectorError):
         configured_deployment_target("acme/api", "{}")
+
+
+def test_kubernetes_target_accepts_optional_workload_name():
+    target = configured_deployment_target(
+        "acme/api",
+        '{"acme/api":{"provider":"kubernetes","namespace":"security","selector":"app=api","workload":"api"}}',
+    )
+
+    assert target["workload"] == "api"
