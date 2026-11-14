@@ -527,6 +527,30 @@ class BackupRestoreExecution(Base):
     recorded_by: Mapped[str] = mapped_column(String(128), nullable=False, default="restore-worker")
 
 
+class RegistrySource(Base):
+    """Non-secret registry source configuration and connection evidence."""
+    __tablename__ = "registry_sources"
+    __table_args__ = (
+        UniqueConstraint("registry_host", "display_name", name="uq_registry_source_name"),
+        Index("idx_registry_sources_enabled", "enabled"),
+        Index("idx_registry_sources_status", "status"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    display_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    registry_host: Mapped[str] = mapped_column(String(255), nullable=False)
+    auth_mode: Mapped[str] = mapped_column(String(32), nullable=False, default="environment")
+    credential_keys: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="unverified")
+    last_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_reference: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    last_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False, default="operator")
+
+
 # -- Security Policies ------------------------------------------------------ #
 
 class SecurityPolicy(Base):
