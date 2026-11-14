@@ -8,7 +8,7 @@ import pytest
 
 from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.models import Severity
-from src.scan.utils.db import _finding_source
+from src.scan.utils.db import _finding_source, apply_finding_observation
 
 
 def _make_finding(cve=None, pkg="openssl", version="1.1.1", severity=Severity.HIGH, title=None):
@@ -314,3 +314,18 @@ class TestRunScannerSync:
         run_scanner_sync(mock_scanner, "nginx:1.25", "trivy", cache)
         run_scanner_sync(mock_scanner, "nginx:1.25", "trivy", cache)
         mock_scanner.scan.assert_awaited_once()
+
+
+def test_finding_lifecycle_closes_and_reopens():
+    from datetime import datetime, timezone
+    from types import SimpleNamespace
+
+    finding = SimpleNamespace(resolved_at=None, reopened_at=None)
+    closed_at = datetime(2026, 11, 14, tzinfo=timezone.utc)
+    apply_finding_observation(finding, observed=False, observed_at=closed_at)
+    assert finding.resolved_at == closed_at
+
+    reopened_at = datetime(2026, 11, 15, tzinfo=timezone.utc)
+    apply_finding_observation(finding, observed=True, observed_at=reopened_at)
+    assert finding.resolved_at is None
+    assert finding.reopened_at == reopened_at

@@ -301,6 +301,7 @@ class ScanFinding(Base):
         Index("idx_findings_fingerprint", "fingerprint"),
         Index("idx_findings_first_seen", "first_seen"),
         Index("idx_findings_remediated", "remediated"),
+        Index("idx_findings_resolved_at", "resolved_at"),
         Index("idx_findings_cve_image", "cve_id", "image_id"),
         UniqueConstraint("fingerprint", "image_id",
                          name="uq_fingerprint_image"),
@@ -357,6 +358,8 @@ class ScanFinding(Base):
     last_seen: Mapped[datetime] = mapped_column(DateTime,
                                                  server_default=func.now())
     remediated: Mapped[bool] = mapped_column(Boolean, default=False)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    reopened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     assigned_to: Mapped[str | None] = mapped_column(String(128), nullable=True)
     remediation_id: Mapped[int | None] = mapped_column(

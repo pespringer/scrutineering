@@ -240,6 +240,9 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "first_seen": _iso(finding.first_seen),
         "last_seen": _iso(finding.last_seen),
         "remediated": bool(finding.remediated),
+        "resolved_at": _iso(getattr(finding, "resolved_at", None)),
+        "reopened_at": _iso(getattr(finding, "reopened_at", None)),
+        "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
     }

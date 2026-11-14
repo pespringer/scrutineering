@@ -17,6 +17,7 @@ and one verified remediation loop before commercial expansion.
 - The planner now has API-key/OIDC policy boundaries, request IDs, structured errors, route validation, and local/distributed limiter adapters; provider wiring remains.
 - Compose keeps PostgreSQL and Redis internal by default and requires explicit credentials.
 - Scanner orchestration, observability, and finding lifecycle management need hardening.
+- **Started:** finding records now track resolved/reopened timestamps, and complete rescans reconcile absent fingerprints without closing findings from partial or failed scans.
 
 ## Phase 0 — Restore Trust (now)
 

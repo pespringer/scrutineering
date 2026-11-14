@@ -114,7 +114,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
                   )}
                 </td>
                 <td className="px-3 py-4">
-                  <SeverityBadge severity={f.severity} />
+                  {f.lifecycle_status === "resolved" ? <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">Resolved</span> : <SeverityBadge severity={f.severity} />}
                 </td>
                 <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
                 <td className="px-3 py-4 font-mono text-slate-400">

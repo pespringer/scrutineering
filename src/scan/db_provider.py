@@ -53,6 +53,9 @@ class SqlAlchemyScanDataProvider:
                 "severity": row.severity.value if row.severity else None,
                 "image_digest": row.image.digest if row.image else None,
                 "remediated": row.remediated,
+                "resolved_at": row.resolved_at.isoformat() if row.resolved_at else None,
+                "reopened_at": row.reopened_at.isoformat() if row.reopened_at else None,
+                "lifecycle_status": "resolved" if row.resolved_at else "open",
             } for row in rows]
 
     def list_alerts(self, **filters: Any) -> list[dict[str, Any]]:

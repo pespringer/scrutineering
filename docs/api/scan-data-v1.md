@@ -17,3 +17,9 @@ and audit records. Runtime alerts may be supplied through its alert-provider
 callback until runtime alerts receive a shared persistent model.
 Filter values are trimmed and normalized to lowercase before reaching the data
 provider, so clients can send ` HIGH ` without creating a second filter shape.
+
+Finding records include `lifecycle_status` (`open` or `resolved`),
+`resolved_at`, and `reopened_at`. A completed scan resolves previously open
+fingerprints absent from that scan; a later observation clears `resolved_at` and
+records the reopen time. Partial or failed scans do not close findings because
+they are not complete absence evidence.
