@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system deps needed for psycopg2 and scanner binaries
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libpq-dev gcc curl jq git nodejs npm && \
+      libpq-dev gcc curl jq git nodejs npm docker-cli kubectl && \
     rm -rf /var/lib/apt/lists/*
 
 # Install a pinned Trivy release (avoid executing a moving install script).

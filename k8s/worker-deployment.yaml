@@ -17,6 +17,7 @@ spec:
       labels:
         app: scrutineering-worker
     spec:
+      serviceAccountName: scrutineering-worker
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
