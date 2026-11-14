@@ -78,8 +78,11 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Explicit PostgreSQL backup execution and isolated temporary-database restore
   verification now record durable artifact, checksum, row-count, cleanup, and
   audit evidence.
-- The remaining product work is multi-user source onboarding, richer source
-  discovery, and end-to-end remediation/provider operation. The
+- Durable registry sources now expose secret-free readiness, read-only digest
+  checks, and direct source selection when launching a scan; manual image
+  references remain supported.
+- The remaining product work is richer source discovery, finding-to-remediation
+  workflow completion, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
   above remain deferred until their infrastructure is available.
 
