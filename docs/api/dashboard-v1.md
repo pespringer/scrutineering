@@ -90,7 +90,10 @@ status and allowed recovery actions. `POST
 `request_callback` or `mark_manual_review` request; it never mutates the
 provider. `POST /remediations/publications/{publication_id}/evidence` attaches
 deployment scan evidence to a merged publication and re-evaluates its healthy
-or rollback-required decision.
+or rollback-required decision. When the publication has a correlated
+post-merge scan, `POST /remediations/publications/{publication_id}/deployment-evidence`
+accepts only expected/deployed digests and derives the scan status and finding
+counts from that persisted scan; repeated evidence keys are replay-safe.
 
 Recovery status updates use `POST
 /remediations/publications/{publication_id}/recovery/{recovery_id}/status` with

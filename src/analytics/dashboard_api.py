@@ -108,6 +108,13 @@ class PostMergeVerificationRequest(BaseModel):
     evidence_key: str = Field(default="", max_length=128)
 
 
+class DeploymentEvidenceRequest(BaseModel):
+    expected_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    observed_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
+    merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
+    evidence_key: str = Field(default="", max_length=128)
+
+
 class PublicationRecoveryRequest(BaseModel):
     action: Literal["request_callback", "mark_manual_review"]
     idempotency_key: str = Field(min_length=1, max_length=256)
@@ -1126,6 +1133,43 @@ def update_publication_recovery_status(publication_id: int, recovery_id: int, pa
         return {"accepted": True, "recovery_request_id": recovery.id, "status": target, "replayed": False}
 
 
+def _attach_publication_evidence(
+    session, publication: RemediationPublication, *, expected_digest: str,
+    observed_digest: str | None, scan_status: str, findings_before: int,
+    findings_after: int, merge_commit: str | None, evidence_key: str,
+) -> dict:
+    evidence_key = evidence_key or hashlib.sha256(json.dumps({
+        "expected_digest": expected_digest, "observed_digest": observed_digest,
+        "scan_status": scan_status, "findings_before": findings_before,
+        "findings_after": findings_after, "merge_commit": merge_commit,
+    }, sort_keys=True).encode()).hexdigest()
+    existing_evidence = session.query(RemediationReleaseEvidence).filter_by(publication_id=publication.id, evidence_key=evidence_key).first()
+    if existing_evidence:
+        return {"accepted": True, "publication_id": publication.id, "evidence_id": existing_evidence.id, "evidence_key": evidence_key, "verification_status": existing_evidence.status, "replayed": True}
+    publication.observed_digest = observed_digest or publication.observed_digest
+    publication.scan_status = scan_status
+    publication.findings_before = findings_before
+    publication.findings_after = findings_after
+    result = evaluate_post_merge(
+        expected_digest=expected_digest, observed_digest=observed_digest,
+        required_scan_status=scan_status, findings_before=findings_before,
+        findings_after=findings_after,
+    )
+    event_type = _apply_post_merge_result(session, publication, result, merge_commit or publication.merge_commit)
+    evidence = RemediationReleaseEvidence(
+        publication_id=publication.id, evidence_key=evidence_key,
+        expected_digest=expected_digest, observed_digest=observed_digest,
+        scan_status=scan_status, findings_before=findings_before,
+        findings_after=findings_after, status=str(result["status"]),
+        verification_detail=result,
+        verified_at=datetime.now(timezone.utc).replace(tzinfo=None)
+        if result["status"] == "verified" else None,
+    )
+    session.add(evidence)
+    session.flush()
+    return {"accepted": True, "publication_id": publication.id, "evidence_id": evidence.id, "evidence_key": evidence_key, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command, "replayed": False}
+
+
 @router.post("/remediations/publications/{publication_id}/evidence")
 def attach_publication_evidence(publication_id: int, payload: PostMergeVerificationRequest, request: Request) -> dict:
     _require_role(request, "security-operator")
@@ -1135,26 +1179,39 @@ def attach_publication_evidence(publication_id: int, payload: PostMergeVerificat
             raise HTTPException(status_code=404, detail="publication_not_found")
         if publication.status != "merged":
             raise HTTPException(status_code=409, detail="publication_not_merged")
-        evidence_key = payload.evidence_key or hashlib.sha256(json.dumps(payload.model_dump(exclude={"evidence_key"}), sort_keys=True).encode()).hexdigest()
-        existing_evidence = session.query(RemediationReleaseEvidence).filter_by(publication_id=publication.id, evidence_key=evidence_key).first()
-        if existing_evidence:
-            return {"accepted": True, "publication_id": publication.id, "evidence_id": existing_evidence.id, "evidence_key": evidence_key, "verification_status": existing_evidence.status, "replayed": True}
-        publication.observed_digest = payload.observed_digest or publication.observed_digest
-        publication.scan_status = payload.scan_status
-        publication.findings_before = payload.findings_before
-        publication.findings_after = payload.findings_after
-        result = evaluate_post_merge(
-            expected_digest=payload.expected_digest,
-            observed_digest=payload.observed_digest,
-            required_scan_status=payload.scan_status,
-            findings_before=payload.findings_before,
-            findings_after=payload.findings_after,
+        return _attach_publication_evidence(
+            session, publication, expected_digest=payload.expected_digest,
+            observed_digest=payload.observed_digest, scan_status=payload.scan_status,
+            findings_before=payload.findings_before, findings_after=payload.findings_after,
+            merge_commit=payload.merge_commit, evidence_key=payload.evidence_key,
         )
-        event_type = _apply_post_merge_result(session, publication, result, payload.merge_commit or publication.merge_commit)
-        evidence = RemediationReleaseEvidence(publication_id=publication.id, evidence_key=evidence_key, expected_digest=payload.expected_digest, observed_digest=payload.observed_digest, scan_status=payload.scan_status, findings_before=payload.findings_before, findings_after=payload.findings_after, status=str(result["status"]), verification_detail=result, verified_at=datetime.now(timezone.utc).replace(tzinfo=None) if result["status"] == "verified" else None)
-        session.add(evidence)
-        session.flush()
-        return {"accepted": True, "publication_id": publication.id, "evidence_id": evidence.id, "evidence_key": evidence_key, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command, "replayed": False}
+
+
+@router.post("/remediations/publications/{publication_id}/deployment-evidence")
+def attach_deployment_evidence(publication_id: int, payload: DeploymentEvidenceRequest, request: Request) -> dict:
+    """Close a pending publication using its persisted correlated scan."""
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        if publication.status != "merged":
+            raise HTTPException(status_code=409, detail="publication_not_merged")
+        if not publication.post_merge_scan_id:
+            raise HTTPException(status_code=409, detail="post_merge_scan_not_queued")
+        scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first()
+        if scan is None:
+            raise HTTPException(status_code=409, detail="post_merge_scan_not_found")
+        scan_status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
+        if scan_status in {ScanStatus.PENDING.value, ScanStatus.RUNNING.value}:
+            raise HTTPException(status_code=409, detail="post_merge_scan_pending")
+        findings_before = publication.findings_before if publication.findings_before is not None else publication.remediation.finding_count
+        return _attach_publication_evidence(
+            session, publication, expected_digest=payload.expected_digest,
+            observed_digest=payload.observed_digest, scan_status=scan_status,
+            findings_before=findings_before, findings_after=scan.total_findings or 0,
+            merge_commit=payload.merge_commit, evidence_key=payload.evidence_key,
+        )
 
 
 @router.post("/remediations/publications/{publication_id}/alert-evidence")

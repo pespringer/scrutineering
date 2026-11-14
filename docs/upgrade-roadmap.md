@@ -72,6 +72,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** remediation lifecycle events now have a durable PostgreSQL table and migration chain.
 - **Completed:** evidence verification can enforce an artifact-size ceiling before invoking signature providers.
 - **Completed:** provider merge callbacks without deployment evidence now queue a correlated worker-visible follow-up scan and persist a pending verification state instead of treating missing callback fields as an immediate rollback.
+- **Completed:** deployment evidence can now close a pending publication from its persisted correlated scan without requiring operators to copy scan counts into a second payload.
 
 ## Phase 3 — Production Operations (60–90 days)
 
