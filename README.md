@@ -178,6 +178,8 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
   the Python monitoring router. The canonical FastAPI app exposes Prometheus
   text metrics at `/metrics`.
 - Grafana/Prometheus configuration lives in `monitoring/`.
+- The current Phase 1–4 implementation audit and deferred-gate register lives
+  in [`docs/operations/phase1-4-completion-audit.md`](docs/operations/phase1-4-completion-audit.md).
 - Batch 4 adds shared Redis scan-cache support, checkpointed managed runtime
   delivery, Prometheus SLO alerts, and a starter Grafana operations dashboard.
 

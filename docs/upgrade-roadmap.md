@@ -9,6 +9,10 @@ The current practical completion plan is documented in
 prioritizes authenticated access, real container scanning, finding lifecycle,
 and one verified remediation loop before commercial expansion.
 
+For the current Phase 1–4 completion boundary, including reproducible evidence
+and the explicitly deferred infrastructure gates, see
+[`docs/operations/phase1-4-completion-audit.md`](operations/phase1-4-completion-audit.md).
+
 ## Current Baseline
 
 - Node.js planner logic and Python scanning/runtime services are split across separate control paths.
