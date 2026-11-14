@@ -46,6 +46,7 @@ import src.remediation.recovery_tasks  # noqa: F401  # register provider recover
 import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
 import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert delivery task
 import src.remediation.post_merge_tasks  # noqa: F401  # register post-merge verification task
+import src.remediation.verification_tasks  # noqa: F401  # register remediation verification task
 import src.remediation.deployment_tasks  # noqa: F401  # register deployment observation task
 import src.scan.retention_tasks  # noqa: F401  # register scan retention reporting task
 import src.platform.backup_tasks  # noqa: F401  # register backup freshness task

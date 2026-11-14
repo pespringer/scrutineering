@@ -81,6 +81,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Durable registry sources now expose secret-free readiness, read-only digest
   checks, and direct source selection when launching a scan; manual image
   references remain supported.
+- Remediation detail now supports a correlated post-change verification scan;
+  the worker compares proposed package/CVE coordinates and records passed or
+  failed evidence with a durable scan ID.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed

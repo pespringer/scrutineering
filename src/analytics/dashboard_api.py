@@ -38,6 +38,7 @@ from src.remediation.provider_auth import credential_diagnostics
 from src.remediation.provider_diagnostics import diagnose_capabilities, required_permissions
 from src.remediation.evidence_archive import manifest
 from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
+from src.remediation.verification_tasks import queue_remediation_verification_scan
 from src.remediation.deployment_evidence import verify_deployment_signature
 from src.remediation.deployment_collectors import DeploymentCollectorError
 from src.remediation.deployment_config import configured_deployment_target
@@ -537,6 +538,9 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
         "branch_name": remediation.branch_name,
         "verification_findings_before": remediation.verification_findings_before,
         "verification_findings_after": remediation.verification_findings_after,
+        "verification_scan_id": getattr(remediation, "verification_scan_id", None),
+        "verification_status": getattr(remediation, "verification_status", "not_requested"),
+        "verification_error": getattr(remediation, "verification_error", None),
         "stale_publication_count": sum(publication_is_stale(publication, stale_after_seconds=stale_after_seconds) for publication in remediation.publications),
         "actions": actions if actions is not None else [{
             "id": action.id,
@@ -1667,6 +1671,25 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
         "id": event.id, "event_type": event.event_type, "sequence": event.sequence,
         "detail": event.detail, "created_at": _iso(event.created_at),
     } for event in events]}
+
+
+@router.post("/remediations/{remediation_id}/verification-scan", status_code=202)
+def queue_remediation_verification(remediation_id: int, request: Request) -> dict:
+    """Queue one correlated post-change scan for a completed remediation."""
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        remediation = RemediationRepository.get_by_id(session, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) not in {RemediationStatus.COMPLETED.value, RemediationStatus.PR_OPENED.value}:
+            raise HTTPException(status_code=409, detail="remediation_execution_not_complete")
+        try:
+            scan_id = queue_remediation_verification_scan(session, remediation)
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise HTTPException(status_code=422, detail=f"verification_scan_unavailable: {exc}") from exc
+    from src.remediation.verification_tasks import verify_remediation_scan
+    task = verify_remediation_scan.apply_async(args=[remediation_id, scan_id], countdown=10, queue="remediation.normal")
+    return {"remediation_id": remediation_id, "scan_id": scan_id, "task_id": task.id, "status": "pending"}
 
 
 @router.post("/remediations/{remediation_id}/approval-token")

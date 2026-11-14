@@ -673,6 +673,9 @@ class Remediation(Base):
         Integer, default=0)
     verification_findings_after: Mapped[int] = mapped_column(
         Integer, default=0)
+    verification_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    verification_status: Mapped[str] = mapped_column(String(32), nullable=False, default="not_requested")
+    verification_error: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Timing
     created_at: Mapped[datetime] = mapped_column(DateTime,
