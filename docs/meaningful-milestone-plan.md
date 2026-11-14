@@ -108,6 +108,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   are visible as scope context; local API-key mode remains deployment-local.
 - Image investigation now supports a direct JSON findings export that retains
   the canonical record count and SHA-256 integrity field.
+- The dashboard now provides a paginated cross-image findings queue with
+  lifecycle, severity, acknowledgement, fix-availability, and search filters,
+  bulk acknowledgement, export, and direct image handoffs.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.

@@ -27,6 +27,9 @@ export interface Page<T> {
 
 export interface VulnerabilityFinding {
   id: number;
+  image_id?: number;
+  scan_id?: string | null;
+  image_name?: string;
   fingerprint: string;
   cve_id: string | null;
   package_name: string;

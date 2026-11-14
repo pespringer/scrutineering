@@ -23,6 +23,10 @@ start a scan entirely from the dashboard.
 
 Turn findings into decisions rather than isolated tables.
 
+The first slice is complete: `/findings` now provides a paginated,
+cross-image queue with search, lifecycle, severity, acknowledgement, and fix
+availability filters, bulk acknowledgement, export, and direct image links.
+
 - Add filters, saved views, bulk actions, and stable URL state for severity,
   image, package, lifecycle, policy, and owner.
 - Show finding history, evidence, affected workloads, fix confidence, and

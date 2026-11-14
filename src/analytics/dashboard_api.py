@@ -14,7 +14,7 @@ from redis import Redis
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import text
+from sqlalchemy import or_, text
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Literal
 
@@ -348,6 +348,8 @@ def _finding_payload(finding: ScanFinding) -> dict:
     suppression = _active_suppression(finding)
     return {
         "id": finding.id,
+        "image_id": finding.image_id,
+        "scan_id": getattr(finding, "scan_id", None),
         "fingerprint": finding.fingerprint,
         "cve_id": finding.cve_id,
         "package_name": finding.package_name,
@@ -1297,6 +1299,48 @@ def generate_compliance_report(payload: ComplianceReportRequest, request: Reques
         _record_operator_event(session, request, AuditEventType.COMPLIANCE_REPORT_GENERATED, str(record.id), {"action": "generate_compliance_report", "framework": payload.framework, "format": payload.output_format}, entity_type="compliance_report")
         result = {"id": record.id, "report": report, "content": content}
     return result
+
+
+@router.get("/findings")
+def finding_inventory(
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    search: str | None = Query(default=None, max_length=200),
+    severity: str | None = Query(default=None),
+    lifecycle: str = Query(default="open", pattern="^(open|resolved|all)$"),
+    acknowledged: bool | None = Query(default=None),
+    fix_available: bool | None = Query(default=None),
+) -> dict:
+    """Return a paginated, cross-image investigation queue."""
+    severity_value = _severity_filter(severity)
+    with get_session() as session:
+        query = session.query(ScanFinding).join(Image, ScanFinding.image_id == Image.id)
+        if lifecycle == "open":
+            query = query.filter(ScanFinding.remediated.is_(False))
+        elif lifecycle == "resolved":
+            query = query.filter(or_(ScanFinding.remediated.is_(True), ScanFinding.resolved_at.is_not(None)))
+        if severity_value:
+            query = query.filter(ScanFinding.severity == severity_value.value)
+        if acknowledged is not None:
+            query = query.filter(ScanFinding.acknowledged.is_(acknowledged))
+        if fix_available is not None:
+            query = query.filter(ScanFinding.fix_available.is_(fix_available))
+        if search and search.strip():
+            term = f"%{search.strip()}%"
+            query = query.filter(or_(
+                ScanFinding.cve_id.ilike(term),
+                ScanFinding.package_name.ilike(term),
+                ScanFinding.title.ilike(term),
+                Image.repo_name.ilike(term),
+            ))
+        total = query.order_by(None).count()
+        findings = query.order_by(ScanFinding.id.desc()).offset(offset).limit(limit).all()
+        records = []
+        for finding in findings:
+            record = _finding_payload(finding)
+            record["image_name"] = finding.image.full_name if finding.image else str(finding.image_id)
+            records.append(record)
+    return _page(records, limit, offset, total)
 
 
 @router.post("/findings/bulk-acknowledge")
