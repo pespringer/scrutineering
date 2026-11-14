@@ -1,5 +1,16 @@
 # Remediation Execution Gate
 
+## Local review bundle
+
+The remediation detail page can download a JSON review bundle after a proposal
+is created or executed. The same data is available from
+`GET /api/dashboard/remediations/{remediation_id}/review-bundle` (proxied by
+the dashboard). It contains remediation coordinates, proposed actions, safe
+lifecycle evidence, publication state, and explicit deferred integration gates.
+Approval tokens, credentials, command output, and other secret-bearing values
+are intentionally excluded, so the bundle can be attached to a local change
+review or retained with the operator record.
+
 `src.remediation.executor.execute_remediation` is the first executable Phase 2
 boundary. It refuses to run without verified evidence, and can verify an
 evidence envelope itself before applying caller-supplied

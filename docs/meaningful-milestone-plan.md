@@ -98,6 +98,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   source selection, live worker polling, and a direct handoff to scan findings.
 - Scan detail now compares a completed scan with the prior completed scan for
   the same image, separating new, resolved, and persisting exposure.
+- Remediation detail now offers a portable, secret-free review bundle with
+  actions, lifecycle evidence, publication state, and explicit deferred gates.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The

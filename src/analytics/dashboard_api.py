@@ -1715,6 +1715,37 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
     } for event in events]}
 
 
+@router.get("/remediations/{remediation_id}/review-bundle")
+def remediation_review_bundle(remediation_id: int, request: Request) -> dict:
+    """Return a portable, secret-free review record for local remediation work."""
+    _require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        remediation = RemediationRepository.get_by_id(session, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        events = RemediationRepository.list_events(session, remediation_id)
+        payload = _remediation_payload(remediation)
+    safe_events = []
+    allowed_detail = {"action", "status", "commit", "branch_name", "changed_files", "scan_id", "source_scan_id", "verification_status", "failure_class", "error", "reason", "provider", "repository"}
+    for event in events:
+        detail = event.detail or {}
+        safe_events.append({
+            "event_type": event.event_type,
+            "sequence": event.sequence,
+            "created_at": _iso(event.created_at),
+            "detail": {key: detail[key] for key in allowed_detail if key in detail},
+        })
+    return {
+        "bundle_version": 1,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "remediation": {key: payload[key] for key in ("id", "image_id", "status", "finding_count", "verified", "started_at", "completed_at", "error_message", "pr_url", "pr_number", "branch_name", "verification_scan_id", "verification_status", "verification_error")},
+        "actions": payload["actions"],
+        "publications": payload["publications"],
+        "events": safe_events,
+        "deferred_integrations": ["live provider merge callback", "deployed image digest observation", "external alert delivery"],
+    }
+
+
 @router.post("/remediations/{remediation_id}/verification-scan", status_code=202)
 def queue_remediation_verification(remediation_id: int, request: Request) -> dict:
     """Queue one correlated post-change scan for a completed remediation."""
