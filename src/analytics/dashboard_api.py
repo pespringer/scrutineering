@@ -306,7 +306,7 @@ def _active_suppression(finding: ScanFinding) -> FindingSuppression | None:
     return None
 
 
-def _finding_state(finding: ScanFinding, suppression: FindingSuppression | None = None) -> str:
+def _finding_state(finding: ScanFinding, suppression: FindingSuppression | None = None, policy_exempt: bool = False) -> str:
     """Return the operator-facing state without losing lifecycle timestamps."""
     suppression = suppression if suppression is not None else _active_suppression(finding)
     if suppression is not None:
@@ -315,6 +315,8 @@ def _finding_state(finding: ScanFinding, suppression: FindingSuppression | None 
         return "resolved"
     if getattr(finding, "reopened_at", None) is not None:
         return "reopened"
+    if policy_exempt:
+        return "policy_exempt"
     if bool(getattr(finding, "acknowledged", False)):
         return "acknowledged"
     return "open"
@@ -1412,9 +1414,16 @@ def finding_inventory(
             ))
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.id.desc()).offset(offset).limit(limit).all()
+        exempt_ids = {row[0] for row in session.query(PolicyEvaluation.finding_id).filter(
+            PolicyEvaluation.finding_id.in_([finding.id for finding in findings]),
+            PolicyEvaluation.violated.is_(True),
+            PolicyEvaluation.action_taken == PolicyAction.SKIP,
+        ).all()}
         records = []
         for finding in findings:
             record = _finding_payload(finding)
+            if finding.id in exempt_ids:
+                record["state"] = _finding_state(finding, _active_suppression(finding), policy_exempt=True)
             record["image_name"] = finding.image.full_name if finding.image else str(finding.image_id)
             records.append(record)
     return _page(records, limit, offset, total)
@@ -1523,13 +1532,16 @@ def finding_detail(finding_id: int, request: Request) -> dict:
             Remediation.findings.any(ScanFinding.id == finding.id),
         ).order_by(Remediation.created_at.desc(), Remediation.id.desc()).limit(20).all()
         payload = _finding_payload(finding)
+        policy_exempt_ids = {item.finding_id for item in policies if item.finding_id and item.violated and _value(item.action_taken) == _value(PolicyAction.SKIP)}
+        if finding.id in policy_exempt_ids:
+            payload["state"] = _finding_state(finding, _active_suppression(finding), policy_exempt=True)
         payload["image_name"] = finding.image.full_name if finding.image else str(finding.image_id)
     return {
         "finding": payload,
         "history": [{
             "id": item.id,
             "scan_id": item.scan_id,
-            "state": _finding_state(item),
+            "state": _finding_state(item, policy_exempt=item.id in policy_exempt_ids),
             "severity": (_value(item.severity) or "unknown").upper(),
             "first_seen": _iso(item.first_seen),
             "last_seen": _iso(item.last_seen),
