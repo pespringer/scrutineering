@@ -88,6 +88,20 @@ The completed local evidence is recorded in
 infrastructure-dependent and deferred; they must not be treated as passing or
 failing based on the local fixture run.
 
+### Deferred infrastructure register
+
+These gates are intentionally parked until their external dependencies are
+available:
+
+| Deferred gate | Required setup before re-entry |
+| --- | --- |
+| GitHub PR publication and merge callbacks | Reachable test repository and token with PR/workflow permissions |
+| Deployed-digest observation | Deployment target exposing immutable image digest and rollout state |
+| Alert delivery and retry evidence | Authenticated receiver with retained delivery/retry/dead-letter records |
+
+Local fixtures can test the contracts, but cannot mark these live gates as
+complete.
+
 ## 8. Go/No-Go Gate
 
 Go live only when all of the following are true:

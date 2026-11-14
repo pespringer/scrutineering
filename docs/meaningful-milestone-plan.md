@@ -20,11 +20,26 @@ for commands, evidence, and limitations.
 
 ### Deferred infrastructure work
 
-The following remain intentionally deferred for a later infrastructure pass:
+The following are explicitly deferred and are not prerequisites for the local
+home-lab milestone. They remain visible as incomplete gates:
 
 - GitHub PR publication and merge-callback verification.
 - Deployed image-digest observation and post-merge deployment verification.
 - External alert receiver delivery, retry, and dead-letter validation.
+
+#### Re-entry requirements
+
+Return to these items when the required external infrastructure is available:
+
+1. A reachable GitHub test repository with a token that can create/update PRs,
+   read workflow results, and receive merge callbacks.
+2. A reachable deployment environment that exposes the deployed image digest
+   and rollout state to Scrutineering.
+3. A configured alert receiver with an authenticated endpoint that retains
+   delivery, retry, and dead-letter evidence.
+
+Until then, local providers, signed fixtures, and deterministic replay tests
+may validate contracts, but they do not satisfy these live acceptance gates.
 
 ## Work Plan
 
