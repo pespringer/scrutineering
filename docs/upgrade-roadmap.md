@@ -674,7 +674,11 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** dashboard remediation proposals preserve the checkout directory
   for filesystem scan findings, allowing the approval-gated worker to apply the
   same source coordinate returned by the scanner.
-- **Next:** exercise the guarded
-  remediation proposal, provider PR publication, and post-merge verification with
+- **Completed:** exercised the guarded remediation proposal boundary with a
+  disposable source fixture, signed release evidence, exact-match edits,
+  isolated worktree validation, and a clean post-change rescan.
+- **Completed:** remediation guidance now explains impact, package/CVE/file
+  coordinates, fix confidence, and the next operator action in the dashboard.
+- **Next:** exercise provider PR publication and post-merge verification with
   the configured GitHub test project.
 - **Deferred:** live external alert receiver delivery remains separately gated.

@@ -7,6 +7,17 @@ operators, scans real containers, tracks findings over time, recommends useful
 fixes, and proves a fix through rescan. Commercial features such as billing,
 compliance exports, and automatic merge remain out of scope.
 
+## Current Status
+
+Steps 1–8 are implemented and verified locally for the home-lab scope. The November 14, 2026
+acceptance run completed the real scan and runtime-discovery paths, then used
+the disposable source fixture to prove signed-evidence verification,
+isolated exact-match remediation, ordered validation gates, and a clean
+post-change rescan. Remediation guidance now exposes impact, package/CVE/file
+coordinates, confidence, and the next operator action. See
+[`docs/operations/milestone-acceptance.md`](operations/milestone-acceptance.md)
+for commands, evidence, and limitations.
+
 ## Work Plan
 
 1. **Close the dashboard identity boundary.** Strip caller-supplied identity

@@ -269,6 +269,7 @@ remediation timeline.
 - [GitHub Publication Boundary](docs/operations/github-publication.md)
 - [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
+- [Practical Milestone Acceptance Run](docs/operations/milestone-acceptance.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
 - [Release Evidence Gates](docs/operations/release-evidence-gates.md)
 - [Audit Integrity](docs/security/audit-integrity.md)

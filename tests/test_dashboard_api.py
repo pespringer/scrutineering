@@ -80,6 +80,18 @@ def test_remediation_preview_requires_scanner_source_coordinate():
     assert action["safe_to_apply"] is True
 
 
+def test_remediation_guidance_explains_impact_and_next_operator_action():
+    finding = SimpleNamespace(
+        id=14, package_name="openssl", package_version="3.0.0", fixed_version="3.0.1",
+        cve_id="CVE-2026-14", severity=Severity.CRITICAL, fix_available=True,
+        file_path="requirements.txt",
+    )
+    action = _remediation_actions([finding])[0]
+    assert action["guidance"]["confidence"] == "high"
+    assert "Immediate risk reduction" in action["guidance"]["impact"]
+    assert "requirements.txt" in action["guidance"]["next_operator_action"]
+
+
 def test_filesystem_remediation_actions_preserve_repository_directory():
     image = SimpleNamespace(registry_name=ImageRegistry.DOCKER_HUB, repo_name="local/source-fixture", tag="filesystem")
     finding = SimpleNamespace(id=13, package_name="lodash", package_version="4.17.20", fixed_version="4.18.1", cve_id="CVE-2021-23337", severity=Severity.HIGH, fix_available=True, file_path="package-lock.json")
