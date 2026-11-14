@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -37,6 +37,13 @@ def test_dashboard_serializers_match_frontend_contract():
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
+    source_request = ScanRequest(source_id=7, image_reference=" ghcr.io/acme/api:v2 ")
+    assert source_request.source_id == 7
+    assert source_request.image_reference == "ghcr.io/acme/api:v2"
+    with pytest.raises(ValueError):
+        ScanRequest(source_id=7, image_name="ghcr.io/acme/api:v2")
+    with pytest.raises(ValueError):
+        ScanRequest()
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
@@ -129,6 +136,10 @@ def test_registry_source_contracts_are_secret_free_and_bounded():
     assert RegistrySourceCheckRequest(image_reference=" ghcr.io/acme/api:v1 ").image_reference == "ghcr.io/acme/api:v1"
     with pytest.raises(ValueError):
         RegistrySourceRequest(display_name="x", registry_host="https://ghcr.io")
+    assert _source_coordinates("dockerhub", "nginx:1.27") == ("registry-1.docker.io", "library/nginx", "1.27")
+    assert _source_coordinates("ghcr.io", "ghcr.io/acme/api:v2") == ("ghcr.io", "acme/api", "v2")
+    with pytest.raises(ValueError):
+        _source_coordinates("ghcr.io", "docker.io/library/nginx:latest")
 
 
 def test_deployment_evidence_request_is_digest_only():

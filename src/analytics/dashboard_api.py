@@ -15,7 +15,7 @@ from redis import Redis
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import text
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Literal
 
 from src.db.connection import get_session
@@ -56,16 +56,40 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
 class ScanRequest(BaseModel):
-    image_name: str = Field(min_length=1, max_length=512)
+    image_name: str | None = Field(default=None, min_length=1, max_length=512)
+    source_id: int | None = Field(default=None, ge=1)
+    image_reference: str | None = Field(default=None, min_length=3, max_length=512)
     priority: str = Field(default="normal", pattern="^(low|normal|high)$")
 
     @field_validator("image_name")
     @classmethod
-    def image_name_must_be_trimmed(cls, value: str) -> str:
+    def image_name_must_be_trimmed(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         value = value.strip()
         if not value or any(char.isspace() for char in value):
             raise ValueError("image_name must be a single image reference")
         return value
+
+    @field_validator("image_reference")
+    @classmethod
+    def image_reference_must_be_trimmed(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("image_reference must be a single tagged image")
+        return value
+
+    @model_validator(mode="after")
+    def require_image_input(self) -> "ScanRequest":
+        if not self.image_name and not self.image_reference:
+            raise ValueError("image_name or image_reference is required")
+        if self.source_id is None and self.image_reference:
+            raise ValueError("image_reference requires source_id")
+        if self.source_id is not None and self.image_name:
+            raise ValueError("source_id requests must use image_reference")
+        return self
 
 
 class RegistrySourceRequest(BaseModel):
@@ -709,7 +733,26 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")
     scan_id = uuid.uuid4().hex
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    identity = parse_image_reference(payload.image_name)
+    source_id = payload.source_id
+    queued_image_name = payload.image_name
+    if source_id is not None:
+        with get_session() as session:
+            source = session.get(RegistrySource, source_id)
+            if source is None:
+                raise HTTPException(status_code=404, detail="registry_source_not_found")
+            if not source.enabled:
+                raise HTTPException(status_code=409, detail="registry_source_disabled")
+            if source.status != "ready":
+                raise HTTPException(status_code=409, detail="registry_source_not_verified")
+            try:
+                host, repository, tag = _source_coordinates(source.registry_host, payload.image_reference or "")
+            except ValueError as exc:
+                raise HTTPException(status_code=422, detail=str(exc)) from exc
+            queued_image_name = f"{repository}:{tag}" if host == "registry-1.docker.io" else f"{host}/{repository}:{tag}"
+    try:
+        identity = parse_image_reference(queued_image_name or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     try:
         with get_session() as session:
             image = session.query(Image).filter_by(
@@ -734,11 +777,11 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
                 started_at=now,
                 image_digest=identity.digest,
             ))
-            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {"action": "start_scan", "image_name": payload.image_name, "priority": payload.priority})
-        task = enqueue_scan(payload.image_name, priority=payload.priority, scan_id=scan_id)
+            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {"action": "start_scan", "image_name": queued_image_name, "source_id": source_id, "priority": payload.priority})
+        task = enqueue_scan(queued_image_name, priority=payload.priority, scan_id=scan_id)
     except Exception as exc:
         raise HTTPException(status_code=503, detail="scan_queue_unavailable") from exc
-    return {"scan_id": scan_id, "task_id": task.id, "image_name": payload.image_name, "status": "pending"}
+    return {"scan_id": scan_id, "task_id": task.id, "image_name": queued_image_name, "source_id": source_id, "status": "pending"}
 
 
 def _registry_source_payload(source: RegistrySource) -> dict[str, object]:
