@@ -58,7 +58,9 @@ optionally enable and queue an explicit PostgreSQL backup from the operations
 page. A separate, explicitly isolated restore verification can create a
 disposable PostgreSQL database, restore the artifact, record row-count
 evidence, and prove cleanup. See [backup evidence](docs/operations/backup-evidence.md)
-for the metadata, execution, and restore contracts. New installations should
+for the metadata, execution, and restore contracts. Registry sources can be
+managed and checked from the dashboard [Sources](http://localhost:3001/sources)
+page without storing credentials. New installations should
 start at the dashboard [Setup](http://localhost:3001/setup) page; it gathers
 live prerequisites and points to the next operator action.
 

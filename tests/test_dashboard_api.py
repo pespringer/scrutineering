@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -121,6 +121,14 @@ def test_backup_execution_requires_explicit_confirmation():
     assert BackupExecutionRequest(confirm=True).confirm is True
     assert BackupExecutionRequest().confirm is False
     assert BackupRestoreRequest(confirm=True).confirm is True
+
+
+def test_registry_source_contracts_are_secret_free_and_bounded():
+    source = RegistrySourceRequest(display_name=" GHCR production ", registry_host="ghcr.io")
+    assert source.display_name == "GHCR production"
+    assert RegistrySourceCheckRequest(image_reference=" ghcr.io/acme/api:v1 ").image_reference == "ghcr.io/acme/api:v1"
+    with pytest.raises(ValueError):
+        RegistrySourceRequest(display_name="x", registry_host="https://ghcr.io")
 
 
 def test_deployment_evidence_request_is_digest_only():

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupRestoreExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupRestoreExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, RegistrySource, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -48,7 +48,8 @@ from src.platform.production_operations import resilience_scorecard, telemetry_d
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
-from src.scan.registry_diagnostics import diagnose_registry
+from src.scan.registry import registry_credentials_from_env, registry_env_keys, resolve_registry_digest
+from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -64,6 +65,31 @@ class ScanRequest(BaseModel):
         value = value.strip()
         if not value or any(char.isspace() for char in value):
             raise ValueError("image_name must be a single image reference")
+        return value
+
+
+class RegistrySourceRequest(BaseModel):
+    display_name: str = Field(min_length=2, max_length=128)
+    registry_host: str = Field(min_length=1, max_length=255, pattern=r"^[A-Za-z0-9.-]+(?::[0-9]{1,5})?$")
+
+    @field_validator("display_name", "registry_host")
+    @classmethod
+    def source_values_are_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("source value must not be empty")
+        return value
+
+
+class RegistrySourceCheckRequest(BaseModel):
+    image_reference: str = Field(min_length=3, max_length=512)
+
+    @field_validator("image_reference")
+    @classmethod
+    def image_reference_is_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("image_reference must be a single tagged image")
         return value
 
 
@@ -713,6 +739,112 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=503, detail="scan_queue_unavailable") from exc
     return {"scan_id": scan_id, "task_id": task.id, "image_name": payload.image_name, "status": "pending"}
+
+
+def _registry_source_payload(source: RegistrySource) -> dict[str, object]:
+    return {
+        "id": source.id,
+        "display_name": source.display_name,
+        "registry_host": source.registry_host,
+        "auth_mode": source.auth_mode,
+        "credential_keys": source.credential_keys,
+        "enabled": source.enabled,
+        "status": source.status,
+        "last_checked_at": _iso(source.last_checked_at),
+        "last_reference": source.last_reference,
+        "last_digest": source.last_digest,
+        "last_error": source.last_error,
+        "created_at": _iso(source.created_at),
+        "created_by": source.created_by,
+    }
+
+
+def _source_coordinates(registry_host: str, image_reference: str) -> tuple[str, str, str]:
+    """Normalize a tagged source image into OCI host, repository, and tag."""
+    value = image_reference.strip()
+    host = "registry-1.docker.io" if registry_host in {"dockerhub", "docker.io", "registry-1.docker.io"} else registry_host
+    if host == "registry-1.docker.io":
+        value = value.removeprefix("docker.io/").removeprefix("registry-1.docker.io/")
+    else:
+        prefix = f"{registry_host}/"
+        if not value.startswith(prefix):
+            raise ValueError(f"image reference must start with {prefix}")
+        value = value.removeprefix(prefix)
+    if "@" in value:
+        raise ValueError("source check requires a tagged image reference")
+    if ":" not in value.rsplit("/", 1)[-1]:
+        raise ValueError("source check requires an explicit image tag")
+    repository, tag = value.rsplit(":", 1)
+    if host == "registry-1.docker.io" and "/" not in repository:
+        repository = f"library/{repository}"
+    if not repository or not tag or len(repository) > 255 or len(tag) > 128:
+        raise ValueError("image reference coordinates are invalid")
+    return host, repository, tag
+
+
+@router.get("/sources")
+def registry_sources(request: Request) -> dict[str, object]:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        records = session.query(RegistrySource).order_by(RegistrySource.display_name.asc(), RegistrySource.id.asc()).all()
+    return {"items": [_registry_source_payload(source) for source in records], "count": len(records)}
+
+
+@router.post("/sources", status_code=201)
+def create_registry_source(payload: RegistrySourceRequest, request: Request) -> dict[str, object]:
+    _require_role(request, "operator", "security-operator", "admin")
+    registry_host = payload.registry_host.lower()
+    credential_keys = list(registry_env_keys("dockerhub" if registry_host in {"docker.io", "registry-1.docker.io"} else registry_host))
+    with get_session() as session:
+        existing = session.query(RegistrySource).filter_by(display_name=payload.display_name, registry_host=registry_host).first()
+        if existing is not None:
+            return {"source": _registry_source_payload(existing), "replayed": True}
+        source = RegistrySource(
+            display_name=payload.display_name,
+            registry_host=registry_host,
+            credential_keys=credential_keys,
+            created_by=getattr(request.state, "principal_id", "dashboard-service"),
+        )
+        session.add(source)
+        session.flush()
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(source.id), {"action": "registry_source_created", "registry_host": registry_host}, entity_type="registry_source")
+    return {"source": _registry_source_payload(source), "replayed": False}
+
+
+@router.post("/sources/{source_id}/check")
+def check_registry_source(source_id: int, payload: RegistrySourceCheckRequest, request: Request) -> dict[str, object]:
+    _require_role(request, "operator", "security-operator", "admin")
+    with get_session() as session:
+        source = session.get(RegistrySource, source_id)
+        if source is None:
+            raise HTTPException(status_code=404, detail="registry_source_not_found")
+        source.status = "checking"
+        source.last_reference = payload.image_reference
+        source.last_error = None
+    try:
+        host, repository, tag = _source_coordinates(source.registry_host, payload.image_reference)
+        credential_name = "dockerhub" if source.registry_host in {"docker.io", "registry-1.docker.io"} else source.registry_host
+        credentials = registry_credentials_from_env(dict(os.environ))
+        token = credentials.get(credential_name, ("", ""))[1] or None
+        digest = resolve_registry_digest(host, repository, tag, token=token)
+    except Exception as exc:
+        error = f"{classify_registry_error(exc)}: {str(exc)[:240]}"
+        with get_session() as session:
+            source = session.get(RegistrySource, source_id)
+            source.status = "failed"
+            source.last_checked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            source.last_error = error
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(source_id), {"action": "registry_source_check_failed", "classification": classify_registry_error(exc)}, entity_type="registry_source")
+        raise HTTPException(status_code=502, detail="registry_source_check_failed") from exc
+    with get_session() as session:
+        source = session.get(RegistrySource, source_id)
+        source.status = "ready"
+        source.last_checked_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        source.last_digest = digest
+        source.last_error = None
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(source_id), {"action": "registry_source_checked", "digest": digest, "reference": payload.image_reference}, entity_type="registry_source")
+        result = _registry_source_payload(source)
+    return {"source": result, "digest": digest, "status": "ready"}
 
 
 @router.get("/images")
