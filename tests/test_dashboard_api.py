@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -200,3 +200,19 @@ def test_filesystem_remediation_actions_preserve_repository_directory():
 
     assert action["file_path"] == "source-fixture/package-lock.json"
     assert action["safe_to_apply"] is True
+
+
+def test_remediation_payload_exposes_lifecycle_and_verification_state():
+    remediation = SimpleNamespace(
+        id=21, image_id=7, status="failed", finding_count=2, target_severities={"high": 2},
+        approved_by="security-operator", approved_at=datetime(2026, 1, 2), verified=False,
+        started_at=datetime(2026, 1, 2, 1), completed_at=datetime(2026, 1, 2, 2),
+        error_message="execution_adapter_not_configured", pr_url=None, pr_number=None,
+        branch_name=None, verification_findings_before=2, verification_findings_after=2,
+        publications=[], actions=[],
+    )
+    payload = _remediation_payload(remediation)
+    assert payload["status"] == "failed"
+    assert payload["error_message"] == "execution_adapter_not_configured"
+    assert payload["verification_findings_before"] == 2
+    assert payload["completed_at"] == "2026-01-02T02:00:00"
