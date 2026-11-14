@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, ArrowUpRight, ClipboardList, FileCheck2, Gauge, LayoutDashboard, Radar, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import { Activity, ArrowUpRight, ClipboardList, FileCheck2, Gauge, LayoutDashboard, Radar, ShieldCheck, SlidersHorizontal, Wrench } from "lucide-react";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -26,6 +26,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="eyebrow mb-3 px-3">Workspace</div>
           <nav className="space-y-1">
             <NavLink href="/dashboard" active={pathname === "/dashboard"} icon={<LayoutDashboard className="h-4 w-4" />}>Overview</NavLink>
+            <NavLink href="/setup" active={pathname.startsWith("/setup")} icon={<Wrench className="h-4 w-4" />}>Setup</NavLink>
             <NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>Scan history</NavLink>
             <NavLink href="/audit" active={pathname.startsWith("/audit")} icon={<ClipboardList className="h-4 w-4" />}>Audit trail</NavLink>
             <NavLink href="/operations" active={pathname.startsWith("/operations")} icon={<Gauge className="h-4 w-4" />}>Operations</NavLink>

@@ -1,0 +1,26 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { ArrowRight, CheckCircle2, CircleAlert, Clock3, RefreshCw } from "lucide-react";
+import Link from "next/link";
+import Layout from "@/components/Layout";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+type Step = { key: string; title: string; status: string; message: string; action: string };
+type Onboarding = { status: string; completed: number; required: number; steps: Step[] };
+
+export default function SetupPage() {
+  const [data, setData] = useState<Onboarding | null>(null);
+  const [error, setError] = useState(false);
+  const load = () => fetch("/api/onboarding", { cache: "no-store" }).then((response) => response.ok ? response.json() : Promise.reject()).then(setData).catch(() => setError(true));
+  useEffect(() => { load(); }, []);
+  if (!data && !error) return <Layout><LoadingSpinner /></Layout>;
+  const completion = data ? Math.round((data.completed / Math.max(1, data.required)) * 100) : 0;
+  return <Layout>
+    <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end"><div><div className="eyebrow mb-3">Workspace / Setup</div><h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Get to your first useful scan.</h1><p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">Scrutineering gathers what it can automatically and tells you exactly what remains before the control room is useful.</p></div><button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm text-slate-300 hover:text-white"><RefreshCw className="h-4 w-4" />Refresh checks</button></div>
+    {error ? <div className="panel rounded-2xl p-6 text-sm text-rose-300">Setup diagnostics are unavailable. Check the dashboard API connection.</div> : <>
+      <section className={`mb-6 rounded-2xl border p-6 ${data?.status === "ready" ? "border-emerald-400/20 bg-emerald-400/[.05]" : "border-amber-400/20 bg-amber-400/[.05]"}`}><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><div className="eyebrow mb-2">Readiness</div><h2 className="text-2xl font-semibold text-white">{data?.status === "ready" ? "Workspace ready" : "A few actions remain"}</h2><p className="mt-2 text-sm text-slate-400">{data?.completed}/{data?.required} required checks are complete. Deferred integrations are shown separately.</p></div><div className="text-right text-3xl font-semibold text-cyan-200">{completion}%</div></div><div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-900"><div className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-emerald-400" style={{ width: `${completion}%` }} /></div></section>
+      <section className="grid gap-3">{(data?.steps || []).map((step, index) => <div key={step.key} className="panel flex flex-col gap-4 rounded-2xl p-5 sm:flex-row sm:items-start"><div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${step.status === "ready" ? "bg-emerald-400/10 text-emerald-300" : step.status === "deferred" ? "bg-slate-700/40 text-slate-400" : "bg-amber-400/10 text-amber-200"}`}>{step.status === "ready" ? <CheckCircle2 className="h-5 w-5" /> : step.status === "deferred" ? <Clock3 className="h-5 w-5" /> : <CircleAlert className="h-5 w-5" />}</div><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-mono text-slate-600">{String(index + 1).padStart(2, "0")}</span><h3 className="font-medium text-white">{step.title}</h3><span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-500">{step.status.replace("_", " ")}</span></div><p className="mt-2 text-sm text-slate-300">{step.message}</p><p className="mt-2 text-xs leading-5 text-slate-500">Next: {step.action}</p></div>{step.key === "source" && <Link href="/scans" className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-400/10">Open scans <ArrowRight className="h-3.5 w-3.5" /></Link>}{(step.key === "backup" || step.key === "restore") && <Link href="/operations" className="inline-flex items-center gap-2 rounded-lg border border-cyan-400/20 px-3 py-2 text-xs text-cyan-200 hover:bg-cyan-400/10">Open operations <ArrowRight className="h-3.5 w-3.5" /></Link>}</div>)}</section>
+    </>}
+  </Layout>;
+}

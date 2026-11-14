@@ -23,6 +23,7 @@ from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupResto
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
+from src.platform.onboarding import onboarding_summary
 from src.remediation.post_merge import evaluate_post_merge
 from src.remediation.events import publication_event_exists
 from src.remediation.recovery import transition_recovery_status
@@ -1151,6 +1152,36 @@ def dashboard_system_health(request: Request) -> dict:
     }
     blocked = [name for name, check in checks.items() if check["status"] == "blocked"]
     return {"status": "blocked" if blocked else "ready", "checks": checks, "blocked_checks": blocked}
+
+
+@router.get("/onboarding")
+def dashboard_onboarding(request: Request) -> dict:
+    """Return one actionable first-run setup view from live system signals."""
+    _require_role(request, "dashboard", "operator", "remediator", "security-operator", "admin")
+    health = dashboard_system_health(request)
+    with get_session() as session:
+        image_count = session.query(Image).filter(Image.active.is_(True)).count()
+        latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
+        latest_restore = session.query(BackupRestoreExecution).filter(BackupRestoreExecution.backup_execution_id == latest_backup.id).order_by(BackupRestoreExecution.started_at.desc(), BackupRestoreExecution.id.desc()).first() if latest_backup else None
+    try:
+        workers = celery_app.control.inspect(timeout=1).ping() or {}
+    except Exception:
+        workers = {}
+    backup_ready = bool(latest_backup and latest_backup.verified)
+    restore_ready = bool(latest_restore and latest_restore.status == "verified" and latest_restore.cleanup_verified)
+    discovery_enabled = os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() in {"1", "true", "yes"}
+    steps = [
+        {"key": "authentication", "title": "Authenticate an operator", "status": health["checks"]["authentication"]["status"], "message": health["checks"]["authentication"]["message"], "action": "Authentication is configured automatically for this deployment."},
+        {"key": "database", "title": "Connect PostgreSQL", "status": health["checks"]["database"]["status"], "message": health["checks"]["database"]["message"], "action": "Check DATABASE_URL and the database container."},
+        {"key": "queue", "title": "Connect the scan queue", "status": health["checks"]["redis"]["status"], "message": health["checks"]["redis"]["message"], "action": "Check Redis and CELERY_BROKER_URL."},
+        {"key": "worker", "title": "Start a scanning worker", "status": "ready" if workers else "blocked", "message": f"{len(workers)} Celery worker(s) responded." if workers else "No Celery worker responded.", "action": "Start celery-worker and inspect its logs."},
+        {"key": "source", "title": "Add your first image source", "status": "ready" if image_count else "action", "message": f"{image_count} active image(s) are tracked." if image_count else "No active images have been scanned yet.", "action": "Open Scan history and run a targeted scan for a public or authenticated registry image."},
+        {"key": "discovery", "title": "Enable runtime discovery", "status": "ready" if discovery_enabled else "optional", "message": "Runtime discovery is enabled." if discovery_enabled else "Runtime discovery is optional and currently disabled.", "action": "Enable SCAN_RUNTIME_DISCOVERY_ENABLED when the worker can inspect the target runtime."},
+        {"key": "backup", "title": "Create verified backup evidence", "status": "ready" if backup_ready else "action", "message": "A verified PostgreSQL backup artifact is available." if backup_ready else "No verified PostgreSQL backup artifact is available.", "action": "Open Operations and explicitly run a backup after enabling backup execution."},
+        {"key": "restore", "title": "Prove recovery", "status": "ready" if restore_ready else "action", "message": "A verified isolated restore and cleanup has been recorded." if restore_ready else "No successful isolated restore verification is recorded.", "action": "Configure an isolated restore admin URL, then run Verify restore from Operations."},
+        {"key": "external_integrations", "title": "Connect external delivery", "status": "deferred", "message": "GitHub publication, deployment observation, and alert delivery are deferred until their external infrastructure is available.", "action": "See the deferred infrastructure checklist in the operations documentation."},
+    ]
+    return onboarding_summary(steps)
 
 
 @router.get("/permissions")
