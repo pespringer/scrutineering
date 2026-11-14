@@ -648,15 +648,18 @@ The first production release requires green Node and Python suites, authenticate
 
 ### Practical milestone — live scan to dashboard findings
 
-- **In progress:** wire the dashboard scan action to the real API, Celery worker,
+- **Completed:** wire the dashboard scan action to the real API, Celery worker,
   Trivy/Grype execution, PostgreSQL persistence, and a persisted findings API.
-- **In progress:** expose fixable findings in scan detail and preserve the guarded
+- **Completed:** expose fixable findings in scan detail and preserve the guarded
   remediation proposal boundary; execution remains approval-gated.
 - **Completed:** Compose now mounts a disposable remediation checkout and signed
   evidence directory into the worker and includes Git, Trivy, Grype, and Cosign.
 - **Verified locally:** the Compose stack queued and completed a real `alpine:3.20`
   scan with both scanners and a durable scan record.
-- **Next:** verify findings returned for repeat scans, then exercise the guarded
+- **Verified locally:** the supported dashboard smoke queued two repeat `alpine:3.20`
+  scans, confirmed both terminal records and stable persisted findings, and
+  verified the findings endpoint identity for each run.
+- **Next:** exercise the guarded
   remediation proposal, provider PR publication, and post-merge verification with
   the configured GitHub test project.
 - **Deferred:** live external alert receiver delivery remains separately gated.

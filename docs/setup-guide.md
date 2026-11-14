@@ -262,9 +262,10 @@ Run the live scan-to-findings boundary against the Compose API with:
 npm run smoke:milestone1
 ```
 
-The command queues a real Celery scan, polls the durable PostgreSQL-backed scan
-record, fetches persisted findings, and verifies the scan-detail remediation
-boundary. Set `MILESTONE_IMAGE` for a different public image. The remediation
+The command queues two real Celery scans, polls the durable PostgreSQL-backed
+scan records, fetches persisted findings for both runs, and verifies stable
+repeat-scan results plus the scan-detail remediation boundary. Set
+`MILESTONE_IMAGE` for a different public image. The remediation
 proposal, repository execution, provider publication, and post-merge checks are
 then completed from the dashboard with their existing approval and provider
 gates.
