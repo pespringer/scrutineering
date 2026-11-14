@@ -90,6 +90,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Approved scheduled PostgreSQL backup execution now has a disabled-by-default
   Celery Beat trigger, a durable freshness window, audit evidence, and the
   same isolated worker path as manual execution.
+- The canonical API now records bounded request status and latency metrics and
+  emits optional OpenTelemetry request spans for production SLO visibility.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
