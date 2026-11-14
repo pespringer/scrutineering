@@ -68,3 +68,13 @@ def test_remediation_preview_requires_scanner_source_coordinate():
     action = _remediation_actions([finding])[0]
     assert action["file_path"] == "requirements.txt"
     assert action["safe_to_apply"] is True
+
+
+def test_filesystem_remediation_actions_preserve_repository_directory():
+    image = SimpleNamespace(registry_name=ImageRegistry.DOCKER_HUB, repo_name="local/source-fixture", tag="filesystem")
+    finding = SimpleNamespace(id=13, package_name="lodash", package_version="4.17.20", fixed_version="4.18.1", cve_id="CVE-2021-23337", severity=Severity.HIGH, fix_available=True, file_path="package-lock.json")
+
+    action = _remediation_actions([finding], image)[0]
+
+    assert action["file_path"] == "source-fixture/package-lock.json"
+    assert action["safe_to_apply"] is True
