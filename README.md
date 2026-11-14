@@ -55,6 +55,10 @@ detection.
 Provider publication and callbacks are gated by explicit configuration. Use
 `npm run drill:staging-provider` to exercise normalized merge callbacks,
 post-merge verification, and rollback output with deterministic fixtures.
+Provider merge callbacks that do not include deployment digest evidence now
+queue a correlated worker rescan and remain `pending` until that evidence is
+available; see [remediation execution operations](docs/operations/remediation-execution.md)
+for the `REMEDIATION_SCAN_REPOSITORY_ROOT` setting used by filesystem scans.
 
 ## Quick Start
 

@@ -604,6 +604,7 @@ class RemediationPublication(Base):
     verification_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     verification_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     scan_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    post_merge_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     findings_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
     findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)

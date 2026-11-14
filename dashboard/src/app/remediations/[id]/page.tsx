@@ -8,7 +8,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import RecoveryControls from "@/components/RecoveryControls";
 
 type Event = { id: number; event_type: string; sequence: number; detail: Record<string, unknown>; created_at: string };
-type Publication = { id: number; provider: string; repository: string; status: string; url: string | null; verification_status: string | null; scan_status: string | null; findings_before: number | null; findings_after: number | null; rollback_command: string[] | null };
+type Publication = { id: number; provider: string; repository: string; status: string; url: string | null; verification_status: string | null; scan_status: string | null; post_merge_scan_id: string | null; findings_before: number | null; findings_after: number | null; rollback_command: string[] | null };
 type Remediation = { id: number; image_id: number; status: string; finding_count: number; actions: Array<{ action_type: string; before_value: string | null; after_value: string | null }>; publications: Publication[] };
 
 const badgeClass = (status: string | null | undefined) => status === "verified" || status === "completed" || status === "ready" ? "bg-emerald-400/10 text-emerald-200" : status === "rollback_required" || status === "failed" || status === "blocked" ? "bg-rose-400/10 text-rose-200" : "bg-amber-400/10 text-amber-200";
