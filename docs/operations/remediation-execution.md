@@ -95,6 +95,13 @@ after restart; missing or out-of-order sequences fail closed. Use
 build, SBOM, and rescan gates for GitHub Actions or GitLab CI and the Node or
 Python ecosystem.
 
+The remediation detail page exposes the persisted lifecycle state, start and
+completion timestamps, verification counts, branch/PR metadata, and the
+fail-closed error message when execution stops. While a worker is in an active
+state (`analyzing`, `patching`, `building`, `verifying`, or `pr_opened`), the
+page refreshes automatically. A failed run is not retried implicitly; correct
+the missing configuration or evidence and create a new reviewed proposal.
+
 Production callers can set `release_evidence=True` on `execute_remediation()`
 to force the configured Cosign keyless policy through `verify_release_evidence`;
 the executor blocks before creating a worktree when that gate fails.
