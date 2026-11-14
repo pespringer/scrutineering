@@ -68,6 +68,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   deferred infrastructure gates are shown separately.
 - Per-image scan schedules are durable, bounded, pausable, and visible in the
   image detail workflow.
+- Severity-threshold and exact image allow/deny policies are evaluated on
+  completed scans and managed from the dashboard.
 - The remaining product work is multi-user source onboarding, richer backup
   execution evidence, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed

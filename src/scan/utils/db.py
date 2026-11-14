@@ -21,6 +21,8 @@ from src.db.models import (
     FindingSource,
     Image,
     ImageRegistry,
+    PolicyEvaluation,
+    SecurityPolicy,
     ScanFinding,
     Severity,
 )
@@ -193,5 +195,18 @@ def persist_findings(
             for finding in missing:
                 if finding.fingerprint not in observed_fingerprints:
                     apply_finding_observation(finding, observed=False, observed_at=now)
+
+        current_findings = session.query(ScanFinding).filter(ScanFinding.scan_id == scan_id).all()
+        policies = session.query(SecurityPolicy).filter(SecurityPolicy.enabled.is_(True)).order_by(SecurityPolicy.priority.desc(), SecurityPolicy.id.asc()).all()
+        from src.risk.policy_engine import evaluate_policy
+        for policy in policies:
+            result = evaluate_policy(policy, current_findings, image.full_name)
+            session.add(PolicyEvaluation(
+                policy_id=policy.id,
+                scan_id=scan_id,
+                violated=bool(result["violated"]),
+                detail=result["detail"],
+                action_taken=policy.action if result["violated"] else None,
+            ))
 
     return count
