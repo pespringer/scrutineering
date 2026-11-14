@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -60,6 +60,10 @@ def test_dashboard_page_and_scan_request_contracts():
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
+    retention = ScanRetentionRequest(confirm=True, dry_run=False, limit=250)
+    assert retention.confirm is True
+    assert retention.dry_run is False
+    assert retention.limit == 250
 
 
 def test_finding_suppression_contract_trims_reason_and_exposes_active_state():

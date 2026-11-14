@@ -102,6 +102,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   actions, lifecycle evidence, publication state, and explicit deferred gates.
 - Image detail now includes a recent scan timeline with terminal status,
   finding counts, and immutable digest context for each run.
+- Operations now exposes a dry-run scan-retention preview and confirmation-
+  gated cleanup queue; purge remains disabled unless explicitly configured.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The

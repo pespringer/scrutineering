@@ -181,6 +181,12 @@ class BackupExecutionRequest(BaseModel):
     confirm: bool = Field(default=False)
 
 
+class ScanRetentionRequest(BaseModel):
+    confirm: bool = Field(default=False)
+    dry_run: bool = True
+    limit: int = Field(default=500, ge=1, le=5000)
+
+
 class BackupRestoreRequest(BaseModel):
     confirm: bool = Field(default=False)
 
@@ -1228,6 +1234,37 @@ def verify_backup_restore(backup_id: int, payload: BackupRestoreRequest, request
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(restore.id), {"action": "backup_restore_requested", "backup_execution_id": backup.id}, entity_type="backup_restore_execution")
         task = verify_postgres_restore.apply_async(args=[restore.id], queue="remediation.normal")
     return {"id": restore.id, "task_id": task.id, "status": "queued"}
+
+
+@router.get("/retention/scans")
+def scan_retention_summary(request: Request) -> dict:
+    """Show the current scan-retention preview without deleting records."""
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    from src.scan.retention import ScanRetentionPolicy
+    policy = ScanRetentionPolicy(
+        days=int(os.environ.get("SCAN_RETENTION_DAYS", "90")),
+        purge_enabled=os.environ.get("SCAN_PURGE_ENABLED", "false").lower() in {"1", "true", "yes"},
+        dry_run=True,
+    )
+    cutoff = policy.cutoff().replace(tzinfo=None)
+    with get_session() as session:
+        eligible = session.query(Scan).filter(Scan.completed_at.is_not(None), Scan.completed_at < cutoff).count()
+        findings = session.query(ScanFinding).filter(ScanFinding.scan_id.in_(session.query(Scan.scan_id).filter(Scan.completed_at.is_not(None), Scan.completed_at < cutoff))).count()
+    return {"cutoff": cutoff.isoformat(), "retention_days": policy.days, "eligible_scans": eligible, "eligible_findings": findings, "purge_enabled": policy.purge_enabled, "dry_run": True}
+
+
+@router.post("/retention/scans", status_code=202)
+def queue_scan_retention(payload: ScanRetentionRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="explicit_retention_confirmation_required")
+    if not payload.dry_run and os.environ.get("SCAN_PURGE_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=409, detail="scan_purge_disabled")
+    from src.scan.retention_tasks import report_expired_scans
+    task = report_expired_scans.apply_async(kwargs={"dry_run": payload.dry_run, "limit": payload.limit}, queue="remediation.normal")
+    with get_session() as session:
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, task.id, {"action": "scan_retention_requested", "dry_run": payload.dry_run, "limit": payload.limit}, entity_type="scan_retention")
+    return {"task_id": task.id, "status": "queued", "dry_run": payload.dry_run}
 
 
 @router.post("/compliance/reports")
