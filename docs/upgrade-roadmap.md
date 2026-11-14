@@ -94,6 +94,9 @@ and one verified remediation loop before commercial expansion.
   readiness from live Redis/Celery/telemetry checks instead of hard-coded
   healthy values, while separately labeling infrastructure-dependent gates as
   deferred.
+- **Completed:** scheduled backup freshness observations now persist durable
+  artifact evidence (age, size, verification state, and audit provenance), and
+  the operations API exposes that evidence without exposing backup contents.
 - **Completed:** operators can configure bounded, durable per-image scan
   schedules, pause them without archiving inventory, and see the next planned
   run in the dashboard.
