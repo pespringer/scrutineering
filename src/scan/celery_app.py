@@ -28,6 +28,7 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.run_scan": {"queue": "scan.normal"},
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
+            "src.scan.tasks.discover_runtime_scans": {"queue": "scan.low"},
             "src.scan.retention_tasks.report_expired_scans": {"queue": "remediation.normal"},
             "src.platform.backup_tasks.report_backup_freshness": {"queue": "remediation.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
@@ -52,6 +53,11 @@ def create_celery_app() -> Celery:
             "schedule-active-image-scans": {
                 "task": "src.scan.tasks.schedule_active_scans",
                 "schedule": crontab(minute="0", hour="*/6"),
+                "options": {"queue": "scan.low"},
+            },
+            "discover-runtime-image-scans": {
+                "task": "src.scan.tasks.discover_runtime_scans",
+                "schedule": crontab(minute="*/15"),
                 "options": {"queue": "scan.low"},
             },
             "reconcile-stale-publications": {

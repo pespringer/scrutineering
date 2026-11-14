@@ -18,6 +18,7 @@ and one verified remediation loop before commercial expansion.
 - Compose keeps PostgreSQL and Redis internal by default and requires explicit credentials.
 - Scanner orchestration, observability, and finding lifecycle management need hardening.
 - **Started:** finding records now track resolved/reopened timestamps, and complete rescans reconcile absent fingerprints without closing findings from partial or failed scans.
+- **Started:** opt-in runtime discovery now reuses Docker/containerd collectors, applies include/exclude filters, deduplicates image references, and queues bounded low-priority scans every 15 minutes.
 
 ## Phase 0 — Restore Trust (now)
 
