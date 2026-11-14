@@ -41,5 +41,7 @@ helm rollback scrutineering REVISION -n scrutineering --wait
 ```
 
 Enable `ingress.enabled` only when an ingress controller, hostname, and TLS
-policy are available. Database migrations remain an explicit release step;
-run them before promoting a chart upgrade and verify `/ready` afterward.
+policy are available. Migrations run as a pre-install/pre-upgrade Helm hook by
+default; set `migrations.enabled=false` when a release pipeline owns schema
+promotion, then run the Alembic command explicitly before the application
+upgrade. Verify `/ready` after either path.

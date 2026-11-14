@@ -1,0 +1,29 @@
+{{- if .Values.migrations.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-migration
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+    spec:
+      restartPolicy: Never
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: migration
+          image: {{ include "scrutineering.image" (dict "root" . "component" "api") | quote }}
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          command: [alembic, -c, src/db/migrations/alembic.ini, upgrade, head]
+          envFrom:
+            - secretRef: { name: {{ include "scrutineering.secretName" . }} }
+            - configMapRef: { name: {{ include "scrutineering.fullname" . }}-config }
+{{- end }}

@@ -38,6 +38,9 @@ redis:
 backup:
   storage: 10Gi
 
+migrations:
+  enabled: true
+
 secrets:
   create: true
   existingSecret: ""

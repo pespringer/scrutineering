@@ -291,6 +291,7 @@ remediation timeline.
 
 ## Documentation
 
+- [Product Completion Plan](docs/product-completion-plan.md)
 - [Architecture Decision Records](docs/adr/)
 - [Database Schema Design](docs/db-schema-design.md)
 - [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)

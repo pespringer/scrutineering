@@ -111,6 +111,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.
+- Helm upgrades now run database migrations through a bounded, cleanup-aware
+  pre-install/pre-upgrade hook by default, with an explicit opt-out for
+  release pipelines that own schema promotion.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The
