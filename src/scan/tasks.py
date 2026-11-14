@@ -33,6 +33,7 @@ from src.db.connection import get_session as get_db_session
 from src.db.models import Image, Scan, ScanStatus
 from src.scan.image_identity import parse_image_reference
 from src.scan.source_target import storage_reference
+from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
 from src.scan.scheduled import schedule_active_scans
 from src.telemetry.scan_metrics import record_scan, record_scan_latency
 
@@ -55,6 +56,24 @@ def schedule_inventory_scans() -> dict[str, int]:
     from src.scan.reliability import ScanCooldown
     cooldown = ScanCooldown(int(os.environ.get("SCAN_COOLDOWN_SECONDS", "3600")))
     return schedule_active_scans(lambda image_name, priority: enqueue_scan(image_name, priority=priority), cooldown=cooldown)
+
+
+@shared_task(name="src.scan.tasks.discover_runtime_scans", acks_late=True)
+def discover_runtime_scans() -> dict[str, int | str]:
+    """Discover running runtime images and queue bounded low-priority scans."""
+    if os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        return {"status": "disabled", "discovered": 0, "queued": 0}
+    use_containerd = os.environ.get("SCAN_RUNTIME_USE_CONTAINERD", "false").lower() in {"1", "true", "yes"}
+    containers = asyncio.run(discover_runtime_containers(
+        use_containerd=use_containerd,
+        docker_bin=os.environ.get("SCAN_RUNTIME_DOCKER_BIN", "docker"),
+        ctr_bin=os.environ.get("SCAN_RUNTIME_CTR_BIN", "ctr"),
+        containerd_namespace=os.environ.get("SCAN_RUNTIME_CONTAINERD_NAMESPACE", "default"),
+    ))
+    images = select_runtime_images(containers, limit=int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100")))
+    for image in images:
+        enqueue_scan(image, priority="low")
+    return {"status": "queued", "discovered": len(containers), "queued": len(images)}
 
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
