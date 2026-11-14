@@ -341,6 +341,7 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "verification_status": publication.verification_status,
             "scan_status": publication.scan_status,
             "post_merge_scan_id": publication.post_merge_scan_id,
+            "verification_detail": publication.verification_detail,
             "findings_before": publication.findings_before,
             "findings_after": publication.findings_after,
             "rollback_command": publication.rollback_command,
