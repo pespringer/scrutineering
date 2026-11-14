@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, Clock3,
+  AlertCircle, AlertTriangle, ArrowRight, CheckCircle2, ChevronRight, CircleAlert, Clock3,
   Info, Package, RefreshCw, ShieldAlert, Sparkles, TrendingUp,
 } from "lucide-react";
 import {
@@ -14,6 +14,13 @@ import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import StatCard from "@/components/StatCard";
 import type { ImageDetail, Page, PostureSummary, ScanResult, SeverityTrend } from "@/types";
+
+type OnboardingSummary = {
+  status: string;
+  completed: number;
+  required: number;
+  blocked: string[];
+};
 
 const EMPTY_POSTURE: PostureSummary = {
   total_scanned_images: 0, total_findings: 0, critical_count: 0,
@@ -36,6 +43,7 @@ export default function DashboardPage() {
   const [trends, setTrends] = useState<SeverityTrend[]>([]);
   const [scans, setScans] = useState<ScanResult[]>([]);
   const [images, setImages] = useState<ImageDetail[]>([]);
+  const [onboarding, setOnboarding] = useState<OnboardingSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +59,7 @@ export default function DashboardPage() {
         getJson<ImageDetail[] | Page<ImageDetail>>(`${api}/api/images`),
       ]);
       setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages));
+      getJson<OnboardingSummary>("/api/onboarding").then(setOnboarding).catch(() => setOnboarding(null));
     } catch {
       if (api) {
         try {
@@ -59,6 +68,7 @@ export default function DashboardPage() {
             getJson<ScanResult[] | Page<ScanResult>>("/api/scans"), getJson<ImageDetail[] | Page<ImageDetail>>("/api/images"),
           ]);
           setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages));
+          getJson<OnboardingSummary>("/api/onboarding").then(setOnboarding).catch(() => setOnboarding(null));
         } catch { setError("The dashboard data service is unavailable. Try refreshing in a moment."); }
       } else setError("The dashboard data service is unavailable. Try refreshing in a moment.");
     } finally { setLoading(false); }
@@ -84,6 +94,8 @@ export default function DashboardPage() {
       </div>
 
       {error && <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3 text-sm text-amber-200"><Info className="h-4 w-4 shrink-0" />{error}<button onClick={loadDashboard} className="ml-auto font-semibold underline underline-offset-4">Retry</button></div>}
+
+      {onboarding && onboarding.status !== "ready" && <section className={`mb-6 flex flex-col gap-4 rounded-2xl border px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5 ${onboarding.status === "blocked" ? "border-rose-400/25 bg-rose-400/[0.06]" : "border-amber-400/25 bg-amber-400/[0.06]"}`}><div className="flex min-w-0 items-start gap-3"><CircleAlert className={`mt-0.5 h-5 w-5 shrink-0 ${onboarding.status === "blocked" ? "text-rose-300" : "text-amber-200"}`} /><div><div className="text-sm font-semibold text-white">Finish workspace setup</div><p className="mt-1 text-sm text-slate-400">{onboarding.completed}/{onboarding.required} required checks are complete. {onboarding.blocked.length ? "A service is blocked and needs attention." : "Complete the remaining checks before relying on automated coverage."}</p></div></div><Link href="/setup" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg border border-cyan-400/25 px-3 py-2 text-xs font-medium text-cyan-200 hover:bg-cyan-400/10">Open setup <ArrowRight className="h-3.5 w-3.5" /></Link></section>}
 
       <section className="panel relative mb-6 overflow-hidden rounded-3xl p-6 sm:p-8">
         <div className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />

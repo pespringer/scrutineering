@@ -122,6 +122,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   durable replay checkpoint when a shared event store is configured.
 - Compose now provisions the shared runtime event volume with worker
   read-write and API read-only mounts for that replay path.
+- The main dashboard now surfaces incomplete onboarding checks and links
+  directly to the setup checklist instead of hiding readiness behind a
+  secondary navigation path.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.
