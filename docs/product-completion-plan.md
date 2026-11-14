@@ -61,7 +61,9 @@ outcome: verified, blocked, failed, or awaiting operator action.
 
 - The first recovery slice is complete: Operations now lists recent failed
   scans and offers a confirmation-gated bulk retry. Retries create new scan
-  records while preserving the failed attempt and its audit history.
+  records while preserving the failed attempt and its audit history. Worker
+  diagnostics now include queue depth plus active, reserved, and scheduled
+  task counts per live worker.
 
 - Add an environment/readiness center covering database, queue, workers,
   scanner freshness, backups, storage, and configuration drift.

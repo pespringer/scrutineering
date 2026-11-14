@@ -116,6 +116,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   selected discovered image for scanning.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
+- Operations now shows per-worker active, reserved, and scheduled task counts
+  alongside queue depths for faster queue diagnosis.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.

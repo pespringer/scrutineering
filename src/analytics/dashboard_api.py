@@ -1592,11 +1592,23 @@ def production_operations(request: Request) -> dict:
     except Exception:
         queue_depths = {}
     worker_names: list[str] = []
+    worker_details: list[dict[str, object]] = []
     try:
-        workers = celery_app.control.inspect(timeout=1).ping() or {}
+        inspector = celery_app.control.inspect(timeout=1)
+        workers = inspector.ping() or {}
         worker_names = sorted(workers)
+        active = inspector.active() or {}
+        reserved = inspector.reserved() or {}
+        scheduled = inspector.scheduled() or {}
+        worker_details = [{
+            "name": name,
+            "active": len(active.get(name, [])),
+            "reserved": len(reserved.get(name, [])),
+            "scheduled": len(scheduled.get(name, [])),
+        } for name in worker_names]
     except Exception:
         worker_names = []
+        worker_details = []
     with get_session() as session:
         latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
         latest_restore = session.query(BackupRestoreExecution).filter(BackupRestoreExecution.backup_execution_id == latest_backup.id).order_by(BackupRestoreExecution.started_at.desc(), BackupRestoreExecution.id.desc()).first() if latest_backup else None
@@ -1616,7 +1628,7 @@ def production_operations(request: Request) -> dict:
         ),
         "checks": {
             "queues": {"status": "ready" if broker_reachable else "blocked", "message": "Redis broker is reachable." if broker_reachable else "Redis broker is unavailable.", "depths": queue_depths},
-            "workers": {"status": "ready" if worker_names else "blocked", "message": f"{len(worker_names)} Celery worker(s) responded to ping." if worker_names else "No Celery workers responded to ping.", "workers": worker_names},
+            "workers": {"status": "ready" if worker_names else "blocked", "message": f"{len(worker_names)} Celery worker(s) responded to ping." if worker_names else "No Celery workers responded to ping.", "workers": worker_names, "worker_details": worker_details},
             "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours, "latest_backup_id": latest_backup.id if latest_backup else None, "latest_artifact": latest_backup.artifact_name if latest_backup else None, "latest_size_bytes": latest_backup.size_bytes if latest_backup else None, "latest_verified": latest_backup.verified if latest_backup else False, "latest_restore": {"status": latest_restore.status, "cleanup_verified": latest_restore.cleanup_verified} if latest_restore else None},
         },
         "deferred_checks": {
@@ -1627,6 +1639,7 @@ def production_operations(request: Request) -> dict:
         },
         "queue_depths": queue_depths,
         "workers": worker_names,
+        "worker_details": worker_details,
         "receiver_delivery": {"enabled": False, "deferred": True},
     }
 
