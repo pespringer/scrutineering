@@ -108,6 +108,8 @@ and one verified remediation loop before commercial expansion.
 - **Completed:** the canonical FastAPI app exposes a Prometheus-compatible
   metrics registry at `/metrics`, including scanner outcomes, bounded request
   status/latency series, and optional OpenTelemetry request spans.
+- **Completed:** the Operations page consumes live registry summaries for API
+  volume, 5xx rate, P95 latency, scan failures, and runtime dead letters.
 - **Completed:** the metrics registry exposes a lock-protected structured snapshot for diagnostics without parsing Prometheus text.
 - **Completed:** the metrics registry now supports P50/P95 observations for production latency SLOs.
 - **Completed:** service code now has an optional OpenTelemetry span bridge that remains usable without the SDK installed.

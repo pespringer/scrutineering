@@ -92,6 +92,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   same isolated worker path as manual execution.
 - The canonical API now records bounded request status and latency metrics and
   emits optional OpenTelemetry request spans for production SLO visibility.
+- The Operations page now consumes those metrics and shows live request,
+  latency, scan-failure, and dead-letter summaries beside infrastructure health.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
