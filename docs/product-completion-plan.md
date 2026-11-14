@@ -41,6 +41,9 @@ Finding detail is now available at `/findings/:id`, combining the current
 state, observation history, scanner evidence metadata, policy evaluations, and
 linked remediation verification in one investigation view.
 
+The queue also preserves its filter state in the URL and supports named
+browser-local saved views for repeatable triage workflows.
+
 - Add filters, saved views, bulk actions, and stable URL state for severity,
   image, package, lifecycle, policy, and owner.
 - Show finding history, evidence, affected workloads, fix confidence, and

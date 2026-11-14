@@ -122,6 +122,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - The investigation queue now links to a finding detail view that combines
   lifecycle history, scanner evidence metadata, policy decisions, and related
   remediation verification state.
+- Findings filters are URL-backed and can be saved as named browser-local
+  views for repeatable triage.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts
