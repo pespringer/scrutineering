@@ -67,6 +67,11 @@ outcome: verified, blocked, failed, or awaiting operator action.
   of pending runtime events after the durable replay checkpoint when the event
   store is mounted.
 
+Compose now provisions the shared `runtimeeventdata` volume and wires these
+paths explicitly through `RUNTIME_EVENT_STORE_PATH` and
+`RUNTIME_REPLAY_CHECKPOINT_PATH`; the worker has read-write access and the API
+has read-only access.
+
 - Add an environment/readiness center covering database, queue, workers,
   scanner freshness, backups, storage, and configuration drift.
 - Add runbooks and safe actions for retry, pause, resume, replay, backup

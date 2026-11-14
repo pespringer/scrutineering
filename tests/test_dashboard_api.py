@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session, runtime_replay_events
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -73,6 +73,20 @@ def test_dashboard_session_reports_tenant_scope_without_inventing_local_scope():
     local = dashboard_session(SimpleNamespace(state=SimpleNamespace(auth_method="api_key", principal_id="dashboard-service", principal_email=None, principal_roles=["operator"])))
     assert local["tenant_ids"] == []
     assert local["scope_mode"] == "deployment-local"
+
+
+def test_runtime_replay_events_distinguishes_mounted_empty_store(tmp_path, monkeypatch):
+    monkeypatch.setenv("RUNTIME_EVENT_STORE_PATH", str(tmp_path / "runtime" / "events.jsonl"))
+    monkeypatch.setenv("RUNTIME_REPLAY_CHECKPOINT_PATH", str(tmp_path / "runtime" / "replay-offset.json"))
+    request = SimpleNamespace(state=SimpleNamespace(principal_roles=["operator"]))
+    result = runtime_replay_events(request, limit=25)
+    assert result["status"] == "unavailable"
+
+    (tmp_path / "runtime").mkdir()
+    result = runtime_replay_events(request, limit=25)
+    assert result["status"] == "ready"
+    assert result["pending_count"] == 0
+    assert "mounted" in result["message"]
 
 
 def test_finding_suppression_contract_trims_reason_and_exposes_active_state():

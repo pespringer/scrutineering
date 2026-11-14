@@ -1502,7 +1502,7 @@ def runtime_replay_events(request: Request, limit: int = Query(default=25, ge=1,
 
     store_path = os.environ.get("RUNTIME_EVENT_STORE_PATH", "")
     checkpoint_path = os.environ.get("RUNTIME_REPLAY_CHECKPOINT_PATH", "")
-    if not store_path or not Path(store_path).exists():
+    if not store_path or not Path(store_path).parent.exists():
         return {"status": "unavailable", "message": "Runtime event storage is not mounted for this service.", "checkpoint_offset": None, "events": []}
     try:
         store = JsonlEventStore(store_path)
@@ -1516,7 +1516,7 @@ def runtime_replay_events(request: Request, limit: int = Query(default=25, ge=1,
             "severity": event.get("severity"),
             "source": event.get("source"),
         } for event in events]
-        return {"status": "ready", "checkpoint_offset": checkpoint_offset, "next_offset": next_offset, "pending_count": len(safe_events), "events": safe_events}
+        return {"status": "ready", "message": "Runtime event storage is mounted; no events are pending." if not safe_events else None, "checkpoint_offset": checkpoint_offset, "next_offset": next_offset, "pending_count": len(safe_events), "events": safe_events}
     except Exception as exc:
         return {"status": "error", "message": f"Runtime event store unavailable: {str(exc)[:160]}", "checkpoint_offset": None, "events": []}
 

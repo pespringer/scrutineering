@@ -120,6 +120,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   alongside queue depths for faster queue diagnosis.
 - Operations can show bounded, redacted pending runtime events after the
   durable replay checkpoint when a shared event store is configured.
+- Compose now provisions the shared runtime event volume with worker
+  read-write and API read-only mounts for that replay path.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.
