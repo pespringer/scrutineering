@@ -48,6 +48,10 @@ linked remediation verification in one investigation view.
 The queue also preserves its filter state in the URL and supports named
 browser-local saved views for repeatable triage workflows.
 
+The findings API additionally supports explicit `owner` and `policy_id`
+filters, allowing integrations and saved URLs to narrow investigation work by
+assignment or policy evaluation.
+
 - Add filters, saved views, bulk actions, and stable URL state for severity,
   image, package, lifecycle, policy, and owner.
 - Show finding history, evidence, affected workloads, fix confidence, and

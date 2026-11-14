@@ -126,6 +126,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   views for repeatable triage.
 - Runtime-discovered images can now be scanned and assigned a recurring
   cadence directly from the Sources workflow.
+- The findings inventory API supports owner and policy filters in addition to
+  the dashboard's URL-backed severity, lifecycle, acknowledgement, and fix
+  filters.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts

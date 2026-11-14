@@ -1377,6 +1377,8 @@ def finding_inventory(
     lifecycle: str = Query(default="open", pattern="^(open|resolved|all)$"),
     acknowledged: bool | None = Query(default=None),
     fix_available: bool | None = Query(default=None),
+    owner: str | None = Query(default=None, max_length=128),
+    policy_id: int | None = Query(default=None, ge=1),
 ) -> dict:
     """Return a paginated, cross-image investigation queue."""
     severity_value = _severity_filter(severity)
@@ -1392,6 +1394,14 @@ def finding_inventory(
             query = query.filter(ScanFinding.acknowledged.is_(acknowledged))
         if fix_available is not None:
             query = query.filter(ScanFinding.fix_available.is_(fix_available))
+        if owner and owner.strip():
+            query = query.filter(ScanFinding.assigned_to.ilike(f"%{owner.strip()}%"))
+        if policy_id is not None:
+            matching_finding_ids = session.query(PolicyEvaluation.finding_id).filter(
+                PolicyEvaluation.policy_id == policy_id,
+                PolicyEvaluation.finding_id.is_not(None),
+            )
+            query = query.filter(ScanFinding.id.in_(matching_finding_ids))
         if search and search.strip():
             term = f"%{search.strip()}%"
             query = query.filter(or_(

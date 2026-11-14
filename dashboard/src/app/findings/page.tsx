@@ -10,7 +10,8 @@ import type { Page, VulnerabilityFinding } from "@/types";
 
 const PAGE_SIZE = 25;
 const SEVERITIES = ["", "CRITICAL", "HIGH", "MEDIUM", "LOW"];
-type SavedView = { name: string; search: string; severity: string; lifecycle: string; fixable: string; acknowledged: string };
+type SavedView = { name: string; search: string; severity: string; lifecycle: string; fixable: string; acknowledged: string; owner: string; policyId: string };
+type PolicyOption = { id: number; name: string };
 
 export default function FindingsPage() {
   const [page, setPage] = useState<Page<VulnerabilityFinding> | null>(null);
@@ -20,6 +21,8 @@ export default function FindingsPage() {
   const [lifecycle, setLifecycle] = useState("open");
   const [fixable, setFixable] = useState("");
   const [acknowledged, setAcknowledged] = useState("");
+  const [owner, setOwner] = useState("");
+  const [policyId, setPolicyId] = useState("");
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<number[]>([]);
   const [assignee, setAssignee] = useState("");
@@ -29,6 +32,7 @@ export default function FindingsPage() {
   const [filtersReady, setFiltersReady] = useState(false);
   const [savedViews, setSavedViews] = useState<SavedView[]>([]);
   const [viewName, setViewName] = useState("");
+  const [policies, setPolicies] = useState<PolicyOption[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -37,13 +41,15 @@ export default function FindingsPage() {
     if (severity) query.set("severity", severity);
     if (fixable) query.set("fix_available", fixable);
     if (acknowledged) query.set("acknowledged", acknowledged);
+    if (owner.trim()) query.set("owner", owner.trim());
+    if (policyId) query.set("policy_id", policyId);
     try {
       const response = await fetch(`/api/findings?${query}`, { cache: "no-store" });
       if (!response.ok) throw new Error();
       setPage(await response.json());
     } catch { setPage({ items: [], limit: PAGE_SIZE, offset, count: 0, total: 0 }); setNotice("The findings service is unavailable."); }
     finally { setLoading(false); }
-  }, [acknowledged, fixable, lifecycle, offset, search, severity]);
+  }, [acknowledged, fixable, lifecycle, offset, owner, policyId, search, severity]);
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -52,11 +58,14 @@ export default function FindingsPage() {
     setLifecycle(query.get("lifecycle") || "open");
     setFixable(query.get("fix_available") || "");
     setAcknowledged(query.get("acknowledged") || "");
+    setOwner(query.get("owner") || "");
+    setPolicyId(query.get("policy_id") || "");
     setOffset(Number(query.get("offset") || "0") || 0);
     try { setSavedViews(JSON.parse(window.localStorage.getItem("scrutineering.findings.views") || "[]")); } catch { setSavedViews([]); }
     setFiltersReady(true);
   }, []);
   useEffect(() => { if (filtersReady) load(); }, [filtersReady, load]);
+  useEffect(() => { fetch("/api/policies", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((payload) => setPolicies(payload?.items || [])).catch(() => setPolicies([])); }, []);
   useEffect(() => {
     if (!filtersReady) return;
     const query = new URLSearchParams();
@@ -65,10 +74,12 @@ export default function FindingsPage() {
     if (lifecycle !== "open") query.set("lifecycle", lifecycle);
     if (fixable) query.set("fix_available", fixable);
     if (acknowledged) query.set("acknowledged", acknowledged);
+    if (owner.trim()) query.set("owner", owner.trim());
+    if (policyId) query.set("policy_id", policyId);
     if (offset) query.set("offset", String(offset));
     const value = query.toString();
     window.history.replaceState(null, "", value ? `${window.location.pathname}?${value}` : window.location.pathname);
-  }, [acknowledged, filtersReady, fixable, lifecycle, offset, search, severity]);
+  }, [acknowledged, filtersReady, fixable, lifecycle, offset, owner, policyId, search, severity]);
 
   async function acknowledge() {
     if (!selected.length) return;
@@ -112,7 +123,7 @@ export default function FindingsPage() {
 
   function toggle(id: number, checked: boolean) { setSelected((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id)); }
   function updateFilter(setter: (value: string) => void, value: string) { setter(value); setOffset(0); setSelected([]); }
-  function currentView(name: string): SavedView { return { name, search, severity, lifecycle, fixable, acknowledged }; }
+  function currentView(name: string): SavedView { return { name, search, severity, lifecycle, fixable, acknowledged, owner, policyId }; }
   function saveView() {
     const name = viewName.trim();
     if (!name) { setNotice("Enter a name for this view."); return; }
@@ -120,7 +131,7 @@ export default function FindingsPage() {
     setSavedViews(next); window.localStorage.setItem("scrutineering.findings.views", JSON.stringify(next)); setViewName(""); setNotice(`Saved view “${name}”.`);
   }
   function applyView(view: SavedView) {
-    setSearch(view.search); setSeverity(view.severity); setLifecycle(view.lifecycle); setFixable(view.fixable); setAcknowledged(view.acknowledged); setOffset(0); setSelected([]); setNotice(`Applied view “${view.name}”.`);
+    setSearch(view.search); setSeverity(view.severity); setLifecycle(view.lifecycle); setFixable(view.fixable); setAcknowledged(view.acknowledged); setOwner(view.owner || ""); setPolicyId(view.policyId || ""); setOffset(0); setSelected([]); setNotice(`Applied view “${view.name}”.`);
   }
   function deleteView(name: string) {
     const next = savedViews.filter((view) => view.name !== name); setSavedViews(next); window.localStorage.setItem("scrutineering.findings.views", JSON.stringify(next));
