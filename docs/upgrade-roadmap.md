@@ -75,6 +75,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** deployment evidence can now close a pending publication from its persisted correlated scan without requiring operators to copy scan counts into a second payload.
 - **Completed:** release workflows can now submit signed deployment digest evidence with replay protection; the API derives the correlated scan result and closes the pending publication fail-closed.
 - **Deferred:** replace manual/GitHub-specific deployment evidence submission with provider-neutral collectors that discover artifact and deployed digests, rollout state, and evidence provenance inside Scrutineering; retain signed callbacks only as a fallback for unreachable environments.
+- **Started:** provider-neutral Docker/Compose and Kubernetes collectors now validate running/ready workloads, require one immutable digest, and emit redaction-safe evidence fingerprints; API orchestration and dashboard controls remain.
 
 ## Phase 3 — Production Operations (60–90 days)
 
