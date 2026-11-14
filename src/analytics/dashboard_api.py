@@ -36,7 +36,9 @@ from src.remediation.provider_diagnostics import diagnose_capabilities, required
 from src.remediation.evidence_archive import manifest
 from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
 from src.remediation.deployment_evidence import verify_deployment_signature
-from src.remediation.deployment_tasks import collect_deployment_observation
+from src.remediation.deployment_collectors import DeploymentCollectorError
+from src.remediation.deployment_config import configured_deployment_target
+from src.remediation.deployment_tasks import collect_deployment_observation, probe_deployment_observation
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
 from src.platform.release_health import HealthCheck, evaluate_release_health
 from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog
@@ -119,6 +121,18 @@ class DeploymentEvidenceRequest(BaseModel):
 
 class DeploymentEvidenceCallbackRequest(DeploymentEvidenceRequest):
     publication_id: int = Field(gt=0)
+
+
+class DeploymentObservationPreflightRequest(BaseModel):
+    repository: str = Field(min_length=1, max_length=256)
+
+    @field_validator("repository")
+    @classmethod
+    def repository_is_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("repository must be a single repository identifier")
+        return value
 
 
 class PublicationRecoveryRequest(BaseModel):
@@ -1276,6 +1290,32 @@ def queue_deployment_observation(publication_id: int, request: Request) -> dict:
             raise HTTPException(status_code=409, detail="publication_not_merged")
     task = collect_deployment_observation.apply_async(args=[publication_id], queue="remediation.normal")
     return {"accepted": True, "publication_id": publication_id, "task_id": task.id, "status": "queued"}
+
+
+@router.post("/deployment-observation/preflight", status_code=202)
+def queue_deployment_observation_preflight(payload: DeploymentObservationPreflightRequest, request: Request) -> dict:
+    """Queue a read-only runtime preflight without requiring a publication."""
+    _require_role(request, "security-operator")
+    try:
+        configured_deployment_target(payload.repository)
+    except DeploymentCollectorError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    task = probe_deployment_observation.apply_async(args=[payload.repository], queue="remediation.normal")
+    return {"accepted": True, "repository": payload.repository, "task_id": task.id, "status": "queued"}
+
+
+@router.get("/deployment-observation/preflight/{task_id}")
+def get_deployment_observation_preflight(task_id: str, request: Request) -> dict:
+    """Return the status/result of a queued runtime preflight."""
+    _require_role(request, "security-operator")
+    if not task_id or any(char.isspace() for char in task_id):
+        raise HTTPException(status_code=400, detail="invalid_task_id")
+    result = celery_app.AsyncResult(task_id)
+    if result.state in {"PENDING", "STARTED", "RETRY"}:
+        return {"task_id": task_id, "status": result.state.lower()}
+    if result.state == "FAILURE":
+        return {"task_id": task_id, "status": "error", "error": "preflight_task_failed"}
+    return {"task_id": task_id, "status": "completed", "result": result.result}
 
 
 @router.post("/remediations/publications/{publication_id}/alert-evidence")
