@@ -48,6 +48,7 @@ from src.platform.production_operations import resilience_scorecard, telemetry_d
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
+from src.scan.registry_diagnostics import diagnose_registry
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -1181,7 +1182,18 @@ def dashboard_onboarding(request: Request) -> dict:
         {"key": "restore", "title": "Prove recovery", "status": "ready" if restore_ready else "action", "message": "A verified isolated restore and cleanup has been recorded." if restore_ready else "No successful isolated restore verification is recorded.", "action": "Configure an isolated restore admin URL, then run Verify restore from Operations."},
         {"key": "external_integrations", "title": "Connect external delivery", "status": "deferred", "message": "GitHub publication, deployment observation, and alert delivery are deferred until their external infrastructure is available.", "action": "See the deferred infrastructure checklist in the operations documentation."},
     ]
-    return onboarding_summary(steps)
+    registries = ["dockerhub", "ghcr.io", "gitlab", "ecr", "gcr.io"]
+    configured_hosts = [item.strip() for item in os.environ.get("REGISTRY_HOSTS", "").split(",") if item.strip()]
+    for host in configured_hosts:
+        if host not in registries:
+            registries.append(host)
+    registry_status = []
+    for registry in registries:
+        diagnostic = diagnose_registry(registry, dict(os.environ))
+        registry_status.append({"registry": diagnostic.registry, "configured": diagnostic.configured, "required_keys": list(diagnostic.required_keys), "missing_keys": list(diagnostic.missing_keys), "message": diagnostic.message})
+    result = onboarding_summary(steps)
+    result["registries"] = registry_status
+    return result
 
 
 @router.get("/permissions")
