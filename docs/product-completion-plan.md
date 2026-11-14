@@ -37,6 +37,10 @@ cross-image queue with search, lifecycle, severity, acknowledgement, and fix
 availability filters, bulk acknowledgement/assignment/suppression, governed
 same-image remediation proposals, export, and direct image links.
 
+Finding detail is now available at `/findings/:id`, combining the current
+state, observation history, scanner evidence metadata, policy evaluations, and
+linked remediation verification in one investigation view.
+
 - Add filters, saved views, bulk actions, and stable URL state for severity,
   image, package, lifecycle, policy, and owner.
 - Show finding history, evidence, affected workloads, fix confidence, and

@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupRestoreExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, RegistrySource, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, BackupExecution, BackupRestoreExecution, ComplianceReport, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, RawScanResult, RegistrySource, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -305,6 +305,20 @@ def _active_suppression(finding: ScanFinding) -> FindingSuppression | None:
     return None
 
 
+def _finding_state(finding: ScanFinding, suppression: FindingSuppression | None = None) -> str:
+    """Return the operator-facing state without losing lifecycle timestamps."""
+    suppression = suppression if suppression is not None else _active_suppression(finding)
+    if suppression is not None:
+        return "suppressed"
+    if getattr(finding, "resolved_at", None) is not None:
+        return "resolved"
+    if getattr(finding, "reopened_at", None) is not None:
+        return "reopened"
+    if bool(getattr(finding, "acknowledged", False)):
+        return "acknowledged"
+    return "open"
+
+
 def _scan_payload(scan: Scan) -> dict:
     return {
         "scan_id": scan.scan_id,
@@ -367,6 +381,7 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "resolved_at": _iso(getattr(finding, "resolved_at", None)),
         "reopened_at": _iso(getattr(finding, "reopened_at", None)),
         "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
+        "state": _finding_state(finding, suppression),
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
         "suppressed": suppression is not None,
@@ -1463,6 +1478,73 @@ def export_findings(request: Request, limit: int = Query(default=1000, ge=1, le=
     records = [_finding_payload(finding) for finding in findings]
     canonical = json.dumps(records, sort_keys=True, separators=(",", ":")).encode()
     return {"format": "scrutineering-findings-v1", "count": len(records), "sha256": hashlib.sha256(canonical).hexdigest(), "records": records}
+
+
+@router.get("/findings/{finding_id}")
+def finding_detail(finding_id: int, request: Request) -> dict:
+    """Return one finding with history, evidence, policy, and remediation context."""
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        finding = session.get(ScanFinding, finding_id)
+        if finding is None:
+            raise HTTPException(status_code=404, detail="finding_not_found")
+        history = session.query(ScanFinding).filter(
+            ScanFinding.image_id == finding.image_id,
+            ScanFinding.fingerprint == finding.fingerprint,
+        ).order_by(ScanFinding.first_seen.asc(), ScanFinding.id.asc()).all()
+        evidence = session.query(RawScanResult).filter(
+            RawScanResult.image_id == finding.image_id,
+            RawScanResult.scan_id == finding.scan_id,
+        ).order_by(RawScanResult.created_at.desc(), RawScanResult.id.desc()).all()
+        policies = session.query(PolicyEvaluation).filter(
+            (PolicyEvaluation.finding_id == finding.id) | (PolicyEvaluation.scan_id == finding.scan_id),
+        ).order_by(PolicyEvaluation.evaluated_at.desc(), PolicyEvaluation.id.desc()).limit(50).all()
+        remediations = session.query(Remediation).filter(
+            Remediation.findings.any(ScanFinding.id == finding.id),
+        ).order_by(Remediation.created_at.desc(), Remediation.id.desc()).limit(20).all()
+        payload = _finding_payload(finding)
+        payload["image_name"] = finding.image.full_name if finding.image else str(finding.image_id)
+    return {
+        "finding": payload,
+        "history": [{
+            "id": item.id,
+            "scan_id": item.scan_id,
+            "state": _finding_state(item),
+            "severity": (_value(item.severity) or "unknown").upper(),
+            "first_seen": _iso(item.first_seen),
+            "last_seen": _iso(item.last_seen),
+            "resolved_at": _iso(item.resolved_at),
+            "reopened_at": _iso(item.reopened_at),
+            "remediated": bool(item.remediated),
+        } for item in history],
+        "evidence": [{
+            "id": item.id,
+            "scan_id": item.scan_id,
+            "scanner": _value(item.scanner_source),
+            "scanner_version": item.scanner_version,
+            "vulnerability_db_version": item.vulnerability_db_version,
+            "file_size_bytes": item.file_size_bytes,
+            "created_at": _iso(item.created_at),
+        } for item in evidence],
+        "policies": [{
+            "id": item.id,
+            "policy_id": item.policy_id,
+            "policy_name": item.policy.name if item.policy else None,
+            "violated": bool(item.violated),
+            "action_taken": _value(item.action_taken) if item.action_taken else None,
+            "detail": item.detail or {},
+            "evaluated_at": _iso(item.evaluated_at),
+        } for item in policies],
+        "remediations": [{
+            "id": item.id,
+            "status": _value(item.status),
+            "created_at": _iso(item.created_at),
+            "verified": bool(item.verified),
+            "verification_status": item.verification_status,
+            "verification_scan_id": item.verification_scan_id,
+            "error_message": item.error_message,
+        } for item in remediations],
+    }
 
 
 @router.get("/session")

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _registry_credential_readiness, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session, runtime_replay_events
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _finding_state, _image_payload, _page, _registry_credential_readiness, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session, runtime_replay_events
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -188,6 +188,19 @@ def test_registry_credential_readiness_never_returns_secret_values(monkeypatch):
     assert _registry_credential_readiness(source) == ("not_configured", ["GITHUB_TOKEN"])
     monkeypatch.setenv("GITHUB_TOKEN", "secret-value")
     assert _registry_credential_readiness(source) == ("configured", [])
+
+
+def test_finding_state_prioritizes_suppression_and_preserves_reopen_state():
+    finding = SimpleNamespace(resolved_at=None, reopened_at=None, acknowledged=False)
+    assert _finding_state(finding) == "open"
+    finding.acknowledged = True
+    assert _finding_state(finding) == "acknowledged"
+    finding.reopened_at = datetime(2026, 1, 1)
+    assert _finding_state(finding) == "reopened"
+    finding.resolved_at = datetime(2026, 1, 2)
+    assert _finding_state(finding) == "resolved"
+    suppression = SimpleNamespace(id=1, revoked_at=None, expires_at=None)
+    assert _finding_state(finding, suppression) == "suppressed"
 
 
 def test_deployment_evidence_request_is_digest_only():

@@ -46,6 +46,7 @@ export interface VulnerabilityFinding {
   resolved_at?: string | null;
   reopened_at?: string | null;
   lifecycle_status?: 'open' | 'resolved';
+  state?: 'open' | 'acknowledged' | 'suppressed' | 'resolved' | 'reopened' | 'policy_exempt';
   acknowledged?: boolean;
   assigned_to?: string | null;
   suppressed?: boolean;
