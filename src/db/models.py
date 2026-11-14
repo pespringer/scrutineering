@@ -359,7 +359,7 @@ class ScanFinding(Base):
 
     # Vulnerability data
     cve_id: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    title: Mapped[str] = mapped_column(String(1024), default="")
+    title: Mapped[str] = mapped_column(Text, default="")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     severity: Mapped[Severity | None] = mapped_column(
         Enum(Severity, values_callable=_enum_values), nullable=True)

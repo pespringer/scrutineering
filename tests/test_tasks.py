@@ -135,7 +135,7 @@ class TestRunScan:
         mock_self = MagicMock()
         result = run_scan.run.__func__(mock_self, "nginx:1.25", scan_id="test-005")
 
-        assert result["status"] == "completed"  # Scanners succeeded
+        assert result["status"] == "partial"  # Scanner output exists, but persistence is incomplete
         assert result["findings"] == 1
         assert len(result["errors"]) == 1
         assert result["errors"][0]["component"] == "database"

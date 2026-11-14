@@ -23,8 +23,25 @@ docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml up 
 ```
 
 Discovery runs every 15 minutes, deduplicates image references across running
-containers, and submits scans through the existing `scan.low` queue. Partial
-runtime access or a missing CLI produces an empty discovery result; operators
-should use `npm run probe:deployment-observation` to validate deployment
-evidence access separately. Containerd mode uses `SCAN_RUNTIME_USE_CONTAINERD`
-and `SCAN_RUNTIME_CONTAINERD_NAMESPACE` and requires `ctr` in the worker image.
+containers, and submits scans through the existing `scan.low` queue. It skips
+opaque content digests, filesystem/workspace aliases, reserved `.invalid`
+references, images already being scanned, and images scanned within
+`SCAN_COOLDOWN_SECONDS`. This prevents a runtime inventory from repeatedly
+filling the queue with values that an OCI scanner cannot resolve.
+
+Partial runtime access or a missing CLI produces an empty discovery result;
+operators should use `npm run probe:deployment-observation` to validate
+deployment evidence access separately. Containerd mode uses
+`SCAN_RUNTIME_USE_CONTAINERD` and `SCAN_RUNTIME_CONTAINERD_NAMESPACE` and
+requires `ctr` in the worker image. When a local runtime contains application
+images that should not be scanned, add their container names or image patterns
+to the exclude variables above.
+
+Scanner persistence treats database write failures as `partial` scans. Finding
+titles are stored as unrestricted text so long scanner advisories do not cause
+otherwise successful scan results to be discarded. Apply migrations before
+retrying older partial scans:
+
+```bash
+docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade head
+```

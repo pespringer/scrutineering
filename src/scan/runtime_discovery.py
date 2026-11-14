@@ -6,6 +6,8 @@ import fnmatch
 import os
 from typing import Any
 
+from src.scan.image_identity import parse_image_reference
+
 
 _SAFE_CONTEXT_LABELS = {
     "com.docker.compose.project": "project",
@@ -35,6 +37,27 @@ def _labels_match(labels: Any, expression: str | None) -> bool:
     if isinstance(labels, str):
         labels = dict(item.split("=", 1) for item in labels.split(",") if "=" in item)
     return isinstance(labels, dict) and labels.get(key) == expected
+
+
+def is_scannable_runtime_image(image: str) -> bool:
+    """Reject runtime metadata that cannot be passed to an OCI scanner.
+
+    Docker/containerd inventories can contain local filesystem aliases and
+    content-addressable IDs. Those values are useful runtime metadata, but
+    they are not pullable image references for the scanner adapters.
+    """
+    value = str(image or "").strip()
+    if not value or value.startswith("sha256:"):
+        return False
+    if ":filesystem" in value or ":/" in value or "/workspace/" in value:
+        return False
+    if ".invalid/" in value:
+        return False
+    try:
+        identity = parse_image_reference(value)
+    except ValueError:
+        return False
+    return bool(identity.repo_name and identity.tag and identity.tag != "filesystem")
 
 
 def safe_runtime_context(container: dict[str, Any]) -> dict[str, str]:
@@ -70,7 +93,7 @@ def select_runtime_images(containers: list[dict[str, Any]], *, include: list[str
     for container in containers:
         image = str(container.get("image") or "").strip()
         name = str(container.get("names") or container.get("id") or "").strip()
-        if not image or not _labels_match(container.get("labels"), include_label):
+        if not is_scannable_runtime_image(image) or not _labels_match(container.get("labels"), include_label):
             continue
         if exclude_containers and any(fnmatch.fnmatchcase(name, pattern) for pattern in exclude_containers):
             continue

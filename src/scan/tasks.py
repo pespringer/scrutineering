@@ -15,7 +15,7 @@ import os
 import time
 import uuid
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from celery import shared_task
@@ -72,9 +72,33 @@ def discover_runtime_scans() -> dict[str, int | str]:
         containerd_namespace=os.environ.get("SCAN_RUNTIME_CONTAINERD_NAMESPACE", "default"),
     ))
     images = select_runtime_images(containers, limit=int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100")))
+    cooldown = timedelta(seconds=max(0, int(os.environ.get("SCAN_COOLDOWN_SECONDS", "3600"))))
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    queued = 0
     for image in images:
+        try:
+            identity = parse_image_reference(image)
+        except ValueError:
+            logger.warning("Skipping invalid runtime image reference '%s'", image)
+            continue
+        with get_db_session() as session:
+            tracked = session.query(Image).filter_by(
+                registry_name=identity.registry,
+                repo_name=identity.repo_name,
+                tag=identity.tag,
+            ).first()
+            if tracked is not None:
+                if tracked.last_scan_at and tracked.last_scan_at > now - cooldown:
+                    continue
+                active_scan = session.query(Scan).filter(
+                    Scan.image_id == tracked.id,
+                    Scan.status.in_([ScanStatus.PENDING, ScanStatus.RUNNING]),
+                ).first()
+                if active_scan is not None:
+                    continue
         enqueue_scan(image, priority="low")
-    return {"status": "queued", "discovered": len(containers), "queued": len(images)}
+        queued += 1
+    return {"status": "queued", "discovered": len(containers), "queued": queued}
 
 
 @shared_task(name="src.scan.tasks.discover_runtime_inventory", acks_late=True)
@@ -385,6 +409,7 @@ def run_scan(
 
     # Persist to database
     persisted = 0
+    persistence_failed = False
     if save_results and (deduped or status == "completed"):
         try:
             persisted = persist_findings(
@@ -403,6 +428,7 @@ def run_scan(
         except Exception as e:
             logger.exception("Failed to persist findings for scan %s: %s", scan_id, e)
             errors.append({"component": "database", "error": str(e)})
+            persistence_failed = True
 
     # Build dedup summary for the result
     dedup_summary = dedup_report.summary() if dedup_report else {"total_raw_findings": 0, "unique_findings_after_dedup": 0, "merged_duplicates": 0, "dedup_ratio": 0.0, "findings_by_source": {}}
@@ -412,8 +438,10 @@ def run_scan(
         severity = str(finding.get("severity", "")).lower()
         if severity in counts:
             counts[severity] += 1
+    final_status = ScanStatus.PARTIAL if status == "partial" or persistence_failed else ScanStatus.COMPLETED
+    result_status = final_status.value
     _safe_update_scan_record(
-        scan_id, storage_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
+        scan_id, storage_name, final_status,
         total_findings=len(deduped), counts=counts,
         error_message="; ".join(error.get("error", "") for error in errors) or None,
     )
@@ -428,7 +456,7 @@ def run_scan(
     meta = {
         "scan_id": scan_id,
         "image_name": image_name,
-        "status": status,
+        "status": result_status,
         "findings": len(deduped),
         "dedup_summary": dedup_summary,
         "findings_by_source": findings_by_source,
@@ -444,7 +472,7 @@ def run_scan(
     logger.info(
         "Scan %s %s for '%s': %d findings (%d new sources, %d persisting)",
         scan_id,
-        status,
+        result_status,
         image_name,
         len(deduped),
         len(scanners_completed),
@@ -454,7 +482,7 @@ def run_scan(
     return {
         "scan_id": scan_id,
         "image_name": image_name,
-        "status": status,
+        "status": result_status,
         "findings": len(deduped),
         "dedup_summary": dedup_summary,
         "findings_by_source": findings_by_source,
