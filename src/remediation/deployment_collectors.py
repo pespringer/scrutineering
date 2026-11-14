@@ -177,6 +177,26 @@ class KubernetesCollector:
         )
 
 
+def collect_observation(target: Mapping[str, Any], *, timeout_seconds: int = 20,
+                        runner: Callable[[list[str], int], str] = _default_runner) -> DeploymentObservation:
+    """Collect one configured target without requiring a publication or database."""
+    provider = target.get("provider")
+    if provider == "docker":
+        container = target.get("container")
+        if not isinstance(container, str) or not container:
+            raise DeploymentCollectorError("docker collector target requires container")
+        return DockerComposeCollector(runner=runner, timeout_seconds=timeout_seconds).collect(container)
+    if provider == "kubernetes":
+        namespace = target.get("namespace")
+        selector = target.get("selector")
+        if not isinstance(namespace, str) or not isinstance(selector, str) or not namespace or not selector:
+            raise DeploymentCollectorError("kubernetes collector target requires namespace and selector")
+        return KubernetesCollector(runner=runner, timeout_seconds=timeout_seconds).collect(
+            namespace=namespace, selector=selector, workload=target.get("workload"),
+        )
+    raise DeploymentCollectorError("deployment collector provider is unsupported")
+
+
 def observation_payload(observation: DeploymentObservation) -> Mapping[str, Any]:
     """Return a redaction-safe payload suitable for audit or API transport."""
     return {

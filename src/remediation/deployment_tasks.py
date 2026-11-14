@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-import json
 import os
 
 from celery import shared_task
@@ -11,30 +10,10 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import RemediationPublication, RemediationReleaseEvidence, Scan, ScanStatus
 from src.db.repositories import RemediationRepository
-from src.remediation.deployment_collectors import DockerComposeCollector, KubernetesCollector, DeploymentCollectorError, observation_payload
+from src.remediation.deployment_collectors import DeploymentCollectorError, collect_observation, observation_payload
+from src.remediation.deployment_config import configured_deployment_target
 from src.remediation.post_merge import evaluate_post_merge
 from src.remediation.rollback import build_rollback_plan
-
-
-def configured_deployment_target(repository: str, raw: str | None = None) -> dict:
-    """Resolve a publication repository to an explicit runtime collector target."""
-    value = raw if raw is not None else os.environ.get("DEPLOYMENT_COLLECTOR_TARGETS_JSON", "{}")
-    try:
-        targets = json.loads(value)
-    except json.JSONDecodeError as exc:
-        raise DeploymentCollectorError("deployment collector target configuration is invalid JSON") from exc
-    target = targets.get(repository)
-    if not isinstance(target, dict) or target.get("provider") not in {"docker", "kubernetes"}:
-        raise DeploymentCollectorError(f"no deployment collector target configured for {repository}")
-    if target["provider"] == "docker" and not target.get("container"):
-        raise DeploymentCollectorError("docker collector target requires container")
-    if target["provider"] == "kubernetes" and (not target.get("namespace") or not target.get("selector")):
-        raise DeploymentCollectorError("kubernetes collector target requires namespace and selector")
-    if target["provider"] == "kubernetes" and target.get("workload") is not None:
-        workload = target["workload"]
-        if not isinstance(workload, str) or not workload or any(char.isspace() for char in workload):
-            raise DeploymentCollectorError("kubernetes workload must be a non-empty name")
-    return target
 
 
 def _append_event(session, publication, event_type: str, detail: dict) -> None:
@@ -108,13 +87,7 @@ def collect_deployment_observation(publication_id: int) -> dict:
             raise DeploymentCollectorError("deployment observation requires a merged publication")
         target = configured_deployment_target(publication.repository)
         timeout = int(os.environ.get("DEPLOYMENT_COLLECTOR_TIMEOUT_SECONDS", "20"))
-        if target["provider"] == "docker":
-            observation = DockerComposeCollector(timeout_seconds=timeout).collect(target["container"])
-        else:
-            observation = KubernetesCollector(timeout_seconds=timeout).collect(
-                namespace=target["namespace"], selector=target["selector"],
-                workload=target.get("workload"),
-            )
+        observation = collect_observation(target, timeout_seconds=timeout)
         scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first() if publication.post_merge_scan_id else None
         detail = _reconcile_observation(session, publication, observation_payload(observation), scan)
         return {"publication_id": publication_id, "status": detail["status"], "verification_status": publication.verification_status, "observation": observation_payload(observation)}

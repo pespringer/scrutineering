@@ -52,6 +52,18 @@ deployment decision: Docker collection requires access to the Docker runtime,
 and Kubernetes collection requires a scoped `kubectl` context or service
 account; neither is silently enabled by the API container.
 
+Run a read-only preflight before queueing a publication observation. It uses the
+same target configuration and collector as the worker, but does not require a
+database record or mutate the runtime:
+
+```bash
+npm run probe:deployment-observation -- --repository local/api
+```
+
+The command emits a redaction-safe JSON observation on success and a structured
+error with a non-zero exit code when runtime access, rollout state, or target
+configuration is invalid.
+
 For local Docker collection, rebuild the worker and opt into the dedicated
 overlay only on a host where the worker is trusted to inspect the Docker
 Engine:

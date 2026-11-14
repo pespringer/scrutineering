@@ -8,7 +8,7 @@ from src.remediation.deployment_collectors import (
     KubernetesCollector,
     observation_payload,
 )
-from src.remediation.deployment_tasks import configured_deployment_target
+from src.remediation.deployment_config import configured_deployment_target
 
 
 DIGEST = "sha256:" + "a" * 64
