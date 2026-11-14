@@ -53,6 +53,10 @@ The dashboard is organized as a security operations console:
   merge outcomes, and rollback-required decisions.
 - Read-only `dashboard` users can inspect data; `operator`,
   `security-operator`, and `admin` roles can start or cancel scans.
+- Operations now reports live Redis reachability, queue depths, Celery worker
+  ping results, and backup-evidence freshness. Provider publication,
+  deployment observation, and external alert delivery remain explicitly
+  labeled as deferred rather than counted as healthy.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
   not blank screens.
 
