@@ -65,6 +65,17 @@ The dashboard is organized as a security operations console:
   5xx errors, error rate, P95 API latency, scan failures, and runtime dead
   letters. Empty metrics are represented as zero or unavailable; they are not
   inferred to be healthy.
+- The control-plane health panel checks PostgreSQL, Redis, workers, scan
+  freshness, backup freshness, storage capacity, runtime discovery, and enabled
+  remediation configuration. Checks needing attention include direct links to
+  the setup or operations surface that can resolve them.
+- Operations evaluates dashboard-only thresholds for HTTP 5xx rate, queue
+  depth, and recent scan failures. Configure them with
+  `OPS_HTTP_ERROR_RATE_THRESHOLD`, `OPS_QUEUE_DEPTH_THRESHOLD`, and
+  `OPS_SCAN_FAILURE_THRESHOLD`. It also shows a bounded incident timeline from
+  recent audit events. Notification preference visibility is controlled by
+  `OPS_ALERT_NOTIFICATIONS_ENABLED` and `OPS_ALERT_CHANNELS`; external receiver
+  delivery remains separately deferred until a receiver is configured.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
   not blank screens.
 

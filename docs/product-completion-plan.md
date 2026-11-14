@@ -102,6 +102,12 @@ has read-only access.
 - Add alert thresholds, notification preferences, and an incident timeline
   using the existing metrics and audit events.
 
+The readiness center and Operations surface now provide these controls for the
+home-lab deployment: live database/queue/worker/scanner/backup/storage/config
+checks, direct action links for incomplete checks, configurable dashboard alert
+thresholds, notification preference visibility, and a bounded incident timeline
+derived from the audit log.
+
 Done means a user can diagnose a failed scan or worker without reading logs or
 guessing which container to restart.
 

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import json
+import shutil
 import uuid
 from urllib.request import urlopen
 import os
@@ -1600,30 +1601,88 @@ def dashboard_system_health(request: Request) -> dict:
     try:
         with get_session() as session:
             session.execute(text("SELECT 1"))
-        checks["database"] = {"status": "ready", "message": "PostgreSQL is reachable."}
+        checks["database"] = {"status": "ready", "message": "PostgreSQL is reachable.", "action": "No action required.", "href": "/operations"}
     except Exception as exc:
-        checks["database"] = {"status": "blocked", "message": f"Database unavailable: {str(exc)[:160]}"}
+        checks["database"] = {"status": "blocked", "message": f"Database unavailable: {str(exc)[:160]}", "action": "Check DATABASE_URL and PostgreSQL.", "href": "/operations"}
     try:
         broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
         redis_client = Redis.from_url(broker_url, socket_connect_timeout=2, socket_timeout=2)
         redis_client.ping()
         redis_client.close()
-        checks["redis"] = {"status": "ready", "message": "Queue broker is reachable."}
+        checks["redis"] = {"status": "ready", "message": "Queue broker is reachable.", "action": "No action required.", "href": "/operations"}
     except Exception as exc:
-        checks["redis"] = {"status": "blocked", "message": f"Queue broker unavailable: {str(exc)[:160]}"}
+        checks["redis"] = {"status": "blocked", "message": f"Queue broker unavailable: {str(exc)[:160]}", "action": "Check Redis and CELERY_BROKER_URL.", "href": "/operations"}
     auth_mode = os.environ.get("DASHBOARD_AUTH_MODE", "local")
     checks["authentication"] = {
         "status": "ready" if auth_mode in {"local", "trusted-proxy"} else "blocked",
         "message": "Local API-key bootstrap is active." if auth_mode == "local" else "Trusted-proxy identity forwarding is active.",
         "mode": auth_mode,
+        "action": "Review authentication configuration before production use.",
+        "href": "/setup",
     }
     discovery_enabled = os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() in {"1", "true", "yes"}
     checks["runtime_discovery"] = {
         "status": "ready" if discovery_enabled else "optional",
         "message": "Runtime discovery is enabled." if discovery_enabled else "Runtime discovery is disabled by configuration.",
+        "action": "Enable runtime discovery when the worker can inspect the target runtime." if not discovery_enabled else "No action required.",
+        "href": "/setup",
+    }
+    try:
+        workers = celery_app.control.inspect(timeout=1).ping() or {}
+    except Exception:
+        workers = {}
+    checks["workers"] = {
+        "status": "ready" if workers else "blocked",
+        "message": f"{len(workers)} Celery worker(s) responded to ping." if workers else "No Celery worker responded to ping.",
+        "action": "Start celery-worker and inspect Operations diagnostics." if not workers else "No action required.",
+        "href": "/operations",
+    }
+    with get_session() as session:
+        latest_scan = session.query(Scan).order_by(Scan.completed_at.desc(), Scan.started_at.desc()).first()
+        active_images = session.query(Image).filter(Image.active.is_(True)).count()
+        latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
+    freshness_hours = max(1, int(os.environ.get("SCAN_FRESHNESS_HOURS", "24")))
+    scan_age_hours = None
+    if latest_scan and latest_scan.completed_at:
+        scan_age_hours = (datetime.now(timezone.utc).replace(tzinfo=None) - latest_scan.completed_at).total_seconds() / 3600
+    scan_fresh = active_images == 0 or (latest_scan is not None and latest_scan.status in {ScanStatus.COMPLETED, ScanStatus.PARTIAL} and scan_age_hours is not None and scan_age_hours <= freshness_hours)
+    checks["scanner_freshness"] = {
+        "status": "ready" if scan_fresh else "action",
+        "message": "Tracked images have a recent completed scan." if scan_fresh else ("No completed scan is recorded for the tracked image estate." if latest_scan is None else f"The latest scan is older than the {freshness_hours}-hour freshness window."),
+        "action": "Run a scan from Scan history." if not scan_fresh else "No action required.",
+        "href": "/scans",
+        "last_scan_at": _iso(latest_scan.completed_at if latest_scan else None),
+        "freshness_hours": freshness_hours,
+    }
+    backup_freshness_hours = max(1, int(os.environ.get("BACKUP_FRESHNESS_HOURS", "30")))
+    backup_age_hours = None
+    if latest_backup and latest_backup.artifact_created_at:
+        backup_age_hours = (datetime.now(timezone.utc).replace(tzinfo=None) - latest_backup.artifact_created_at).total_seconds() / 3600
+    backup_fresh = bool(latest_backup and latest_backup.verified and backup_age_hours is not None and backup_age_hours <= backup_freshness_hours)
+    checks["backups"] = {
+        "status": "ready" if backup_fresh else "action",
+        "message": f"Verified backup evidence is within the {backup_freshness_hours}-hour freshness window." if backup_fresh else "No fresh verified backup evidence is available.",
+        "action": "Open Operations and run a backup after enabling backup execution." if not backup_fresh else "No action required.",
+        "href": "/operations",
+    }
+    storage_path = os.environ.get("BACKUP_OUTPUT_DIR", "/var/lib/scrutineering/backups")
+    try:
+        free_bytes = shutil.disk_usage(storage_path).free
+        minimum_free_bytes = max(1, int(os.environ.get("MIN_FREE_STORAGE_BYTES", str(100 * 1024 * 1024))))
+        storage_ok = free_bytes >= minimum_free_bytes
+        checks["storage"] = {"status": "ready" if storage_ok else "blocked", "message": f"{free_bytes / (1024 ** 3):.1f} GiB free in the data volume." if storage_ok else "The data volume is below its configured free-space floor.", "action": "Free capacity or increase the data volume before running more scans.", "href": "/operations", "free_bytes": free_bytes}
+    except OSError as exc:
+        checks["storage"] = {"status": "action", "message": f"Data-volume capacity could not be checked: {str(exc)[:120]}", "action": "Verify the backup/data volume is mounted.", "href": "/operations"}
+    execution_configured = os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
+    execution_drift = execution_configured and any(not os.environ.get(key, "").strip() for key in ("REMEDIATION_REPOSITORY_ROOT", "REMEDIATION_EVIDENCE_FILE", "REMEDIATION_EVIDENCE_ARTIFACT_FILE", "REMEDIATION_VALIDATION_PROVIDER", "REMEDIATION_VALIDATION_ECOSYSTEM"))
+    checks["configuration_drift"] = {
+        "status": "blocked" if execution_drift else "ready",
+        "message": "Remediation execution is enabled but its repository, evidence, or validation settings are incomplete." if execution_drift else "No enabled execution path has missing required configuration.",
+        "action": "Complete the remediation execution settings or leave execution disabled.",
+        "href": "/setup",
     }
     blocked = [name for name, check in checks.items() if check["status"] == "blocked"]
-    return {"status": "blocked" if blocked else "ready", "checks": checks, "blocked_checks": blocked}
+    return {"status": "blocked" if blocked else "ready", "checks": checks, "blocked_checks": blocked, "action_checks": [name for name, check in checks.items() if check["status"] == "action"]}
 
 
 @router.get("/runtime/events")
@@ -1775,12 +1834,26 @@ def production_operations(request: Request) -> dict:
     with get_session() as session:
         latest_backup = session.query(BackupExecution).order_by(BackupExecution.artifact_created_at.desc(), BackupExecution.id.desc()).first()
         latest_restore = session.query(BackupRestoreExecution).filter(BackupRestoreExecution.backup_execution_id == latest_backup.id).order_by(BackupRestoreExecution.started_at.desc(), BackupRestoreExecution.id.desc()).first() if latest_backup else None
+        recent_audit = session.query(AuditLog).order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).limit(12).all()
+        recent_scan_failures = session.query(AuditLog).filter(AuditLog.event_type == AuditEventType.SCAN_FAILED.value, AuditLog.timestamp >= datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=1)).count()
     backup_timestamp = float(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0) or 0)
     if latest_backup is not None:
         backup_timestamp = max(backup_timestamp, latest_backup.artifact_created_at.replace(tzinfo=timezone.utc).timestamp())
     freshness_hours = max(1, int(os.environ.get("BACKUP_FRESHNESS_HOURS", "30")))
     backup_fresh = backup_timestamp > 0 and (datetime.now(timezone.utc).timestamp() - backup_timestamp) <= freshness_hours * 3600
     provider_states = {provider: credential_diagnostics(provider) for provider in ("github", "gitlab")}
+    incident_events = {AuditEventType.SCAN_FAILED.value, AuditEventType.SYSTEM_ERROR.value, AuditEventType.REMEDIATION_FAILED.value, AuditEventType.POLICY_VIOLATED.value}
+    incident_timeline = [{"id": item.id, "event_type": _value(item.event_type), "entity_type": item.entity_type, "entity_id": item.entity_id, "timestamp": _iso(item.timestamp), "severity": "critical" if _value(item.event_type) in {AuditEventType.SYSTEM_ERROR.value, AuditEventType.REMEDIATION_FAILED.value} else "warning", "summary": (item.detail or {}).get("error") or (item.detail or {}).get("action") or _value(item.event_type)} for item in recent_audit if _value(item.event_type) in incident_events]
+    alert_thresholds = {"http_error_rate": float(os.environ.get("OPS_HTTP_ERROR_RATE_THRESHOLD", "0.05")), "queue_depth": int(os.environ.get("OPS_QUEUE_DEPTH_THRESHOLD", "100")), "scan_failures_1h": int(os.environ.get("OPS_SCAN_FAILURE_THRESHOLD", "3"))}
+    operational_alerts = []
+    if telemetry_dashboard_summary(snapshot)["http_error_rate"] >= alert_thresholds["http_error_rate"] and telemetry_dashboard_summary(snapshot)["http_requests"]:
+        operational_alerts.append({"key": "http_error_rate", "severity": "warning", "message": f"HTTP 5xx rate is above {alert_thresholds['http_error_rate']:.0%}."})
+    if max(queue_depths.values(), default=0) >= alert_thresholds["queue_depth"]:
+        operational_alerts.append({"key": "queue_depth", "severity": "warning", "message": f"A queue has reached {alert_thresholds['queue_depth']} pending jobs."})
+    if recent_scan_failures >= alert_thresholds["scan_failures_1h"]:
+        operational_alerts.append({"key": "scan_failures_1h", "severity": "critical", "message": f"{recent_scan_failures} scan failures were recorded in the last hour."})
+    if not worker_names:
+        operational_alerts.append({"key": "workers", "severity": "critical", "message": "No Celery worker is responding."})
     return {
         "panels": telemetry_dashboard_catalog(),
         "telemetry": telemetry_dashboard_summary(snapshot),
@@ -1804,6 +1877,10 @@ def production_operations(request: Request) -> dict:
         "workers": worker_names,
         "worker_details": worker_details,
         "receiver_delivery": {"enabled": False, "deferred": True},
+        "alert_thresholds": alert_thresholds,
+        "operational_alerts": operational_alerts,
+        "incident_timeline": incident_timeline,
+        "notification_preferences": {"enabled": os.environ.get("OPS_ALERT_NOTIFICATIONS_ENABLED", "false").lower() in {"1", "true", "yes"}, "channels": [item.strip() for item in os.environ.get("OPS_ALERT_CHANNELS", "dashboard").split(",") if item.strip()]},
     }
 
 
