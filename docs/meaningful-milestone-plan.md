@@ -96,6 +96,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   latency, scan-failure, and dead-letter summaries beside infrastructure health.
 - The Setup page now provides an operator-ready first-scan launcher with
   source selection, live worker polling, and a direct handoff to scan findings.
+- Scan detail now compares a completed scan with the prior completed scan for
+  the same image, separating new, resolved, and persisting exposure.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, investigation workspace, and end-to-end
   remediation/provider operation. The

@@ -741,6 +741,47 @@ def scan_findings(
     return {"scan_id": scan_id, "image_id": scan.image_id, **_page([_finding_payload(finding) for finding in findings], limit, offset, total)}
 
 
+@router.get("/scans/{scan_id}/compare")
+def compare_scan(scan_id: str, against: str | None = Query(default=None, max_length=64)) -> dict:
+    """Compare a scan with the immediately preceding scan of the same image."""
+    with get_session() as session:
+        current = session.query(Scan).filter_by(scan_id=scan_id).first()
+        if current is None:
+            raise HTTPException(status_code=404, detail="scan_not_found")
+        previous_query = session.query(Scan).filter(
+            Scan.image_id == current.image_id,
+            Scan.scan_id != current.scan_id,
+            Scan.started_at < current.started_at,
+            Scan.status == ScanStatus.COMPLETED.value,
+        )
+        if against:
+            previous_query = session.query(Scan).filter_by(scan_id=against)
+        previous = previous_query.order_by(Scan.started_at.desc()).first()
+        if previous is None:
+            return {"scan_id": scan_id, "against": None, "available": False, "reason": "no_previous_completed_scan"}
+        if previous.image_id != current.image_id:
+            raise HTTPException(status_code=400, detail="comparison_requires_same_image")
+        current_findings = session.query(ScanFinding).filter_by(scan_id=current.scan_id).all()
+        previous_findings = session.query(ScanFinding).filter_by(scan_id=previous.scan_id).all()
+
+    current_by_fingerprint = {finding.fingerprint: finding for finding in current_findings}
+    previous_by_fingerprint = {finding.fingerprint: finding for finding in previous_findings}
+    added = [current_by_fingerprint[key] for key in current_by_fingerprint.keys() - previous_by_fingerprint.keys()]
+    resolved = [previous_by_fingerprint[key] for key in previous_by_fingerprint.keys() - current_by_fingerprint.keys()]
+    persisting = [current_by_fingerprint[key] for key in current_by_fingerprint.keys() & previous_by_fingerprint.keys()]
+    return {
+        "scan_id": scan_id,
+        "against": previous.scan_id,
+        "available": True,
+        "current": _scan_payload(current),
+        "previous": _scan_payload(previous),
+        "summary": {"added": len(added), "resolved": len(resolved), "persisting": len(persisting)},
+        "added_findings": [_finding_payload(finding) for finding in sorted(added, key=lambda item: item.id)],
+        "resolved_findings": [_finding_payload(finding) for finding in sorted(resolved, key=lambda item: item.id)],
+        "persisting_findings": [_finding_payload(finding) for finding in sorted(persisting, key=lambda item: item.id)],
+    }
+
+
 @router.post("/scans", status_code=202)
 def start_scan(payload: ScanRequest, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")

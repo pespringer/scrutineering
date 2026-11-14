@@ -23,6 +23,10 @@ its tagged reference. The page polls the queued scan and links to its result
 when it reaches a terminal state. This keeps the first-run path in one control
 surface; `/scans` remains available for history, filters, and bulk operations.
 
+Completed scan detail also compares the result with the previous completed
+scan for the same image, making new, resolved, and persisting exposure visible
+without exporting data or manually comparing two reports.
+
 The same response includes redacted registry readiness for Docker Hub, GHCR,
 GitLab, ECR, GCR, and any hosts listed in `REGISTRY_HOSTS`. It reports missing
 environment variable names—not their values—so operators can select a source
