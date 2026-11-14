@@ -369,6 +369,26 @@ class ScanFinding(Base):
     # Relationships
     remediation = relationship("Remediation", back_populates="findings",
                                lazy="selectin")
+    suppressions = relationship("FindingSuppression", back_populates="finding",
+                                cascade="all, delete-orphan", lazy="selectin")
+
+
+class FindingSuppression(Base):
+    """Auditable, optionally expiring exception for one vulnerability finding."""
+    __tablename__ = "finding_suppressions"
+    __table_args__ = (
+        Index("idx_finding_suppressions_finding_id", "finding_id"),
+        Index("idx_finding_suppressions_expires_at", "expires_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    finding_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("scan_findings.id", ondelete="CASCADE"), nullable=False)
+    finding = relationship("ScanFinding", back_populates="suppressions", lazy="joined")
+    reason: Mapped[str] = mapped_column(String(2000), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RawScanResult(Base):

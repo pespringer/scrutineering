@@ -8,7 +8,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink, Check } from "lucide-react";
+import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldOff } from "lucide-react";
 import Link from "next/link";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
@@ -59,6 +59,16 @@ export default function ImageDetailPage() {
     if (!selectedFindings.length) return;
     const response = await fetch("/api/findings/bulk-acknowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: selectedFindings }) });
     setNotice(response.ok ? "Selected findings acknowledged." : "Unable to acknowledge findings.");
+    if (response.ok) { setSelectedFindings([]); loadData(); }
+  }
+
+  async function suppressSelected() {
+    if (!selectedFindings.length) return;
+    const reason = window.prompt("Why should these findings be suppressed? (required)");
+    if (!reason?.trim()) return;
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+    const response = await fetch("/api/findings/suppress", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ finding_ids: selectedFindings, reason: reason.trim(), expires_at: expires }) });
+    setNotice(response.ok ? "Selected findings suppressed for 30 days." : "Unable to suppress findings.");
     if (response.ok) { setSelectedFindings([]); loadData(); }
   }
 
@@ -149,7 +159,7 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
-      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
+      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={suppressSelected} className="inline-flex items-center gap-1 rounded-lg border border-amber-400/30 px-2.5 py-1.5 text-amber-200"><ShieldOff className="h-3.5 w-3.5" /> Suppress 30 days</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
       {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
       <div className="panel rounded-2xl p-4 sm:p-6">
         <FindingsTable findings={findings} selectable={canManage} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />

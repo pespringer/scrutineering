@@ -114,7 +114,10 @@ export default function FindingsTable({ findings, selectable = false, selected =
                   )}
                 </td>
                 <td className="px-3 py-4">
-                  {f.lifecycle_status === "resolved" ? <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">Resolved</span> : <SeverityBadge severity={f.severity} />}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {f.lifecycle_status === "resolved" ? <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">Resolved</span> : <SeverityBadge severity={f.severity} />}
+                    {f.suppressed && <span className="rounded-full border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-amber-200" title={f.suppression?.reason || "Suppressed finding"}>Suppressed</span>}
+                  </div>
                 </td>
                 <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
                 <td className="px-3 py-4 font-mono text-slate-400">

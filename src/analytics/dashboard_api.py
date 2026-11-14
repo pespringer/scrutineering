@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -79,6 +79,20 @@ class BulkFindingAssignmentRequest(BaseModel):
         if value is not None and any(char.isspace() for char in value.strip()):
             raise ValueError("assignee must not contain whitespace")
         return value.strip() if value else None
+
+
+class FindingSuppressionRequest(BaseModel):
+    finding_ids: list[int] = Field(min_length=1, max_length=100)
+    reason: str = Field(min_length=3, max_length=2000)
+    expires_at: datetime | None = None
+
+    @field_validator("reason")
+    @classmethod
+    def reason_is_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("suppression reason must contain at least three characters")
+        return value
 
 
 class RemediationRequest(BaseModel):
@@ -187,6 +201,14 @@ def _severity_counts(findings: list[ScanFinding]) -> dict[str, int]:
     return {severity: counts.get(severity, 0) for severity in ("critical", "high", "medium", "low")}
 
 
+def _active_suppression(finding: ScanFinding) -> FindingSuppression | None:
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    for suppression in getattr(finding, "suppressions", []) or []:
+        if suppression.revoked_at is None and (suppression.expires_at is None or suppression.expires_at > now):
+            return suppression
+    return None
+
+
 def _scan_payload(scan: Scan) -> dict:
     return {
         "scan_id": scan.scan_id,
@@ -226,6 +248,7 @@ def _image_payload(image: Image, findings: list[ScanFinding]) -> dict:
 
 def _finding_payload(finding: ScanFinding) -> dict:
     severity = _value(finding.severity)
+    suppression = _active_suppression(finding)
     return {
         "id": finding.id,
         "fingerprint": finding.fingerprint,
@@ -247,6 +270,8 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
+        "suppressed": suppression is not None,
+        "suppression": {"id": suppression.id, "reason": suppression.reason, "created_by": suppression.created_by, "created_at": _iso(suppression.created_at), "expires_at": _iso(suppression.expires_at)} if suppression else None,
     }
 
 
@@ -695,6 +720,44 @@ def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request
         if changed:
             _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, ",".join(map(str, changed)), {"action": "assign_findings", "finding_ids": changed, "assignee": payload.assignee}, entity_type="finding")
     return {"requested": payload.finding_ids, "assigned": changed, "assignee": payload.assignee, "count": len(changed)}
+
+
+@router.post("/findings/suppress")
+def suppress_findings(payload: FindingSuppressionRequest, request: Request) -> dict:
+    """Create expiring, auditable exceptions without deleting findings."""
+    _require_role(request, "operator", "security-operator")
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    expires_at = payload.expires_at.astimezone(timezone.utc).replace(tzinfo=None) if payload.expires_at else None
+    if expires_at and expires_at <= now:
+        raise HTTPException(status_code=400, detail="suppression_expiry_must_be_in_the_future")
+    changed: list[int] = []
+    with get_session() as session:
+        findings = session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.remediated.is_(False)).all()
+        for finding in findings:
+            active = _active_suppression(finding)
+            if active:
+                active.revoked_at = now
+            session.add(FindingSuppression(finding_id=finding.id, reason=payload.reason, created_by=getattr(request.state, "principal_id", "dashboard-service"), expires_at=expires_at))
+            changed.append(finding.id)
+        if changed:
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, ",".join(map(str, changed)), {"action": "suppress_findings", "finding_ids": changed, "expires_at": expires_at.isoformat() if expires_at else None}, entity_type="finding")
+    return {"requested": payload.finding_ids, "suppressed": changed, "expires_at": expires_at.isoformat() if expires_at else None, "count": len(changed)}
+
+
+@router.post("/findings/unsuppress")
+def unsuppress_findings(payload: BulkIdsRequest, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator")
+    finding_ids = [int(value) for value in payload.ids]
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    changed: list[int] = []
+    with get_session() as session:
+        suppressions = session.query(FindingSuppression).filter(FindingSuppression.finding_id.in_(finding_ids), FindingSuppression.revoked_at.is_(None)).all()
+        for suppression in suppressions:
+            suppression.revoked_at = now
+            changed.append(suppression.finding_id)
+        if changed:
+            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, ",".join(map(str, sorted(set(changed)))), {"action": "unsuppress_findings", "finding_ids": sorted(set(changed))}, entity_type="finding")
+    return {"requested": finding_ids, "unsuppressed": sorted(set(changed)), "count": len(set(changed))}
 
 
 @router.get("/findings/export")

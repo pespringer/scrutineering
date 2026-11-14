@@ -44,6 +44,14 @@ export interface VulnerabilityFinding {
   lifecycle_status?: 'open' | 'resolved';
   acknowledged?: boolean;
   assigned_to?: string | null;
+  suppressed?: boolean;
+  suppression?: {
+    id: number;
+    reason: string;
+    created_by: string;
+    created_at: string | null;
+    expires_at: string | null;
+  } | null;
 }
 
 export interface PostureSummary {
