@@ -77,6 +77,8 @@ has read-only access.
 - Surface incomplete readiness directly on the main dashboard with a one-click
   handoff to the setup checklist so operators do not have to discover setup
   problems by opening Operations manually.
+- Add direct control-surface links to incomplete setup checks so the checklist
+  leads to the correct operations or source workflow.
 - Add runbooks and safe actions for retry, pause, resume, replay, backup
   verification, and retention preview.
 - Add alert thresholds, notification preferences, and an incident timeline

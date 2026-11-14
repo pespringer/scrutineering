@@ -125,6 +125,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - The main dashboard now surfaces incomplete onboarding checks and links
   directly to the setup checklist instead of hiding readiness behind a
   secondary navigation path.
+- Incomplete setup steps now link to their relevant operations or source
+  controls, reducing navigation and configuration guesswork.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.
