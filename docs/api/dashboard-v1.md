@@ -102,6 +102,11 @@ Security operators can queue automatic runtime collection with
 `POST /remediations/publications/{publication_id}/collect-deployment-observation`.
 The worker resolves the target from `DEPLOYMENT_COLLECTOR_TARGETS_JSON`, so the
 request contains no digest or scan-count fields.
+Security operators can validate runtime access without a publication with
+`POST /deployment-observation/preflight` and body `{"repository":"acme/api"}`.
+The API queues the probe on the observation worker and returns a task ID;
+`GET /deployment-observation/preflight/{task_id}` returns pending, ready, or
+structured error state. The target and runtime credentials remain server-side.
 
 Recovery status updates use `POST
 /remediations/publications/{publication_id}/recovery/{recovery_id}/status` with

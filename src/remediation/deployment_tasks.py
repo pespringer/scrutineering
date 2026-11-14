@@ -91,3 +91,15 @@ def collect_deployment_observation(publication_id: int) -> dict:
         scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first() if publication.post_merge_scan_id else None
         detail = _reconcile_observation(session, publication, observation_payload(observation), scan)
         return {"publication_id": publication_id, "status": detail["status"], "verification_status": publication.verification_status, "observation": observation_payload(observation)}
+
+
+@shared_task(name="src.remediation.deployment_tasks.probe_deployment_observation", acks_late=True)
+def probe_deployment_observation(repository: str) -> dict:
+    """Run a read-only runtime probe for dashboard preflight."""
+    try:
+        target = configured_deployment_target(repository)
+        timeout = int(os.environ.get("DEPLOYMENT_COLLECTOR_TIMEOUT_SECONDS", "20"))
+        observation = collect_observation(target, timeout_seconds=timeout)
+    except (DeploymentCollectorError, ValueError) as exc:
+        return {"repository": repository, "status": "error", "error": str(exc)}
+    return {"repository": repository, "status": "ready", "observation": observation_payload(observation)}
