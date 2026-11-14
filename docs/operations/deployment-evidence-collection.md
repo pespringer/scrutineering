@@ -41,7 +41,7 @@ Automatic collection is selected by repository with
 `DEPLOYMENT_COLLECTOR_TARGETS_JSON`:
 
 ```dotenv
-DEPLOYMENT_COLLECTOR_TARGETS_JSON={"acme/api":{"provider":"kubernetes","namespace":"security","selector":"app=api"},"local/api":{"provider":"docker","container":"api"}}
+DEPLOYMENT_COLLECTOR_TARGETS_JSON={"acme/api":{"provider":"kubernetes","namespace":"security","selector":"app=api","workload":"api"},"local/api":{"provider":"docker","container":"api"}}
 ```
 
 Operators request collection through the dashboard/API action
@@ -63,7 +63,9 @@ docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml up 
 
 The default Compose stack does not mount `/var/run/docker.sock`. Kubernetes
 deployments should apply `k8s/deployment-observation-rbac.yaml` and configure
-the worker target selector in `DEPLOYMENT_COLLECTOR_TARGETS_JSON`; the role is
+the worker target selector in `DEPLOYMENT_COLLECTOR_TARGETS_JSON`. For a
+Kubernetes Deployment, also set `workload` to its Deployment name so the
+collector verifies controller rollout status before inspecting pods. The role is
 limited to reading pod status and does not permit workload mutation. When the
 worker runs in Kubernetes, the collector uses the standard service-account
 token and CA mount together with `KUBERNETES_SERVICE_HOST`; outside the cluster,

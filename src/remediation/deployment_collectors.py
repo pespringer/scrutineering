@@ -136,9 +136,17 @@ class KubernetesCollector:
         self.runner = runner
         self.timeout_seconds = timeout_seconds
 
-    def collect(self, *, namespace: str, selector: str) -> DeploymentObservation:
+    def collect(self, *, namespace: str, selector: str,
+                workload: str | None = None) -> DeploymentObservation:
         if not namespace or not selector or any(char.isspace() for char in namespace):
             raise ValueError("kubernetes target is invalid")
+        if workload is not None and (not workload or any(char.isspace() for char in workload)):
+            raise ValueError("kubernetes workload is invalid")
+        if workload:
+            self.runner([
+                "kubectl", "rollout", "status", f"deployment/{workload}",
+                "--namespace", namespace, f"--timeout={self.timeout_seconds}s",
+            ], self.timeout_seconds)
         raw = self.runner(_kubernetes_command(namespace, selector), self.timeout_seconds)
         try:
             payload = json.loads(raw)
@@ -163,9 +171,9 @@ class KubernetesCollector:
         if len(digests) != 1 or not DIGEST_PATTERN.fullmatch(next(iter(digests), "")):
             raise DeploymentCollectorError("kubernetes workload does not have one immutable image digest")
         return DeploymentObservation.create(
-            target=f"{namespace}/{selector}", provider=self.provider,
+            target=f"{namespace}/{workload or selector}", provider=self.provider,
             observed_digest=next(iter(digests)), rollout_status="ready",
-            source="kubectl pod status",
+            source="kubectl rollout status and pod status" if workload else "kubectl pod status",
         )
 
 
