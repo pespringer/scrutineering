@@ -8,6 +8,7 @@ from src.remediation.deployment_collectors import (
     KubernetesCollector,
     observation_payload,
 )
+from src.remediation.deployment_tasks import configured_deployment_target
 
 
 DIGEST = "sha256:" + "a" * 64
@@ -53,3 +54,17 @@ def test_kubernetes_collector_rejects_mixed_rollout_digests():
 
     with pytest.raises(DeploymentCollectorError):
         collector.collect(namespace="security", selector="app=sentinel")
+
+
+def test_collector_target_is_selected_by_publication_repository():
+    target = configured_deployment_target(
+        "acme/api",
+        '{"acme/api":{"provider":"kubernetes","namespace":"security","selector":"app=api"}}',
+    )
+
+    assert target == {"provider": "kubernetes", "namespace": "security", "selector": "app=api"}
+
+
+def test_collector_target_configuration_fails_closed():
+    with pytest.raises(DeploymentCollectorError):
+        configured_deployment_target("acme/api", "{}")

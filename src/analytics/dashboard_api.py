@@ -36,6 +36,7 @@ from src.remediation.provider_diagnostics import diagnose_capabilities, required
 from src.remediation.evidence_archive import manifest
 from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
 from src.remediation.deployment_evidence import verify_deployment_signature
+from src.remediation.deployment_tasks import collect_deployment_observation
 from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
 from src.platform.release_health import HealthCheck, evaluate_release_health
 from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog
@@ -1260,6 +1261,20 @@ async def receive_deployment_evidence(request: Request) -> dict:
         )
         record_provider_callback("accepted")
         return {**result, "event_id": event_id, "source": "deployment_callback"}
+
+
+@router.post("/remediations/publications/{publication_id}/collect-deployment-observation")
+def queue_deployment_observation(publication_id: int, request: Request) -> dict:
+    """Queue runtime collection using the publication's configured target."""
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        publication = session.get(RemediationPublication, publication_id)
+        if publication is None:
+            raise HTTPException(status_code=404, detail="publication_not_found")
+        if publication.status != "merged":
+            raise HTTPException(status_code=409, detail="publication_not_merged")
+    task = collect_deployment_observation.apply_async(args=[publication_id], queue="remediation.normal")
+    return {"accepted": True, "publication_id": publication_id, "task_id": task.id, "status": "queued"}
 
 
 @router.post("/remediations/publications/{publication_id}/alert-evidence")
