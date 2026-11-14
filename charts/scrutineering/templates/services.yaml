@@ -1,0 +1,17 @@
+{{- range $component := list "planner" "api" "dashboard" }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "scrutineering.fullname" $ }}-{{ $component }}
+  labels: {{- include "scrutineering.labels" $ | nindent 4 }}
+spec:
+  type: {{ (index $.Values.service $component).type }}
+  ports:
+    - name: http
+      port: {{ (index $.Values.service $component).port }}
+      targetPort: http
+  selector:
+    {{- include "scrutineering.selector" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+{{- end }}

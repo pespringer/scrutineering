@@ -1,0 +1,10 @@
+apiVersion: v2
+name: scrutineering
+description: Container security posture control plane and guarded remediation workers
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - container-security
+  - vulnerability-scanning
+  - remediation

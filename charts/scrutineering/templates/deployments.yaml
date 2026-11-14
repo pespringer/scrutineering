@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-planner
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.planner }}
+  selector:
+    matchLabels: {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: planner
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: planner
+    spec:
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: planner
+          image: {{ include "scrutineering.image" (dict "root" . "component" "planner") | quote }}
+          imagePullPolicy: {{ .Values.images.planner.pullPolicy }}
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          ports: [{ name: http, containerPort: 3000 }]
+          envFrom:
+            - secretRef: { name: {{ include "scrutineering.secretName" . }} }
+            - configMapRef: { name: {{ include "scrutineering.fullname" . }}-config }
+          readinessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 10, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 15, periodSeconds: 10 }
+          resources: {{- toYaml .Values.resources.planner | nindent 12 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: { sizeLimit: 256Mi } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-api
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.api }}
+  selector:
+    matchLabels: {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: api
+    spec:
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "scrutineering.image" (dict "root" . "component" "api") | quote }}
+          imagePullPolicy: {{ .Values.images.api.pullPolicy }}
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          ports: [{ name: http, containerPort: 8000 }]
+          envFrom:
+            - secretRef: { name: {{ include "scrutineering.secretName" . }} }
+            - configMapRef: { name: {{ include "scrutineering.fullname" . }}-config }
+          readinessProbe: { httpGet: { path: /ready, port: http }, initialDelaySeconds: 15, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /health, port: http }, initialDelaySeconds: 20, periodSeconds: 10 }
+          resources: {{- toYaml .Values.resources.api | nindent 12 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: { sizeLimit: 256Mi } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-dashboard
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.dashboard }}
+  selector:
+    matchLabels: {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: dashboard
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: dashboard
+    spec:
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: dashboard
+          image: {{ include "scrutineering.image" (dict "root" . "component" "dashboard") | quote }}
+          imagePullPolicy: {{ .Values.images.dashboard.pullPolicy }}
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          ports: [{ name: http, containerPort: 3001 }]
+          env:
+            - { name: HOSTNAME, value: "0.0.0.0" }
+            - { name: PORT, value: "3001" }
+            - { name: DASHBOARD_API_URL, value: "http://{{ include "scrutineering.fullname" . }}-api:8000" }
+            - name: DASHBOARD_API_KEY
+              valueFrom: { secretKeyRef: { name: {{ include "scrutineering.secretName" . }}, key: PYTHON_API_KEY } }
+            - { name: DASHBOARD_AUTH_MODE, value: {{ .Values.config.dashboardAuthMode | quote }} }
+            - name: DASHBOARD_TRUSTED_PROXY_SECRET
+              valueFrom: { secretKeyRef: { name: {{ include "scrutineering.secretName" . }}, key: DASHBOARD_TRUSTED_PROXY_SECRET } }
+          readinessProbe: { httpGet: { path: /api/health, port: http }, initialDelaySeconds: 10, periodSeconds: 5 }
+          livenessProbe: { httpGet: { path: /api/health, port: http }, initialDelaySeconds: 20, periodSeconds: 10 }
+          resources: {{- toYaml .Values.resources.dashboard | nindent 12 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes: [{ name: tmp, emptyDir: { sizeLimit: 256Mi } }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-worker
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount.worker }}
+  selector:
+    matchLabels: {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: worker
+    spec:
+      serviceAccountName: {{ include "scrutineering.fullname" . }}-worker
+      securityContext: {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: worker
+          image: {{ include "scrutineering.image" (dict "root" . "component" "worker") | quote }}
+          imagePullPolicy: {{ .Values.images.worker.pullPolicy }}
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true }
+          command: [celery, --app=src.scan.celery_app:create_celery_app, worker, --loglevel=info, --concurrency=4]
+          envFrom:
+            - secretRef: { name: {{ include "scrutineering.secretName" . }} }
+            - configMapRef: { name: {{ include "scrutineering.fullname" . }}-config }
+          resources: {{- toYaml .Values.resources.worker | nindent 12 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            - { name: backup-data, mountPath: /var/lib/scrutineering/backups }
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 1Gi } }
+        - { name: backup-data, persistentVolumeClaim: { claimName: {{ include "scrutineering.fullname" . }}-backups } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-beat
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: beat
+  template:
+    metadata:
+      labels: {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: beat
+    spec:
+      containers:
+        - name: beat
+          image: {{ include "scrutineering.image" (dict "root" . "component" "worker") | quote }}
+          imagePullPolicy: {{ .Values.images.worker.pullPolicy }}
+          command: [celery, --app=src.scan.celery_app:create_celery_app, beat, --loglevel=info, --scheduler=celery.beat:PersistentScheduler]
+          envFrom:
+            - secretRef: { name: {{ include "scrutineering.secretName" . }} }
+            - configMapRef: { name: {{ include "scrutineering.fullname" . }}-config }

@@ -1,0 +1,89 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-postgres
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: {{ .Values.postgres.storage }} }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-postgres
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: {{ .Values.postgres.image | quote }}
+          ports: [{ name: postgres, containerPort: 5432 }]
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ include "scrutineering.secretName" . }}, key: POSTGRES_PASSWORD } }
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+      volumes: [{ name: data, persistentVolumeClaim: { claimName: {{ include "scrutineering.fullname" . }}-postgres } }]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-postgres
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  ports: [{ name: postgres, port: 5432, targetPort: postgres }]
+  selector:
+    {{- include "scrutineering.selector" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+{{- end }}
+{{- if .Values.redis.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-redis
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels:
+      {{- include "scrutineering.selector" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "scrutineering.selector" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      containers:
+        - name: redis
+          image: {{ .Values.redis.image | quote }}
+          ports: [{ name: redis, containerPort: 6379 }]
+{{- end }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "scrutineering.fullname" . }}-backups
+  labels: {{- include "scrutineering.labels" . | nindent 4 }}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests: { storage: {{ .Values.backup.storage }} }

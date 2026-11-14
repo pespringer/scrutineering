@@ -1,0 +1,17 @@
+Scrutineering has been deployed as release {{ .Release.Name }}.
+
+Dashboard service:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "scrutineering.fullname" . }}-dashboard 3001:3001
+  open http://127.0.0.1:3001/dashboard
+
+Upgrade:
+  helm upgrade {{ .Release.Name }} {{ .Chart.Name }} --namespace {{ .Release.Namespace }} --wait
+
+Rollback:
+  helm history {{ .Release.Name }} --namespace {{ .Release.Namespace }}
+  helm rollback {{ .Release.Name }} REVISION --namespace {{ .Release.Namespace }} --wait
+
+{{- if not .Values.ingress.enabled }}
+Ingress is disabled. Enable it explicitly with ingress.enabled=true when a
+reachable ingress controller and TLS policy are available.
+{{- end }}

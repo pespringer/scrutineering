@@ -102,6 +102,13 @@ docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
 docker compose exec app node scripts/run-verification-harness.mjs
 ```
 
+For Kubernetes installs, use the packaged Helm chart in
+[`charts/scrutineering`](charts/scrutineering) and follow the
+[Helm installation guide](docs/operations/helm-installation.md). The chart
+requires explicit secret values, supports external PostgreSQL/Redis, and keeps
+ingress disabled until an operator provides a reachable controller and TLS
+policy.
+
 ## Development Setup
 
 ```bash
