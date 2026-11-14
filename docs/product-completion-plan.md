@@ -59,6 +59,10 @@ outcome: verified, blocked, failed, or awaiting operator action.
 
 ## 4. Make operations self-explanatory
 
+- The first recovery slice is complete: Operations now lists recent failed
+  scans and offers a confirmation-gated bulk retry. Retries create new scan
+  records while preserving the failed attempt and its audit history.
+
 - Add an environment/readiness center covering database, queue, workers,
   scanner freshness, backups, storage, and configuration drift.
 - Add runbooks and safe actions for retry, pause, resume, replay, backup
