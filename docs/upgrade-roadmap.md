@@ -670,6 +670,7 @@ The first production release requires green Node and Python suites, authenticate
 - **Completed:** add dashboard proxy routes and scan/finding selection controls for operator workflows.
 - **Completed:** add scheduled dry-run backup freshness/rotation reporting and restore-safe operational documentation.
 - **Completed:** add private-registry scan diagnostics, redacted evidence payloads, and failure categories for operator review.
+- **Completed:** add durable registry sources with secret-free readiness checks and direct verified-source selection for scan creation.
 - **Next:** add provider-specific authenticated end-to-end fixtures and production backup execution automation after approval.
 - **Deferred:** external alert receiver delivery and receiver evidence remain separate operator-gated slices.
 

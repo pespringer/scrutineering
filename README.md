@@ -59,7 +59,10 @@ page. A separate, explicitly isolated restore verification can create a
 disposable PostgreSQL database, restore the artifact, record row-count
 evidence, and prove cleanup. See [backup evidence](docs/operations/backup-evidence.md)
 for the metadata, execution, and restore contracts. Registry sources can be
-managed and checked from the dashboard [Sources](http://localhost:3001/sources)
+managed and checked from the dashboard [Sources](http://localhost:3001/sources).
+Once verified, a source can be selected directly from Scan history so operators
+do not need to reconstruct registry coordinates or copy credentials between
+screens.
 page without storing credentials. New installations should
 start at the dashboard [Setup](http://localhost:3001/setup) page; it gathers
 live prerequisites and points to the next operator action.

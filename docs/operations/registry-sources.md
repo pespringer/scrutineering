@@ -16,4 +16,7 @@ Examples:
 - `nginx:1.27` for Docker Hub
 
 The source check is a connectivity and credential test, not a vulnerability
-scan. Start the scan from Scan history after the source is ready.
+scan. Once a source is ready, select it in Scan history and provide the tagged
+reference. Scrutineering validates that the reference belongs to the selected
+source, then queues the canonical registry coordinate for the worker. Manual
+image references remain supported for public images and backwards compatibility.
