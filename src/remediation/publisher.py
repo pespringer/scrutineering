@@ -50,14 +50,30 @@ def publish_remediation_branch(
 
     _git(root, "branch", branch_name, commit)
     askpass_path: str | None = None
+    askpass_state_path: str | None = None
     env = os.environ.copy()
     try:
         if token:
             with tempfile.NamedTemporaryFile("w", prefix="scrutineering-askpass-", delete=False) as askpass:
-                askpass.write("#!/bin/sh\ncase \"$1\" in *Username*) echo x-access-token ;; *) echo \"$SCRUTINEERING_GIT_TOKEN\" ;; esac\n")
                 askpass_path = askpass.name
+                askpass_state_path = f"{askpass.name}.state"
+                askpass.write(
+                    "#!/bin/sh\n"
+                    "case \"$1\" in\n"
+                    "  *Username*) printf '%s\\n' x-access-token ;;\n"
+                    "  *Password*) printf '%s\\n' \"$SCRUTINEERING_GIT_TOKEN\" ;;\n"
+                    "  *) if [ ! -e \"$SCRUTINEERING_GIT_ASKPASS_STATE\" ]; then "
+                    ": > \"$SCRUTINEERING_GIT_ASKPASS_STATE\"; printf '%s\\n' x-access-token; "
+                    "else printf '%s\\n' \"$SCRUTINEERING_GIT_TOKEN\"; fi ;;\n"
+                    "esac\n"
+                )
             os.chmod(askpass_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-            env.update({"GIT_ASKPASS": askpass_path, "GIT_TERMINAL_PROMPT": "0", "SCRUTINEERING_GIT_TOKEN": token})
+            env.update({
+                "GIT_ASKPASS": askpass_path,
+                "GIT_TERMINAL_PROMPT": "0",
+                "SCRUTINEERING_GIT_TOKEN": token,
+                "SCRUTINEERING_GIT_ASKPASS_STATE": askpass_state_path,
+            })
         try:
             _git(root, "push", remote, f"{branch_name}:refs/heads/{branch_name}", env=env)
         except subprocess.CalledProcessError as exc:
@@ -69,4 +85,6 @@ def publish_remediation_branch(
     finally:
         if askpass_path:
             Path(askpass_path).unlink(missing_ok=True)
+        if askpass_state_path:
+            Path(askpass_state_path).unlink(missing_ok=True)
     return {"branch_name": branch_name, "commit": commit, "remote": remote}
