@@ -77,6 +77,24 @@ def discover_runtime_scans() -> dict[str, int | str]:
     return {"status": "queued", "discovered": len(containers), "queued": len(images)}
 
 
+@shared_task(name="src.scan.tasks.discover_runtime_inventory", acks_late=True)
+def discover_runtime_inventory() -> dict[str, object]:
+    """Return a redaction-safe runtime inventory for operator onboarding."""
+    if os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        return {"status": "disabled", "message": "Runtime discovery is disabled by configuration.", "containers": [], "images": []}
+    use_containerd = os.environ.get("SCAN_RUNTIME_USE_CONTAINERD", "false").lower() in {"1", "true", "yes"}
+    containers = asyncio.run(discover_runtime_containers(
+        use_containerd=use_containerd,
+        docker_bin=os.environ.get("SCAN_RUNTIME_DOCKER_BIN", "docker"),
+        ctr_bin=os.environ.get("SCAN_RUNTIME_CTR_BIN", "ctr"),
+        containerd_namespace=os.environ.get("SCAN_RUNTIME_CONTAINERD_NAMESPACE", "default"),
+    ))
+    limit = int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100"))
+    images = select_runtime_images(containers, limit=limit)
+    safe_containers = [{key: value for key, value in container.items() if key in {"id", "names", "image", "status", "created", "ports", "namespace"}} for container in containers]
+    return {"status": "ready", "containers": safe_containers, "images": images, "discovered": len(containers), "image_count": len(images)}
+
+
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
                         total_findings: int = 0, counts: dict[str, int] | None = None,
                         error_message: str | None = None) -> None:

@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from src.db.models import Image as DbImage
 from src.scan.reliability import ScanCooldown
 from src.scan.scheduled import schedule_active_scans
+from src.scan.tasks import discover_runtime_inventory
 
 
 class Image:
@@ -78,3 +79,27 @@ def test_schedule_active_scans_honors_due_per_image_schedule(monkeypatch):
     enqueue.assert_called_once_with("alpine:3.20", priority="low")
     assert scheduled.last_queued_at == now.replace(tzinfo=None)
     assert scheduled.next_run_at == now.replace(tzinfo=None) + timedelta(hours=1)
+
+
+def test_runtime_inventory_is_disabled_without_mutating_runtime(monkeypatch):
+    monkeypatch.setenv("SCAN_RUNTIME_DISCOVERY_ENABLED", "false")
+    result = discover_runtime_inventory()
+    assert result["status"] == "disabled"
+    assert result["containers"] == []
+    assert result["images"] == []
+
+
+def test_runtime_inventory_redacts_container_labels_and_selects_images(monkeypatch):
+    monkeypatch.setenv("SCAN_RUNTIME_DISCOVERY_ENABLED", "true")
+    monkeypatch.setenv("SCAN_RUNTIME_MAX_IMAGES", "1")
+    async def fake_discovery(**_):
+        return [
+            {"id": "container-1", "names": "api", "image": "ghcr.io/acme/api:v1", "status": "running", "labels": {"secret": "never-return"}},
+            {"id": "container-2", "names": "worker", "image": "ghcr.io/acme/api:v1", "status": "running"},
+        ]
+    monkeypatch.setattr("src.scan.tasks.discover_runtime_containers", fake_discovery)
+    result = discover_runtime_inventory()
+    assert result["status"] == "ready"
+    assert result["images"] == ["ghcr.io/acme/api:v1"]
+    assert result["image_count"] == 1
+    assert result["containers"][0] == {"id": "container-1", "names": "api", "image": "ghcr.io/acme/api:v1", "status": "running"}

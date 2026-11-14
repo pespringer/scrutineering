@@ -111,6 +111,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - The dashboard now provides a paginated cross-image findings queue with
   lifecycle, severity, acknowledgement, fix-availability, and search filters,
   bulk acknowledgement, export, and direct image handoffs.
+- Source onboarding now includes an explicit worker-backed Docker/containerd
+  runtime discovery action that returns redaction-safe inventory and queues a
+  selected discovered image for scanning.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.

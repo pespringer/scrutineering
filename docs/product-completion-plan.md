@@ -9,6 +9,12 @@ marked deferred in the meaningful milestone plan.
 
 Make inventory the starting point instead of requiring manual image strings.
 
+The runtime discovery slice is complete: the scan worker can return a
+redaction-safe Docker/containerd inventory, and the Sources page can poll that
+inventory and queue a selected image for scanning. Discovery remains explicit
+when `SCAN_RUNTIME_DISCOVERY_ENABLED` is off or the worker has no runtime
+access.
+
 - Add a source connection wizard for Docker, Compose, Kubernetes, and OCI
   registries, with readiness checks and actionable errors.
 - Discover images with immutable digest, workload, namespace, and ownership

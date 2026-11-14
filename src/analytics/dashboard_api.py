@@ -48,7 +48,7 @@ from src.platform.release_health import HealthCheck, evaluate_release_health
 from src.platform.production_operations import resilience_scorecard, telemetry_dashboard_catalog, telemetry_dashboard_summary
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
-from src.scan.tasks import app as celery_app, enqueue_scan
+from src.scan.tasks import app as celery_app, discover_runtime_inventory, enqueue_scan
 from src.scan.registry import registry_credentials_from_env, registry_env_keys, resolve_registry_digest
 from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry
 
@@ -951,6 +951,28 @@ def check_registry_source(source_id: int, payload: RegistrySourceCheckRequest, r
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(source_id), {"action": "registry_source_checked", "digest": digest, "reference": payload.image_reference}, entity_type="registry_source")
         result = _registry_source_payload(source)
     return {"source": result, "digest": digest, "status": "ready"}
+
+
+@router.post("/runtime/discovery")
+def queue_runtime_inventory(request: Request) -> dict[str, object]:
+    """Queue a read-only runtime inventory for source onboarding."""
+    _require_role(request, "operator", "security-operator", "admin")
+    task = discover_runtime_inventory.apply_async(queue="scan.low")
+    return {"task_id": task.id, "status": "queued"}
+
+
+@router.get("/runtime/discovery/{task_id}")
+def runtime_inventory(task_id: str, request: Request) -> dict[str, object]:
+    """Return the status/result of a runtime inventory task."""
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    if not task_id or any(char.isspace() for char in task_id):
+        raise HTTPException(status_code=400, detail="invalid_task_id")
+    result = celery_app.AsyncResult(task_id)
+    if result.state in {"PENDING", "STARTED", "RETRY"}:
+        return {"task_id": task_id, "status": result.state.lower()}
+    if result.state == "FAILURE":
+        return {"task_id": task_id, "status": "error", "error": "runtime_inventory_failed"}
+    return {"task_id": task_id, "status": "completed", "result": result.result}
 
 
 @router.get("/images")
