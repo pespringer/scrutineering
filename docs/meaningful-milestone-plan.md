@@ -117,6 +117,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Runtime discovery now returns redaction-safe Compose/Kubernetes workload
   context (service, project, namespace, workload, and owner) so operators can
   identify an image's origin without reading runtime labels or logs.
+- Registry source cards now report configured, partial, missing, or
+  not-required credential state without exposing credential values.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session, runtime_replay_events
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _registry_credential_readiness, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session, runtime_replay_events
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -180,6 +180,14 @@ def test_registry_source_contracts_are_secret_free_and_bounded():
     assert _source_coordinates("ghcr.io", "ghcr.io/acme/api:v2") == ("ghcr.io", "acme/api", "v2")
     with pytest.raises(ValueError):
         _source_coordinates("ghcr.io", "docker.io/library/nginx:latest")
+
+
+def test_registry_credential_readiness_never_returns_secret_values(monkeypatch):
+    source = SimpleNamespace(registry_host="ghcr.io", credential_keys=["GITHUB_TOKEN"])
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    assert _registry_credential_readiness(source) == ("not_configured", ["GITHUB_TOKEN"])
+    monkeypatch.setenv("GITHUB_TOKEN", "secret-value")
+    assert _registry_credential_readiness(source) == ("configured", [])
 
 
 def test_deployment_evidence_request_is_digest_only():

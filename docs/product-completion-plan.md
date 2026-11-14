@@ -20,6 +20,8 @@ access.
 - Discover images with immutable digest, workload, namespace, and ownership
   context; deduplicate them into one inventory. Runtime discovery now returns
   an allowlisted subset of Compose/Kubernetes context alongside each image.
+- Show secret-free credential readiness and missing variable names on each
+  saved registry source before a validation request is attempted.
 - Let operators select discovered images, set scan cadence, and launch a
   first scan without copying values between pages.
 

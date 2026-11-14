@@ -847,13 +847,33 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
     return {"scan_id": scan_id, "task_id": task.id, "image_name": queued_image_name, "source_id": source_id, "status": "pending"}
 
 
+def _registry_credential_readiness(source: RegistrySource) -> tuple[str, list[str]]:
+    """Describe configured registry credentials without returning secret values."""
+    keys = list(source.credential_keys or [])
+    if not keys:
+        return "not_required", []
+    host = source.registry_host.lower()
+    configured = [key for key in keys if os.environ.get(key, "")]
+    if host == "gitlab":
+        return ("configured", []) if configured else ("not_configured", keys)
+    missing = [key for key in keys if not os.environ.get(key, "")]
+    if not missing:
+        return "configured", []
+    if not configured:
+        return "not_configured", missing
+    return "partial", missing
+
+
 def _registry_source_payload(source: RegistrySource) -> dict[str, object]:
+    credential_status, missing_credential_keys = _registry_credential_readiness(source)
     return {
         "id": source.id,
         "display_name": source.display_name,
         "registry_host": source.registry_host,
         "auth_mode": source.auth_mode,
         "credential_keys": source.credential_keys,
+        "credential_status": credential_status,
+        "missing_credential_keys": missing_credential_keys,
         "enabled": source.enabled,
         "status": source.status,
         "last_checked_at": _iso(source.last_checked_at),
