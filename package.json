@@ -18,6 +18,7 @@
     "drill:staging-evidence": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-evidence-gate.py",
     "drill:staging-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-readiness.py",
     "drill:staging-provider": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-provider-post-merge-drill.py",
+    "drill:provider-conformance": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-provider-conformance.py",
     "drill:staging-recovery": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-recovery-drill.py",
     "validate:release-readiness": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/run-staging-readiness.py",
     "validate:migrations": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/validate-migration-matrix.py",

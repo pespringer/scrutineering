@@ -23,3 +23,19 @@ provider coalesces concurrent refreshes and refreshes before expiry.
 The GitLab adapter applies the same default `main`/`master` target-branch
 policy and permits a narrower configured list when a repository uses a
 different protected branch.
+
+## Local provider conformance
+
+Before enabling a live provider, run the deterministic authenticated fixture
+drill:
+
+```bash
+npm run drill:provider-conformance
+```
+
+The drill exercises protected-base verification, publication, authenticated
+status polling, and merged-result normalization for both GitHub and GitLab.
+It uses injectable local transports, records only redaction-safe request
+metadata, and never contacts either provider. It proves adapter wiring and
+credential handling, but does not replace the deferred live publication and
+webhook gate.

@@ -84,6 +84,9 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Remediation detail now supports a correlated post-change verification scan;
   the worker compares proposed package/CVE coordinates and records passed or
   failed evidence with a durable scan ID.
+- Deterministic authenticated GitHub and GitLab provider conformance now
+  exercises protected-base checks, publication, merged status polling, and
+  redaction-safe request evidence without contacting external providers.
 - The remaining product work is richer source discovery, finding-to-remediation
   workflow completion, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
