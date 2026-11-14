@@ -1,0 +1,56 @@
+name: Deployment Evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      scrutineering_url:
+        description: Public Scrutineering URL, including scheme and no trailing slash
+        required: true
+        type: string
+      publication_id:
+        description: Merged Scrutineering publication ID
+        required: true
+        type: string
+      expected_digest:
+        description: Immutable digest of the verified artifact
+        required: true
+        type: string
+      observed_digest:
+        description: Immutable digest resolved from the deployed workload
+        required: true
+        type: string
+      merge_commit:
+        description: Optional 40-character merge commit SHA
+        required: false
+        type: string
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Submit signed deployment evidence
+        env:
+          SCRUTINEERING_URL: ${{ inputs.scrutineering_url }}
+          PUBLICATION_ID: ${{ inputs.publication_id }}
+          EXPECTED_DIGEST: ${{ inputs.expected_digest }}
+          OBSERVED_DIGEST: ${{ inputs.observed_digest }}
+          MERGE_COMMIT: ${{ inputs.merge_commit }}
+          DEPLOYMENT_EVIDENCE_SECRET: ${{ secrets.DEPLOYMENT_EVIDENCE_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOYMENT_EVIDENCE_SECRET"
+          payload="$(jq -nc \
+            --argjson publication_id "$PUBLICATION_ID" \
+            --arg expected_digest "$EXPECTED_DIGEST" \
+            --arg observed_digest "$OBSERVED_DIGEST" \
+            --arg merge_commit "$MERGE_COMMIT" \
+            '{publication_id:$publication_id,expected_digest:$expected_digest,observed_digest:$observed_digest,merge_commit:(if $merge_commit == "" then null else $merge_commit end)}')"
+          signature="$(printf %s "$payload" | openssl dgst -sha256 -hmac "$DEPLOYMENT_EVIDENCE_SECRET" -hex | awk '{print $2}')"
+          curl --fail-with-body --silent --show-error \
+            -X POST "$SCRUTINEERING_URL/api/dashboard/deployment-evidence" \
+            -H 'content-type: application/json' \
+            -H "x-deployment-event-id: github-actions-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            -H "x-deployment-signature: sha256=$signature" \
+            --data "$payload"
