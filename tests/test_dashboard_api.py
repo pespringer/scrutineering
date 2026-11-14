@@ -1,11 +1,11 @@
 """Contract tests for the authenticated dashboard data boundary."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -40,6 +40,49 @@ def test_dashboard_page_and_scan_request_contracts():
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
+
+
+def test_finding_suppression_contract_trims_reason_and_exposes_active_state():
+    request = FindingSuppressionRequest(
+        finding_ids=[9],
+        reason="  accepted risk for the current release  ",
+        expires_at=datetime.now() + timedelta(days=30),
+    )
+    assert request.reason == "accepted risk for the current release"
+
+    finding = SimpleNamespace(
+        id=9, image_id=7, fingerprint="fingerprint", cve_id="CVE-2026-0001",
+        package_name="openssl", package_version="3.0.0", package_type="apk",
+        severity=Severity.HIGH, title="Example finding", description="Details",
+        fixed_version="3.0.1", file_path="requirements.txt", fix_available=True,
+        first_seen=datetime(2026, 1, 1), last_seen=datetime(2026, 1, 2),
+        remediated=False, acknowledged=False, assigned_to=None,
+        suppressions=[SimpleNamespace(
+            id=4, reason="accepted risk", created_by="operator", created_at=datetime(2026, 1, 2),
+            expires_at=datetime.now() + timedelta(days=1), revoked_at=None,
+        )],
+    )
+    payload = _finding_payload(finding)
+    assert payload["suppressed"] is True
+    assert payload["suppression"]["reason"] == "accepted risk"
+
+
+def test_expired_or_revoked_suppression_is_not_active():
+    finding = SimpleNamespace(
+        id=9, image_id=7, fingerprint="fingerprint", cve_id=None,
+        package_name="openssl", package_version="3.0.0", package_type="apk",
+        severity=Severity.HIGH, title="Example finding", description=None,
+        fixed_version=None, file_path=None, fix_available=False,
+        first_seen=datetime(2026, 1, 1), last_seen=datetime(2026, 1, 2),
+        remediated=False, acknowledged=False, assigned_to=None,
+        suppressions=[
+            SimpleNamespace(id=1, revoked_at=datetime.now(), expires_at=None),
+            SimpleNamespace(id=2, revoked_at=None, expires_at=datetime.now() - timedelta(days=1)),
+        ],
+    )
+    payload = _finding_payload(finding)
+    assert payload["suppressed"] is False
+    assert payload["suppression"] is None
 
 
 def test_deployment_evidence_request_is_digest_only():
