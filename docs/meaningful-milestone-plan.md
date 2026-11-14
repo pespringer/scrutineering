@@ -118,6 +118,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts
   alongside queue depths for faster queue diagnosis.
+- Operations can show bounded, redacted pending runtime events after the
+  durable replay checkpoint when a shared event store is configured.
 - A configurable Helm chart now packages the supported Kubernetes workload,
   bundled or external state services, optional ingress, and upgrade/rollback
   operator paths without embedding default credentials.

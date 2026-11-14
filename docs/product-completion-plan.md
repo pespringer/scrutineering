@@ -63,7 +63,9 @@ outcome: verified, blocked, failed, or awaiting operator action.
   scans and offers a confirmation-gated bulk retry. Retries create new scan
   records while preserving the failed attempt and its audit history. Worker
   diagnostics now include queue depth plus active, reserved, and scheduled
-  task counts per live worker.
+  task counts per live worker. Operations also shows a bounded, redacted view
+  of pending runtime events after the durable replay checkpoint when the event
+  store is mounted.
 
 - Add an environment/readiness center covering database, queue, workers,
   scanner freshness, backups, storage, and configuration drift.

@@ -1492,6 +1492,35 @@ def dashboard_system_health(request: Request) -> dict:
     return {"status": "blocked" if blocked else "ready", "checks": checks, "blocked_checks": blocked}
 
 
+@router.get("/runtime/events")
+def runtime_replay_events(request: Request, limit: int = Query(default=25, ge=1, le=100), container_id: str | None = Query(default=None, max_length=128)) -> dict:
+    """Expose bounded pending runtime events when a shared event store is configured."""
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    from pathlib import Path
+    from src.runtime.event_store import JsonlEventStore
+    from src.runtime.replay_checkpoint import ReplayCheckpoint
+
+    store_path = os.environ.get("RUNTIME_EVENT_STORE_PATH", "")
+    checkpoint_path = os.environ.get("RUNTIME_REPLAY_CHECKPOINT_PATH", "")
+    if not store_path or not Path(store_path).exists():
+        return {"status": "unavailable", "message": "Runtime event storage is not mounted for this service.", "checkpoint_offset": None, "events": []}
+    try:
+        store = JsonlEventStore(store_path)
+        checkpoint_offset = ReplayCheckpoint(checkpoint_path).load() if checkpoint_path else 0
+        next_offset, events = store.read_from(checkpoint_offset, limit)
+        safe_events = [{
+            "timestamp": event.get("timestamp"),
+            "event_type": event.get("event_type"),
+            "container_id": event.get("container_id"),
+            "image_name": event.get("image_name"),
+            "severity": event.get("severity"),
+            "source": event.get("source"),
+        } for event in events]
+        return {"status": "ready", "checkpoint_offset": checkpoint_offset, "next_offset": next_offset, "pending_count": len(safe_events), "events": safe_events}
+    except Exception as exc:
+        return {"status": "error", "message": f"Runtime event store unavailable: {str(exc)[:160]}", "checkpoint_offset": None, "events": []}
+
+
 @router.get("/onboarding")
 def dashboard_onboarding(request: Request) -> dict:
     """Return one actionable first-run setup view from live system signals."""
