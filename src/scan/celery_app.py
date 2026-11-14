@@ -32,6 +32,7 @@ def create_celery_app() -> Celery:
             "src.scan.retention_tasks.report_expired_scans": {"queue": "remediation.normal"},
             "src.platform.backup_tasks.report_backup_freshness": {"queue": "remediation.normal"},
             "src.platform.backup_tasks.execute_postgres_backup": {"queue": "remediation.normal"},
+    "src.platform.backup_tasks.verify_postgres_restore": {"queue": "remediation.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
             "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},

@@ -501,6 +501,32 @@ class BackupExecution(Base):
     recorded_by: Mapped[str] = mapped_column(String(128), nullable=False, default="backup-scheduler")
 
 
+class BackupRestoreExecution(Base):
+    """Evidence for restoring one verified backup into a disposable target."""
+    __tablename__ = "backup_restore_executions"
+    __table_args__ = (
+        Index("idx_backup_restore_executions_backup", "backup_execution_id"),
+        Index("idx_backup_restore_executions_status", "status"),
+        Index("idx_backup_restore_executions_started_at", "started_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    backup_execution_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("backup_executions.id", ondelete="CASCADE"), nullable=False,
+    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    target_database: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    table_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    row_counts: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    cleanup_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    manifest: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    recorded_by: Mapped[str] = mapped_column(String(128), nullable=False, default="restore-worker")
+
+
 # -- Security Policies ------------------------------------------------------ #
 
 class SecurityPolicy(Base):

@@ -53,10 +53,12 @@ The worker image and Compose service expose health checks for early failure
 detection.
 
 Operations readiness records durable backup artifact evidence (age, size, and
-verification state) from the scheduled freshness task; it does not claim a
-restore has succeeded. An administrator can optionally enable and queue an
-explicit PostgreSQL backup from the operations page. See [backup evidence](docs/operations/backup-evidence.md)
-for the metadata and execution contract.
+verification state) from the scheduled freshness task. An administrator can
+optionally enable and queue an explicit PostgreSQL backup from the operations
+page. A separate, explicitly isolated restore verification can create a
+disposable PostgreSQL database, restore the artifact, record row-count
+evidence, and prove cleanup. See [backup evidence](docs/operations/backup-evidence.md)
+for the metadata, execution, and restore contracts.
 
 Provider publication and callbacks are gated by explicit configuration. Use
 `npm run drill:staging-provider` to exercise normalized merge callbacks,

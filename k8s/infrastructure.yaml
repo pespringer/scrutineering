@@ -20,6 +20,11 @@ data:
   SCAN_COOLDOWN_SECONDS: "3600"
   BACKUP_ROTATION_KEEP: "7"
   BACKUP_MAX_AGE_DAYS: "30"
+  BACKUP_EXECUTION_ENABLED: "false"
+  BACKUP_RESTORE_ENABLED: "false"
+  BACKUP_RESTORE_TARGET_ISOLATED: "false"
+  BACKUP_OUTPUT_DIR: "/var/lib/scrutineering/backups"
+  BACKUP_RESTORE_TIMEOUT_SECONDS: "900"
   OIDC_ISSUER: ""
   OIDC_AUDIENCE: ""
   SERVICE_AUTH_MAX_SKEW_SECONDS: "300"
@@ -39,6 +44,20 @@ stringData:
   PYTHON_API_KEY: "replace-with-a-strong-dashboard-api-key"
   DASHBOARD_TRUSTED_PROXY_SECRET: "replace-with-a-trusted-ingress-secret"
   REMEDIATION_APPROVAL_SECRET: "replace-with-a-remediation-approval-secret"
+  BACKUP_RESTORE_ADMIN_DATABASE_URL: "postgresql://scrutineering:change-me-secret@scrutineering-postgres:5432/postgres"
+
+---
+# Persistent storage for verified backup artifacts.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scrutineering-backup-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
 ---
 # Deployment — PostgreSQL
 apiVersion: apps/v1

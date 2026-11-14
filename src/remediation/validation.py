@@ -68,7 +68,9 @@ def run_validation_pipeline(
             return ValidationResult(status="blocked", phases=results, error=f"{phase} command argument is too long")
         normalized = " ".join(command[:2]) if len(command) > 1 and command[0] == "npm" else command[0]
         executable = Path(command[0]).name
-        if command[0] not in {entry.split()[0] for entry in allowed} and executable not in {entry.split()[0] for entry in allowed} and normalized not in allowed:
+        allowed_executables = {entry.split()[0] for entry in allowed}
+        versioned_python = executable.startswith("python3.") and executable[8:].replace(".", "").isdigit()
+        if command[0] not in allowed_executables and executable not in allowed_executables and not versioned_python and normalized not in allowed:
             return ValidationResult(status="blocked", phases=results, error=f"{phase} command is not allowlisted")
         timeout = (phase_timeouts or {}).get(phase, timeout_seconds)
         if timeout < 1: return ValidationResult(status="blocked", phases=results, error=f"{phase} timeout must be positive")

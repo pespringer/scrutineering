@@ -75,8 +75,11 @@ may validate contracts, but they do not satisfy these live acceptance gates.
 - Backup freshness runs now persist idempotent artifact observations, including
   verification state and size, so operations readiness can show durable
   evidence rather than only a process-local timestamp.
-- The remaining product work is multi-user source onboarding, richer backup
-  restore verification, and end-to-end remediation/provider operation. The
+- Explicit PostgreSQL backup execution and isolated temporary-database restore
+  verification now record durable artifact, checksum, row-count, cleanup, and
+  audit evidence.
+- The remaining product work is multi-user source onboarding, richer source
+  discovery, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
   above remain deferred until their infrastructure is available.
 
