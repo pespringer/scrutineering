@@ -46,3 +46,9 @@ also carries the exact `DASHBOARD_TRUSTED_PROXY_SECRET`. Direct dashboard
 requests therefore cannot manufacture a proxy identity. Configure that secret
 only between the external identity proxy and the dashboard; do not expose it
 to browser code or client-side environment variables.
+
+Trusted-proxy deployments may also forward `x-authenticated-tenant-ids` as a
+comma-separated scope. The dashboard session reports those IDs and labels the
+session as tenant-scoped; local API-key mode remains deployment-local and does
+not invent tenant scope. Forward only claims produced by the authenticated
+identity layer.

@@ -108,6 +108,7 @@ def create_app() -> FastAPI:
             request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
             default_roles = [role.strip() for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",") if role.strip()]
             request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else default_roles
+            request.state.principal_tenant_ids = [tenant.strip() for tenant in request.headers.get("x-authenticated-tenant-ids", "").split(",") if tenant.strip()] if proxy_authenticated else []
         if provider_webhook:
             request.state.auth_method = "provider_hmac"
             request.state.principal_id = f"provider:{request.url.path.rsplit('/', 1)[-1]}"

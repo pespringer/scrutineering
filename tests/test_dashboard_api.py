@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates
+from src.analytics.dashboard_api import BackupExecutionRequest, BackupRestoreRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RegistrySourceCheckRequest, RegistrySourceRequest, RemediationRequest, ScanRequest, ScanRetentionRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _schedule_payload, _severity_counts, _source_coordinates, dashboard_session
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -64,6 +64,15 @@ def test_dashboard_page_and_scan_request_contracts():
     assert retention.confirm is True
     assert retention.dry_run is False
     assert retention.limit == 250
+
+
+def test_dashboard_session_reports_tenant_scope_without_inventing_local_scope():
+    scoped = dashboard_session(SimpleNamespace(state=SimpleNamespace(auth_method="oidc_proxy", principal_id="user-1", principal_email="user@example.test", principal_roles=["operator"], principal_tenant_ids=["tenant-a"])))
+    assert scoped["tenant_ids"] == ["tenant-a"]
+    assert scoped["scope_mode"] == "tenant-scoped"
+    local = dashboard_session(SimpleNamespace(state=SimpleNamespace(auth_method="api_key", principal_id="dashboard-service", principal_email=None, principal_roles=["operator"])))
+    assert local["tenant_ids"] == []
+    assert local["scope_mode"] == "deployment-local"
 
 
 def test_finding_suppression_contract_trims_reason_and_exposes_active_state():

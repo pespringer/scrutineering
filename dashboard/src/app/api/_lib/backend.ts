@@ -27,7 +27,7 @@ export function trustedIdentityHeaders(request: Request): Record<string, string>
   const configuredSecret = process.env.DASHBOARD_TRUSTED_PROXY_SECRET;
   const suppliedSecret = request.headers.get("x-dashboard-proxy-secret");
   if (configuredSecret && suppliedSecret === configuredSecret) {
-    for (const name of ["x-authenticated-sub", "x-authenticated-email", "x-authenticated-roles"]) {
+    for (const name of ["x-authenticated-sub", "x-authenticated-email", "x-authenticated-roles", "x-authenticated-tenant-ids"]) {
       const value = request.headers.get(name);
       if (value) headers[name] = value;
     }

@@ -1387,6 +1387,8 @@ def dashboard_session(request: Request) -> dict:
         "subject": getattr(request.state, "principal_id", "dashboard-service"),
         "email": getattr(request.state, "principal_email", None),
         "roles": getattr(request.state, "principal_roles", []),
+        "tenant_ids": getattr(request.state, "principal_tenant_ids", []),
+        "scope_mode": "tenant-scoped" if getattr(request.state, "principal_tenant_ids", []) else "deployment-local",
     }
 
 
