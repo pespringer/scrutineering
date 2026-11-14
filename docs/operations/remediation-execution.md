@@ -66,6 +66,12 @@ replayed signatures fail closed.
 
 A deployment workflow can send the observation after rollout verification:
 
+The repository includes `.github/workflows/deployment-evidence.yml` for this
+handoff. Run it from **Actions → Deployment Evidence → Run workflow** after
+the deployment, provide the public tunnel URL, publication ID, verified digest,
+and digest resolved from the running workload. It uses the repository secret
+`DEPLOYMENT_EVIDENCE_SECRET` and does not request GitHub API permissions.
+
 ```bash
 payload=$(jq -nc --argjson publication_id "$PUBLICATION_ID" \
   --arg expected_digest "$EXPECTED_DIGEST" --arg observed_digest "$DEPLOYED_DIGEST" \
