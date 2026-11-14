@@ -90,6 +90,11 @@ and one verified remediation loop before commercial expansion.
 
 ## Phase 3 — Production Operations (60–90 days)
 
+- **Completed:** the operations dashboard now derives queue, worker, and backup
+  readiness from live Redis/Celery/telemetry checks instead of hard-coded
+  healthy values, while separately labeling infrastructure-dependent gates as
+  deferred.
+
 - **Started:** Trivy and Grype run concurrently with bounded retries, per-scanner circuit breakers, a local digest-keyed TTL cache, and explicit scan queue priorities; shared caching remains.
 - **Completed:** the scan cache now supports explicit invalidation and expired-entry pruning for shared-worker maintenance.
 - **Completed:** a Redis-backed scan cache adapter now supports shared worker results with digest-derived keys and TTLs.

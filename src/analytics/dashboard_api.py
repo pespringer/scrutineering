@@ -865,15 +865,48 @@ def production_operations(request: Request) -> dict:
     """Expose receiver-independent operational telemetry for the dashboard."""
     _require_role(request, "security-operator", "admin", "operator")
     snapshot = scan_metrics.snapshot()
+    broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    queue_names = tuple(item.strip() for item in os.environ.get("CELERY_QUEUES", "scan.low,scan.normal,scan.high,remediation.normal").split(",") if item.strip())
+    queue_depths: dict[str, int] = {}
+    broker_reachable = False
+    try:
+        redis_client = Redis.from_url(broker_url, socket_connect_timeout=2, socket_timeout=2)
+        redis_client.ping()
+        broker_reachable = True
+        queue_depths = {queue: int(redis_client.llen(queue)) for queue in queue_names}
+        redis_client.close()
+    except Exception:
+        queue_depths = {}
+    worker_names: list[str] = []
+    try:
+        workers = celery_app.control.inspect(timeout=1).ping() or {}
+        worker_names = sorted(workers)
+    except Exception:
+        worker_names = []
+    backup_timestamp = float(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0) or 0)
+    freshness_hours = max(1, int(os.environ.get("BACKUP_FRESHNESS_HOURS", "30")))
+    backup_fresh = backup_timestamp > 0 and (datetime.now(timezone.utc).timestamp() - backup_timestamp) <= freshness_hours * 3600
+    provider_states = {provider: credential_diagnostics(provider) for provider in ("github", "gitlab")}
     return {
         "panels": telemetry_dashboard_catalog(),
         "scorecard": resilience_scorecard(
-            queues_healthy=True,
-            backup_fresh=bool(snapshot["gauges"].get("scrutineering_backup_last_success_timestamp", 0)),
-            workers_healthy=True,
-            provider_ready=True,
-            recovery_drill_passed=True,
+            queues_healthy=broker_reachable,
+            backup_fresh=backup_fresh,
+            workers_healthy=bool(worker_names),
         ),
+        "checks": {
+            "queues": {"status": "ready" if broker_reachable else "blocked", "message": "Redis broker is reachable." if broker_reachable else "Redis broker is unavailable.", "depths": queue_depths},
+            "workers": {"status": "ready" if worker_names else "blocked", "message": f"{len(worker_names)} Celery worker(s) responded to ping." if worker_names else "No Celery workers responded to ping.", "workers": worker_names},
+            "backup": {"status": "ready" if backup_fresh else "blocked", "message": f"Last backup evidence is within the {freshness_hours}-hour freshness window." if backup_fresh else "No fresh backup evidence is available.", "last_success_timestamp": backup_timestamp or None, "freshness_hours": freshness_hours},
+        },
+        "deferred_checks": {
+            "provider_publication": {"status": "deferred", "message": "Live provider publication and merge callbacks require the external test repository."},
+            "deployment_observation": {"status": "deferred", "message": "Live deployed-digest observation requires a reachable deployment target."},
+            "alert_delivery": {"status": "deferred", "message": "External alert delivery and retry evidence require an operator-provided receiver."},
+            "provider_credentials": provider_states,
+        },
+        "queue_depths": queue_depths,
+        "workers": worker_names,
         "receiver_delivery": {"enabled": False, "deferred": True},
     }
 

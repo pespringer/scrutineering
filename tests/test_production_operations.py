@@ -73,6 +73,17 @@ def test_telemetry_catalog_and_scorecard_are_complete():
     assert result["status"] == "blocked"
 
 
+def test_resilience_scorecard_excludes_deferred_checks_when_unavailable():
+    result = resilience_scorecard(
+        queues_healthy=True,
+        backup_fresh=True,
+        workers_healthy=True,
+        provider_ready=None,
+        recovery_drill_passed=None,
+    )
+    assert result == {"status": "ready", "checks": {"queues": True, "backup": True, "workers": True}, "passed": 3, "total": 3}
+
+
 def test_manifest_has_exactly_100_receiver_independent_slices():
     manifest = receiver_independent_slice_manifest()
     assert len(manifest) == 100

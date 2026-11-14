@@ -240,8 +240,12 @@ def lifecycle_preview(plan: LifecyclePlan, candidate_count: int) -> dict[str, ob
     return {"candidate_count": candidate_count, "batches": (candidate_count + plan.batch_size - 1) // plan.batch_size, "execute": False, "verified": plan.verify_after_archive}
 
 
-def resilience_scorecard(*, queues_healthy: bool, backup_fresh: bool, workers_healthy: bool, provider_ready: bool, recovery_drill_passed: bool) -> dict[str, object]:
-    checks = {"queues": queues_healthy, "backup": backup_fresh, "workers": workers_healthy, "provider": provider_ready, "recovery": recovery_drill_passed}
+def resilience_scorecard(*, queues_healthy: bool, backup_fresh: bool, workers_healthy: bool, provider_ready: bool | None = None, recovery_drill_passed: bool | None = None) -> dict[str, object]:
+    checks = {"queues": queues_healthy, "backup": backup_fresh, "workers": workers_healthy}
+    if provider_ready is not None:
+        checks["provider"] = provider_ready
+    if recovery_drill_passed is not None:
+        checks["recovery"] = recovery_drill_passed
     return {"status": "ready" if all(checks.values()) else "blocked", "checks": checks, "passed": sum(checks.values()), "total": len(checks)}
 
 
