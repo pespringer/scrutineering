@@ -73,11 +73,23 @@ def _finding_source(finding: dict, default: str) -> FindingSource:
     return FindingSource(sorted(sources)[0])
 
 
+def apply_finding_observation(finding: ScanFinding, *, observed: bool,
+                              observed_at: datetime) -> None:
+    """Apply one scan's lifecycle observation to an existing finding."""
+    if observed:
+        if finding.resolved_at is not None:
+            finding.reopened_at = observed_at
+        finding.resolved_at = None
+    elif finding.resolved_at is None:
+        finding.resolved_at = observed_at
+
+
 def persist_findings(
     scan_id: str,
     image_name: str,
     deduped_findings: list[dict],
     source_name: str,
+    reconcile_missing: bool = False,
 ) -> int:
     """Persist deduplicated scan findings to the database.
 
@@ -115,6 +127,7 @@ def persist_findings(
         elif identity.digest and image.digest != identity.digest:
             image.digest = identity.digest
 
+        observed_fingerprints: set[str] = set()
         for finding in deduped_findings:
             severity_str = finding.get("severity")
             severity_enum = None
@@ -128,6 +141,7 @@ def persist_findings(
             pkg_name = finding["package_name"]
             pkg_ver = finding.get("package_version", "")
             fp = _make_fingerprint(cve_id or "", pkg_name, pkg_ver or "")
+            observed_fingerprints.add(fp)
 
             existing = session.execute(
                 select(ScanFinding).where(
@@ -141,6 +155,7 @@ def persist_findings(
                 # observed them so scan-detail views remain accurate.
                 existing.scan_id = scan_id
                 existing.last_seen = now
+                apply_finding_observation(existing, observed=True, observed_at=now)
                 if severity_enum:
                     existing.severity = severity_enum
                 existing.title = finding.get("title", existing.title)
@@ -169,5 +184,14 @@ def persist_findings(
                 session.add(new_finding)
 
             count += 1
+
+        if reconcile_missing:
+            missing = session.execute(select(ScanFinding).where(
+                ScanFinding.image_id == image.id,
+                ScanFinding.resolved_at.is_(None),
+            )).scalars().all()
+            for finding in missing:
+                if finding.fingerprint not in observed_fingerprints:
+                    apply_finding_observation(finding, observed=False, observed_at=now)
 
     return count

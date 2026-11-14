@@ -39,6 +39,9 @@ export interface VulnerabilityFinding {
   first_seen: string;
   last_seen: string;
   remediated: boolean;
+  resolved_at?: string | null;
+  reopened_at?: string | null;
+  lifecycle_status?: 'open' | 'resolved';
   acknowledged?: boolean;
   assigned_to?: string | null;
 }

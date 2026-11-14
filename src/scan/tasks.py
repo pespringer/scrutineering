@@ -341,13 +341,14 @@ def run_scan(
 
     # Persist to database
     persisted = 0
-    if save_results and deduped:
+    if save_results and (deduped or status == "completed"):
         try:
             persisted = persist_findings(
                 scan_id=scan_id,
                 image_name=storage_name,
                 deduped_findings=deduped,
                 source_name=",".join(scanners_completed),
+                reconcile_missing=status == "completed",
             )
             logger.info(
                 "Persisted %d findings for scan %s on '%s'",
