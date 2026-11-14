@@ -85,6 +85,14 @@ The build also verifies that the generated CSS contains the dashboard utility
 bundle; this prevents an unstyled production shell when Tailwind source paths
 change.
 
+CI starts the production dashboard shell and checks the primary pages for an
+English document language, responsive viewport metadata, a main landmark, and
+alt text on rendered images. API errors use a bounded `error.code`,
+`error.message`, and `error.requestId` envelope while retaining `detail` for
+existing dashboard clients.
+Run `npm run validate:dashboard-accessibility` against a running dashboard to
+repeat the same shell checks locally.
+
 For a running local stack, use `npm run smoke:dashboard`. It checks the Next.js
 browser shell, dashboard proxy routes, and that server-only API credentials are
 not present in responses.

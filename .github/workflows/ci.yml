@@ -55,6 +55,30 @@ jobs:
         run: npm audit --audit-level=high
       - working-directory: dashboard
         run: npm run validate:build
+      - name: Start dashboard for browser-shell checks
+        working-directory: dashboard
+        run: nohup npm run start >/tmp/scrutineering-dashboard.log 2>&1 &
+      - name: Validate responsive and accessible shell
+        run: node scripts/validate-dashboard-accessibility.mjs
+
+  deployment-hardening:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: azure/setup-helm@v4
+      - name: Lint and render Helm release
+        run: |
+          helm lint charts/scrutineering
+          helm template scrutineering charts/scrutineering --namespace scrutineering >/tmp/scrutineering-rendered.yaml
+          grep -q 'pre-upgrade' /tmp/scrutineering-rendered.yaml
+      - name: Validate Compose configuration
+        run: PLANNER_API_KEY=ci-placeholder DATABASE_URL=postgresql://ci:ci@postgres:5432/ci docker compose config --quiet
+      - name: Validate deployment manifests
+        run: npm ci && npm run validate:deployment
 
   # ------------------------------------------------
   # Python Services — lint, test

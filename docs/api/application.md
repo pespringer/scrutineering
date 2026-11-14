@@ -14,6 +14,14 @@ configuration work.
 All responses receive a safe `X-Request-ID`; callers may supply a matching
 identifier for cross-service tracing.
 
+Authenticated requests also receive `X-RateLimit-Limit` and
+`X-RateLimit-Remaining` headers. The Redis-backed per-principal limit defaults
+to 600 requests per minute and can be changed with
+`API_RATE_LIMIT_PER_MINUTE`; set it to `0` only for an explicitly controlled
+internal deployment. Rejected and validation errors use the bounded
+`error.code`, `error.message`, and `error.requestId` envelope while retaining
+`detail` for compatibility.
+
 Set `PYTHON_API_KEY` to protect non-health API routes. Requests may use
 `Authorization: Bearer ...` or `X-API-Key`; health, readiness, and metrics
 remain probe-accessible.

@@ -34,6 +34,7 @@
     "probe:deployment-observation": "PYTHONPATH=. uv run --with-requirements requirements.txt python scripts/probe-deployment-observation.py",
     "validate:docs": "node scripts/validate-doc-links.mjs",
     "validate:frontend": "node scripts/validate-frontend-config.mjs",
+    "validate:dashboard-accessibility": "node scripts/validate-dashboard-accessibility.mjs",
     "validate:release": "node scripts/validate-release-config.mjs",
     "smoke:dashboard": "node scripts/smoke-dashboard.mjs",
     "smoke:live-scan": "node scripts/smoke-live-scan.mjs",

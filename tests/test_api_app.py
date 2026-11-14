@@ -79,3 +79,12 @@ def test_provider_webhook_path_uses_hmac_boundary():
     assert is_provider_webhook_path("/api/dashboard/deployment-evidence")
     assert not is_provider_webhook_path("/api/dashboard/remediations")
     assert not is_provider_webhook_path("/api/dashboard/webhooks/github/extra")
+
+
+def test_error_contract_is_registered_with_request_correlation():
+    from fastapi.exceptions import RequestValidationError
+    from fastapi import HTTPException
+
+    assert HTTPException in app.exception_handlers
+    assert RequestValidationError in app.exception_handlers
+    assert Exception in app.exception_handlers

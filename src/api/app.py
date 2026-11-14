@@ -1,6 +1,7 @@
 """Canonical FastAPI application composition point."""
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import PlainTextResponse
 from uuid import uuid4
 import re
@@ -22,6 +23,7 @@ import os
 import time
 import hmac
 from fastapi.responses import JSONResponse
+from redis import Redis
 from src.telemetry.scan_metrics import record_http_request
 from src.telemetry.tracing import span
 
@@ -51,10 +53,38 @@ def create_app() -> FastAPI:
     application.include_router(dashboard_router)
     application.include_router(forensics_router)
 
+    def error_payload(request: Request, code: str, message: str, status_code: int) -> JSONResponse:
+        """Return one bounded error shape while preserving dashboard compatibility."""
+        request_id = getattr(request.state, "request_id", "")
+        if not request_id:
+            supplied = request.headers.get("x-request-id", "")
+            request_id = supplied if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", supplied) else str(uuid4())
+            request.state.request_id = request_id
+        return JSONResponse(
+            {"error": {"code": code, "message": message, "requestId": request_id}, "detail": message},
+            status_code=status_code,
+            headers={"X-Request-ID": request_id} if request_id else None,
+        )
+
+    @application.exception_handler(HTTPException)
+    async def http_exception_handler(request: Request, exc: HTTPException):
+        detail = exc.detail if isinstance(exc.detail, str) else "Request rejected"
+        code = re.sub(r"[^a-z0-9]+", "_", detail.lower()).strip("_") or f"http_{exc.status_code}"
+        return error_payload(request, code, detail, exc.status_code)
+
+    @application.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        return error_payload(request, "validation_error", "Request validation failed", 422)
+
+    @application.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception):
+        return error_payload(request, "internal_error", "Internal server error", 500)
+
     @application.middleware("http")
     async def request_id_middleware(request, call_next):
         supplied = request.headers.get("x-request-id", "")
         request_id = supplied if re.fullmatch(r"[A-Za-z0-9._-]{1,128}", supplied) else str(uuid4())
+        request.state.request_id = request_id
         response = await call_next(request)
         response.headers["X-Request-ID"] = request_id
         return response
@@ -87,7 +117,7 @@ def create_app() -> FastAPI:
                 try:
                     max_skew = int(os.environ.get("SERVICE_AUTH_MAX_SKEW_SECONDS", "300"))
                 except ValueError:
-                    return JSONResponse({"error": "invalid_service_auth_config"}, status_code=500)
+                    return error_payload(request, "invalid_service_auth_config", "Invalid service authentication configuration", 500)
                 service_authenticated = is_service_request_authorized(
                     service_headers, body, service_secret, service_replay_guard, max_skew_seconds=max_skew,
                 )
@@ -102,18 +132,48 @@ def create_app() -> FastAPI:
             required_service_auth = os.environ.get("SERVICE_AUTH_REQUIRED", "").lower() in {"1", "true", "yes"}
             dashboard_api_key_allowed = request.url.path.startswith("/api/dashboard") and api_authenticated
             if (required_service_auth and not service_authenticated and not proxy_authenticated and not dashboard_api_key_allowed) or (not required_service_auth and not api_authenticated and not service_authenticated and not proxy_authenticated):
-                return JSONResponse({"error": "unauthorized"}, status_code=401)
+                return error_payload(request, "unauthorized", "Authentication is required", 401)
             request.state.auth_method = "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
             request.state.principal_id = request.headers.get("x-authenticated-sub", "dashboard-service") if proxy_authenticated else "dashboard-service"
             request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
             default_roles = [role.strip() for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",") if role.strip()]
             request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else default_roles
             request.state.principal_tenant_ids = [tenant.strip() for tenant in request.headers.get("x-authenticated-tenant-ids", "").split(",") if tenant.strip()] if proxy_authenticated else []
+            try:
+                rate_limit = max(0, int(os.environ.get("API_RATE_LIMIT_PER_MINUTE", "600")))
+            except ValueError:
+                return error_payload(request, "invalid_rate_limit_config", "Invalid API rate-limit configuration", 500)
+            if rate_limit:
+                try:
+                    redis_client = Redis.from_url(os.environ.get("CELERY_BROKER_URL", os.environ.get("REDIS_URL", "redis://localhost:6379/0")), socket_connect_timeout=1, socket_timeout=1)
+                    bucket = int(time.time() // 60)
+                    rate_key = f"scrutineering:api-rate:{request.state.principal_id}:{bucket}"
+                    current = int(redis_client.incr(rate_key))
+                    if current == 1:
+                        redis_client.expire(rate_key, 60)
+                    remaining = max(0, rate_limit - current)
+                    redis_client.close()
+                    request.state.rate_limit = (rate_limit, remaining)
+                    if current > rate_limit:
+                        response = error_payload(request, "rate_limited", "Too many requests; retry later", 429)
+                        response.headers["Retry-After"] = "60"
+                        response.headers["X-RateLimit-Limit"] = str(rate_limit)
+                        response.headers["X-RateLimit-Remaining"] = "0"
+                        return response
+                except Exception:
+                    # Queue availability must not become an API outage.
+                    request.state.rate_limit = (rate_limit, None)
         if provider_webhook:
             request.state.auth_method = "provider_hmac"
             request.state.principal_id = f"provider:{request.url.path.rsplit('/', 1)[-1]}"
             request.state.principal_roles = []
-        return await call_next(request)
+        response = await call_next(request)
+        if hasattr(request.state, "rate_limit"):
+            limit, remaining = request.state.rate_limit
+            response.headers["X-RateLimit-Limit"] = str(limit)
+            if remaining is not None:
+                response.headers["X-RateLimit-Remaining"] = str(remaining)
+        return response
 
     @application.get("/health", tags=["health"])
     def health() -> dict[str, str]:

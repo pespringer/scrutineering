@@ -121,6 +121,13 @@ guessing which container to restart.
 - Add accessibility, responsive-layout, browser smoke, and dependency checks
   to CI.
 
+The hardening slice now includes a consistent `{error:{code,message,requestId}}`
+envelope (with the existing `detail` compatibility field), request correlation
+on error responses, and CI checks for the dashboard's document language,
+responsive viewport, main landmark, and image alternative text. Existing CI
+also runs dashboard dependency auditing, build validation, API pagination and
+rate-limit contract tests, migration validation, and rollback drills.
+
 ## Completion gate
 
 Call the product complete for the home-lab release when sections 1–5 pass
