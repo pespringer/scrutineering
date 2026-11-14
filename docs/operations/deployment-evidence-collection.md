@@ -1,0 +1,36 @@
+# Deployment Evidence Collection
+
+The signed callback and GitHub Actions workflow are a compatibility path, not
+the preferred operator experience. The long-term workflow must keep evidence
+collection inside Scrutineering and avoid requiring users to copy values between
+GitHub, a deployment system, and the dashboard.
+
+## Target operator flow
+
+1. A remediation publication records the immutable artifact digest it produced.
+2. Scrutineering discovers the configured deployment target from the
+   publication's environment and repository configuration.
+3. A provider adapter resolves the currently running image digest and rollout
+   state directly from that target.
+4. The API associates the observation with the publication, runs the existing
+   scan/finding policy, and updates the timeline automatically.
+5. The dashboard shows collection progress, the source used, the observed
+   digest, and the final verification or rollback decision.
+
+Manual digest entry and signed callbacks remain available for unsupported
+platforms, but they must be clearly marked as operator-supplied evidence and
+must not be required for normal operation.
+
+## Adapter boundary
+
+Deployment collectors should implement one provider-neutral contract with
+bounded timeouts, redacted diagnostics, and explicit unavailable states. The
+first adapters should target local Docker/Compose and Kubernetes; later
+adapters can cover ECS, Nomad, and generic HTTPS health/deployment APIs.
+Adapters must return the resolved image digest, rollout status, source identity,
+observation timestamp, and an evidence fingerprint. Mutable tags, guessed
+digests, and unverified user input fail closed.
+
+The GitHub Actions workflow in `.github/workflows/deployment-evidence.yml`
+remains useful for environments Scrutineering cannot reach, but it is a
+fallback integration and not a prerequisite for local or connected deployments.
