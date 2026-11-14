@@ -25,6 +25,10 @@ access.
 - Let operators select discovered images, set scan cadence, and launch a
   first scan without copying values between pages.
 
+The discovery cards now provide one-time, hourly, six-hour, daily, and weekly
+cadence choices; the selected cadence is persisted with the initial scan
+request and reused by the scheduler.
+
 Done means a new operator can connect one source, see discovered assets, and
 start a scan entirely from the dashboard.
 

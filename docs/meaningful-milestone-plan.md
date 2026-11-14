@@ -124,6 +124,8 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   remediation verification state.
 - Findings filters are URL-backed and can be saved as named browser-local
   views for repeatable triage.
+- Runtime-discovered images can now be scanned and assigned a recurring
+  cadence directly from the Sources workflow.
 - Operations now lists recent failed scans and provides a confirmation-gated,
   audited bulk retry action without discarding the failed attempts.
 - Operations now shows per-worker active, reserved, and scheduled task counts

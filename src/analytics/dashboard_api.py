@@ -61,6 +61,7 @@ class ScanRequest(BaseModel):
     source_id: int | None = Field(default=None, ge=1)
     image_reference: str | None = Field(default=None, min_length=3, max_length=512)
     priority: str = Field(default="normal", pattern="^(low|normal|high)$")
+    schedule_interval_seconds: int | None = Field(default=None, ge=300, le=2592000)
 
     @field_validator("image_name")
     @classmethod
@@ -855,6 +856,15 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
                 started_at=now,
                 image_digest=identity.digest,
             ))
+            if payload.schedule_interval_seconds:
+                schedule = session.query(ScanSchedule).filter_by(image_id=image.id).one_or_none()
+                if schedule is None:
+                    schedule = ScanSchedule(image_id=image.id, created_by=getattr(request.state, "principal_id", "dashboard-service"))
+                    session.add(schedule)
+                schedule.enabled = True
+                schedule.interval_seconds = payload.schedule_interval_seconds
+                schedule.next_run_at = now
+                _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(image.id), {"action": "configure_scan_schedule_with_scan", "interval_seconds": payload.schedule_interval_seconds}, entity_type="image")
             _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {"action": "start_scan", "image_name": queued_image_name, "source_id": source_id, "priority": payload.priority})
         task = enqueue_scan(queued_image_name, priority=payload.priority, scan_id=scan_id)
     except Exception as exc:

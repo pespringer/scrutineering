@@ -50,6 +50,8 @@ def test_scan_payload_exposes_digest_and_terminal_status_for_timelines():
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
+    scheduled = ScanRequest(image_name="nginx:1.27", schedule_interval_seconds=3600)
+    assert scheduled.schedule_interval_seconds == 3600
     source_request = ScanRequest(source_id=7, image_reference=" ghcr.io/acme/api:v2 ")
     assert source_request.source_id == 7
     assert source_request.image_reference == "ghcr.io/acme/api:v2"
