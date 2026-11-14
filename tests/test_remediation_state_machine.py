@@ -42,3 +42,8 @@ def test_invalid_transitions_fail_closed(current, target):
 
 def test_same_state_is_idempotent():
     assert transition(RemediationStatus.PENDING, RemediationStatus.PENDING) == RemediationStatus.PENDING
+
+
+def test_blocked_is_terminal():
+    with pytest.raises(InvalidRemediationTransition):
+        transition(RemediationStatus.BLOCKED, RemediationStatus.PENDING)

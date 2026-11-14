@@ -15,7 +15,7 @@ def test_remediation_execution_requires_explicit_enablement(monkeypatch):
     assert execution_enabled() is True
 
 
-def test_blocked_execution_persists_terminal_failure_and_event(monkeypatch):
+def test_blocked_execution_persists_terminal_blocked_outcome_and_event(monkeypatch):
     session = Mock()
     remediation = SimpleNamespace(status=RemediationStatus.ANALYZING, error_message=None)
     update_status = Mock()
@@ -27,4 +27,4 @@ def test_blocked_execution_persists_terminal_failure_and_event(monkeypatch):
 
     assert result == {"remediation_id": 7, "status": "blocked", "reason": "branch_publication_failed:403"}
     assert remediation.status == RemediationStatus.ANALYZING
-    update_status.assert_called_once_with(session, 7, RemediationStatus.FAILED, error_message="branch_publication_failed:403")
+    update_status.assert_called_once_with(session, 7, RemediationStatus.BLOCKED, error_message="branch_publication_failed:403")

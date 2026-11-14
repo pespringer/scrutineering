@@ -17,23 +17,25 @@ from .adapter import build_validation_sequence, execute_repository_adapter, load
 from .publisher import publish_remediation_branch
 from .publication import build_publication_plan
 from .provider_publishers import publish_validated_plan
+from .rollback import build_rollback_plan
 
 
 def execution_enabled() -> bool:
     return os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
 
 
-def _blocked(session, remediation_id: int, reason: str) -> dict:
+def _blocked(session, remediation_id: int, reason: str, detail: dict | None = None) -> dict:
     remediation = RemediationRepository.get_by_id(session, remediation_id)
     if remediation is not None:
         terminal = {
             RemediationStatus.COMPLETED,
             RemediationStatus.FAILED,
+            RemediationStatus.BLOCKED,
             RemediationStatus.SKIPPED,
         }
         if remediation.status not in terminal:
             RemediationRepository.update_status(
-                session, remediation_id, RemediationStatus.FAILED,
+                session, remediation_id, RemediationStatus.BLOCKED,
                 error_message=reason,
             )
         else:
@@ -43,9 +45,30 @@ def _blocked(session, remediation_id: int, reason: str) -> dict:
         "remediation_id": remediation_id,
         "event_type": "execution_blocked",
         "sequence": len(events) + 1,
-        "detail": {"reason": reason},
+        "detail": {"reason": reason, **(detail or {})},
     })
     return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
+
+
+def _failed(session, remediation_id: int, reason: str, detail: dict | None = None) -> dict:
+    """Persist a validation failure separately from an operator-blocked run."""
+    remediation = RemediationRepository.get_by_id(session, remediation_id)
+    if remediation is not None and remediation.status not in {
+        RemediationStatus.COMPLETED, RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED, RemediationStatus.SKIPPED,
+    }:
+        RemediationRepository.update_status(
+            session, remediation_id, RemediationStatus.FAILED,
+            error_message=reason,
+        )
+    events = RemediationRepository.list_events(session, remediation_id)
+    RemediationRepository.append_event(session, {
+        "remediation_id": remediation_id,
+        "event_type": "execution_failed",
+        "sequence": len(events) + 1,
+        "detail": {"error": reason, **(detail or {})},
+    })
+    return {"remediation_id": remediation_id, "status": "failed", "reason": reason}
 
 
 def _publish_branch(session, remediation, branch_name: str, commit: str) -> dict:
@@ -141,7 +164,10 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             return _blocked(session, remediation_id, f"execution_plan_invalid:{exc}")
         if result.status != "ready":
-            return _blocked(session, remediation_id, result.error or "execution_failed")
+            detail = {"commands": result.commands, "changed_files": result.changed_files}
+            if result.status == "failed":
+                return _failed(session, remediation_id, result.error or "execution_failed", detail)
+            return _blocked(session, remediation_id, result.error or "execution_blocked", detail)
         branch_name = None
         if os.environ.get("REMEDIATION_PUSH_ENABLED", "false").lower() in {"1", "true", "yes"}:
             if not result.commit:
@@ -165,7 +191,9 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
             except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
                 return _blocked(session, remediation_id, f"provider_publication_failed:{exc}")
         events = RemediationRepository.list_events(session, remediation_id)
-        detail = {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}
+        detail = {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files, "commands": result.commands}
+        if result.commit:
+            detail["rollback_command"] = list(build_rollback_plan(result.commit).command)
         if publication:
             detail["publication"] = publication
         if remediation.status == RemediationStatus.ANALYZING:

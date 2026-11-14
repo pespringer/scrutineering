@@ -90,6 +90,7 @@ class RemediationStatus(str, enum.Enum):
     PR_OPENED       = "pr_opened"
     COMPLETED       = "completed"
     FAILED          = "failed"
+    BLOCKED         = "blocked"
     SKIPPED         = "skipped"
     REQUIRES_REVIEW = "requires_review"
 

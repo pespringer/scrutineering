@@ -2010,7 +2010,7 @@ def remediation_review_bundle(remediation_id: int, request: Request) -> dict:
         events = RemediationRepository.list_events(session, remediation_id)
         payload = _remediation_payload(remediation)
     safe_events = []
-    allowed_detail = {"action", "status", "commit", "branch_name", "changed_files", "scan_id", "source_scan_id", "verification_status", "failure_class", "error", "reason", "provider", "repository"}
+    allowed_detail = {"action", "status", "commit", "branch_name", "changed_files", "commands", "rollback_command", "scan_id", "source_scan_id", "verification_status", "failure_class", "error", "reason", "provider", "repository"}
     for event in events:
         detail = event.detail or {}
         safe_events.append({

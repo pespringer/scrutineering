@@ -7,9 +7,11 @@ is created or executed. The same data is available from
 `GET /api/dashboard/remediations/{remediation_id}/review-bundle` (proxied by
 the dashboard). It contains remediation coordinates, proposed actions, safe
 lifecycle evidence, publication state, and explicit deferred integration gates.
-Approval tokens, credentials, command output, and other secret-bearing values
-are intentionally excluded, so the bundle can be attached to a local change
-review or retained with the operator record.
+Approval tokens, credentials, and other secret-bearing values are intentionally
+excluded. Bounded validation command results, changed files, the local commit,
+and its `git revert --no-edit` rollback command are retained as safe execution
+evidence, so the bundle can be attached to a local change review or retained
+with the operator record.
 
 `src.remediation.executor.execute_remediation` is the first executable Phase 2
 boundary. It refuses to run without verified evidence, and can verify an
@@ -18,8 +20,10 @@ changes only inside a detached worktree, executes validation commands without a
 shell, captures bounded command output, and returns `ready` only when every
 command passes.
 
-The executor creates a local commit only after all gates pass. The worker can
-optionally push that commit to a new branch when `REMEDIATION_PUSH_ENABLED=true`;
+The executor creates a local commit by default only after all gates pass. The
+worker records that commit and its rollback plan in the durable event bundle;
+operators can export the bundle or optionally push that commit to a new branch
+when `REMEDIATION_PUSH_ENABLED=true`;
 it still never merges or opens a pull request. Parser-aware edit adapters and
 post-change SBOM/rescan commands should be added before enabling publication.
 Guarded `replace_text` edits can build on this boundary. Callers should provide `evidence_envelope`, `evidence_artifact`,
@@ -108,7 +112,10 @@ Python ecosystem.
 
 The remediation detail page exposes the persisted lifecycle state, start and
 completion timestamps, verification counts, branch/PR metadata, and the
-fail-closed error message when execution stops. While a worker is in an active
+fail-closed error message when execution stops. `blocked` is distinct from
+`failed`: blocked means an operator/configuration/evidence gate requires
+intervention, while failed means validation or execution ran and failed. While
+a worker is in an active
 state (`analyzing`, `patching`, `building`, `verifying`, or `pr_opened`), the
 page refreshes automatically. A failed run is not retried implicitly; correct
 the missing configuration or evidence and create a new reviewed proposal.

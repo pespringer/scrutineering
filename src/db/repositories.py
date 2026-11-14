@@ -383,6 +383,7 @@ class RemediationRepository:
         if target_status in (
             RemediationStatus.COMPLETED,
             RemediationStatus.FAILED,
+            RemediationStatus.BLOCKED,
             RemediationStatus.SKIPPED,
         ):
             values["completed_at"] = func.now()

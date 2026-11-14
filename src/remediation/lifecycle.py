@@ -37,7 +37,7 @@ class RemediationLifecycle:
 
     @property
     def terminal(self) -> bool:
-        return self.status in {RemediationStatus.COMPLETED, RemediationStatus.FAILED, RemediationStatus.SKIPPED}
+        return self.status in {RemediationStatus.COMPLETED, RemediationStatus.FAILED, RemediationStatus.BLOCKED, RemediationStatus.SKIPPED}
 
     @classmethod
     def recover(cls, event_records: Iterable[dict], *, remediation_id: int | None = None):

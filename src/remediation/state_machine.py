@@ -11,39 +11,47 @@ TRANSITIONS: dict[RemediationStatus, frozenset[RemediationStatus]] = {
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.SKIPPED,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.ANALYZING: frozenset({
         RemediationStatus.PATCHING,
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.PATCHING: frozenset({
         RemediationStatus.BUILDING,
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.BUILDING: frozenset({
         RemediationStatus.VERIFYING,
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.VERIFYING: frozenset({
         RemediationStatus.PR_OPENED,
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.PR_OPENED: frozenset({
         RemediationStatus.COMPLETED,
         RemediationStatus.REQUIRES_REVIEW,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.REQUIRES_REVIEW: frozenset({
         RemediationStatus.ANALYZING,
         RemediationStatus.SKIPPED,
         RemediationStatus.FAILED,
+        RemediationStatus.BLOCKED,
     }),
     RemediationStatus.COMPLETED: frozenset(),
     RemediationStatus.FAILED: frozenset(),
+    RemediationStatus.BLOCKED: frozenset(),
     RemediationStatus.SKIPPED: frozenset(),
 }
 
