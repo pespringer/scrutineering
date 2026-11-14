@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
+from src.analytics.dashboard_api import BackupExecutionRequest, ComplianceReportRequest, DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -115,6 +115,11 @@ def test_compliance_report_request_limits_framework_and_format():
         ComplianceReportRequest(framework="iso27001")
     with pytest.raises(ValueError):
         ComplianceReportRequest(framework="nist", output_format="pdf")
+
+
+def test_backup_execution_requires_explicit_confirmation():
+    assert BackupExecutionRequest(confirm=True).confirm is True
+    assert BackupExecutionRequest().confirm is False
 
 
 def test_deployment_evidence_request_is_digest_only():
