@@ -519,7 +519,7 @@ class SecurityPolicy(Base):
     created_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     evaluations = relationship("PolicyEvaluation", back_populates="policy",
-                               lazy="selectin")
+                               cascade="all, delete-orphan", lazy="selectin")
 
 
 class PolicyEvaluation(Base):

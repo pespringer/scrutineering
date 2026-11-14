@@ -51,6 +51,8 @@ The dashboard is organized as a security operations console:
   fix availability, auditable expiring suppression actions, and responsive
   layouts.
 - The Audit Trail page records scan start/cancel activity with actor context.
+- The Policies page manages bounded severity and image policies and shows how
+  many persisted scan evaluations each policy has produced.
 - Remediation detail pages show ordered lifecycle events, publication status,
   merge outcomes, and rollback-required decisions.
 - Read-only `dashboard` users can inspect data; `operator`,
@@ -86,3 +88,5 @@ Finding suppression behavior and its audit requirements are documented in
 [`finding-governance.md`](finding-governance.md).
 Scan cadence behavior is documented in
 [`scan-schedules.md`](scan-schedules.md).
+Policy evaluation and management are documented in
+[`policy-engine.md`](policy-engine.md).

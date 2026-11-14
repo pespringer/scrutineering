@@ -235,6 +235,8 @@ before using scan controls.
 Image detail workflows support auditable, expiring finding suppressions and
 bounded recurring scan schedules; see [Finding Governance](docs/operations/finding-governance.md)
 and [Scan Schedules](docs/operations/scan-schedules.md).
+The [Policy Engine](docs/operations/policy-engine.md) evaluates enabled
+severity and image policies on completed scans and records each result.
 The Audit Trail is available at `/audit`; local operator access defaults to the
 roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
 verified OIDC ingress identity.
@@ -284,6 +286,7 @@ remediation timeline.
 - [Dashboard Operations](docs/operations/dashboard.md)
 - [Finding Governance](docs/operations/finding-governance.md)
 - [Scan Schedules](docs/operations/scan-schedules.md)
+- [Policy Engine](docs/operations/policy-engine.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
 - [Staging Readiness Validation](docs/operations/staging-readiness.md)

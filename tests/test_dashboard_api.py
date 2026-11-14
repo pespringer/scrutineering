@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, FindingSuppressionRequest, PolicyRequest, RemediationRequest, ScanRequest, ScanScheduleRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _schedule_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -99,6 +99,12 @@ def test_scan_schedule_contract_is_bounded_and_serializable():
     }
     with pytest.raises(ValueError):
         ScanScheduleRequest(interval_seconds=60)
+
+
+def test_policy_request_requires_bounded_name():
+    assert PolicyRequest(name="release gate", policy_type="severity_threshold", rules={"max_critical": 0}).policy_type == "severity_threshold"
+    with pytest.raises(ValueError):
+        PolicyRequest(name="x", policy_type="severity_threshold")
 
 
 def test_deployment_evidence_request_is_digest_only():

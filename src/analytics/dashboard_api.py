@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field, field_validator
 from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, FindingSuppression, Image, PolicyAction, PolicyEvaluation, PolicyType, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanSchedule, ScanStatus, SecurityPolicy, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
@@ -98,6 +98,25 @@ class FindingSuppressionRequest(BaseModel):
 class ScanScheduleRequest(BaseModel):
     enabled: bool = True
     interval_seconds: int = Field(default=21600, ge=300, le=2592000)
+
+
+class PolicyRequest(BaseModel):
+    name: str = Field(min_length=3, max_length=256)
+    description: str | None = Field(default=None, max_length=2000)
+    policy_type: str = Field(pattern="^(severity_threshold|image_allowlist|image_denylist)$")
+    action: str = Field(default="alert", pattern="^(block|alert|auto_fix|skip|require_approval|escalate)$")
+    enabled: bool = True
+    priority: int = Field(default=0, ge=0, le=10000)
+    rules: dict = Field(default_factory=dict)
+    image_filters: dict = Field(default_factory=dict)
+
+    @field_validator("name")
+    @classmethod
+    def name_is_trimmed(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("policy name must contain at least three characters")
+        return value
 
 
 class RemediationRequest(BaseModel):
@@ -292,6 +311,37 @@ def _schedule_payload(schedule: ScanSchedule | None) -> dict:
         "last_queued_at": _iso(schedule.last_queued_at),
         "created_by": schedule.created_by,
     }
+
+
+def _policy_payload(policy: SecurityPolicy, evaluations: int = 0) -> dict:
+    return {
+        "id": policy.id,
+        "name": policy.name,
+        "description": policy.description,
+        "policy_type": _value(policy.policy_type),
+        "action": _value(policy.action),
+        "enabled": bool(policy.enabled),
+        "priority": policy.priority,
+        "rules": policy.rules or {},
+        "image_filters": policy.image_filters or {},
+        "created_at": _iso(policy.created_at),
+        "updated_at": _iso(policy.updated_at),
+        "created_by": policy.created_by,
+        "evaluation_count": evaluations,
+    }
+
+
+def _validate_policy_rules(payload: PolicyRequest) -> None:
+    if payload.policy_type == PolicyType.SEVERITY_THRESHOLD.value:
+        keys = {key for key in payload.rules if key in {f"max_{severity}" for severity in ("critical", "high", "medium", "low", "unknown")}}
+        if not keys:
+            raise HTTPException(status_code=400, detail="severity_policy_requires_threshold")
+        if any(not isinstance(payload.rules[key], int) or payload.rules[key] < 0 for key in keys):
+            raise HTTPException(status_code=400, detail="severity_thresholds_must_be_non_negative_integers")
+    elif payload.policy_type in {PolicyType.IMAGE_ALLOWLIST.value, PolicyType.IMAGE_DENYLIST.value}:
+        images = payload.rules.get("images")
+        if not isinstance(images, list) or not 1 <= len(images) <= 500 or any(not isinstance(image, str) or not image.strip() for image in images):
+            raise HTTPException(status_code=400, detail="image_policy_requires_bounded_images_list")
 
 
 def _page(items: list[dict], limit: int, offset: int, total: int) -> dict:
@@ -746,6 +796,88 @@ def configure_image_scan_schedule(image_id: int, payload: ScanScheduleRequest, r
     return {"image_id": image_id, "schedule": result}
 
 
+@router.get("/policies")
+def list_security_policies(request: Request, include_disabled: bool = False) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        query = session.query(SecurityPolicy)
+        if not include_disabled:
+            query = query.filter(SecurityPolicy.enabled.is_(True))
+        policies = query.order_by(SecurityPolicy.priority.desc(), SecurityPolicy.name.asc()).all()
+        payload = []
+        for policy in policies:
+            evaluations = session.query(PolicyEvaluation).filter(PolicyEvaluation.policy_id == policy.id).count()
+            payload.append(_policy_payload(policy, evaluations))
+    return {"items": payload, "count": len(payload)}
+
+
+@router.post("/policies")
+def create_security_policy(payload: PolicyRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    _validate_policy_rules(payload)
+    with get_session() as session:
+        policy = SecurityPolicy(
+            name=payload.name,
+            description=payload.description,
+            policy_type=PolicyType(payload.policy_type),
+            action=PolicyAction(payload.action),
+            enabled=payload.enabled,
+            priority=payload.priority,
+            rules=payload.rules,
+            image_filters=payload.image_filters,
+            created_by=getattr(request.state, "principal_id", "dashboard-service"),
+        )
+        session.add(policy)
+        session.flush()
+        _record_operator_event(session, request, AuditEventType.POLICY_CREATED, str(policy.id), {"action": "create_policy", "policy_type": payload.policy_type}, entity_type="policy")
+        result = _policy_payload(policy)
+    return {"policy": result}
+
+
+@router.post("/policies/{policy_id}/toggle")
+def toggle_security_policy(policy_id: int, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    with get_session() as session:
+        policy = session.get(SecurityPolicy, policy_id)
+        if policy is None:
+            raise HTTPException(status_code=404, detail="policy_not_found")
+        policy.enabled = not policy.enabled
+        event_type = AuditEventType.POLICY_UPDATED
+        _record_operator_event(session, request, event_type, str(policy.id), {"action": "toggle_policy", "enabled": policy.enabled}, entity_type="policy")
+        result = _policy_payload(policy)
+    return {"policy": result}
+
+
+@router.get("/policies/{policy_id}/evaluations")
+def policy_evaluations(policy_id: int, request: Request, limit: int = Query(default=50, ge=1, le=250)) -> dict:
+    _require_role(request, "dashboard", "operator", "security-operator", "admin")
+    with get_session() as session:
+        if session.get(SecurityPolicy, policy_id) is None:
+            raise HTTPException(status_code=404, detail="policy_not_found")
+        evaluations = session.query(PolicyEvaluation).filter(PolicyEvaluation.policy_id == policy_id).order_by(PolicyEvaluation.evaluated_at.desc(), PolicyEvaluation.id.desc()).limit(limit).all()
+    return {"items": [{"id": evaluation.id, "scan_id": evaluation.scan_id, "finding_id": evaluation.finding_id, "evaluated_at": _iso(evaluation.evaluated_at), "violated": bool(evaluation.violated), "detail": evaluation.detail, "action_taken": _value(evaluation.action_taken) if evaluation.action_taken else None} for evaluation in evaluations], "count": len(evaluations)}
+
+
+@router.post("/policies/evaluate/{scan_id}")
+def evaluate_security_policies(scan_id: str, request: Request) -> dict:
+    _require_role(request, "operator", "security-operator", "admin")
+    from src.risk.policy_engine import evaluate_policy
+    with get_session() as session:
+        scan = session.query(Scan).filter(Scan.scan_id == scan_id).first()
+        if scan is None:
+            raise HTTPException(status_code=404, detail="scan_not_found")
+        policies = session.query(SecurityPolicy).filter(SecurityPolicy.enabled.is_(True)).order_by(SecurityPolicy.priority.desc(), SecurityPolicy.id.asc()).all()
+        findings = session.query(ScanFinding).filter(ScanFinding.scan_id == scan_id).all()
+        image_name = scan.image.full_name
+        results = []
+        for policy in policies:
+            result = evaluate_policy(policy, findings, image_name)
+            session.add(PolicyEvaluation(policy_id=policy.id, scan_id=scan_id, violated=bool(result["violated"]), detail=result["detail"], action_taken=policy.action if result["violated"] else None))
+            results.append(result)
+        _record_operator_event(session, request, AuditEventType.POLICY_VIOLATED if any(result["violated"] for result in results) else AuditEventType.POLICY_UPDATED, scan_id, {"action": "evaluate_policies", "violations": sum(result["violated"] for result in results)}, entity_type="scan")
+    return {"scan_id": scan_id, "results": results, "violations": sum(result["violated"] for result in results)}
+
+
 @router.post("/findings/bulk-acknowledge")
 def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")
@@ -881,6 +1013,7 @@ def dashboard_permissions(request: Request) -> dict:
         "can_manage_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
         "can_cancel_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
         "can_remediate": elevated or "remediator" in roles,
+        "can_manage_policies": elevated,
     }
 
 
