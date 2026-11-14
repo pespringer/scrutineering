@@ -71,6 +71,7 @@ Turn Scrutineering into a trustworthy security control plane: one coherent API a
 - **Completed:** remediation approval provenance now persists approver, timestamp, and token hash fields through an Alembic migration.
 - **Completed:** remediation lifecycle events now have a durable PostgreSQL table and migration chain.
 - **Completed:** evidence verification can enforce an artifact-size ceiling before invoking signature providers.
+- **Completed:** provider merge callbacks without deployment evidence now queue a correlated worker-visible follow-up scan and persist a pending verification state instead of treating missing callback fields as an immediate rollback.
 
 ## Phase 3 — Production Operations (60–90 days)
 

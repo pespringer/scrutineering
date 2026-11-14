@@ -45,6 +45,16 @@ existing evidence, allowlist, protected-base, and idempotency gates, then
 persists the PR URL and number on the remediation record. It will block rather
 than publish if any gate or token is missing.
 
+## Provider merge callbacks
+
+GitHub and GitLab merge callbacks often identify the merge but do not include
+the deployed image digest or a completed post-merge scan. In that case the API
+queues one correlated follow-up scan and records the publication as `pending`;
+the verifier persists its findings but does not claim success until deployment
+digest evidence is supplied. For filesystem remediations, set
+`REMEDIATION_SCAN_REPOSITORY_ROOT` to the path visible inside the worker
+(Compose defaults to `/workspace/repository`).
+
 ## Recovery and validation
 
 Remediation lifecycle transitions emit ordered events through the durable event
@@ -64,7 +74,8 @@ The Compose worker mounts a disposable Git checkout at `/workspace/repository`
 and signed evidence at `/workspace/evidence`. Configure the host directories
 with `REMEDIATION_HOST_REPOSITORY_ROOT` and
 `REMEDIATION_HOST_EVIDENCE_ROOT`; keep the container-side paths at their
-defaults. The checkout must be separate from the main working tree and writable
+defaults. Set `REMEDIATION_SCAN_REPOSITORY_ROOT` to the worker-visible checkout
+root when merge callbacks must queue a filesystem rescan. The checkout must be separate from the main working tree and writable
 by the worker's unprivileged `scanner` user. The worker image includes Git,
 Node/npm, Syft, Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
 trusted release workflow.
