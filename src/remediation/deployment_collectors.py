@@ -11,6 +11,8 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
+from pathlib import Path
 import re
 import subprocess
 from typing import Any, Callable, Mapping
@@ -63,6 +65,27 @@ def _default_runner(command: list[str], timeout: int) -> str:
     return completed.stdout
 
 
+def _kubernetes_command(namespace: str, selector: str) -> list[str]:
+    """Build kubectl arguments for kubeconfig or standard in-cluster auth."""
+    command = [
+        "kubectl", "get", "pods", "--namespace", namespace,
+        "--selector", selector, "--output", "json",
+    ]
+    token_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/token")
+    ca_path = Path("/var/run/secrets/kubernetes.io/serviceaccount/ca.crt")
+    host = os.environ.get("KUBERNETES_SERVICE_HOST")
+    port = os.environ.get("KUBERNETES_SERVICE_PORT_HTTPS", "443")
+    if host and token_path.is_file() and ca_path.is_file():
+        token = token_path.read_text(encoding="utf-8").strip()
+        if token:
+            command[1:1] = [
+                f"--server=https://{host}:{port}",
+                f"--certificate-authority={ca_path}",
+                f"--token={token}",
+            ]
+    return command
+
+
 class DockerComposeCollector:
     """Resolve a running Docker container's immutable image digest."""
 
@@ -111,10 +134,7 @@ class KubernetesCollector:
     def collect(self, *, namespace: str, selector: str) -> DeploymentObservation:
         if not namespace or not selector or any(char.isspace() for char in namespace):
             raise ValueError("kubernetes target is invalid")
-        raw = self.runner([
-            "kubectl", "get", "pods", "--namespace", namespace,
-            "--selector", selector, "--output", "json",
-        ], self.timeout_seconds)
+        raw = self.runner(_kubernetes_command(namespace, selector), self.timeout_seconds)
         try:
             payload = json.loads(raw)
             pods = payload["items"]

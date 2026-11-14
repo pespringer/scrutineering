@@ -64,4 +64,8 @@ docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml up 
 The default Compose stack does not mount `/var/run/docker.sock`. Kubernetes
 deployments should apply `k8s/deployment-observation-rbac.yaml` and configure
 the worker target selector in `DEPLOYMENT_COLLECTOR_TARGETS_JSON`; the role is
-limited to reading pod status and does not permit workload mutation.
+limited to reading pod status and does not permit workload mutation. When the
+worker runs in Kubernetes, the collector uses the standard service-account
+token and CA mount together with `KUBERNETES_SERVICE_HOST`; outside the cluster,
+`kubectl` uses its normal kubeconfig/context. Do not broaden the role to permit
+deployments, pods, or other workload mutation.

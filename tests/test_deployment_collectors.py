@@ -56,6 +56,36 @@ def test_kubernetes_collector_rejects_mixed_rollout_digests():
         collector.collect(namespace="security", selector="app=sentinel")
 
 
+def test_kubernetes_collector_uses_standard_in_cluster_service_account(tmp_path, monkeypatch):
+    token_path = tmp_path / "token"
+    ca_path = tmp_path / "ca.crt"
+    token_path.write_text("test-token", encoding="utf-8")
+    ca_path.write_text("ca", encoding="utf-8")
+    paths = {
+        "/var/run/secrets/kubernetes.io/serviceaccount/token": token_path,
+        "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt": ca_path,
+    }
+    monkeypatch.setattr(
+        "src.remediation.deployment_collectors.Path",
+        lambda value: paths[value],
+    )
+    monkeypatch.setenv("KUBERNETES_SERVICE_HOST", "10.0.0.1")
+    monkeypatch.setenv("KUBERNETES_SERVICE_PORT_HTTPS", "6443")
+    command_seen = []
+    payload = {"items": [{"status": {"phase": "Running", "containerStatuses": [
+        {"ready": True, "imageID": f"docker-pullable://registry/app@{DIGEST}"},
+    ]}}]}
+    collector = KubernetesCollector(
+        runner=lambda command, timeout: command_seen.append(command) or json.dumps(payload)
+    )
+
+    collector.collect(namespace="security", selector="app=sentinel")
+
+    assert "--server=https://10.0.0.1:6443" in command_seen[0]
+    assert f"--certificate-authority={ca_path}" in command_seen[0]
+    assert "--token=test-token" in command_seen[0]
+
+
 def test_collector_target_is_selected_by_publication_repository():
     target = configured_deployment_target(
         "acme/api",
