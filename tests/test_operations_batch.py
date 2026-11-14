@@ -7,7 +7,7 @@ from src.platform.operations import BackupRotation
 from src.scan.reliability import ScanCooldown, classify_scan_failure, cooldown_active, stale_running_scan
 from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry, private_registry_evidence
 from src.platform import backup_tasks
-from src.platform.backup_tasks import report_backup_freshness
+from src.platform.backup_tasks import _pg_dump_database_url, report_backup_freshness
 
 
 def test_backup_rotation_is_dry_run_and_freshness_is_bounded():
@@ -43,6 +43,10 @@ def test_registry_diagnostics_never_expose_secret_values():
 
 def test_backup_task_is_explicitly_not_configured_without_metadata():
     assert report_backup_freshness(metadata_path="", dry_run=True)["status"] == "not_configured"
+
+
+def test_pg_dump_url_removes_sqlalchemy_driver_suffix():
+    assert _pg_dump_database_url("postgresql+psycopg2://user:secret@postgres:5432/db") == "postgresql://user:secret@postgres:5432/db"
 
 
 def test_backup_observation_is_persisted_once_with_audit_evidence(monkeypatch):

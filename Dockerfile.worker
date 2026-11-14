@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 # Install system deps needed for psycopg2 and scanner binaries
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-      libpq-dev gcc curl jq git nodejs npm docker-cli kubectl && \
+      libpq-dev gcc curl jq git nodejs npm docker-cli kubectl postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
 # Install a pinned Trivy release (avoid executing a moving install script).
@@ -43,7 +43,7 @@ COPY src/ ./src/
 
 # Keep runtime state writable only in /tmp and run the worker as an unprivileged user.
 RUN addgroup --system scanner && adduser --system --ingroup scanner scanner && \
-    mkdir -p /tmp/scanner-cache /tmp/grype && chown -R scanner:scanner /app /tmp/scanner-cache /tmp/grype
+    mkdir -p /tmp/scanner-cache /tmp/grype /var/lib/scrutineering/backups && chown -R scanner:scanner /app /tmp/scanner-cache /tmp/grype /var/lib/scrutineering/backups
 USER scanner
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

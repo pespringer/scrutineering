@@ -11,6 +11,14 @@ backup check is fresh. The API endpoint is available to authenticated
 operators at `GET /api/dashboard/backup-evidence`; the dashboard proxy exposes
 `GET /api/backup-evidence`.
 
+An administrator can explicitly request a PostgreSQL backup with
+`POST /api/dashboard/backup-evidence/execute` and body `{"confirm": true}`.
+Set `BACKUP_EXECUTION_ENABLED=true` only after reviewing the destination and
+timeout settings. The worker writes a custom-format `pg_dump` artifact to the
+dedicated backup volume, records its SHA-256 and size, and emits success or
+failure audit evidence. The endpoint rejects requests without explicit
+confirmation and is disabled by default.
+
 Metadata entries use this shape:
 
 ```json

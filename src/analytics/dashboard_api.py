@@ -124,6 +124,10 @@ class ComplianceReportRequest(BaseModel):
     output_format: str = Field(default="json", pattern="^(json|markdown)$")
 
 
+class BackupExecutionRequest(BaseModel):
+    confirm: bool = Field(default=False)
+
+
 class RemediationRequest(BaseModel):
     image_id: int = Field(gt=0)
     finding_ids: list[int] = Field(min_length=1, max_length=50)
@@ -917,6 +921,32 @@ def backup_evidence(request: Request, limit: int = Query(default=25, ge=1, le=10
         "error_message": record.error_message,
         "recorded_by": record.recorded_by,
     } for record in records], "count": len(records)}
+
+
+@router.post("/backup-evidence/execute")
+def execute_backup(payload: BackupExecutionRequest, request: Request) -> dict:
+    _require_role(request, "security-operator", "admin")
+    if not payload.confirm:
+        raise HTTPException(status_code=400, detail="explicit_backup_confirmation_required")
+    if os.environ.get("BACKUP_EXECUTION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+        raise HTTPException(status_code=409, detail="backup_execution_disabled")
+    from src.platform.backup_tasks import execute_postgres_backup
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    with get_session() as session:
+        record = BackupExecution(
+            artifact_name=f"queued-backup-{uuid.uuid4().hex}.dump",
+            source="postgres-pg_dump",
+            status="queued",
+            artifact_created_at=now,
+            size_bytes=0,
+            verified=False,
+            recorded_by=getattr(request.state, "principal_id", "dashboard-service"),
+        )
+        session.add(record)
+        session.flush()
+        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(record.id), {"action": "backup_execution_requested"}, entity_type="backup_execution")
+        task = execute_postgres_backup.apply_async(args=[record.id], queue="remediation.normal")
+    return {"id": record.id, "task_id": task.id, "status": "queued"}
 
 
 @router.post("/compliance/reports")

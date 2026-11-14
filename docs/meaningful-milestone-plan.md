@@ -76,8 +76,7 @@ may validate contracts, but they do not satisfy these live acceptance gates.
   verification state and size, so operations readiness can show durable
   evidence rather than only a process-local timestamp.
 - The remaining product work is multi-user source onboarding, richer backup
-  backup execution/restore workflow, and end-to-end remediation/provider
-  operation. The
+  restore verification, and end-to-end remediation/provider operation. The
   provider publication, deployed-digest, and external-alert items listed
   above remain deferred until their infrastructure is available.
 
