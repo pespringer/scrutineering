@@ -232,6 +232,9 @@ The dashboard now uses the authenticated Python data API when Compose sets
 Scan history supports server-side search, status filters, pagination, targeted
 scan submission, and polling of queued scan status. Apply database migrations
 before using scan controls.
+Image detail workflows support auditable, expiring finding suppressions and
+bounded recurring scan schedules; see [Finding Governance](docs/operations/finding-governance.md)
+and [Scan Schedules](docs/operations/scan-schedules.md).
 The Audit Trail is available at `/audit`; local operator access defaults to the
 roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
 verified OIDC ingress identity.
@@ -279,6 +282,8 @@ remediation timeline.
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
 - [Dashboard Operations](docs/operations/dashboard.md)
+- [Finding Governance](docs/operations/finding-governance.md)
+- [Scan Schedules](docs/operations/scan-schedules.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
 - [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
 - [Staging Readiness Validation](docs/operations/staging-readiness.md)

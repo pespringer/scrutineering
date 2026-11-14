@@ -41,30 +41,37 @@ Return to these items when the required external infrastructure is available:
 Until then, local providers, signed fixtures, and deterministic replay tests
 may validate contracts, but they do not satisfy these live acceptance gates.
 
-## Work Plan
+## Work Plan Status
 
-1. **Close the dashboard identity boundary.** Strip caller-supplied identity
-   headers unless the request carries the explicitly configured trusted-proxy
-   secret. Add regression coverage and document the trust model.
-2. **Add a real authentication boundary.** Support OIDC/forward-auth for the
-   dashboard while retaining API-key bootstrap for local administration. Enforce
-   viewer/operator/admin roles at every mutating route.
-3. **Remove misleading production fallback data.** Seed data may remain for an
-   explicit development mode, but production configuration must show a clear
-   backend error instead of demo findings.
-4. **Implement finding lifecycle.** Add resolved/reopened timestamps and state
-   transitions, close findings absent from a completed rescan, and expose age
-   and lifecycle state in the API and dashboard.
-5. **Connect runtime discovery to scanning.** Reuse the existing Docker and
-   containerd discovery paths, apply include/exclude policy, deduplicate by
-   immutable image identity, and schedule scans through existing queues.
-6. **Prove the remediation loop.** Run a real image through discovery, scan,
-   finding persistence, advice, guarded patch/rebuild, rescan, and resolution.
-7. **Improve remediation guidance.** Explain impact, affected package/file,
-   available fixed version, confidence, and the exact next operator action.
-8. **Run acceptance testing.** Validate the complete flow on the home lab,
-   record evidence, document prerequisites, and update the release-readiness
-   checklist with known limitations.
+1. **Complete — dashboard identity boundary.** Caller-supplied identity
+   headers are accepted only with the configured trusted-proxy secret.
+2. **Complete — authentication boundary.** Local API-key bootstrap and
+   trusted-proxy/OIDC claim mapping enforce read and mutation roles.
+3. **Complete — live data boundary.** Production routes do not silently render
+   seed findings; missing backend data produces an explicit unavailable state.
+4. **Complete — finding lifecycle.** Completed rescans resolve absent findings,
+   later observations reopen them, and the API exposes lifecycle timestamps.
+5. **Complete — runtime discovery.** Docker/containerd discovery applies the
+   configured bounds and queues deduplicated image scans.
+6. **Complete — guarded remediation loop.** The disposable fixture acceptance
+   run proved evidence verification, isolated edits, ordered validation, and a
+   clean rescan.
+7. **Complete — remediation guidance.** Findings expose impact, package/CVE/
+   file coordinates, fixed versions, confidence, and the next action.
+8. **Complete — home-lab acceptance.** Evidence and limitations are recorded
+   in the acceptance run and readiness checklist.
+
+### Productization now in progress
+
+- Auditable, expiring finding suppressions with revoke behavior are available.
+- Operations health is derived from live Redis, Celery, and backup evidence;
+  deferred infrastructure gates are shown separately.
+- Per-image scan schedules are durable, bounded, pausable, and visible in the
+  image detail workflow.
+- The remaining product work is multi-user source onboarding, richer backup
+  execution evidence, and end-to-end remediation/provider operation. The
+  provider publication, deployed-digest, and external-alert items listed
+  above remain deferred until their infrastructure is available.
 
 ## Definition of Done
 

@@ -12,7 +12,8 @@ dashboard displays a `Suppressed` badge and keeps the exception visible in the
 finding payload. Expiration is automatic; an expired exception is no longer
 active and the finding remains open.
 
-Operators can revoke an active exception through the API:
+Operators can select findings and choose **Revoke suppression** in the same
+dashboard action bar. The API form is also available for automation:
 
 ```bash
 curl -X POST http://localhost:3001/api/findings/unsuppress \

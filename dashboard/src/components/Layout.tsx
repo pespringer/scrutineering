@@ -8,9 +8,13 @@ import { Activity, ArrowUpRight, ClipboardList, Gauge, LayoutDashboard, Radar, S
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const [session, setSession] = useState<{ subject?: string; email?: string | null; roles?: string[] } | null>(null);
+  const [health, setHealth] = useState<{ status: string; checks?: Record<string, { status: string }> } | null>(null);
   useEffect(() => { fetch("/api/session", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then(setSession).catch(() => setSession(null)); }, []);
+  useEffect(() => { fetch("/api/system/health", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then(setHealth).catch(() => setHealth(null)); }, []);
   const identity = session?.email || session?.subject || "Local operator";
   const role = session?.roles?.[0] || "dashboard";
+  const systemReady = health?.status === "ready";
+  const systemLabel = systemReady ? "System operational" : health ? "Action required" : "System status unavailable";
   return (
     <div className="min-h-screen bg-transparent text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
@@ -27,9 +31,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <NavLink href="/operations" active={pathname.startsWith("/operations")} icon={<Gauge className="h-4 w-4" />}>Operations</NavLink>
             <NavLink href="/remediations" active={pathname.startsWith("/remediations")} icon={<ShieldCheck className="h-4 w-4" />}>Remediations</NavLink>
           </nav>
-          <div className="mt-auto rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-300"><span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(56,211,159,.8)]" />System operational</div>
-            <p className="text-xs leading-5 text-slate-500">All services are reporting. Last sync is live from the scan control plane.</p>
+          <div className={`mt-auto rounded-2xl border p-4 ${systemReady ? "border-emerald-400/15 bg-emerald-400/[0.05]" : "border-amber-400/20 bg-amber-400/[0.05]"}`}>
+            <div className={`mb-3 flex items-center gap-2 text-sm font-medium ${systemReady ? "text-emerald-300" : "text-amber-200"}`}><span className={`h-2 w-2 rounded-full ${systemReady ? "bg-emerald-400 shadow-[0_0_12px_rgba(56,211,159,.8)]" : "bg-amber-400"}`} />{systemLabel}</div>
+            <p className="text-xs leading-5 text-slate-500">{systemReady ? "All required control-plane checks are reporting ready." : "Open Operations for live control-plane diagnostics and blocked checks."}</p>
           </div>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
