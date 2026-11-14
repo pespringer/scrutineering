@@ -8,6 +8,7 @@ from src.scan.reliability import ScanCooldown, classify_scan_failure, cooldown_a
 from src.scan.registry_diagnostics import classify_registry_error, diagnose_registry, private_registry_evidence
 from src.platform import backup_tasks
 from src.platform.backup_tasks import _pg_dump_database_url, report_backup_freshness
+from src.platform.onboarding import onboarding_summary
 
 
 def test_backup_rotation_is_dry_run_and_freshness_is_bounded():
@@ -47,6 +48,18 @@ def test_backup_task_is_explicitly_not_configured_without_metadata():
 
 def test_pg_dump_url_removes_sqlalchemy_driver_suffix():
     assert _pg_dump_database_url("postgresql+psycopg2://user:secret@postgres:5432/db") == "postgresql://user:secret@postgres:5432/db"
+
+
+def test_onboarding_summary_separates_required_and_deferred_steps():
+    result = onboarding_summary([
+        {"key": "database", "status": "ready"},
+        {"key": "source", "status": "action"},
+        {"key": "alerts", "status": "deferred"},
+    ])
+    assert result["status"] == "action_required"
+    assert result["completed"] == 1
+    assert result["required"] == 2
+    assert result["actions"] == ["source"]
 
 
 def test_backup_observation_is_persisted_once_with_audit_evidence(monkeypatch):
