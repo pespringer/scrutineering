@@ -8,7 +8,8 @@ import hashlib
 import hmac
 import json
 import uuid
-from urllib.request import urlopen
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -224,6 +225,43 @@ def _image_payload(image: Image, findings: list[ScanFinding], resolved_count: in
         "medium_count": counts["medium"],
         "low_count": counts["low"],
     }
+
+
+def _local_registry_base_url() -> str:
+    configured = os.environ.get("LOCAL_REGISTRY_URL", "").strip()
+    if configured:
+        return configured.rstrip("/")
+    host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
+    return f"{scheme}://{host}"
+
+
+def _local_registry_public_url() -> str:
+    configured = os.environ.get("LOCAL_REGISTRY_PUBLIC_URL", "").strip()
+    if configured:
+        return configured.rstrip("/")
+    host = os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000").strip()
+    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
+    return f"{scheme}://{host}"
+
+
+def _registry_json(path: str) -> dict:
+    request = UrlRequest(f"{_local_registry_base_url()}{path}", headers={"accept": "application/json"})
+    with urlopen(request, timeout=10) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _registry_manifest_metadata(repository: str, tag: str) -> dict:
+    path = f"/v2/{quote(repository, safe='/')}/manifests/{quote(tag, safe='')}"
+    request = UrlRequest(f"{_local_registry_base_url()}{path}", headers={
+        "accept": ", ".join([
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+        ])
+    }, method="HEAD")
+    with urlopen(request, timeout=10) as response:
+        return {"digest": response.headers.get("Docker-Content-Digest"), "size": int(response.headers.get("Content-Length") or 0)}
 
 
 def _finding_payload(finding: ScanFinding) -> dict:
@@ -647,6 +685,89 @@ def image_inventory(
     for finding in findings:
         findings_by_image[finding.image_id].append(finding)
     return _page([_image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)) for image in images], limit, offset, total)
+
+
+@router.get("/registry/inventory")
+def registry_inventory(request: Request) -> dict:
+    """Return the local registry catalog joined with scan and finding state."""
+    _require_role(request, "dashboard", "operator", "security-operator")
+    try:
+        catalog = _registry_json("/v2/_catalog?n=1000")
+        repositories = [str(value) for value in catalog.get("repositories", [])]
+        catalog_items: list[dict] = []
+        for repository in repositories:
+            tags_payload = _registry_json(f"/v2/{quote(repository, safe='/')}/tags/list")
+            for tag in sorted(tags_payload.get("tags") or []):
+                try:
+                    manifest = _registry_manifest_metadata(repository, str(tag))
+                except Exception as exc:
+                    manifest = {"digest": None, "size": 0, "error": str(exc)[:200]}
+                catalog_items.append({"repository": repository, "tag": str(tag), **manifest})
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="local_registry_unavailable") from exc
+
+    registry_host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+    with get_session() as session:
+        images = session.query(Image).filter(Image.active.is_(True)).all()
+        image_ids = [image.id for image in images]
+        scans = session.query(Scan).filter(Scan.image_id.in_(image_ids)).order_by(Scan.started_at.desc(), Scan.id.desc()).all() if image_ids else []
+        findings = session.query(ScanFinding).filter(ScanFinding.image_id.in_(image_ids)).all() if image_ids else []
+
+    scans_by_image: dict[int, Scan] = {}
+    for scan in scans:
+        scans_by_image.setdefault(scan.image_id, scan)
+    findings_by_image: dict[int, list[ScanFinding]] = defaultdict(list)
+    for finding in findings:
+        findings_by_image[finding.image_id].append(finding)
+    image_lookup: dict[tuple[str, str], Image] = {}
+    for image in images:
+        image_lookup[(f"{registry_host}/{image.repo_name}", image.tag)] = image
+        image_lookup[(image.repo_name, image.tag)] = image
+
+    tags: list[dict] = []
+    for item in catalog_items:
+        image = image_lookup.get((f"{registry_host}/{item['repository']}", item["tag"])) or image_lookup.get((item["repository"], item["tag"]))
+        image_findings = [finding for finding in findings_by_image.get(image.id, []) if not finding.remediated and finding.resolved_at is None] if image else []
+        scan = scans_by_image.get(image.id) if image else None
+        scan_status = _value(scan.status) if scan else None
+        if scan_status in {"pending", "running"}:
+            security_status = "scanning"
+        elif scan_status == "failed":
+            security_status = "scan_failed"
+        elif scan is None:
+            security_status = "not_scanned"
+        elif image_findings:
+            security_status = "issues_found"
+        else:
+            security_status = "clean"
+        tags.append({
+            **item,
+            "image_id": image.id if image else None,
+            "scan_id": scan.scan_id if scan else None,
+            "scan_status": scan_status,
+            "last_scan_at": _iso(image.last_scan_at) if image else None,
+            "security_status": security_status,
+            "open_findings": len(image_findings),
+            "critical_count": sum(1 for finding in image_findings if _value(finding.severity) == "critical"),
+            "high_count": sum(1 for finding in image_findings if _value(finding.severity) == "high"),
+            "image_name": f"{registry_host}/{item['repository']}:{item['tag']}",
+        })
+
+    counts = Counter(item["security_status"] for item in tags)
+    return {
+        "registry": {"host": os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000"), "url": _local_registry_public_url(), "internal_host": registry_host, "reachable": True},
+        "repositories": repositories,
+        "tags": tags,
+        "summary": {
+            "repositories": len(repositories),
+            "tags": len(tags),
+            "scanned": len(tags) - counts.get("not_scanned", 0),
+            "not_scanned": counts.get("not_scanned", 0),
+            "scanning": counts.get("scanning", 0),
+            "issues_found": counts.get("issues_found", 0),
+            "clean": counts.get("clean", 0),
+        },
+    }
 
 
 @router.post("/images/bulk-archive")

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _local_registry_public_url, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -85,6 +85,17 @@ def test_dashboard_page_and_scan_request_contracts():
     assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
+
+
+def test_registry_dashboard_uses_public_host_for_browser_links(monkeypatch):
+    monkeypatch.delenv("LOCAL_REGISTRY_PUBLIC_URL", raising=False)
+    monkeypatch.setenv("LOCAL_REGISTRY_PUBLIC_HOST", "registry.example.test:5443")
+    monkeypatch.setenv("REGISTRY_INSECURE", "false")
+
+    assert _local_registry_public_url() == "https://registry.example.test:5443"
+
+    monkeypatch.setenv("LOCAL_REGISTRY_PUBLIC_URL", "http://localhost:5000/")
+    assert _local_registry_public_url() == "http://localhost:5000"
 
 
 def test_deployment_evidence_request_is_digest_only():

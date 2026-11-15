@@ -51,6 +51,9 @@ internal Compose network unless `docker-compose.host-access.yml` is explicitly
 selected.
 The worker image and Compose service expose health checks for early failure
 detection.
+The Images workspace at `http://localhost:3001/images` also reads the local
+registry catalog, showing repositories, tags, immutable digests, scan state,
+open findings, and scan/rescan actions in one view.
 
 The operator workflow is documented in [Product coherence guide](docs/operations/product-coherence.md).
 The dashboard shows live scan phases, durable worker outcomes, severity trends,

@@ -29,6 +29,15 @@ Grype can read the development registry over HTTP. The image is still pulled
 through the registry; it is not required to be present in the worker's local
 Docker daemon.
 
+## Manage images in the dashboard
+
+Open `http://localhost:3001/images`. The Registry catalog section shows every
+repository tag, digest, last scan time, open finding counts, and a security
+state of `Not scanned`, `Scanning`, `Clean`, `Issues found`, or `Scan failed`.
+Use **Scan image** or **Rescan** to submit a normal-priority scan. Once the
+worker finishes, use **Details** to open the existing finding and remediation
+workflow for that exact registry image.
+
 ## Configuration and reset
 
 These variables are in `.env`:
@@ -36,6 +45,8 @@ These variables are in `.env`:
 ```dotenv
 LOCAL_REGISTRY_PORT=5000
 LOCAL_REGISTRY_HOST=registry:5000
+LOCAL_REGISTRY_PUBLIC_HOST=localhost:5000
+LOCAL_REGISTRY_PUBLIC_URL=http://localhost:5000
 REGISTRY_INSECURE=true
 GRYPE_REGISTRY_INSECURE_USE_HTTP=true
 GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY=true

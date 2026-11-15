@@ -76,6 +76,29 @@ export interface ImageDetail {
   low_count: number;
 }
 
+export interface RegistryTag {
+  repository: string;
+  tag: string;
+  digest: string | null;
+  size: number;
+  image_id: number | null;
+  scan_id: string | null;
+  scan_status: string | null;
+  last_scan_at: string | null;
+  security_status: "clean" | "issues_found" | "scanning" | "scan_failed" | "not_scanned";
+  open_findings: number;
+  critical_count: number;
+  high_count: number;
+  image_name: string;
+}
+
+export interface RegistryInventory {
+  registry: { host: string; url: string; internal_host?: string; reachable: boolean };
+  repositories: string[];
+  tags: RegistryTag[];
+  summary: { repositories: number; tags: number; scanned: number; not_scanned: number; scanning: number; issues_found: number; clean: number };
+}
+
 export interface SeverityTrend {
   date: string;
   critical: number;
