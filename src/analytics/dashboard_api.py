@@ -338,10 +338,17 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
     stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
+    remediation_events = list(getattr(remediation, "events", []) or [])
+    latest_event = remediation_events[-1] if remediation_events else None
+    workflow_state = "execution_ready" if latest_event and latest_event.event_type == "execution_ready" else "execution_blocked" if latest_event and latest_event.event_type == "execution_blocked" else _value(remediation.status)
+    workflow_label = {"execution_ready": "Execution ready", "execution_blocked": "Execution blocked", "requires_review": "Awaiting approval", "analyzing": "Awaiting execution", "completed": "Completed", "failed": "Failed"}.get(workflow_state, workflow_state.replace("_", " ").title())
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
         "status": _value(remediation.status),
+        "workflow_state": workflow_state,
+        "workflow_label": workflow_label,
+        "latest_event_type": latest_event.event_type if latest_event else None,
         "finding_count": remediation.finding_count,
         "open_finding_count": max(len(remediation_findings) - resolved_findings, 0),
         "resolved_finding_count": resolved_findings,

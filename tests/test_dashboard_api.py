@@ -50,6 +50,20 @@ def test_remediation_serializer_exposes_open_and_resolved_counts():
     assert payload["resolution_status"] == "open"
 
 
+def test_remediation_serializer_exposes_operator_workflow_state():
+    remediation = SimpleNamespace(
+        id=4, image_id=7, status="analyzing", finding_count=1,
+        target_severities=["high"], approved_by=None, approved_at=None,
+        findings=[SimpleNamespace(resolved_at=None)], publications=[], actions=[],
+        events=[SimpleNamespace(event_type="execution_ready")],
+    )
+
+    payload = _remediation_payload(remediation)
+
+    assert payload["workflow_state"] == "execution_ready"
+    assert payload["workflow_label"] == "Execution ready"
+
+
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
