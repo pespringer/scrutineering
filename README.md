@@ -52,6 +52,10 @@ selected.
 The worker image and Compose service expose health checks for early failure
 detection.
 
+The operator workflow is documented in [Product coherence guide](docs/operations/product-coherence.md).
+The dashboard shows live scan phases, durable worker outcomes, severity trends,
+and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
+
 Provider publication and callbacks are gated by explicit configuration. Use
 `npm run drill:staging-provider` to exercise normalized merge callbacks,
 post-merge verification, and rollback output with deterministic fixtures.

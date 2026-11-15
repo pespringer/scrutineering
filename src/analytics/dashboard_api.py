@@ -191,6 +191,8 @@ def _scan_payload(scan: Scan) -> dict:
         "image_id": getattr(scan, "image_id", None),
         "image_name": scan.image.full_name if scan.image else "unknown",
         "status": _value(scan.status),
+        "phase": getattr(scan, "phase", None) or _value(scan.status),
+        "task_id": getattr(scan, "task_id", None),
         "started_at": _iso(scan.started_at),
         "completed_at": _iso(scan.completed_at),
         "findings": scan.total_findings or 0,
@@ -396,6 +398,20 @@ def posture_trend(days: int = Query(default=30, ge=1, le=365)) -> list[dict]:
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     with get_session() as session:
         snapshots = session.query(SeveritySnapshot).filter(SeveritySnapshot.snapshot_date >= cutoff).all()
+        if not snapshots:
+            scans = session.query(Scan).filter(
+                Scan.status.in_([ScanStatus.COMPLETED, ScanStatus.PARTIAL]),
+                Scan.completed_at >= cutoff,
+            ).order_by(Scan.completed_at).all()
+            grouped = defaultdict(lambda: {"critical": 0, "high": 0, "medium": 0, "low": 0})
+            for scan in scans:
+                if scan.completed_at:
+                    day = scan.completed_at.date().isoformat()
+                    grouped[day]["critical"] = max(grouped[day]["critical"], scan.critical_count or 0)
+                    grouped[day]["high"] = max(grouped[day]["high"], scan.high_count or 0)
+                    grouped[day]["medium"] = max(grouped[day]["medium"], scan.medium_count or 0)
+                    grouped[day]["low"] = max(grouped[day]["low"], scan.low_count or 0)
+            return [{"date": day, **grouped[day]} for day in sorted(grouped)]
 
     grouped: dict[str, dict[str, int]] = defaultdict(lambda: {"critical": 0, "high": 0, "medium": 0, "low": 0})
     for snapshot in snapshots:
@@ -495,7 +511,7 @@ def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
         scans = session.query(Scan).join(Image).filter(Scan.scan_id.in_([str(value) for value in payload.ids]), Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED])).all()
         for scan in scans:
             retry_id = uuid.uuid4().hex
-            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, started_at=now, image_digest=scan.image_digest))
+            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, phase="queued", task_id=retry_id, started_at=now, image_digest=scan.image_digest))
             _record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id, {"action": "retry_scan", "source_scan_id": scan.scan_id})
             retried.append({"source_scan_id": scan.scan_id, "scan_id": retry_id, "image_name": scan.image.full_name})
     for item in retried:
@@ -563,6 +579,8 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
                 scan_id=scan_id,
                 image_id=image.id,
                 status=ScanStatus.PENDING.value,
+                phase="queued",
+                task_id=scan_id,
                 started_at=now,
                 image_digest=identity.digest,
             ))

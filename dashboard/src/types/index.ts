@@ -3,6 +3,8 @@ export interface ScanResult {
   image_id?: number;
   image_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
+  phase?: string;
+  task_id?: string | null;
   started_at: string;
   completed_at?: string;
   findings: number;
@@ -78,4 +80,11 @@ export interface SeverityTrend {
   high: number;
   medium: number;
   low: number;
+}
+
+export interface DashboardSession {
+  authenticated: boolean;
+  subject?: string;
+  email?: string | null;
+  roles?: string[];
 }
