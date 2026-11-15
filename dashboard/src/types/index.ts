@@ -68,6 +68,7 @@ export interface ImageDetail {
   last_scan_at: string | null;
   last_scan_id: string | null;
   open_findings: number;
+  resolved_findings?: number;
   critical_count: number;
   high_count: number;
   medium_count: number;

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -30,8 +30,24 @@ def test_dashboard_serializers_match_frontend_contract():
 
     assert _severity_counts([finding]) == {"critical": 0, "high": 1, "medium": 0, "low": 0}
     assert _image_payload(image, [finding])["open_findings"] == 1
+    assert _image_payload(image, [finding], resolved_count=2)["resolved_findings"] == 2
     assert _scan_payload(scan)["status"] == "completed"
     assert _finding_payload(finding)["severity"] == "HIGH"
+
+
+def test_remediation_serializer_exposes_open_and_resolved_counts():
+    remediation = SimpleNamespace(
+        id=3, image_id=7, status="completed", finding_count=2,
+        target_severities=["high"], approved_by=None, approved_at=None,
+        findings=[SimpleNamespace(resolved_at=None), SimpleNamespace(resolved_at=datetime(2026, 1, 3))],
+        publications=[], actions=[],
+    )
+
+    payload = _remediation_payload(remediation)
+
+    assert payload["open_finding_count"] == 1
+    assert payload["resolved_finding_count"] == 1
+    assert payload["resolution_status"] == "open"
 
 
 def test_dashboard_page_and_scan_request_contracts():

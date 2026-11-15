@@ -7,7 +7,7 @@ import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 
-type Remediation = { id: number; image_id: number; status: string; finding_count: number; stale_publication_count?: number; actions: Array<{ package_name?: string }> };
+type Remediation = { id: number; image_id: number; status: string; finding_count: number; open_finding_count?: number; resolved_finding_count?: number; resolution_status?: string; stale_publication_count?: number; actions: Array<{ package_name?: string }> };
 type Health = { status: string; last_run?: { completed_at?: string; discovered?: number; events_recorded?: number } | null };
 
 export default function RemediationsPage() {

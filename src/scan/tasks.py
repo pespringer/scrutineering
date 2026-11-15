@@ -157,7 +157,7 @@ def _write_severity_snapshot(image_name: str, scan_id: str) -> None:
         if image is None:
             return
         findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id == image.id, ScanFinding.remediated.is_(False)
+            ScanFinding.image_id == image.id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)
         ).all()
         counts = {severity.value: 0 for severity in DbSeverity}
         for finding in findings:

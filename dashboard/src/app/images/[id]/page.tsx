@@ -100,13 +100,14 @@ export default function ImageDetailPage() {
         </div>
 
         {/* Stats row */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-6">
           {[
             { label: "Total Open", value: image.open_findings, color: "text-slate-100" },
             { label: "Critical", value: image.critical_count, color: "text-red-400" },
             { label: "High", value: image.high_count, color: "text-orange-400" },
             { label: "Medium", value: image.medium_count, color: "text-yellow-400" },
             { label: "Low", value: image.low_count, color: "text-slate-400" },
+            { label: "Resolved", value: image.resolved_findings || 0, color: "text-emerald-300" },
           ].map((stat) => (
             <div key={stat.label} className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-center">
               <span className={`text-lg font-bold ${stat.color}`}>{stat.value}</span>

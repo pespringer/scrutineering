@@ -27,6 +27,13 @@ execution state, publication status, and verification evidence. After a fix is
 verified, the follow-up scan is the source of truth for the remaining finding
 count.
 
+Finding lifecycle is based on the latest complete scan: a finding that is no
+longer observed receives `resolved_at` and is excluded from open-risk totals,
+severity charts, exports, and new remediation proposals. If the same
+fingerprint returns on a later scan, it is reopened automatically. Image detail
+and remediation responses expose both open and resolved counts so operators can
+tell the difference between “nothing has been scanned” and “the risk is gone.”
+
 ## External gates
 
 Provider publication, deployment observation, and live alert delivery are
