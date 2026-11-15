@@ -55,6 +55,18 @@ curl http://localhost:8000/health
 npm run smoke:dashboard
 ```
 
+The Compose stack includes a local OCI registry for image-based testing. It is
+available on the host at `localhost:5000` and to the worker as `registry:5000`:
+
+```bash
+docker tag your-image:tag localhost:5000/scrutineering-test:latest
+docker push localhost:5000/scrutineering-test:latest
+```
+
+Use `registry:5000/scrutineering-test:latest` when submitting a scan from the
+dashboard. The registry volume is named `scrutineering_registrydata` and can
+be removed when intentionally resetting local test images.
+
 ## API Reference
 
 The Planner API (Node.js) runs on port 3000. All endpoints accept and return JSON.

@@ -7,6 +7,7 @@
 #   dashboard     — Next.js operations dashboard
 #   postgres      — PostgreSQL 16 (metadata + scan results)
 #   redis         — Redis 7 (Celery broker / result backend)
+#   registry      — local OCI registry for disposable image workflows
 #   celery-worker — Python Celery worker (runs Trivy / Grype scans)
 #   celery-beat   — Celery Beat scheduler for periodic scan tasks
 #
@@ -203,6 +204,28 @@ services:
       start_period: 5s
 
   # ---------------------------------------------------------------------------
+  # Local OCI Registry — disposable image push/pull target for development
+  # ---------------------------------------------------------------------------
+  registry:
+    image: registry:2
+    container_name: scrutineering-registry
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "${LOCAL_REGISTRY_PORT:-5000}:5000"
+    volumes:
+      - registrydata:/var/lib/registry
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5000/v2/ >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
   # Celery Worker — vulnerability scanning (Trivy + Grype)
   # ---------------------------------------------------------------------------
   celery-worker:
@@ -227,6 +250,10 @@ services:
       - SCANNER_TIMEOUT=${SCANNER_TIMEOUT:-1800}
       - SCANNER_CACHE_DIR=${SCANNER_CACHE_DIR:-/tmp/scanner-cache}
       - GRYPE_DB_CACHE_DIR=${GRYPE_DB_CACHE_DIR:-/tmp/grype}
+      - LOCAL_REGISTRY_HOST=${LOCAL_REGISTRY_HOST:-registry:5000}
+      - REGISTRY_INSECURE=${REGISTRY_INSECURE:-true}
+      - GRYPE_REGISTRY_INSECURE_USE_HTTP=${GRYPE_REGISTRY_INSECURE_USE_HTTP:-true}
+      - GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY=${GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY:-true}
       - SCANNER_MAX_OUTPUT_BYTES=${SCANNER_MAX_OUTPUT_BYTES:-50000000}
       - SCANNER_MAX_FINDINGS=${SCANNER_MAX_FINDINGS:-100000}
       - SCAN_COOLDOWN_SECONDS=${SCAN_COOLDOWN_SECONDS:-3600}
@@ -267,6 +294,8 @@ services:
       redis:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      registry:
         condition: service_healthy
     restart: unless-stopped
     networks:
@@ -329,4 +358,6 @@ networks:
 # ---------------------------------------------------------------------------
 volumes:
   pgdata:
+    driver: local
+  registrydata:
     driver: local

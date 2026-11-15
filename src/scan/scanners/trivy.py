@@ -11,6 +11,7 @@ Provides an async interface to the `trivy image` command with:
 import asyncio
 import json
 import logging
+import os
 from typing import Optional
 
 from .base import ScannerAdapter, ScannerFinding, ScannerError
@@ -96,6 +97,8 @@ class TrivyScanner(ScannerAdapter):
         ]
         if root is not None and (ignore_file := root / ".trivyignore").is_file():
             cmd[1:1] = ["--ignorefile", str(ignore_file)]
+        if root is None and os.environ.get("REGISTRY_INSECURE", "false").lower() in {"1", "true", "yes"}:
+            cmd.insert(1, "--insecure")
 
         # Add registry auth if provided
         if self.registry_server and self.registry_username and self.registry_password:

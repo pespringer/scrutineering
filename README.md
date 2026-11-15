@@ -91,6 +91,24 @@ docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
 docker compose exec app node scripts/run-verification-harness.mjs
 ```
 
+The default Compose stack also starts a persistent local OCI registry at
+`http://localhost:5000`. Push images from the host using `localhost:5000`,
+then scan them from the application network using `registry:5000`:
+
+```bash
+docker compose ps registry
+docker tag your-image:tag localhost:5000/scrutineering-test:latest
+docker push localhost:5000/scrutineering-test:latest
+# Use registry:5000/scrutineering-test:latest in the dashboard scan form.
+curl http://localhost:5000/v2/
+```
+
+Registry data is stored in the `registrydata` Compose volume. The development
+registry uses HTTP and is intentionally enabled only for local testing; use a
+TLS-protected registry and set `REGISTRY_INSECURE=false` outside local
+development. See [local registry operations](docs/operations/local-registry.md)
+for the complete workflow.
+
 ## Development Setup
 
 ```bash
