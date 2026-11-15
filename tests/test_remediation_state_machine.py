@@ -19,6 +19,7 @@ from src.remediation.state_machine import (
         (RemediationStatus.VERIFYING, RemediationStatus.PR_OPENED),
         (RemediationStatus.PR_OPENED, RemediationStatus.COMPLETED),
         (RemediationStatus.REQUIRES_REVIEW, RemediationStatus.ANALYZING),
+        (RemediationStatus.FAILED, RemediationStatus.REQUIRES_REVIEW),
     ],
 )
 def test_valid_transitions_are_accepted(current, target):

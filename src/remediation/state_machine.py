@@ -43,7 +43,9 @@ TRANSITIONS: dict[RemediationStatus, frozenset[RemediationStatus]] = {
         RemediationStatus.FAILED,
     }),
     RemediationStatus.COMPLETED: frozenset(),
-    RemediationStatus.FAILED: frozenset(),
+    RemediationStatus.FAILED: frozenset({
+        RemediationStatus.REQUIRES_REVIEW,
+    }),
     RemediationStatus.SKIPPED: frozenset(),
 }
 

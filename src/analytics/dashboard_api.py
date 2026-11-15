@@ -249,6 +249,7 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
+        "remediation_id": getattr(finding, "remediation_id", None),
     }
 
 
@@ -340,8 +341,8 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
     remediation_events = list(getattr(remediation, "events", []) or [])
     latest_event = remediation_events[-1] if remediation_events else None
-    workflow_state = "execution_ready" if latest_event and latest_event.event_type == "execution_ready" else "execution_blocked" if latest_event and latest_event.event_type == "execution_blocked" else _value(remediation.status)
-    workflow_label = {"execution_ready": "Execution ready", "execution_blocked": "Execution blocked", "requires_review": "Awaiting approval", "analyzing": "Awaiting execution", "completed": "Completed", "failed": "Failed"}.get(workflow_state, workflow_state.replace("_", " ").title())
+    workflow_state = _remediation_workflow_state(remediation, remediation_events)
+    workflow_label = {"execution_queued": "Queued for execution", "execution_started": "Execution in progress", "execution_ready": "Execution ready", "execution_blocked": "Execution blocked", "requires_review": "Awaiting approval", "analyzing": "Awaiting execution", "completed": "Completed", "failed": "Failed"}.get(workflow_state, workflow_state.replace("_", " ").title())
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
@@ -384,6 +385,20 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "alert_evidence": [{"id": evidence.id, "delivery_key": evidence.delivery_key, "receiver": evidence.receiver, "status": evidence.status, "response_code": evidence.response_code, "attempt": evidence.attempt, "detail": evidence.detail, "created_at": _iso(evidence.created_at)} for evidence in publication.alert_evidence],
         } for publication in remediation.publications],
     }
+
+
+def _remediation_workflow_state(remediation: Remediation, events: list | None = None) -> str:
+    """Return the operator-facing state, including asynchronous execution progress."""
+    status = _value(remediation.status)
+    if status == RemediationStatus.REQUIRES_REVIEW.value:
+        return status
+    execution_events = {"execution_queued", "execution_started", "execution_ready", "execution_blocked", "execution_retry_requested"}
+    for event in reversed(events if events is not None else list(getattr(remediation, "events", []) or [])):
+        if event.event_type == "execution_retry_requested":
+            return RemediationStatus.REQUIRES_REVIEW.value
+        if event.event_type in execution_events:
+            return event.event_type
+    return status
 
 
 @router.get("/posture/summary")
@@ -914,11 +929,29 @@ def publication_reconciliation_health(request: Request) -> dict:
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
+    requested_ids = set(payload.finding_ids)
+    if len(requested_ids) != len(payload.finding_ids):
+        raise HTTPException(status_code=400, detail="finding_ids_must_be_unique")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
+        requested_findings = session.query(ScanFinding).filter(
+            ScanFinding.image_id == payload.image_id,
+            ScanFinding.id.in_(requested_ids),
+        ).all()
+        already_owned = {
+            finding.id: finding.remediation_id
+            for finding in requested_findings
+            if finding.remediation_id is not None
+        }
+        if already_owned:
+            raise HTTPException(status_code=409, detail={
+                "code": "finding_already_in_remediation",
+                "finding_ids": sorted(already_owned),
+                "remediation_ids": sorted({value for value in already_owned.values() if value is not None}),
+            })
         findings = session.query(ScanFinding).filter(
             ScanFinding.image_id == payload.image_id,
-            ScanFinding.id.in_(payload.finding_ids),
+            ScanFinding.id.in_(requested_ids),
             ScanFinding.remediated.is_(False),
             ScanFinding.resolved_at.is_(None),
             ScanFinding.fix_available.is_(True),
@@ -1026,11 +1059,44 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
         remediation = session.get(Remediation, remediation_id)
         if remediation is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
+        events = RemediationRepository.list_events(session, remediation_id)
+        if any(event.event_type == "execution_ready" for event in events):
+            raise HTTPException(status_code=409, detail="remediation_execution_already_complete")
+        if any(event.event_type in {"execution_queued", "execution_started"} for event in events):
+            raise HTTPException(status_code=409, detail="remediation_execution_already_queued")
         if _value(remediation.status) != RemediationStatus.ANALYZING.value:
             raise HTTPException(status_code=409, detail="remediation_not_approved")
+        RemediationRepository.append_event(session, {
+            "remediation_id": remediation_id,
+            "event_type": "execution_queued",
+            "sequence": len(events) + 1,
+            "detail": {"action": "execution_queued"},
+        })
         task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
     return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
+
+
+@router.post("/remediations/{remediation_id}/retry")
+def retry_remediation(remediation_id: int, request: Request) -> dict:
+    """Return a failed execution to approval so an operator can deliberately restart it."""
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) != RemediationStatus.FAILED.value:
+            raise HTTPException(status_code=409, detail="remediation_not_failed")
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.REQUIRES_REVIEW)
+        remediation.error_message = None
+        events = RemediationRepository.list_events(session, remediation_id)
+        RemediationRepository.append_event(session, {
+            "remediation_id": remediation_id,
+            "event_type": "execution_retry_requested",
+            "sequence": len(events) + 1,
+            "detail": {"action": "execution_retry_requested"},
+        })
+        return _remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
 
 
 @router.post("/remediations/{remediation_id}/publication-plan")

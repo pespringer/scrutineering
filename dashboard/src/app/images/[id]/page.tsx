@@ -68,12 +68,16 @@ export default function ImageDetailPage() {
     const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: selectedFindings }) });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      setNotice(body.detail || "Unable to create a remediation proposal.");
+      const detail = typeof body.detail === "string" ? body.detail : body.detail?.code === "finding_already_in_remediation" ? `Those findings are already reserved by remediation #${body.detail.remediation_ids?.join(", #") || "another"}.` : "Unable to create a remediation proposal.";
+      setNotice(detail);
+      setSelectedFindings([]);
+      loadData();
       return;
     }
     const remediation = await response.json();
     setSelectedFindings([]);
-    setNotice(`Remediation #${remediation.id} created. Review it before approving execution.`);
+    setNotice(`Remediation #${remediation.id} created. Those findings are now reserved and cannot be proposed again.`);
+    loadData();
   }
 
   const handleSeverityChange = (sev: string) => {

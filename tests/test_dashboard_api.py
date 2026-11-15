@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -20,7 +20,7 @@ def test_dashboard_serializers_match_frontend_contract():
         package_name="openssl", package_version="3.0.0", package_type="apk",
         severity=Severity.HIGH, title="Example finding", description="Details",
         fixed_version="3.0.1", file_path="requirements.txt", fix_available=True, first_seen=datetime(2026, 1, 1),
-        last_seen=datetime(2026, 1, 2), remediated=False, acknowledged=False, assigned_to=None,
+        last_seen=datetime(2026, 1, 2), remediated=False, acknowledged=False, assigned_to=None, remediation_id=None,
     )
     scan = SimpleNamespace(
         scan_id="scan-7", image=image, status=ScanStatus.COMPLETED,
@@ -33,6 +33,7 @@ def test_dashboard_serializers_match_frontend_contract():
     assert _image_payload(image, [finding], resolved_count=2)["resolved_findings"] == 2
     assert _scan_payload(scan)["status"] == "completed"
     assert _finding_payload(finding)["severity"] == "HIGH"
+    assert _finding_payload(finding)["remediation_id"] is None
 
 
 def test_remediation_serializer_exposes_open_and_resolved_counts():
@@ -62,6 +63,20 @@ def test_remediation_serializer_exposes_operator_workflow_state():
 
     assert payload["workflow_state"] == "execution_ready"
     assert payload["workflow_label"] == "Execution ready"
+
+
+@pytest.mark.parametrize(
+    "event_type,expected",
+    [
+        ("execution_queued", "execution_queued"),
+        ("execution_started", "execution_started"),
+        ("execution_ready", "execution_ready"),
+        ("execution_blocked", "execution_blocked"),
+    ],
+)
+def test_remediation_workflow_state_tracks_execution_events(event_type, expected):
+    remediation = SimpleNamespace(status="analyzing")
+    assert _remediation_workflow_state(remediation, [SimpleNamespace(event_type=event_type)]) == expected
 
 
 def test_dashboard_page_and_scan_request_contracts():

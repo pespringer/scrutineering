@@ -111,6 +111,23 @@ by the worker's unprivileged `scanner` user. The worker image includes Git,
 Node/npm, Syft, Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
 trusted release workflow.
 
+### Dashboard workflow states
+
+The dashboard treats a finding reservation and execution request as one
+idempotent workflow. Creating a remediation reserves each selected finding;
+reserved findings display their remediation number and cannot be selected for a
+second proposal. Queueing execution records `execution_queued`, and the worker
+then records `execution_started` followed by either `execution_ready` or
+`execution_blocked`. The queue control is locked for queued, in-progress, and
+ready work. A failed execution exposes an explicit restart action, which sends
+the remediation back through approval before it can run again.
+
+The database `status` is retained for compatibility with older integrations,
+but the UI uses the durable execution event state. This prevents an internal
+`analyzing` value from appearing as if work is stalled. Repeated API requests
+are rejected with a conflict response instead of creating duplicate worker
+tasks.
+
 ### Generate the local test bundle
 
 The repository includes `.github/workflows/remediation-evidence.yml`. Run it
