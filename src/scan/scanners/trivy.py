@@ -94,6 +94,8 @@ class TrivyScanner(ScannerAdapter):
             "--cache-dir", self.cache_dir,
             scan_target,
         ]
+        if root is not None and (ignore_file := root / ".trivyignore").is_file():
+            cmd[1:1] = ["--ignorefile", str(ignore_file)]
 
         # Add registry auth if provided
         if self.registry_server and self.registry_username and self.registry_password:

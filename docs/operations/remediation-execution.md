@@ -154,7 +154,9 @@ The Compose setup already provides a disposable checkout at
 `.local/remediation-repo/source-fixture`. It contains a deliberately vulnerable
 `lodash@4.17.20` dependency and is mounted into the worker as
 `/workspace/repository/source-fixture`. This lets you validate the complete
-local workflow without pushing an image to a registry.
+local workflow without pushing an image to a registry. The fixture’s committed
+`.trivyignore` narrows the scenario to one CVE so the post-change rescan can
+prove a clean result without mixing unrelated lodash advisories.
 
 Queue the scan through Celery so it receives a real task ID and follows the
 same execution path as dashboard scans:

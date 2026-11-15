@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
 
-from .worktree import RemediationWorktree
+from .worktree import RemediationWorktree, _git_env
 from .approval import verify_approval
 from src.scan.evidence import EvidenceVerificationError, verify_evidence, verify_release_evidence
 from src.platform.controls import bounded_output, classify_validation_failure, guard_changed_files
@@ -100,7 +100,7 @@ def execute_remediation(
                     return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=f"validation failed: {command[0]}")
             diff = subprocess.run(
                 ["git", "diff", "--name-only"], cwd=worktree, check=True,
-                capture_output=True, text=True,
+                capture_output=True, text=True, env=_git_env(worktree),
             )
             changed_files = [line for line in diff.stdout.splitlines() if line]
             try:
@@ -112,14 +112,14 @@ def execute_remediation(
                 return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=str(exc))
             commit = None
             if commit_message and changed_files:
-                subprocess.run(["git", "add", "--all"], cwd=worktree, check=True, capture_output=True, text=True)
+                subprocess.run(["git", "add", "--all"], cwd=worktree, check=True, capture_output=True, text=True, env=_git_env(worktree))
                 committed = subprocess.run(
                     ["git", "-c", "user.name=Scrutineering", "-c", "user.email=security@example.invalid", "commit", "-m", commit_message],
-                    cwd=worktree, check=True, capture_output=True, text=True,
+                    cwd=worktree, check=True, capture_output=True, text=True, env=_git_env(worktree),
                 )
                 commit = subprocess.run(
                     ["git", "rev-parse", "HEAD"], cwd=worktree, check=True,
-                    capture_output=True, text=True,
+                    capture_output=True, text=True, env=_git_env(worktree),
                 ).stdout.strip()
             return RemediationExecution(status="ready", worktree=str(worktree), commands=command_results, changed_files=changed_files, commit=commit)
     except subprocess.TimeoutExpired as exc:
