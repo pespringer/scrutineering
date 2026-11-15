@@ -1021,7 +1021,7 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
             raise HTTPException(status_code=404, detail="remediation_not_found")
         if _value(remediation.status) != RemediationStatus.ANALYZING.value:
             raise HTTPException(status_code=409, detail="remediation_not_approved")
-        task = execute_approved_remediation.delay(remediation_id)
+        task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
     return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
 
