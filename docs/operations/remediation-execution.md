@@ -150,12 +150,31 @@ Grype then scan the checkout directory, normalize scanner locations to relative
 paths such as `requirements.txt`, and persist a local scan record. The public
 dashboard image endpoint does not accept filesystem targets.
 
-Example from the worker container:
+The Compose setup already provides a disposable checkout at
+`.local/remediation-repo/source-fixture`. It contains a deliberately vulnerable
+`lodash@4.17.20` dependency and is mounted into the worker as
+`/workspace/repository/source-fixture`. This lets you validate the complete
+local workflow without pushing an image to a registry.
+
+Queue the scan through Celery so it receives a real task ID and follows the
+same execution path as dashboard scans:
 
 ```bash
-docker compose exec celery-worker python -c \
-  'from src.scan.tasks import run_scan; print(run_scan.run("fs:/workspace/repository", scanners=["trivy", "grype"]))'
+docker compose exec celery-worker python - <<'PY'
+from src.scan.tasks import run_scan
+
+result = run_scan.delay("fs:/workspace/repository/source-fixture", scanners=["trivy"])
+print({"task_id": result.id, "result": result.get(timeout=900)})
+PY
 ```
+
+The scan creates an image named `local/source-fixture:filesystem`. Open it in
+the dashboard, select its fixable findings, and create a remediation. Issue an
+approval token, approve the remediation, then select **Queue execution**. The
+worker should create a remediation result using the mounted checkout; no image
+registry is involved. The checkout is intentionally disposable and may be
+reset with `git -C .local/remediation-repo/source-fixture clean -fdx` followed by
+restoring the fixture files if a test modifies it.
 
 Only source paths explicitly returned by a filesystem scanner can become
 remediation actions; image findings without a repository coordinate continue to
