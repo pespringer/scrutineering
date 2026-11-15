@@ -8,13 +8,14 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import RecoveryControls from "@/components/RecoveryControls";
 
 type Event = { id: number; event_type: string; sequence: number; detail: Record<string, unknown>; created_at: string };
+type LatestEvent = { event_type: string; detail: Record<string, unknown>; created_at: string } | null;
 type Publication = { id: number; provider: string; repository: string; status: string; url: string | null; verification_status: string | null; scan_status: string | null; post_merge_scan_id: string | null; verification_detail?: Record<string, unknown>; findings_before: number | null; findings_after: number | null; rollback_command: string[] | null };
 type Remediation = { id: number; image_id: number; status: string; finding_count: number; open_finding_count?: number; resolved_finding_count?: number; resolution_status?: string; actions: Array<{ action_type: string; before_value: string | null; after_value: string | null }>; publications: Publication[] };
 
 const badgeClass = (status: string | null | undefined) => status === "verified" || status === "completed" || status === "ready" ? "bg-emerald-400/10 text-emerald-200" : status === "rollback_required" || status === "failed" || status === "blocked" ? "bg-rose-400/10 text-rose-200" : "bg-amber-400/10 text-amber-200";
 
 export default function RemediationDetail({ params }: { params: Promise<{ id: string }> }) {
-  const [data, setData] = useState<{ remediation: Remediation; events: Event[] } | null>(null);
+  const [data, setData] = useState<{ remediation: Remediation; events: Event[]; latest_event?: LatestEvent } | null>(null);
   const [token, setToken] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -22,13 +23,13 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
 
   const load = async (id: string) => {
     const [remediation, events] = await Promise.all([fetch(`/api/remediations/${id}`, { cache: "no-store" }).then((r) => r.json()), fetch(`/api/remediations/${id}/events`, { cache: "no-store" }).then((r) => r.json())]);
-    setData({ remediation, events: events.events || [] });
+    setData({ remediation, events: events.events || [], latest_event: events.latest_event || null });
   };
   useEffect(() => { params.then(({ id }) => load(id)).catch(() => setData(null)); }, [params]);
 
   const action = async (path: string, init?: RequestInit) => {
     setBusy(true); setNotice("");
-    try { const response = await fetch(path, init); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.detail || "Request failed"); setNotice(body.status ? `Workflow status: ${body.status}` : "Action accepted."); if (data) await load(String(data.remediation.id)); return body; }
+    try { const response = await fetch(path, init); const body = await response.json().catch(() => ({})); if (!response.ok) throw new Error(body.detail || "Request failed"); setNotice(body.status ? `Workflow status: ${body.status}` : "Action accepted."); if (data) { const id = String(data.remediation.id); await load(id); if (path.endsWith("/execute")) [3000, 8000, 15000].forEach((delay) => window.setTimeout(() => load(id), delay)); } return body; }
     catch (error) { setNotice(error instanceof Error ? error.message : "Request failed"); return null; }
     finally { setBusy(false); }
   };
@@ -39,10 +40,13 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
 
   if (!data) return <Layout><LoadingSpinner /></Layout>;
   const { remediation, events } = data;
+  const latestEvent = data.latest_event;
+  const workflowMessage = remediation.status === "requires_review" ? "Review the proposed changes, issue an approval token, and approve the remediation." : remediation.status === "analyzing" && latestEvent?.event_type === "execution_ready" ? "The change was validated in the disposable checkout. No external publication has been requested." : remediation.status === "analyzing" ? "Approved and waiting for execution. Queue execution to start the local validation worker." : remediation.status === "failed" ? "Execution stopped. Review the failure event below before retrying or changing configuration." : remediation.status === "completed" ? "This remediation is complete. Confirm the follow-up scan shows the targeted findings resolved." : `Workflow status: ${remediation.status}.`;
   return <Layout>
     <Link href="/remediations" className="mb-6 inline-flex items-center gap-2 text-sm text-cyan-300"><ArrowLeft className="h-4 w-4" /> Back to remediations</Link>
     <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><div className="eyebrow mb-3">Remediation #{remediation.id}</div><h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Governed fix workflow</h1><p className="mt-2 text-sm text-slate-400">Image {remediation.image_id} · {remediation.finding_count} finding(s) · {remediation.status}</p></div><div className={`rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider ${badgeClass(remediation.status)}`}>{remediation.status}</div></div>
     {notice && <div className="mb-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-100">{notice}</div>}
+    <section className={`mb-6 rounded-2xl border p-5 ${remediation.status === "failed" ? "border-rose-400/20 bg-rose-400/5" : remediation.status === "completed" ? "border-emerald-400/20 bg-emerald-400/5" : "border-cyan-400/20 bg-cyan-400/5"}`}><div className="eyebrow mb-2">What happens next</div><p className="text-sm leading-6 text-slate-200">{workflowMessage}</p>{latestEvent && <p className="mt-2 text-xs text-slate-500">Latest worker event: <span className="font-medium text-slate-300">{latestEvent.event_type.replaceAll("_", " ")}</span> · {new Date(latestEvent.created_at).toLocaleString()}</p>}{latestEvent?.detail?.reason ? <p className="mt-2 rounded-lg bg-rose-950/30 px-3 py-2 text-xs text-rose-200">Reason: {String(latestEvent.detail.reason)}</p> : null}</section>
     <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
       <section className="space-y-6">
         <div className="panel rounded-2xl p-5 sm:p-6"><div className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-200"><ShieldCheck className="h-4 w-4 text-cyan-300" /> Approval and execution</div><p className="mb-4 text-sm leading-6 text-slate-400">Every mutation requires a fresh operator approval token. Execution remains disabled unless the repository adapter, evidence, and validation gates are configured.</p><div className="flex flex-wrap gap-3"><button disabled={busy || remediation.status !== "requires_review"} onClick={requestApprovalToken} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 px-4 py-2.5 text-sm text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"><KeyRound className="h-4 w-4" /> Issue approval token</button><button disabled={busy || remediation.status !== "requires_review" || !token} onClick={approve} className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">Approve remediation</button><button disabled={busy || remediation.status !== "analyzing"} onClick={() => action(`/api/remediations/${remediation.id}/execute`, { method: "POST" })} className="inline-flex items-center gap-2 rounded-xl border border-violet-400/30 px-4 py-2.5 text-sm text-violet-100 disabled:cursor-not-allowed disabled:opacity-40"><Play className="h-4 w-4" /> Queue execution</button></div><input value={token} onChange={(event) => setToken(event.target.value)} placeholder="Approval token (kept in this browser only)" className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2.5 text-xs text-slate-200 placeholder:text-slate-600" /></div>

@@ -930,6 +930,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         remediation.status = RemediationStatus.REQUIRES_REVIEW
         actions = _remediation_actions(findings, image)
         for finding, action in zip(findings, actions):
+            finding.remediation_id = remediation.id
             RemediationRepository.add_action(
                 session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
                 file_path=_remediation_file_path(finding, image),
@@ -957,7 +958,11 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
         if session.get(Remediation, remediation_id) is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
         events = RemediationRepository.list_events(session, remediation_id)
-    return {"remediation_id": remediation_id, "events": [{
+    return {"remediation_id": remediation_id, "latest_event": ({
+        "event_type": events[-1].event_type,
+        "detail": events[-1].detail,
+        "created_at": _iso(events[-1].created_at),
+    } if events else None), "events": [{
         "id": event.id, "event_type": event.event_type, "sequence": event.sequence,
         "detail": event.detail, "created_at": _iso(event.created_at),
     } for event in events]}

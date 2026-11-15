@@ -8,7 +8,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink, Check } from "lucide-react";
+import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
@@ -60,6 +60,20 @@ export default function ImageDetailPage() {
     const response = await fetch("/api/findings/bulk-acknowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: selectedFindings }) });
     setNotice(response.ok ? "Selected findings acknowledged." : "Unable to acknowledge findings.");
     if (response.ok) { setSelectedFindings([]); loadData(); }
+  }
+
+  async function proposeRemediation() {
+    if (!selectedFindings.length) return;
+    setNotice("Creating remediation proposal…");
+    const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: selectedFindings }) });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      setNotice(body.detail || "Unable to create a remediation proposal.");
+      return;
+    }
+    const remediation = await response.json();
+    setSelectedFindings([]);
+    setNotice(`Remediation #${remediation.id} created. Review it before approving execution.`);
   }
 
   const handleSeverityChange = (sev: string) => {
@@ -150,7 +164,7 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
-      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
+      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={proposeRemediation} className="inline-flex items-center gap-1 rounded-lg bg-cyan-400 px-2.5 py-1.5 font-semibold text-slate-950"><ShieldCheck className="h-3.5 w-3.5" /> Propose remediation</button><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
       {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
       <div className="panel rounded-2xl p-4 sm:p-6">
         <FindingsTable findings={findings} selectable={canManage} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />
