@@ -25,7 +25,7 @@ from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.utils.dedup import deduplicate_findings_with_report
-from src.scan.utils.db import init_db, persist_findings
+from src.scan.utils.db import persist_findings
 from src.scan.queue import scan_task_options
 from src.scan.redis_cache import SyncRedisScanCache
 from src.scan.models import Severity
@@ -49,7 +49,6 @@ import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert
 import src.remediation.post_merge_tasks  # noqa: F401  # register post-merge verification task
 import src.remediation.deployment_tasks  # noqa: F401  # register deployment observation task
 import src.scan.retention_tasks  # noqa: F401  # register scan retention reporting task
-import src.platform.backup_tasks  # noqa: F401  # register backup freshness task
 
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)

@@ -5,8 +5,6 @@ Tests cover:
 - Grype scanner parsing
 - Deduplication across scanners
 - registry detection
-- risk score computation
-- concurrent batch scanning
 """
 
 import asyncio
@@ -15,8 +13,6 @@ from src.scan.scanners.base import ScannerFinding, ScannerError
 from src.scan.scanners.trivy import TrivyScanner, SEVERITY_MAP
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.registry import detect_registry, login_ecr, resolve_image_digest
-from src.scan.scan_service import ScanService
-from src.scan.cache import ScanCache
 from src.db.models import Severity, FindingSource
 
 
@@ -235,28 +231,6 @@ class TestRegistryDetection:
             asyncio.run(login_ecr("us-east-1; touch /tmp/pwned"))
 
 
-class TestScannerRetries:
-    def test_transient_scanner_failure_is_retried(self):
-        class FlakyScanner:
-            source = FindingSource.TRIVY
-            attempts = 0
-
-            async def scan(self, image_name):
-                self.attempts += 1
-                if self.attempts < 3:
-                    raise ScannerError("trivy", "temporary failure")
-                return []
-
-        scanner = FlakyScanner()
-        service = ScanService(scanner_retry_attempts=2, scanner_retry_backoff=0)
-        assert asyncio.run(service._run_single(scanner, "alpine:3.20", "trivy")) == []
-        assert scanner.attempts == 3
-
-    def test_negative_retry_settings_are_rejected(self):
-        with pytest.raises(ValueError, match="must not be negative"):
-            ScanService(scanner_retry_attempts=-1)
-
-
 class TestDigestResolution:
     def test_existing_digest_is_validated_without_docker(self):
         digest = "sha256:" + "a" * 64
@@ -279,102 +253,6 @@ class TestDigestResolution:
         assert asyncio.run(resolve_image_digest("alpine:3.20")) == "sha256:" + "b" * 64
         assert calls[0][:4] == ("docker", "image", "inspect", "alpine:3.20")
 
-
-class TestScanIdentityBoundary:
-    def test_scan_fails_closed_when_immutable_identity_is_required(self):
-        async def resolver(_image):
-            raise RuntimeError("registry unavailable")
-
-        service = ScanService(require_immutable_identity=True, digest_resolver=resolver)
-        result = asyncio.run(service.scan("alpine:latest", scanners=["trivy"], save_results=False))
-        assert result["status"] == "failed"
-        assert result["identity_verified"] is False
-
-    def test_production_defaults_to_immutable_identity(self, monkeypatch):
-        monkeypatch.setenv("NODE_ENV", "production")
-        monkeypatch.delenv("REQUIRE_IMMUTABLE_SCAN_IDENTITY", raising=False)
-        assert ScanService().require_immutable_identity is True
-
-    def test_resolved_digest_is_sent_to_scanners(self):
-        seen = []
-
-        async def resolver(_image):
-            return "sha256:" + "c" * 64
-
-        class FakeService(ScanService):
-            async def _run_single(self, scanner, image_name, source_name):
-                seen.append(image_name)
-                return []
-
-        service = FakeService(require_immutable_identity=True, digest_resolver=resolver)
-        asyncio.run(service.scan("alpine:latest", scanners=["trivy"], save_results=False))
-        assert seen == ["alpine@sha256:" + "c" * 64]
-
-    def test_scanner_cache_avoids_repeating_successful_scan(self, tmp_path):
-        class Scanner:
-            attempts = 0
-            async def scan(self, image_name):
-                self.attempts += 1
-                return []
-        scanner = Scanner()
-        service = ScanService(scanner_retry_attempts=0, scanner_cache=ScanCache(tmp_path))
-        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "a" * 64, "trivy"))
-        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "a" * 64, "trivy"))
-        assert scanner.attempts == 1
-
-    def test_async_shared_cache_adapter_avoids_repeating_successful_scan(self):
-        from src.scan.redis_cache import RedisScanCache
-
-        values = {}
-        class Client:
-            async def get(self, key): return values.get(key)
-            async def set(self, key, value, ex): values[key] = value
-
-        class Scanner:
-            attempts = 0
-            async def scan(self, image_name):
-                self.attempts += 1
-                return []
-
-        scanner = Scanner()
-        service = ScanService(scanner_retry_attempts=0, scanner_cache=RedisScanCache(Client()))
-        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "b" * 64, "trivy"))
-        asyncio.run(service._run_single(scanner, "alpine@sha256:" + "b" * 64, "trivy"))
-        assert scanner.attempts == 1
-
-
-# -- Risk score tests ------------------------------------------------------ #
-
-class TestRiskScore:
-    def test_critical_finding(self):
-        findings = [{"severity": "CRITICAL", "cvss_scores": {"nvd": 9.8}}]
-        score = ScanService._compute_risk_score(findings)
-        assert score["risk_level"] == "critical"
-        assert score["max_cvss"] == 9.8
-        assert score["critical_count"] == 1
-
-    def test_high_finding(self):
-        findings = [{"severity": "HIGH", "cvss_scores": {"nvd": 7.5}}]
-        score = ScanService._compute_risk_score(findings)
-        assert score["risk_level"] == "high"
-
-    def test_only_low(self):
-        findings = [{"severity": "LOW", "cvss_scores": {}}]
-        score = ScanService._compute_risk_score(findings)
-        assert score["risk_level"] == "low"
-
-    def test_empty(self):
-        score = ScanService._compute_risk_score([])
-        assert score["max_cvss"] == 0.0
-        assert score["risk_level"] == "low"
-
-    def test_weighted_score_capped(self):
-        findings = [{"severity": "CRITICAL", "cvss_scores": {"nvd": 10.0}} for _ in range(20)]
-        score = ScanService._compute_risk_score(findings)
-        assert score["weighted_score"] == 100.0
-
-
-# -- ScannerFinding fingerprint tests -------------------------------------- #
 
 class TestFingerprint:
     def test_deterministic(self):

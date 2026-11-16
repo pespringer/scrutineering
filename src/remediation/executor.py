@@ -11,7 +11,7 @@ from typing import Callable, Sequence
 from .worktree import RemediationWorktree, _git_env
 from .approval import verify_approval
 from src.scan.evidence import EvidenceVerificationError, verify_evidence, verify_release_evidence
-from src.platform.controls import bounded_output, classify_validation_failure, guard_changed_files
+from src.remediation.limits import bounded_output, classify_validation_failure, guard_changed_files
 
 
 @dataclass

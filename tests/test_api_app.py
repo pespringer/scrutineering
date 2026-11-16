@@ -1,15 +1,12 @@
 from src.api.app import app
 
 
-def test_canonical_api_composes_health_and_versioned_routes():
+def test_canonical_api_composes_health_and_dashboard_routes():
     paths = set(app.openapi()["paths"])
     assert "/health" in paths
     assert "/ready" in paths
     assert "/metrics" in paths
-    assert "/api/v1/findings" in paths
-    assert "/api/runtime/overview" in paths
-    assert "/api/forensics/snapshot" in paths
-    assert "/api/v1/scans/{scan_id}" in paths
+    assert not any(path.startswith(("/api/v1", "/api/runtime", "/api/forensics", "/api/analytics")) for path in paths)
     assert "/api/dashboard/posture/summary" in paths
     assert "/api/dashboard/posture/trend" in paths
     assert "/api/dashboard/images/{image_id}" in paths
@@ -45,7 +42,6 @@ def test_canonical_api_composes_health_and_versioned_routes():
     assert "/api/dashboard/remediations/alert-deliveries/{delivery_id}/replay" in paths
     assert "/api/dashboard/provider-credentials/health" in paths
     assert "/api/dashboard/provider-diagnostics" in paths
-    assert "/api/dashboard/release-health" in paths
     assert "/api/dashboard/remediations/alert-deliveries/cancel" in paths
     assert "/api/dashboard/remediations/recovery-bulk-status" in paths
     assert "/api/dashboard/remediations/publications/reconciliation/health" in paths

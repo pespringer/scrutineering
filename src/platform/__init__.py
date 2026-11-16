@@ -1,1 +1,0 @@
-"""Shared platform safety controls."""

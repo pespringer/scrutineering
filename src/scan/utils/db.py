@@ -9,43 +9,19 @@ canonical models in src.db.models.
 from __future__ import annotations
 
 import hashlib
-import os
 from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
+from sqlalchemy import select
 
 from src.db.models import (
-    Base,
     FindingSource,
     Image,
     ImageRegistry,
     ScanFinding,
     Severity,
 )
-from src.db.config import get_database_url
 from src.scan.image_identity import parse_image_reference
-
-DATABASE_URL = get_database_url("SCAN_DATABASE_URL", "DATABASE_URL")
-
-_sync_url = DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1) if DATABASE_URL.startswith("postgresql://") else DATABASE_URL
-
-engine_options = {"pool_pre_ping": True}
-if not _sync_url.startswith("sqlite"):
-    engine_options.update(pool_size=5, max_overflow=10)
-
-engine = create_engine(_sync_url, **engine_options)
-
-
-def init_db():
-    """Create all tables."""
-    Base.metadata.create_all(engine)
-
-
-def get_session():
-    """Return a plain Session (caller manages commit/rollback/close)."""
-    return Session(engine)
 
 
 def _parse_image_name(image_name: str) -> tuple[ImageRegistry, str, str]:

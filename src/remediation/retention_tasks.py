@@ -9,7 +9,7 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import RemediationAlertEvidence, RemediationReleaseEvidence
 from src.remediation.evidence_retention import purge_enabled, retention_cutoff, retention_days
-from src.platform.controls import RetentionPolicy
+from src.remediation.limits import RetentionPolicy
 
 
 @shared_task(name="src.remediation.retention_tasks.purge_expired_evidence", acks_late=True)

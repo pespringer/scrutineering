@@ -58,10 +58,10 @@ async def discover_runtime_containers(*, use_containerd: bool = False,
                                       containerd_namespace: str = "default") -> list[dict[str, Any]]:
     """Discover containers and enrich containerd records with image names."""
     if use_containerd:
-        from src.runtime.containerd_monitor import ContainerdCollector
+        from src.scan.discovery import ContainerdCollector
         collector = ContainerdCollector(ctr_bin=ctr_bin, namespace=containerd_namespace)
     else:
-        from src.runtime.docker_monitor import DockerRuntimeCollector
+        from src.scan.discovery import DockerRuntimeCollector
         collector = DockerRuntimeCollector(docker_bin=docker_bin)
     containers = await collector.list_running_containers()
     if use_containerd:

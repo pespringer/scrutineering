@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.platform.controls import parse_retry_after
+from src.remediation.limits import parse_retry_after
 
 
 @dataclass(frozen=True)
