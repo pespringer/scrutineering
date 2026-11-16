@@ -30,7 +30,7 @@ def build_publication_plan(
     allowed_repositories: set[str],
 ) -> PublicationPlan:
     provider = provider.strip().lower()
-    if provider not in {"github", "gitlab"}:
+    if provider != "github":
         raise ValueError("publication provider is not supported")
     if repository not in allowed_repositories:
         raise ValueError("repository is not allowlisted")

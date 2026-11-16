@@ -99,8 +99,8 @@ payload includes the `patch`, `candidate_image`, `candidate_digest` and
 
 ## Provider webhooks
 
-`POST /webhooks/{github|gitlab}` authenticates with the provider's HMAC
-signature (`GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`), not the API key.
+`POST /webhooks/github` authenticates with GitHub's HMAC signature
+(`GITHUB_WEBHOOK_SECRET`), not the API key. GitHub is the only provider (decision D4).
 Delivery IDs are recorded, so replays are accepted without reprocessing. A merge
 callback updates the matching publication. If the callback carries digest and
 scan evidence it is evaluated immediately; otherwise a follow-up scan is queued

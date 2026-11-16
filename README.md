@@ -195,9 +195,9 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
   findings. See [remediation execution](docs/operations/remediation-execution.md).
 - **Publication** (opening a pull request with the patch) is not connected to
   execution yet.
-- **Provider webhooks** (`/api/dashboard/webhooks/{github,gitlab}`) require
-  `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`, are replay-safe, and queue a
-  follow-up scan after a merge.
+- **GitHub webhooks** (`/api/dashboard/webhooks/github`) require
+  `GITHUB_WEBHOOK_SECRET`, are replay-safe, and queue a follow-up scan after a
+  merge. GitHub is the only pull-request provider.
 
 ## Documentation
 

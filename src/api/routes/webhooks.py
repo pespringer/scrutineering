@@ -1,4 +1,4 @@
-"""Signed provider callbacks (GitHub, GitLab) for published remediations."""
+"""Signed GitHub callbacks for published remediations (decision D4: GitHub is the only provider)."""
 
 from __future__ import annotations
 
@@ -57,13 +57,9 @@ def _apply_post_merge_result(
 @router.post("/webhooks/{provider}")
 async def provider_webhook(provider: str, request: Request) -> dict:
     provider = provider.lower()
-    if provider not in {"github", "gitlab"}:
+    if provider != "github":
         raise HTTPException(status_code=404, detail="provider_not_supported")
-    event_id = (
-        request.headers.get("x-provider-event-id", "")
-        or request.headers.get("x-github-delivery", "")
-        or request.headers.get("x-gitlab-event-uuid", "")
-    )
+    event_id = request.headers.get("x-provider-event-id", "") or request.headers.get("x-github-delivery", "")
     signature = request.headers.get("x-provider-signature", "") or request.headers.get("x-hub-signature-256", "")
     secret = os.environ.get(f"{provider.upper()}_WEBHOOK_SECRET", "")
     body = await request.body()
@@ -79,7 +75,7 @@ async def provider_webhook(provider: str, request: Request) -> dict:
             provider=provider,
             payload=payload,
             event_id=event_id,
-            event_type=request.headers.get("x-github-event") or request.headers.get("x-gitlab-event"),
+            event_type=request.headers.get("x-github-event"),
         )
     except (TypeError, ValueError, KeyError) as exc:
         raise HTTPException(status_code=400, detail="invalid_provider_payload") from exc

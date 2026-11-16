@@ -23,5 +23,4 @@ reference; until then, this is the set that describes the current system.
 ## Remediation
 - [operations/remediation-execution.md](operations/remediation-execution.md): sources, fix strategies, building and verifying candidates
 - [operations/github-publication.md](operations/github-publication.md): GitHub PR publication
-- [operations/gitlab-publication.md](operations/gitlab-publication.md): GitLab MR publication
 - [operations/github-cloudflare-staging.md](operations/github-cloudflare-staging.md): testing GitHub webhooks against a local stack
