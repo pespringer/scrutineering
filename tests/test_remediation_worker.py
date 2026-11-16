@@ -27,4 +27,6 @@ def test_blocked_execution_persists_terminal_failure_and_event(monkeypatch):
 
     assert result == {"remediation_id": 7, "status": "blocked", "reason": "branch_publication_failed:403"}
     assert remediation.status == RemediationStatus.ANALYZING
-    update_status.assert_called_once_with(session, 7, RemediationStatus.FAILED, error_message="branch_publication_failed:403")
+    update_status.assert_called_once_with(
+        session, 7, RemediationStatus.FAILED, error_message="branch_publication_failed:403"
+    )

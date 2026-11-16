@@ -25,7 +25,12 @@ def test_publisher_creates_new_branch_for_validated_commit(tmp_path):
 
     assert result["commit"] == commit
     assert _git(tmp_path, "show-ref", "--verify", "refs/heads/scrutineering/remediation-1")
-    refs = subprocess.run(["git", "--git-dir", str(remote), "show-ref", "refs/heads/scrutineering/remediation-1"], check=True, capture_output=True, text=True)
+    refs = subprocess.run(
+        ["git", "--git-dir", str(remote), "show-ref", "refs/heads/scrutineering/remediation-1"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
     assert commit in refs.stdout
 
 

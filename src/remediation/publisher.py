@@ -13,12 +13,18 @@ from pathlib import Path
 _BRANCH_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 
 
-def _git(repository: Path, *args: str, check: bool = True, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+def _git(
+    repository: Path, *args: str, check: bool = True, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     git_env = os.environ.copy()
-    git_env.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(repository)})
+    git_env.update(
+        {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": str(repository)}
+    )
     if env:
         git_env.update(env)
-    return subprocess.run(["git", "-C", str(repository), *args], check=check, capture_output=True, text=True, env=git_env)
+    return subprocess.run(
+        ["git", "-C", str(repository), *args], check=check, capture_output=True, text=True, env=git_env
+    )
 
 
 def publish_remediation_branch(
@@ -36,7 +42,11 @@ def publish_remediation_branch(
     URL or command arguments.
     """
     root = Path(repository).resolve()
-    if not _BRANCH_RE.fullmatch(branch_name) or branch_name.startswith(("/", ".", "-")) or ".." in branch_name.split("/"):
+    if (
+        not _BRANCH_RE.fullmatch(branch_name)
+        or branch_name.startswith(("/", ".", "-"))
+        or ".." in branch_name.split("/")
+    ):
         raise ValueError("invalid remediation branch name")
     if not commit or any(char.isspace() for char in commit):
         raise ValueError("a commit SHA is required")
@@ -45,7 +55,10 @@ def publish_remediation_branch(
     _git(root, "cat-file", "-e", f"{commit}^{{commit}}")
     if _git(root, "show-ref", "--verify", f"refs/heads/{branch_name}", check=False).returncode == 0:
         raise ValueError("remediation branch already exists locally")
-    if _git(root, "ls-remote", "--exit-code", "--heads", remote, f"refs/heads/{branch_name}", check=False).returncode == 0:
+    if (
+        _git(root, "ls-remote", "--exit-code", "--heads", remote, f"refs/heads/{branch_name}", check=False).returncode
+        == 0
+    ):
         raise ValueError("remediation branch already exists remotely")
 
     _git(root, "branch", branch_name, commit)
@@ -59,21 +72,23 @@ def publish_remediation_branch(
                 askpass_state_path = f"{askpass.name}.state"
                 askpass.write(
                     "#!/bin/sh\n"
-                    "case \"$1\" in\n"
+                    'case "$1" in\n'
                     "  *Username*) printf '%s\\n' x-access-token ;;\n"
                     "  *Password*) printf '%s\\n' \"$SCRUTINEERING_GIT_TOKEN\" ;;\n"
-                    "  *) if [ ! -e \"$SCRUTINEERING_GIT_ASKPASS_STATE\" ]; then "
+                    '  *) if [ ! -e "$SCRUTINEERING_GIT_ASKPASS_STATE" ]; then '
                     ": > \"$SCRUTINEERING_GIT_ASKPASS_STATE\"; printf '%s\\n' x-access-token; "
                     "else printf '%s\\n' \"$SCRUTINEERING_GIT_TOKEN\"; fi ;;\n"
                     "esac\n"
                 )
             os.chmod(askpass_path, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
-            env.update({
-                "GIT_ASKPASS": askpass_path,
-                "GIT_TERMINAL_PROMPT": "0",
-                "SCRUTINEERING_GIT_TOKEN": token,
-                "SCRUTINEERING_GIT_ASKPASS_STATE": askpass_state_path,
-            })
+            env.update(
+                {
+                    "GIT_ASKPASS": askpass_path,
+                    "GIT_TERMINAL_PROMPT": "0",
+                    "SCRUTINEERING_GIT_TOKEN": token,
+                    "SCRUTINEERING_GIT_ASKPASS_STATE": askpass_state_path,
+                }
+            )
         try:
             _git(root, "push", remote, f"{branch_name}:refs/heads/{branch_name}", env=env)
         except subprocess.CalledProcessError as exc:

@@ -7,11 +7,20 @@ from src.remediation.events import publication_event_exists, recovery_request_ex
 
 def test_github_callback_normalizes_native_merge_payload():
     callback = normalize_callback(
-        provider="github", event_id="delivery-1", event_type="pull_request",
-        payload={"action": "closed", "repository": {"full_name": "org/app"}, "number": 12,
-                 "pull_request": {"merged": True, "merge_commit_sha": "a" * 40, "state": "closed"},
-                 "expected_digest": "sha256:" + "a" * 64, "observed_digest": "sha256:" + "a" * 64,
-                 "scan_status": "completed", "findings_before": 4, "findings_after": 2},
+        provider="github",
+        event_id="delivery-1",
+        event_type="pull_request",
+        payload={
+            "action": "closed",
+            "repository": {"full_name": "org/app"},
+            "number": 12,
+            "pull_request": {"merged": True, "merge_commit_sha": "a" * 40, "state": "closed"},
+            "expected_digest": "sha256:" + "a" * 64,
+            "observed_digest": "sha256:" + "a" * 64,
+            "scan_status": "completed",
+            "findings_before": 4,
+            "findings_after": 2,
+        },
     )
     assert callback.repository == "org/app"
     assert callback.number == 12
@@ -21,9 +30,13 @@ def test_github_callback_normalizes_native_merge_payload():
 
 def test_gitlab_callback_normalizes_merge_request_payload():
     callback = normalize_callback(
-        provider="gitlab", event_id="event-1",
-        payload={"event_name": "merge_request", "project": {"path_with_namespace": "org/app"},
-                 "object_attributes": {"iid": 7, "state": "merged", "merge_commit_sha": "b" * 40}},
+        provider="gitlab",
+        event_id="event-1",
+        payload={
+            "event_name": "merge_request",
+            "project": {"path_with_namespace": "org/app"},
+            "object_attributes": {"iid": 7, "state": "merged", "merge_commit_sha": "b" * 40},
+        },
     )
     assert callback.repository == "org/app"
     assert callback.number == 7
@@ -45,6 +58,13 @@ def test_post_merge_event_is_idempotent_per_publication():
 
 
 def test_recovery_request_uses_operator_idempotency_key():
-    event = type("Event", (), {"event_type": "publication_recovery_requested", "detail": {"publication_id": 2, "idempotency_key": "retry-1", "action": "request_callback"}})()
+    event = type(
+        "Event",
+        (),
+        {
+            "event_type": "publication_recovery_requested",
+            "detail": {"publication_id": 2, "idempotency_key": "retry-1", "action": "request_callback"},
+        },
+    )()
     assert recovery_request_exists([event], publication_id=2, idempotency_key="retry-1")["action"] == "request_callback"
     assert recovery_request_exists([event], publication_id=2, idempotency_key="retry-2") is None

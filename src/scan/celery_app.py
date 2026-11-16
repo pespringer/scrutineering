@@ -16,18 +16,15 @@ def scan_schedule(expression: str | None = None) -> crontab:
     if len(fields) != 5:
         raise ValueError(f"SCHEDULE_CRON_SCAN must have five cron fields, got {value!r}")
     minute, hour, day_of_month, month_of_year, day_of_week = fields
-    return crontab(minute=minute, hour=hour, day_of_month=day_of_month,
-                   month_of_year=month_of_year, day_of_week=day_of_week)
+    return crontab(
+        minute=minute, hour=hour, day_of_month=day_of_month, month_of_year=month_of_year, day_of_week=day_of_week
+    )
 
 
 def create_celery_app() -> Celery:
     """Build and return a configured Celery application."""
-    broker_url = os.environ.get(
-        "CELERY_BROKER_URL", "redis://localhost:6379/0"
-    )
-    backend_url = os.environ.get(
-        "CELERY_RESULT_BACKEND", "redis://localhost:6379/1"
-    )
+    broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+    backend_url = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
 
     app = Celery("scrutineering", broker=broker_url, backend=backend_url)
 

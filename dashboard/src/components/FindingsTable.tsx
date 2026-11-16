@@ -6,14 +6,24 @@ import type { VulnerabilityFinding } from "@/types";
 
 type SortKey = "cve_id" | "severity" | "package_name" | "package_version" | "first_seen";
 
-export default function FindingsTable({ findings, selectable = false, selected = [], onSelect }: { findings: VulnerabilityFinding[]; selectable?: boolean; selected?: number[]; onSelect?: (id: number, checked: boolean) => void }) {
+export default function FindingsTable({
+  findings,
+  selectable = false,
+  selected = [],
+  onSelect,
+}: {
+  findings: VulnerabilityFinding[];
+  selectable?: boolean;
+  selected?: number[];
+  onSelect?: (id: number, checked: boolean) => void;
+}) {
   const [sortKey, setSortKey] = useState<SortKey>("severity");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [filterSeverity, setFilterSeverity] = useState<string>("");
 
   const filtered = useMemo(
     () => findings.filter((f) => !filterSeverity || f.severity === filterSeverity),
-    [findings, filterSeverity]
+    [findings, filterSeverity],
   );
 
   const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 };
@@ -49,13 +59,17 @@ export default function FindingsTable({ findings, selectable = false, selected =
     { key: "first_seen", label: "First Seen" },
   ];
 
-  const isActionable = (finding: VulnerabilityFinding) => Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
+  const isActionable = (finding: VulnerabilityFinding) =>
+    Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
 
   return (
     <div>
       {/* Filter */}
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-        <div><div className="eyebrow mb-1">Findings</div><p className="text-sm text-slate-400">Sort and filter the issues discovered in this image.</p></div>
+        <div>
+          <div className="eyebrow mb-1">Findings</div>
+          <p className="text-sm text-slate-400">Sort and filter the issues discovered in this image.</p>
+        </div>
         <select
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
@@ -64,7 +78,9 @@ export default function FindingsTable({ findings, selectable = false, selected =
         >
           <option value="">All</option>
           {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
       </div>
@@ -82,9 +98,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
                   onClick={() => handleSort(c.key)}
                 >
                   {c.label}
-                  {sortKey === c.key && (
-                    <span className="ml-1 text-blue-400">{sortDir === "asc" ? " ↑" : " ↓"}</span>
-                  )}
+                  {sortKey === c.key && <span className="ml-1 text-blue-400">{sortDir === "asc" ? " ↑" : " ↓"}</span>}
                 </th>
               ))}
               <th className="px-3 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Title</th>
@@ -98,46 +112,76 @@ export default function FindingsTable({ findings, selectable = false, selected =
                   No findings match your filter.
                 </td>
               </tr>
-            ) : sorted.map((f, i) => (
-              <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
-                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} disabled={Boolean(f.remediation_id) || !isActionable(f)} title={f.remediation_id ? `Already included in remediation #${f.remediation_id}` : isActionable(f) ? "Select for a guarded remediation" : "Not eligible: no explicit source file path is available"} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40" /></td>}
-                <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
-                  {f.cve_id ? (
-                    <a
-                      href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-400 hover:text-blue-300 hover:underline"
-                    >
-                      {f.cve_id}
-                    </a>
-                  ) : (
-                    <span className="text-slate-600">-</span>
+            ) : (
+              sorted.map((f, i) => (
+                <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
+                  {selectable && (
+                    <td className="px-3 py-4">
+                      <input
+                        aria-label={`Select finding ${f.cve_id || f.id}`}
+                        type="checkbox"
+                        checked={selected.includes(f.id)}
+                        disabled={Boolean(f.remediation_id) || !isActionable(f)}
+                        title={
+                          f.remediation_id
+                            ? `Already included in remediation #${f.remediation_id}`
+                            : isActionable(f)
+                              ? "Select for a guarded remediation"
+                              : "Not eligible: no explicit source file path is available"
+                        }
+                        onChange={(event) => onSelect?.(f.id, event.target.checked)}
+                        className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
+                      />
+                    </td>
                   )}
-                </td>
-                <td className="px-3 py-4">
-                  {f.lifecycle_status === "resolved" ? <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">Resolved</span> : <SeverityBadge severity={f.severity} />}
-                </td>
-                <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
-                <td className="px-3 py-4 font-mono text-slate-400">
-                  {f.package_version || "-"}
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 font-mono text-xs text-slate-500">
-                  {formatDate(f.first_seen)}
-                </td>
-                <td className="max-w-[250px] truncate px-3 py-4 text-slate-300" title={f.title || ""}>
-                  {f.title || "-"}
-                </td>
-                <td className="whitespace-nowrap px-3 py-4 font-mono text-sm">
-                  {f.fixed_version ? (
-                    <span className={isActionable(f) ? "text-emerald-400" : "text-amber-300"}>{isActionable(f) ? f.fixed_version : "No safe path"}</span>
-                  ) : (
-                    <span className="text-slate-600">-</span>
-                  )}
-                  {f.remediation_id ? <span className="ml-2 rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200">Remediation #{f.remediation_id}</span> : null}
-                </td>
-              </tr>
-            ))}
+                  <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
+                    {f.cve_id ? (
+                      <a
+                        href={`https://nvd.nist.gov/vuln/detail/${f.cve_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-400 hover:text-blue-300 hover:underline"
+                      >
+                        {f.cve_id}
+                      </a>
+                    ) : (
+                      <span className="text-slate-600">-</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-4">
+                    {f.lifecycle_status === "resolved" ? (
+                      <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">
+                        Resolved
+                      </span>
+                    ) : (
+                      <SeverityBadge severity={f.severity} />
+                    )}
+                  </td>
+                  <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
+                  <td className="px-3 py-4 font-mono text-slate-400">{f.package_version || "-"}</td>
+                  <td className="whitespace-nowrap px-3 py-4 font-mono text-xs text-slate-500">
+                    {formatDate(f.first_seen)}
+                  </td>
+                  <td className="max-w-[250px] truncate px-3 py-4 text-slate-300" title={f.title || ""}>
+                    {f.title || "-"}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-4 font-mono text-sm">
+                    {f.fixed_version ? (
+                      <span className={isActionable(f) ? "text-emerald-400" : "text-amber-300"}>
+                        {isActionable(f) ? f.fixed_version : "No safe path"}
+                      </span>
+                    ) : (
+                      <span className="text-slate-600">-</span>
+                    )}
+                    {f.remediation_id ? (
+                      <span className="ml-2 rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200">
+                        Remediation #{f.remediation_id}
+                      </span>
+                    ) : null}
+                  </td>
+                </tr>
+              ))
+            )}
           </tbody>
         </table>
       </div>
@@ -146,5 +190,9 @@ export default function FindingsTable({ findings, selectable = false, selected =
 }
 
 function formatDate(d: string) {
-  try { return new Date(d).toLocaleDateString(); } catch { return d; }
+  try {
+    return new Date(d).toLocaleDateString();
+  } catch {
+    return d;
+  }
 }

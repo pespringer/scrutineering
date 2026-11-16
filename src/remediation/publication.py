@@ -18,7 +18,17 @@ class PublicationPlan:
     rollback_command: tuple[str, ...]
 
 
-def build_publication_plan(*, provider: str, repository: str, head: str, base: str, idempotency_key: str, commit: str, evidence_verified: bool, allowed_repositories: set[str]) -> PublicationPlan:
+def build_publication_plan(
+    *,
+    provider: str,
+    repository: str,
+    head: str,
+    base: str,
+    idempotency_key: str,
+    commit: str,
+    evidence_verified: bool,
+    allowed_repositories: set[str],
+) -> PublicationPlan:
     provider = provider.strip().lower()
     if provider not in {"github", "gitlab"}:
         raise ValueError("publication provider is not supported")

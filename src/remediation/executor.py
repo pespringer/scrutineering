@@ -49,7 +49,10 @@ def execute_remediation(
         try:
             if release_evidence:
                 evidence_verified = verify_release_evidence(
-                    evidence_envelope, evidence_artifact, env=evidence_env, cosign_bin=cosign_bin,
+                    evidence_envelope,
+                    evidence_artifact,
+                    env=evidence_env,
+                    cosign_bin=cosign_bin,
                 )
             else:
                 evidence_verified = verify_evidence(evidence_envelope, evidence_artifact, evidence_verifier)
@@ -66,31 +69,57 @@ def execute_remediation(
             if validation_working_directory:
                 relative_validation_dir = Path(validation_working_directory)
                 if relative_validation_dir.is_absolute() or ".." in relative_validation_dir.parts:
-                    return RemediationExecution(status="blocked", worktree=str(worktree), error="validation working directory must be relative")
+                    return RemediationExecution(
+                        status="blocked", worktree=str(worktree), error="validation working directory must be relative"
+                    )
                 validation_cwd = (worktree / relative_validation_dir).resolve()
                 if worktree not in validation_cwd.parents or not validation_cwd.is_dir():
-                    return RemediationExecution(status="blocked", worktree=str(worktree), error="validation working directory is unavailable")
+                    return RemediationExecution(
+                        status="blocked", worktree=str(worktree), error="validation working directory is unavailable"
+                    )
             for change in changes:
                 apply_change(worktree, change)
             command_results = []
             for command in validation_commands:
                 if not command:
-                    return RemediationExecution(status="failed", worktree=str(worktree), error="empty validation command")
+                    return RemediationExecution(
+                        status="failed", worktree=str(worktree), error="empty validation command"
+                    )
                 result = subprocess.run(
-                    list(command), cwd=validation_cwd, check=False, capture_output=True,
-                    text=True, timeout=timeout_seconds,
+                    list(command),
+                    cwd=validation_cwd,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_seconds,
                 )
-                command_results.append({
-                    "command": list(command), "returncode": result.returncode,
-                    "stdout": bounded_output(result.stdout, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))),
-                    "stderr": bounded_output(result.stderr, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))),
-                    "failure_class": classify_validation_failure(result.returncode, result.stderr),
-                })
+                command_results.append(
+                    {
+                        "command": list(command),
+                        "returncode": result.returncode,
+                        "stdout": bounded_output(
+                            result.stdout, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))
+                        ),
+                        "stderr": bounded_output(
+                            result.stderr, int(os.environ.get("REMEDIATION_COMMAND_OUTPUT_BYTES", "2000"))
+                        ),
+                        "failure_class": classify_validation_failure(result.returncode, result.stderr),
+                    }
+                )
                 if result.returncode != 0:
-                    return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=f"validation failed: {command[0]}")
+                    return RemediationExecution(
+                        status="failed",
+                        worktree=str(worktree),
+                        commands=command_results,
+                        error=f"validation failed: {command[0]}",
+                    )
             diff = subprocess.run(
-                ["git", "diff", "--name-only"], cwd=worktree, check=True,
-                capture_output=True, text=True, env=_git_env(worktree),
+                ["git", "diff", "--name-only"],
+                cwd=worktree,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=_git_env(worktree),
             )
             changed_files = [line for line in diff.stdout.splitlines() if line]
             try:
@@ -99,19 +128,51 @@ def execute_remediation(
                     maximum=int(os.environ.get("REMEDIATION_MAX_CHANGED_FILES", "50")),
                 )
             except ValueError as exc:
-                return RemediationExecution(status="failed", worktree=str(worktree), commands=command_results, error=str(exc))
+                return RemediationExecution(
+                    status="failed", worktree=str(worktree), commands=command_results, error=str(exc)
+                )
             commit = None
             if commit_message and changed_files:
-                subprocess.run(["git", "add", "--all"], cwd=worktree, check=True, capture_output=True, text=True, env=_git_env(worktree))
+                subprocess.run(
+                    ["git", "add", "--all"],
+                    cwd=worktree,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=_git_env(worktree),
+                )
                 committed = subprocess.run(
-                    ["git", "-c", "user.name=Scrutineering", "-c", "user.email=security@example.invalid", "commit", "-m", commit_message],
-                    cwd=worktree, check=True, capture_output=True, text=True, env=_git_env(worktree),
+                    [
+                        "git",
+                        "-c",
+                        "user.name=Scrutineering",
+                        "-c",
+                        "user.email=security@example.invalid",
+                        "commit",
+                        "-m",
+                        commit_message,
+                    ],
+                    cwd=worktree,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=_git_env(worktree),
                 )
                 commit = subprocess.run(
-                    ["git", "rev-parse", "HEAD"], cwd=worktree, check=True,
-                    capture_output=True, text=True, env=_git_env(worktree),
+                    ["git", "rev-parse", "HEAD"],
+                    cwd=worktree,
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=_git_env(worktree),
                 ).stdout.strip()
-            return RemediationExecution(status="ready", worktree=str(worktree), commands=command_results, changed_files=changed_files, commit=commit)
+            return RemediationExecution(
+                status="ready",
+                worktree=str(worktree),
+                commands=command_results,
+                changed_files=changed_files,
+                commit=commit,
+            )
     except subprocess.TimeoutExpired as exc:
         return RemediationExecution(status="failed", error=f"validation timed out: {exc.cmd}")
     except Exception as exc:

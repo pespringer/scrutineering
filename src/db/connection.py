@@ -27,6 +27,7 @@ engine = create_engine(DATABASE_URL, **engine_options)
 
 
 if not DATABASE_URL.startswith("sqlite"):
+
     @event.listens_for(engine, "connect")
     def _set_sqlalchemy_defaults(dbapi_connection, connection_record):
         """Tune connection-level settings on every PostgreSQL connection."""
@@ -61,6 +62,7 @@ def init_db() -> None:
 
 
 # -- Session helpers -------------------------------------------------------- #
+
 
 @contextmanager
 def get_session() -> Generator[Session, None, None]:

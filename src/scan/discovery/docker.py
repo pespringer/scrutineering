@@ -24,13 +24,15 @@ class DockerRuntimeCollector:
                 record = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            containers.append({
-                "id": record.get("ID", ""),
-                "names": record.get("Names", ""),
-                "image": record.get("Image", ""),
-                "status": record.get("State", ""),
-                "created": record.get("CreatedAt", ""),
-                "ports": record.get("Ports", ""),
-                "labels": record.get("Labels", {}),
-            })
+            containers.append(
+                {
+                    "id": record.get("ID", ""),
+                    "names": record.get("Names", ""),
+                    "image": record.get("Image", ""),
+                    "status": record.get("State", ""),
+                    "created": record.get("CreatedAt", ""),
+                    "ports": record.get("Ports", ""),
+                    "labels": record.get("Labels", {}),
+                }
+            )
         return containers

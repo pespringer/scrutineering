@@ -2,7 +2,7 @@ export interface ScanResult {
   scan_id: string;
   image_id?: number;
   image_name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
+  status: "pending" | "running" | "completed" | "failed" | "cancelled" | "partial";
   phase?: string;
   task_id?: string | null;
   started_at: string;
@@ -34,7 +34,7 @@ export interface VulnerabilityFinding {
   package_version: string | null;
   package_type: string | null;
   file_path?: string | null;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
   title: string;
   description: string | null;
   fixed_version: string | null;
@@ -43,7 +43,7 @@ export interface VulnerabilityFinding {
   last_seen: string;
   resolved_at?: string | null;
   reopened_at?: string | null;
-  lifecycle_status?: 'open' | 'resolved';
+  lifecycle_status?: "open" | "resolved";
   acknowledged?: boolean;
   assigned_to?: string | null;
   remediation_id?: number | null;
@@ -98,7 +98,15 @@ export interface RegistryInventory {
   registry: { host: string; url: string; internal_host?: string; reachable: boolean };
   repositories: string[];
   tags: RegistryTag[];
-  summary: { repositories: number; tags: number; scanned: number; not_scanned: number; scanning: number; issues_found: number; clean: number };
+  summary: {
+    repositories: number;
+    tags: number;
+    scanned: number;
+    not_scanned: number;
+    scanning: number;
+    issues_found: number;
+    clean: number;
+  };
 }
 
 export interface SeverityTrend {

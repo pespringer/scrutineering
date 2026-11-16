@@ -12,7 +12,9 @@ function cssFiles(directory) {
   });
 }
 
-const css = cssFiles(staticDir).map((file) => fs.readFileSync(file, "utf8")).join("\n");
+const css = cssFiles(staticDir)
+  .map((file) => fs.readFileSync(file, "utf8"))
+  .join("\n");
 if (!css) throw new Error("dashboard CSS bundle was not generated; run npm run build first");
 const missing = requiredUtilities.filter((utility) => !css.includes(utility));
 if (missing.length) throw new Error(`dashboard CSS bundle is missing utilities: ${missing.join(", ")}`);

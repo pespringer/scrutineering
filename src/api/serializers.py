@@ -7,7 +7,12 @@ from datetime import datetime
 
 
 from src.db.models import (
-    FindingObservation, Image, Remediation, RemediationStatus, Scan, ScanFinding,
+    FindingObservation,
+    Image,
+    Remediation,
+    RemediationStatus,
+    Scan,
+    ScanFinding,
 )
 
 
@@ -115,7 +120,16 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
     remediation_events = list(getattr(remediation, "events", []) or [])
     latest_event = remediation_events[-1] if remediation_events else None
     workflow_state = remediation_workflow_state(remediation, remediation_events)
-    workflow_label = {"execution_queued": "Queued for execution", "execution_started": "Execution in progress", "execution_ready": "Execution ready", "execution_blocked": "Execution blocked", "requires_review": "Awaiting approval", "analyzing": "Awaiting execution", "completed": "Completed", "failed": "Failed"}.get(workflow_state, workflow_state.replace("_", " ").title())
+    workflow_label = {
+        "execution_queued": "Queued for execution",
+        "execution_started": "Execution in progress",
+        "execution_ready": "Execution ready",
+        "execution_blocked": "Execution blocked",
+        "requires_review": "Awaiting approval",
+        "analyzing": "Awaiting execution",
+        "completed": "Completed",
+        "failed": "Failed",
+    }.get(workflow_state, workflow_state.replace("_", " ").title())
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
@@ -126,32 +140,45 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
         "finding_count": remediation.finding_count,
         "open_finding_count": max(len(remediation_findings) - resolved_findings, 0),
         "resolved_finding_count": resolved_findings,
-        "resolution_status": "resolved" if remediation_findings and resolved_findings == len(remediation_findings) else "open",
+        "resolution_status": "resolved"
+        if remediation_findings and resolved_findings == len(remediation_findings)
+        else "open",
         "target_severities": remediation.target_severities,
         "approved_by": remediation.approved_by,
         "approved_at": iso(remediation.approved_at),
-        "actions": actions if actions is not None else [{
-            "id": action.id,
-            "action_type": enum_value(action.action_type),
-            "file_path": action.file_path,
-            "before_value": action.before_value,
-            "after_value": action.after_value,
-            "success": action.success,
-            "detail": action.detail,
-        } for action in remediation.actions],
-        "publications": [{
-            "id": publication.id, "provider": publication.provider,
-            "repository": publication.repository, "status": publication.status,
-            "url": publication.url, "number": publication.provider_number,
-            "merged_at": iso(publication.merged_at),
-            "verification_status": publication.verification_status,
-            "scan_status": publication.scan_status,
-            "post_merge_scan_id": publication.post_merge_scan_id,
-            "verification_detail": publication.verification_detail,
-            "findings_before": publication.findings_before,
-            "findings_after": publication.findings_after,
-            "rollback_command": publication.rollback_command,
-        } for publication in remediation.publications],
+        "actions": actions
+        if actions is not None
+        else [
+            {
+                "id": action.id,
+                "action_type": enum_value(action.action_type),
+                "file_path": action.file_path,
+                "before_value": action.before_value,
+                "after_value": action.after_value,
+                "success": action.success,
+                "detail": action.detail,
+            }
+            for action in remediation.actions
+        ],
+        "publications": [
+            {
+                "id": publication.id,
+                "provider": publication.provider,
+                "repository": publication.repository,
+                "status": publication.status,
+                "url": publication.url,
+                "number": publication.provider_number,
+                "merged_at": iso(publication.merged_at),
+                "verification_status": publication.verification_status,
+                "scan_status": publication.scan_status,
+                "post_merge_scan_id": publication.post_merge_scan_id,
+                "verification_detail": publication.verification_detail,
+                "findings_before": publication.findings_before,
+                "findings_after": publication.findings_after,
+                "rollback_command": publication.rollback_command,
+            }
+            for publication in remediation.publications
+        ],
     }
 
 
@@ -160,7 +187,13 @@ def remediation_workflow_state(remediation: Remediation, events: list | None = N
     status = enum_value(remediation.status)
     if status == RemediationStatus.REQUIRES_REVIEW.value:
         return status
-    execution_events = {"execution_queued", "execution_started", "execution_ready", "execution_blocked", "execution_retry_requested"}
+    execution_events = {
+        "execution_queued",
+        "execution_started",
+        "execution_ready",
+        "execution_blocked",
+        "execution_retry_requested",
+    }
     for event in reversed(events if events is not None else list(getattr(remediation, "events", []) or [])):
         if event.event_type == "execution_retry_requested":
             # A retry returns the record to review; once re-approved the status

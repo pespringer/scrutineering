@@ -41,8 +41,9 @@ def fail(message: str) -> None:
 
 def request(method: str, path: str, body: dict | None = None) -> dict:
     data = json.dumps(body).encode() if body is not None else None
-    req = urllib.request.Request(f"{DASHBOARD}{path}", data=data, method=method,
-                                 headers={"content-type": "application/json"})
+    req = urllib.request.Request(
+        f"{DASHBOARD}{path}", data=data, method=method, headers={"content-type": "application/json"}
+    )
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             return json.loads(response.read().decode())
@@ -53,8 +54,11 @@ def request(method: str, path: str, body: dict | None = None) -> dict:
 
 def main() -> None:
     step(f"build and push {PUSH_HOST}/{REPO}")
-    subprocess.run(["docker", "build", "-q", "-t", f"{PUSH_HOST}/{REPO}", str(ROOT / "fixtures/images/vulnerable-node")],
-                   check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(
+        ["docker", "build", "-q", "-t", f"{PUSH_HOST}/{REPO}", str(ROOT / "fixtures/images/vulnerable-node")],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
     subprocess.run(["docker", "push", "-q", f"{PUSH_HOST}/{REPO}"], check=True, stdout=subprocess.DEVNULL)
 
     image = f"{SCAN_HOST}/{REPO}"

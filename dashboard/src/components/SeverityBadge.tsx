@@ -9,7 +9,9 @@ const sevStyles: Record<string, string> = {
 export default function SeverityBadge({ severity }: { severity: string | null }) {
   const s = (severity || "UNKNOWN").toUpperCase();
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${sevStyles[s] || sevStyles.UNKNOWN}`}>
+    <span
+      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${sevStyles[s] || sevStyles.UNKNOWN}`}
+    >
       {s}
     </span>
   );

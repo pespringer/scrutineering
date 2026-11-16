@@ -8,14 +8,21 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.db.connection import get_session
 from src.db.models import (
-    AuditEventType, FindingObservation, Image, Scan, ScanFinding, ScanStatus,
+    AuditEventType,
+    FindingObservation,
+    Image,
+    Scan,
+    ScanFinding,
+    ScanStatus,
 )
 from src.scan.health import summarize_scan_health
 from src.scan.records import queue_scan
 from src.scan.tasks import app as celery_app
 from src.api.schemas import BulkIdsRequest, ScanRequest
 from src.api.serializers import (
-    observation_payload, paginate, scan_payload,
+    observation_payload,
+    paginate,
+    scan_payload,
 )
 from src.api.routes._access import record_operator_event, require_role, severity_filter
 
@@ -82,7 +89,9 @@ def bulk_cancel_scans(payload: BulkIdsRequest, request: Request) -> dict:
                 scan.status = ScanStatus.CANCELLED.value
                 scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 changed.append(scan.scan_id)
-                record_operator_event(session, request, AuditEventType.SCAN_CANCELLED, scan.scan_id, {"action": "bulk_cancel_scan"})
+                record_operator_event(
+                    session, request, AuditEventType.SCAN_CANCELLED, scan.scan_id, {"action": "bulk_cancel_scan"}
+                )
     for scan_id in changed:
         celery_app.control.revoke(scan_id, terminate=False)
     return {"requested": scan_ids, "cancelled": changed, "count": len(changed)}
@@ -94,10 +103,16 @@ def bulk_archive_scans(payload: BulkIdsRequest, request: Request) -> dict:
     scan_ids = [str(value) for value in payload.ids]
     archived: list[str] = []
     with get_session() as session:
-        for scan in session.query(Scan).filter(Scan.scan_id.in_(scan_ids), Scan.status.notin_([ScanStatus.PENDING, ScanStatus.RUNNING])).all():
+        for scan in (
+            session.query(Scan)
+            .filter(Scan.scan_id.in_(scan_ids), Scan.status.notin_([ScanStatus.PENDING, ScanStatus.RUNNING]))
+            .all()
+        ):
             scan.archived = True
             archived.append(scan.scan_id)
-            record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, scan.scan_id, {"action": "archive_scan"})
+            record_operator_event(
+                session, request, AuditEventType.CONFIG_CHANGED, scan.scan_id, {"action": "archive_scan"}
+            )
     return {"requested": scan_ids, "archived": archived, "count": len(archived)}
 
 
@@ -107,10 +122,13 @@ def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
     with get_session() as session:
         sources = [
             (scan.scan_id, scan.target or scan.image.full_name)
-            for scan in session.query(Scan).join(Image).filter(
+            for scan in session.query(Scan)
+            .join(Image)
+            .filter(
                 Scan.scan_id.in_([str(value) for value in payload.ids]),
                 Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED]),
-            ).all()
+            )
+            .all()
         ]
     retried: list[dict] = []
     for source_scan_id, target in sources:
@@ -119,8 +137,13 @@ def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
         except Exception:
             continue
         with get_session() as session:
-            record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id,
-                                   {"action": "retry_scan", "source_scan_id": source_scan_id})
+            record_operator_event(
+                session,
+                request,
+                AuditEventType.SCAN_STARTED,
+                retry_id,
+                {"action": "retry_scan", "source_scan_id": source_scan_id},
+            )
         retried.append({"source_scan_id": source_scan_id, "scan_id": retry_id, "image_name": target})
     return {"requested": payload.ids, "retried": retried, "count": len(retried)}
 
@@ -148,16 +171,17 @@ def scan_findings(
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
             raise HTTPException(status_code=404, detail="scan_not_found")
-        query = (session.query(FindingObservation, ScanFinding)
-                 .join(ScanFinding, FindingObservation.finding_id == ScanFinding.id)
-                 .filter(FindingObservation.scan_id == scan_id))
+        query = (
+            session.query(FindingObservation, ScanFinding)
+            .join(ScanFinding, FindingObservation.finding_id == ScanFinding.id)
+            .filter(FindingObservation.scan_id == scan_id)
+        )
         if severity_value:
             query = query.filter(FindingObservation.severity == severity_value.value)
         if fixable_only:
             query = query.filter(FindingObservation.fixed_version.is_not(None), ScanFinding.resolved_at.is_(None))
         total = query.order_by(None).count()
-        rows = (query.order_by(FindingObservation.severity.asc(), ScanFinding.id.asc())
-                .offset(offset).limit(limit).all())
+        rows = query.order_by(FindingObservation.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
         items = [observation_payload(observation, finding) for observation, finding in rows]
     return {"scan_id": scan_id, "image_id": scan.image_id, **paginate(items, limit, offset, total)}
 
@@ -170,7 +194,15 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=503, detail="scan_queue_unavailable") from exc
     with get_session() as session:
-        record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {
-            "action": "start_scan", "image_name": payload.image_name, "priority": payload.priority,
-        })
+        record_operator_event(
+            session,
+            request,
+            AuditEventType.SCAN_STARTED,
+            scan_id,
+            {
+                "action": "start_scan",
+                "image_name": payload.image_name,
+                "priority": payload.priority,
+            },
+        )
     return {"scan_id": scan_id, "task_id": scan_id, "image_name": payload.image_name, "status": "pending"}

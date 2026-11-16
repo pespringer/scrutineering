@@ -9,27 +9,60 @@ from src.api.routes._access import require_role
 from src.api.routes.images import _local_registry_public_url
 from src.api.routes.remediations import _remediation_actions
 from src.api.schemas import RemediationRequest, ScanRequest
-from src.api.serializers import finding_payload, image_payload, paginate, remediation_payload, remediation_workflow_state, scan_payload, severity_counts
+from src.api.serializers import (
+    finding_payload,
+    image_payload,
+    paginate,
+    remediation_payload,
+    remediation_workflow_state,
+    scan_payload,
+    severity_counts,
+)
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
 def test_dashboard_serializers_match_frontend_contract():
     image = SimpleNamespace(
-        id=7, registry_name=ImageRegistry.GHCR, repo_name="acme/api", tag="v1",
-        last_scan_at=datetime(2026, 1, 2, 3, 4, 5), last_scan_id="scan-7",
+        id=7,
+        registry_name=ImageRegistry.GHCR,
+        repo_name="acme/api",
+        tag="v1",
+        last_scan_at=datetime(2026, 1, 2, 3, 4, 5),
+        last_scan_id="scan-7",
         full_name="ghcr/acme/api:v1",
     )
     finding = SimpleNamespace(
-        id=9, image_id=7, fingerprint="fingerprint", cve_id="CVE-2026-0001",
-        package_name="openssl", package_version="3.0.0", package_type="apk",
-        severity=Severity.HIGH, title="Example finding", description="Details",
-        fixed_version="3.0.1", file_path="requirements.txt", fix_available=True, first_seen=datetime(2026, 1, 1),
-        last_seen=datetime(2026, 1, 2), remediated=False, acknowledged=False, assigned_to=None, remediation_id=None,
+        id=9,
+        image_id=7,
+        fingerprint="fingerprint",
+        cve_id="CVE-2026-0001",
+        package_name="openssl",
+        package_version="3.0.0",
+        package_type="apk",
+        severity=Severity.HIGH,
+        title="Example finding",
+        description="Details",
+        fixed_version="3.0.1",
+        file_path="requirements.txt",
+        fix_available=True,
+        first_seen=datetime(2026, 1, 1),
+        last_seen=datetime(2026, 1, 2),
+        remediated=False,
+        acknowledged=False,
+        assigned_to=None,
+        remediation_id=None,
     )
     scan = SimpleNamespace(
-        scan_id="scan-7", image=image, status=ScanStatus.COMPLETED,
-        started_at=datetime(2026, 1, 2), completed_at=datetime(2026, 1, 2, 0, 5),
-        total_findings=1, critical_count=0, high_count=1, medium_count=0, low_count=0,
+        scan_id="scan-7",
+        image=image,
+        status=ScanStatus.COMPLETED,
+        started_at=datetime(2026, 1, 2),
+        completed_at=datetime(2026, 1, 2, 0, 5),
+        total_findings=1,
+        critical_count=0,
+        high_count=1,
+        medium_count=0,
+        low_count=0,
     )
 
     assert severity_counts([finding]) == {"critical": 0, "high": 1, "medium": 0, "low": 0}
@@ -42,10 +75,16 @@ def test_dashboard_serializers_match_frontend_contract():
 
 def test_remediation_serializer_exposes_open_and_resolved_counts():
     remediation = SimpleNamespace(
-        id=3, image_id=7, status="completed", finding_count=2,
-        target_severities=["high"], approved_by=None, approved_at=None,
+        id=3,
+        image_id=7,
+        status="completed",
+        finding_count=2,
+        target_severities=["high"],
+        approved_by=None,
+        approved_at=None,
         findings=[SimpleNamespace(resolved_at=None), SimpleNamespace(resolved_at=datetime(2026, 1, 3))],
-        publications=[], actions=[],
+        publications=[],
+        actions=[],
     )
 
     payload = remediation_payload(remediation)
@@ -57,9 +96,16 @@ def test_remediation_serializer_exposes_open_and_resolved_counts():
 
 def test_remediation_serializer_exposes_operator_workflow_state():
     remediation = SimpleNamespace(
-        id=4, image_id=7, status="analyzing", finding_count=1,
-        target_severities=["high"], approved_by=None, approved_at=None,
-        findings=[SimpleNamespace(resolved_at=None)], publications=[], actions=[],
+        id=4,
+        image_id=7,
+        status="analyzing",
+        finding_count=1,
+        target_severities=["high"],
+        approved_by=None,
+        approved_at=None,
+        findings=[SimpleNamespace(resolved_at=None)],
+        publications=[],
+        actions=[],
         events=[SimpleNamespace(event_type="execution_ready")],
     )
 
@@ -84,9 +130,15 @@ def test_remediation_workflow_state_tracks_execution_events(event_type, expected
 
 
 def test_reapproved_retry_shows_approved_state_not_awaiting_approval():
-    events = [SimpleNamespace(event_type=name) for name in (
-        "execution_queued", "execution_started", "execution_blocked", "execution_retry_requested",
-    )]
+    events = [
+        SimpleNamespace(event_type=name)
+        for name in (
+            "execution_queued",
+            "execution_started",
+            "execution_blocked",
+            "execution_retry_requested",
+        )
+    ]
     assert remediation_workflow_state(SimpleNamespace(status="analyzing"), events) == "analyzing"
     assert remediation_workflow_state(SimpleNamespace(status="requires_review"), events) == "requires_review"
 
@@ -95,7 +147,11 @@ def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
     assert paginate([{"id": 1}], limit=20, offset=0, total=41) == {
-        "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
+        "items": [{"id": 1}],
+        "limit": 20,
+        "offset": 0,
+        "count": 1,
+        "total": 41,
     }
 
 
@@ -125,28 +181,63 @@ def test_cancelled_scan_event_is_part_of_the_audit_contract():
 
 def test_remediation_request_is_bounded_and_preview_actions_fail_closed():
     request = RemediationRequest(image_id=4, finding_ids=[11])
-    finding = SimpleNamespace(id=11, package_name="openssl", package_version="3.0.0", fixed_version=None, cve_id="CVE-2026-1", severity=Severity.HIGH, fix_available=False)
+    finding = SimpleNamespace(
+        id=11,
+        package_name="openssl",
+        package_version="3.0.0",
+        fixed_version=None,
+        cve_id="CVE-2026-1",
+        severity=Severity.HIGH,
+        fix_available=False,
+    )
     action = _remediation_actions([finding])[0]
     assert request.finding_ids == [11]
     assert action["safe_to_apply"] is False
 
 
 def test_remediation_preview_requires_scanner_source_coordinate():
-    finding = SimpleNamespace(id=12, package_name="requests", package_version="2.0.0", fixed_version="2.0.1", cve_id="CVE-2026-2", severity=Severity.HIGH, fix_available=True, file_path="requirements.txt")
+    finding = SimpleNamespace(
+        id=12,
+        package_name="requests",
+        package_version="2.0.0",
+        fixed_version="2.0.1",
+        cve_id="CVE-2026-2",
+        severity=Severity.HIGH,
+        fix_available=True,
+        file_path="requirements.txt",
+    )
     action = _remediation_actions([finding])[0]
     assert action["file_path"] == "requirements.txt"
     assert action["safe_to_apply"] is True
 
 
 def test_remediation_actions_reject_fix_without_explicit_source_path():
-    finding = SimpleNamespace(id=14, package_name="openssl", package_version="3.0.0", fixed_version="3.0.1", cve_id="CVE-2026-3", severity=Severity.HIGH, fix_available=True, file_path=None)
+    finding = SimpleNamespace(
+        id=14,
+        package_name="openssl",
+        package_version="3.0.0",
+        fixed_version="3.0.1",
+        cve_id="CVE-2026-3",
+        severity=Severity.HIGH,
+        fix_available=True,
+        file_path=None,
+    )
     action = _remediation_actions([finding])[0]
     assert action["safe_to_apply"] is False
 
 
 def test_filesystem_remediation_actions_preserve_repository_directory():
     image = SimpleNamespace(registry_name=ImageRegistry.DOCKER_HUB, repo_name="local/source-fixture", tag="filesystem")
-    finding = SimpleNamespace(id=13, package_name="lodash", package_version="4.17.20", fixed_version="4.18.1", cve_id="CVE-2021-23337", severity=Severity.HIGH, fix_available=True, file_path="package-lock.json")
+    finding = SimpleNamespace(
+        id=13,
+        package_name="lodash",
+        package_version="4.17.20",
+        fixed_version="4.18.1",
+        cve_id="CVE-2021-23337",
+        severity=Severity.HIGH,
+        fix_available=True,
+        file_path="package-lock.json",
+    )
 
     action = _remediation_actions([finding], image)[0]
 

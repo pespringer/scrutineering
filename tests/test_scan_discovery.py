@@ -16,10 +16,17 @@ def test_docker_collector_parses_json_lines_and_skips_garbage(tmp_path):
     line = json.dumps({"ID": "abc", "Names": "web", "Image": "nginx:1.27", "State": "running", "Labels": "a=b"})
     docker = _fake_cli(tmp_path, "docker", f"echo '{line}'\necho 'not json'")
     containers = asyncio.run(DockerRuntimeCollector(docker_bin=docker).list_running_containers())
-    assert containers == [{
-        "id": "abc", "names": "web", "image": "nginx:1.27", "status": "running",
-        "created": "", "ports": "", "labels": "a=b",
-    }]
+    assert containers == [
+        {
+            "id": "abc",
+            "names": "web",
+            "image": "nginx:1.27",
+            "status": "running",
+            "created": "",
+            "ports": "",
+            "labels": "a=b",
+        }
+    ]
 
 
 def test_missing_binaries_return_no_containers(tmp_path):
@@ -30,11 +37,15 @@ def test_missing_binaries_return_no_containers(tmp_path):
 
 
 def test_containerd_collector_lists_ids_and_reads_info(tmp_path):
-    ctr = _fake_cli(tmp_path, "ctr", """
+    ctr = _fake_cli(
+        tmp_path,
+        "ctr",
+        """
 case "$3 $4" in
   "containers list") printf 'c1\\n\\nc2\\n' ;;
   "containers info") printf 'Image: docker.io/library/redis:7\\nRuntime: io.containerd.runc.v2\\n' ;;
-esac""")
+esac""",
+    )
     collector = ContainerdCollector(ctr_bin=ctr, namespace="k8s.io")
     assert asyncio.run(collector.list_running_containers()) == [
         {"id": "c1", "namespace": "k8s.io"},

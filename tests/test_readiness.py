@@ -2,9 +2,14 @@ from src.api.readiness import check_database, check_dependencies
 
 
 class Session:
-    def __enter__(self): return self
-    def __exit__(self, *args): pass
-    def execute(self, query): return 1
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def execute(self, query):
+        return 1
 
 
 def test_database_readiness():
@@ -13,8 +18,12 @@ def test_database_readiness():
 
 def test_database_readiness_fails_closed():
     class Broken:
-        def __enter__(self): raise RuntimeError("database down")
-        def __exit__(self, *args): pass
+        def __enter__(self):
+            raise RuntimeError("database down")
+
+        def __exit__(self, *args):
+            pass
+
     assert check_database(Broken)["status"] == "not_ready"
 
 

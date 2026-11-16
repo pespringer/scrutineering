@@ -20,9 +20,7 @@ def get_database_url(*environment_names: str) -> str:
         return TEST_DATABASE_URL
 
     names = ", ".join(environment_names)
-    raise RuntimeError(
-        f"A database URL must be configured via {names}; refusing an insecure default"
-    )
+    raise RuntimeError(f"A database URL must be configured via {names}; refusing an insecure default")
 
 
 def get_async_database_url(sync_url: str) -> str:

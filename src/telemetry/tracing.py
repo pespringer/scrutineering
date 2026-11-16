@@ -12,6 +12,7 @@ def span(name: str, attributes: dict[str, object] | None = None):
         raise ValueError("span name is required")
     try:
         from opentelemetry import trace
+
         tracer = trace.get_tracer("scrutineering")
         with tracer.start_as_current_span(name, attributes=attributes or {}) as current_span:
             try:

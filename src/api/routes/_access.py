@@ -6,7 +6,8 @@ from __future__ import annotations
 from fastapi import HTTPException, Request
 
 from src.db.models import (
-    AuditEventType, Severity,
+    AuditEventType,
+    Severity,
 )
 from src.db.repositories import AuditLogRepository
 
@@ -26,7 +27,9 @@ def require_role(request: Request, *allowed: str) -> None:
         raise HTTPException(status_code=403, detail="operator_role_required")
 
 
-def record_operator_event(session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict, entity_type: str = "scan") -> None:
+def record_operator_event(
+    session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict, entity_type: str = "scan"
+) -> None:
     AuditLogRepository.record(
         session,
         event_type=event_type,

@@ -9,11 +9,16 @@ from fastapi import APIRouter, Query
 
 from src.db.connection import get_session
 from src.db.models import (
-    Image, Scan, ScanFinding, ScanStatus,
+    Image,
+    Scan,
+    ScanFinding,
+    ScanStatus,
     SeveritySnapshot,
 )
 from src.api.serializers import (
-    enum_value, iso, severity_counts,
+    enum_value,
+    iso,
+    severity_counts,
 )
 
 router = APIRouter()
@@ -35,7 +40,13 @@ def posture_summary() -> dict:
         "medium_count": counts["medium"],
         "low_count": counts["low"],
         "fixable_count": sum(1 for finding in findings if finding.fix_available),
-        "last_scan_at": iso(latest_scan.completed_at if latest_scan and latest_scan.completed_at else latest_scan.started_at if latest_scan else None),
+        "last_scan_at": iso(
+            latest_scan.completed_at
+            if latest_scan and latest_scan.completed_at
+            else latest_scan.started_at
+            if latest_scan
+            else None
+        ),
         "last_scan_status": enum_value(latest_scan.status) if latest_scan else None,
     }
 
@@ -46,10 +57,15 @@ def posture_trend(days: int = Query(default=30, ge=1, le=365)) -> list[dict]:
     with get_session() as session:
         snapshots = session.query(SeveritySnapshot).filter(SeveritySnapshot.snapshot_date >= cutoff).all()
         if not snapshots:
-            scans = session.query(Scan).filter(
-                Scan.status.in_([ScanStatus.COMPLETED, ScanStatus.PARTIAL]),
-                Scan.completed_at >= cutoff,
-            ).order_by(Scan.completed_at).all()
+            scans = (
+                session.query(Scan)
+                .filter(
+                    Scan.status.in_([ScanStatus.COMPLETED, ScanStatus.PARTIAL]),
+                    Scan.completed_at >= cutoff,
+                )
+                .order_by(Scan.completed_at)
+                .all()
+            )
             grouped = defaultdict(lambda: {"critical": 0, "high": 0, "medium": 0, "low": 0})
             for scan in scans:
                 if scan.completed_at:

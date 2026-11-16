@@ -20,12 +20,18 @@ body {
   background: var(--bg-primary);
   color: var(--text-primary);
   background-image: radial-gradient(circle at 80% -10%, rgba(39, 111, 185, 0.16), transparent 34rem),
-    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
-  background-size: auto, 42px 42px, 42px 42px;
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size:
+    auto,
+    42px 42px,
+    42px 42px;
 }
 
-::selection { background: rgba(85, 166, 255, 0.35); color: #fff; }
+::selection {
+  background: rgba(85, 166, 255, 0.35);
+  color: #fff;
+}
 
 .panel {
   border: 1px solid rgba(92, 119, 151, 0.2);
@@ -33,7 +39,13 @@ body {
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.16);
 }
 
-.eyebrow { color: #718198; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
+.eyebrow {
+  color: #718198;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
 
 ::-webkit-scrollbar {
   width: 8px;

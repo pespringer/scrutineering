@@ -28,13 +28,21 @@ def scan_identity(target: str) -> ImageIdentity:
 
 
 def get_or_create_image(session: Session, identity: ImageIdentity) -> Image:
-    image = session.query(Image).filter_by(
-        registry_name=identity.registry, repo_name=identity.repo_name, tag=identity.tag,
-    ).first()
+    image = (
+        session.query(Image)
+        .filter_by(
+            registry_name=identity.registry,
+            repo_name=identity.repo_name,
+            tag=identity.tag,
+        )
+        .first()
+    )
     if image is None:
         image = Image(
-            registry_name=identity.registry, repo_name=identity.repo_name,
-            tag=identity.tag, digest=identity.digest,
+            registry_name=identity.registry,
+            repo_name=identity.repo_name,
+            tag=identity.tag,
+            digest=identity.digest,
         )
         session.add(image)
         session.flush()
@@ -46,7 +54,11 @@ def get_or_create_image(session: Session, identity: ImageIdentity) -> Image:
 
 
 def create_pending_scan(
-    session: Session, target: str, *, scan_id: str | None = None, trigger: str = "manual",
+    session: Session,
+    target: str,
+    *,
+    scan_id: str | None = None,
+    trigger: str = "manual",
 ) -> Scan:
     """Create (or return the existing) pending scan for `target`."""
     scan_id = scan_id or uuid.uuid4().hex
@@ -56,8 +68,14 @@ def create_pending_scan(
     identity = scan_identity(target)
     image = get_or_create_image(session, identity)
     scan = Scan(
-        scan_id=scan_id, image_id=image.id, target=target, status=ScanStatus.PENDING.value,
-        phase="queued", task_id=scan_id, started_at=_now(), image_digest=identity.digest,
+        scan_id=scan_id,
+        image_id=image.id,
+        target=target,
+        status=ScanStatus.PENDING.value,
+        phase="queued",
+        task_id=scan_id,
+        started_at=_now(),
+        image_digest=identity.digest,
         scheduler_type=trigger,
     )
     session.add(scan)
@@ -83,8 +101,15 @@ def mark_scan_failed(session: Session, scan_id: str, reason: str, *, phase: str 
     return scan
 
 
-def queue_scan(target: str, *, priority: str = "normal", scan_id: str | None = None, trigger: str = "manual",
-               session_factory=None, enqueue=None) -> str:
+def queue_scan(
+    target: str,
+    *,
+    priority: str = "normal",
+    scan_id: str | None = None,
+    trigger: str = "manual",
+    session_factory=None,
+    enqueue=None,
+) -> str:
     """Create the pending scan, commit it, hand it to the queue, and return its ID.
 
     If the queue rejects the task, the scan is marked failed instead of being

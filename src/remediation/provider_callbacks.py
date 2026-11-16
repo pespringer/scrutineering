@@ -32,11 +32,15 @@ def verify_signature(*, provider: str, body: bytes, signature: str, secret: str)
     return bool(re.fullmatch(r"[a-f0-9]{64}", candidate)) and hmac.compare_digest(candidate, digest)
 
 
-def normalize_callback(*, provider: str, payload: dict, event_id: str, event_type: str | None = None) -> ProviderCallback:
+def normalize_callback(
+    *, provider: str, payload: dict, event_id: str, event_type: str | None = None
+) -> ProviderCallback:
     provider = provider.lower()
     if provider == "github":
         repository_data = payload.get("repository") or {}
-        repository = str(repository_data.get("full_name") if isinstance(repository_data, dict) else repository_data or "")
+        repository = str(
+            repository_data.get("full_name") if isinstance(repository_data, dict) else repository_data or ""
+        )
         number = int(payload.get("number") or payload.get("pull_request", {}).get("number") or 0)
         request = payload.get("pull_request", payload)
         merged = bool(request.get("merged") or request.get("merged_at"))

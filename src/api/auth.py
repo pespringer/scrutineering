@@ -4,7 +4,8 @@ import hmac
 
 def supplied_api_key(request: Request) -> str:
     bearer = request.headers.get("authorization", "")
-    if bearer.startswith("Bearer "): return bearer[7:]
+    if bearer.startswith("Bearer "):
+        return bearer[7:]
     return request.headers.get("x-api-key", "")
 
 

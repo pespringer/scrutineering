@@ -10,7 +10,9 @@ from src.db.models import RemediationStatus
 
 
 def _request(*roles: str):
-    return SimpleNamespace(state=SimpleNamespace(principal_roles=list(roles), principal_id="alice", auth_method="api_key"))
+    return SimpleNamespace(
+        state=SimpleNamespace(principal_roles=list(roles), principal_id="alice", auth_method="api_key")
+    )
 
 
 @pytest.fixture

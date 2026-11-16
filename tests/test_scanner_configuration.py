@@ -44,8 +44,16 @@ def _env(log) -> dict[str, str]:
 
 
 def _finding() -> ScannerFinding:
-    return ScannerFinding(package_name="openssl", package_version="1.1.1", package_type="os", cve_id="CVE-1",
-                          title="t", description="", severity=Severity.HIGH, fixed_version="1.1.2")
+    return ScannerFinding(
+        package_name="openssl",
+        package_version="1.1.1",
+        package_type="os",
+        cve_id="CVE-1",
+        title="t",
+        description="",
+        severity=Severity.HIGH,
+        fixed_version="1.1.2",
+    )
 
 
 # -- digest pinning ---------------------------------------------------------
@@ -95,8 +103,9 @@ def test_resolver_gets_host_credentials_and_http_only_for_the_local_registry(mon
     calls = []
     monkeypatch.setenv("REGISTRY_INSECURE", "true")
     monkeypatch.setenv("GITHUB_TOKEN", "ghs-test")
-    monkeypatch.setattr("src.scan.tasks.resolve_digest",
-                        lambda identity, **kw: calls.append((identity.host, kw)) or DIGEST)
+    monkeypatch.setattr(
+        "src.scan.tasks.resolve_digest", lambda identity, **kw: calls.append((identity.host, kw)) or DIGEST
+    )
     with patch("src.scan.tasks.run_scanner_sync", return_value=[]):
         run_scan.run.__func__(MagicMock(), "registry:5000/team/app:1.0", scan_id="h1")
         run_scan.run.__func__(MagicMock(), "ghcr.io/acme/api:v1", scan_id="h2")
@@ -112,7 +121,10 @@ def test_partial_credentials_fail_the_scan_with_a_clear_reason(monkeypatch):
     scanner.assert_not_called()
     assert result["status"] == "failed"
     with get_session() as session:
-        assert "DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD" in session.query(Scan).filter_by(scan_id="p1").one().error_message
+        assert (
+            "DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD"
+            in session.query(Scan).filter_by(scan_id="p1").one().error_message
+        )
 
 
 # -- settings ---------------------------------------------------------------
@@ -127,14 +139,23 @@ def test_scanner_settings_are_applied_to_both_scanners(monkeypatch):
     trivy = build_scanner("trivy", settings)
     grype = build_scanner("grype", settings)
     assert (trivy.timeout, trivy.max_output_bytes, trivy.max_findings, trivy.cache_dir) == (
-        1800, 1234, 55, "/var/cache/scrutineering")
+        1800,
+        1234,
+        55,
+        "/var/cache/scrutineering",
+    )
     assert (grype.timeout, grype.max_output_bytes, grype.max_findings) == (1800, 1234, 55)
 
 
-@pytest.mark.parametrize(("name", "value"), [
-    ("SCANNER_TIMEOUT", "soon"), ("SCANNER_TIMEOUT", "0"), ("SCANNER_RETRY_ATTEMPTS", "-1"),
-    ("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "maybe"),
-])
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [
+        ("SCANNER_TIMEOUT", "soon"),
+        ("SCANNER_TIMEOUT", "0"),
+        ("SCANNER_RETRY_ATTEMPTS", "-1"),
+        ("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "maybe"),
+    ],
+)
 def test_invalid_settings_are_rejected(monkeypatch, name, value):
     monkeypatch.setenv(name, value)
     with pytest.raises(ValueError, match=name):
@@ -217,13 +238,20 @@ def test_trivy_without_credentials_or_insecure_flag(tmp_path):
 
 def test_grype_passes_credentials_and_local_registry_transport_through_env(tmp_path):
     cmd, log = _fake_cli(tmp_path, "grype", {"matches": []})
-    scanner = GrypeScanner(grype_cmd=cmd, registry_username="bot", registry_password="pw",
-                           registry_authority="registry:5000", insecure=True)
+    scanner = GrypeScanner(
+        grype_cmd=cmd,
+        registry_username="bot",
+        registry_password="pw",
+        registry_authority="registry:5000",
+        insecure=True,
+    )
     asyncio.run(scanner.scan("registry:5000/team/app:1.0"))
     assert _args(log)[-1] == "registry:registry:5000/team/app:1.0"
     assert _env(log) == {
-        "GRYPE_REGISTRY_AUTH_AUTHORITY": "registry:5000", "GRYPE_REGISTRY_AUTH_PASSWORD": "pw",
-        "GRYPE_REGISTRY_AUTH_USERNAME": "bot", "GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY": "true",
+        "GRYPE_REGISTRY_AUTH_AUTHORITY": "registry:5000",
+        "GRYPE_REGISTRY_AUTH_PASSWORD": "pw",
+        "GRYPE_REGISTRY_AUTH_USERNAME": "bot",
+        "GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY": "true",
         "GRYPE_REGISTRY_INSECURE_USE_HTTP": "true",
     }
 
@@ -240,9 +268,13 @@ def test_inherited_insecure_settings_do_not_leak_into_remote_scans(tmp_path, mon
 
 
 def test_grype_enforces_the_finding_limit(tmp_path):
-    match = {"vulnerability": {"id": "CVE-1", "severity": "High", "fix": {"versions": []}},
-             "artifact": {"name": "openssl", "version": "1", "type": "deb"}}
-    cmd, _ = _fake_cli(tmp_path, "grype", {"matches": [match, {**match, "vulnerability": {**match["vulnerability"], "id": "CVE-2"}}]})
+    match = {
+        "vulnerability": {"id": "CVE-1", "severity": "High", "fix": {"versions": []}},
+        "artifact": {"name": "openssl", "version": "1", "type": "deb"},
+    }
+    cmd, _ = _fake_cli(
+        tmp_path, "grype", {"matches": [match, {**match, "vulnerability": {**match["vulnerability"], "id": "CVE-2"}}]}
+    )
     with pytest.raises(ScannerError, match="finding count"):
         asyncio.run(GrypeScanner(grype_cmd=cmd, max_findings=1).scan("alpine:3.20"))
 

@@ -32,9 +32,7 @@ SEVERITY_RANK = {
 }
 
 
-def make_fingerprint(
-    cve_id: Optional[str], package_name: str, package_version: Optional[str]
-) -> str:
+def make_fingerprint(cve_id: Optional[str], package_name: str, package_version: Optional[str]) -> str:
     """Create deterministic fingerprint for deduplication.
 
     Uses SHA-256 of the canonical key: CVE ID | package name | package version.
@@ -202,8 +200,7 @@ def deduplicate_findings(
     # Sort by severity (critical first)
     deduplicated.sort(
         key=lambda x: SEVERITY_RANK.get(
-            getattr(Severity, x["severity"].upper(), "UNKNOWN")
-            if x["severity"] else None, 0
+            getattr(Severity, x["severity"].upper(), "UNKNOWN") if x["severity"] else None, 0
         ),
         reverse=True,
     )
@@ -258,41 +255,49 @@ def deduplicate_findings_with_report(
             for f, src in group:
                 field_count = _count_metadata_fields(f)
                 reasons.append(f"{src}: {field_count} fields")
-            decision = f"Merged {len(group)} findings from {', '.join(sources_in_group)}. Details: {'; '.join(reasons)}."
+            decision = (
+                f"Merged {len(group)} findings from {', '.join(sources_in_group)}. Details: {'; '.join(reasons)}."
+            )
 
-            merged_audit.append(DedupAuditEntry(
-                fingerprint=fingerprint,
-                package_name=merged["package_name"],
-                cve_id=merged["cve_id"],
-                sources=sources_in_group,
-                action="merged",
-                severity=severity_str,
-                decision_reason=decision,
-            ))
-            logger.info("DEDUP merged: %s (CVE: %s) from %s",
-                       merged["package_name"], merged["cve_id"] or "N/A",
-                       ", ".join(sources_in_group))
+            merged_audit.append(
+                DedupAuditEntry(
+                    fingerprint=fingerprint,
+                    package_name=merged["package_name"],
+                    cve_id=merged["cve_id"],
+                    sources=sources_in_group,
+                    action="merged",
+                    severity=severity_str,
+                    decision_reason=decision,
+                )
+            )
+            logger.info(
+                "DEDUP merged: %s (CVE: %s) from %s",
+                merged["package_name"],
+                merged["cve_id"] or "N/A",
+                ", ".join(sources_in_group),
+            )
         else:
             # Unique finding from a single scanner
             unique_count += 1
             source = group[0][1]
             decision = f"Unique finding from {source}. No duplicate detected."
 
-            unique_audit.append(DedupAuditEntry(
-                fingerprint=fingerprint,
-                package_name=merged["package_name"],
-                cve_id=merged["cve_id"],
-                sources=[source],
-                action="unique",
-                severity=severity_str,
-                decision_reason=decision,
-            ))
+            unique_audit.append(
+                DedupAuditEntry(
+                    fingerprint=fingerprint,
+                    package_name=merged["package_name"],
+                    cve_id=merged["cve_id"],
+                    sources=[source],
+                    action="unique",
+                    severity=severity_str,
+                    decision_reason=decision,
+                )
+            )
 
     # Sort deduplicated list
     deduplicated.sort(
         key=lambda x: SEVERITY_RANK.get(
-            getattr(Severity, x["severity"].upper(), "UNKNOWN")
-            if x["severity"] else None, 0
+            getattr(Severity, x["severity"].upper(), "UNKNOWN") if x["severity"] else None, 0
         ),
         reverse=True,
     )

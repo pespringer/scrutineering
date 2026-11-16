@@ -28,8 +28,13 @@ def queue_post_merge_scan(session, publication: RemediationPublication) -> str:
     if publication.post_merge_scan_id:
         return publication.post_merge_scan_id
     from src.scan.records import queue_scan
-    scan_id = queue_scan(post_merge_scan_target(publication), priority="high",
-                         scan_id=f"postmerge-{publication.id}", trigger="post_merge")
+
+    scan_id = queue_scan(
+        post_merge_scan_target(publication),
+        priority="high",
+        scan_id=f"postmerge-{publication.id}",
+        trigger="post_merge",
+    )
     publication.post_merge_scan_id = scan_id
     publication.scan_status = "pending"
     return scan_id
@@ -39,12 +44,15 @@ def _append_event(session, publication: RemediationPublication, event_type: str,
     events = RemediationRepository.list_events(session, publication.remediation_id)
     if any(event.event_type == event_type and event.detail.get("publication_id") == publication.id for event in events):
         return
-    RemediationRepository.append_event(session, {
-        "remediation_id": publication.remediation_id,
-        "event_type": event_type,
-        "sequence": len(events) + 1,
-        "detail": {"publication_id": publication.id, **detail},
-    })
+    RemediationRepository.append_event(
+        session,
+        {
+            "remediation_id": publication.remediation_id,
+            "event_type": event_type,
+            "sequence": len(events) + 1,
+            "detail": {"publication_id": publication.id, **detail},
+        },
+    )
 
 
 @shared_task(bind=True, name="src.remediation.post_merge_tasks.verify_post_merge_scan", acks_late=True)
@@ -59,10 +67,18 @@ def verify_post_merge_scan(self, publication_id: int, scan_id: str) -> dict:
             raise self.retry(countdown=10, max_retries=30)
         publication.scan_status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
         publication.findings_after = scan.total_findings or 0
-        publication.findings_before = publication.findings_before if publication.findings_before is not None and publication.findings_before > 0 else publication.remediation.finding_count
+        publication.findings_before = (
+            publication.findings_before
+            if publication.findings_before is not None and publication.findings_before > 0
+            else publication.remediation.finding_count
+        )
         if publication.scan_status in {ScanStatus.FAILED.value, ScanStatus.CANCELLED.value}:
             publication.verification_status = "rollback_required"
-            publication.verification_detail = {"status": "rollback_required", "reasons": ["post-merge scan did not complete"], "scan_id": scan_id}
+            publication.verification_detail = {
+                "status": "rollback_required",
+                "reasons": ["post-merge scan did not complete"],
+                "scan_id": scan_id,
+            }
             _append_event(session, publication, "post_merge_scan_failed", publication.verification_detail)
             return {"publication_id": publication_id, "scan_id": scan_id, "status": publication.verification_status}
         publication.verification_status = "pending"
@@ -74,4 +90,9 @@ def verify_post_merge_scan(self, publication_id: int, scan_id: str) -> dict:
             "reason": "deployment_digest_evidence_required",
         }
         _append_event(session, publication, "post_merge_scan_completed", publication.verification_detail)
-        return {"publication_id": publication_id, "scan_id": scan_id, "status": publication.verification_status, "findings_after": publication.findings_after}
+        return {
+            "publication_id": publication_id,
+            "scan_id": scan_id,
+            "status": publication.verification_status,
+            "findings_after": publication.findings_after,
+        }
