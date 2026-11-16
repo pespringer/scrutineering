@@ -29,30 +29,36 @@ def test_invalid_references_are_rejected(value):
         parse_image_reference(value)
 
 
-@pytest.mark.parametrize(("value", "expected"), [
-    ("nginx", "nginx:latest"),
-    ("library/nginx:1.27", "nginx:1.27"),
-    ("docker.io/library/nginx:1.27", "nginx:1.27"),
-    ("index.docker.io/acme/api:v1", "acme/api:v1"),
-    ("registry:5000/scrutineering-test:latest", "registry:5000/scrutineering-test:latest"),
-    ("localhost/app:dev", "localhost/app:dev"),
-    ("us.gcr.io/proj/app:v2", "us.gcr.io/proj/app:v2"),
-    ("ghcr.io/acme/api:v1", "ghcr.io/acme/api:v1"),
-])
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("nginx", "nginx:latest"),
+        ("library/nginx:1.27", "nginx:1.27"),
+        ("docker.io/library/nginx:1.27", "nginx:1.27"),
+        ("index.docker.io/acme/api:v1", "acme/api:v1"),
+        ("registry:5000/scrutineering-test:latest", "registry:5000/scrutineering-test:latest"),
+        ("localhost/app:dev", "localhost/app:dev"),
+        ("us.gcr.io/proj/app:v2", "us.gcr.io/proj/app:v2"),
+        ("ghcr.io/acme/api:v1", "ghcr.io/acme/api:v1"),
+    ],
+)
 def test_reference_round_trips_without_losing_the_host(value, expected):
     assert parse_image_reference(value).reference == expected
     assert parse_image_reference(expected).reference == expected
 
 
-@pytest.mark.parametrize(("value", "registry"), [
-    ("nginx", ImageRegistry.DOCKER_HUB),
-    ("ghcr.io/a/b", ImageRegistry.GHCR),
-    ("europe-docker.pkg.dev/p/r/app", ImageRegistry.GCR),
-    ("123456789012.dkr.ecr.us-east-1.amazonaws.com/app", ImageRegistry.ECR),
-    ("registry.gitlab.com/group/app", ImageRegistry.GITLAB),
-    ("quay.io/org/app", ImageRegistry.QUAY),
-    ("registry:5000/app", ImageRegistry.OTHER),
-])
+@pytest.mark.parametrize(
+    ("value", "registry"),
+    [
+        ("nginx", ImageRegistry.DOCKER_HUB),
+        ("ghcr.io/a/b", ImageRegistry.GHCR),
+        ("europe-docker.pkg.dev/p/r/app", ImageRegistry.GCR),
+        ("123456789012.dkr.ecr.us-east-1.amazonaws.com/app", ImageRegistry.ECR),
+        ("registry.gitlab.com/group/app", ImageRegistry.GITLAB),
+        ("quay.io/org/app", ImageRegistry.QUAY),
+        ("registry:5000/app", ImageRegistry.OTHER),
+    ],
+)
 def test_registry_is_classified_from_the_host(value, registry):
     assert parse_image_reference(value).registry == registry
 

@@ -14,7 +14,8 @@ def _register_postgres_functions(dbapi_connection, _record):
     """SQLite stand-ins for the Postgres functions the schema's CHECKs and defaults use."""
     dbapi_connection.create_function("char_length", 1, lambda value: len(value) if value is not None else None)
     dbapi_connection.create_function(
-        "now", 0, lambda: datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S.%f"))
+        "now", 0, lambda: datetime.now(timezone.utc).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S.%f")
+    )
     dbapi_connection.execute("PRAGMA foreign_keys=ON")
 
 
@@ -27,8 +28,7 @@ def database():
     import src.db.connection as connection
     from src.db.models import Base
 
-    engine = create_engine("sqlite+pysqlite://", poolclass=StaticPool,
-                           connect_args={"check_same_thread": False})
+    engine = create_engine("sqlite+pysqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
     event.listen(engine, "connect", _register_postgres_functions)
     Base.metadata.create_all(engine)
     previous = connection.session_factory.kw.get("bind")
@@ -47,6 +47,7 @@ def offline_scanning(monkeypatch):
     Digest resolution behaves as if the registry were unreachable, so scans run
     by tag unless a test patches `src.scan.tasks.resolve_digest` itself.
     """
+
     def unreachable(*_args, **_kwargs):
         raise ConnectionError("registry unreachable in tests")
 
@@ -54,4 +55,3 @@ def offline_scanning(monkeypatch):
     monkeypatch.setenv("SCANNER_RETRY_BACKOFF_SECONDS", "0")
     for name in ("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "SCANNER_RETRY_ATTEMPTS", "SCANNER_TIMEOUT"):
         monkeypatch.delenv(name, raising=False)
-

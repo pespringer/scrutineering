@@ -81,16 +81,15 @@ def persist_findings(
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     observed: dict[str, dict] = {}
     for finding in deduped_findings:
-        fingerprint = make_fingerprint(finding.get("cve_id") or "", finding["package_name"],
-                                       finding.get("package_version") or "")
+        fingerprint = make_fingerprint(
+            finding.get("cve_id") or "", finding["package_name"], finding.get("package_version") or ""
+        )
         observed.setdefault(fingerprint, finding)
 
     with session_factory() as session:
         existing = {
             row.fingerprint: row
-            for row in session.execute(
-                select(ScanFinding).where(ScanFinding.image_id == image_id)
-            ).scalars()
+            for row in session.execute(select(ScanFinding).where(ScanFinding.image_id == image_id)).scalars()
         }
         for fingerprint, finding in observed.items():
             severity = _severity(finding.get("severity"))
@@ -127,12 +126,16 @@ def persist_findings(
                 if finding.get("fixed_version"):
                     row.fixed_version = _bounded(ScanFinding, "fixed_version", finding["fixed_version"])
                     row.fix_available = True
-            session.add(FindingObservation(
-                scan_id=scan_id, finding_id=row.id, severity=severity,
-                fixed_version=_bounded(FindingObservation, "fixed_version", finding.get("fixed_version")),
-                file_path=_bounded(FindingObservation, "file_path", finding.get("file_path")),
-                observed_at=now,
-            ))
+            session.add(
+                FindingObservation(
+                    scan_id=scan_id,
+                    finding_id=row.id,
+                    severity=severity,
+                    fixed_version=_bounded(FindingObservation, "fixed_version", finding.get("fixed_version")),
+                    file_path=_bounded(FindingObservation, "file_path", finding.get("file_path")),
+                    observed_at=now,
+                )
+            )
 
         if reconcile_missing:
             for fingerprint, row in existing.items():

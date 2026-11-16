@@ -6,6 +6,7 @@ import Link from "next/link";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { cx } from "@/lib/cx";
 
 type Remediation = {
   id: number;
@@ -63,7 +64,10 @@ export default function RemediationsPage() {
         </div>
         <button
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm text-slate-300 hover:text-white"
+          className={cx(
+            "inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm",
+            "text-slate-300 hover:text-white",
+          )}
         >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
@@ -101,10 +105,18 @@ export default function RemediationsPage() {
                 <Link
                   href={`/remediations/${item.id}`}
                   key={item.id}
-                  className="flex flex-col gap-3 p-5 transition hover:bg-slate-800/30 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+                  className={cx(
+                    "flex flex-col gap-3 p-5 transition hover:bg-slate-800/30 sm:flex-row sm:items-center",
+                    "sm:justify-between sm:px-6",
+                  )}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-400/10 text-violet-300">
+                    <div
+                      className={cx(
+                        "flex h-10 w-10 items-center",
+                        "justify-center rounded-xl bg-violet-400/10 text-violet-300",
+                      )}
+                    >
                       <ShieldCheck className="h-5 w-5" />
                     </div>
                     <div>
@@ -117,7 +129,13 @@ export default function RemediationsPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="rounded-full bg-violet-400/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-violet-200">
+                    <span
+                      className={cx(
+                        "rounded-full bg-violet-400/10 px-3 py-1",
+                        "text-xs font-semibold uppercase tracking-wider",
+                        "text-violet-200",
+                      )}
+                    >
                       {item.status}
                     </span>
                   </div>

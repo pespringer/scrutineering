@@ -1,6 +1,5 @@
 """Tests for the Celery scan orchestrator tasks."""
 
-import uuid
 import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -29,14 +28,15 @@ def _make_finding(cve=None, pkg="openssl", version="1.1.1", severity=Severity.HI
 # Tests for run_scan task
 # ---------------------------------------------------------------------------
 
+
 class TestRunScan:
     """Tests for the run_scan Celery task."""
 
     def test_merged_findings_keep_a_valid_single_source_enum(self):
         assert _finding_source({"sources": ["trivy", "grype"]}, "trivy,grype").value == "grype"
 
-    @patch('src.scan.tasks.run_scanner_sync')
-    @patch('src.scan.tasks.persist_findings')
+    @patch("src.scan.tasks.run_scanner_sync")
+    @patch("src.scan.tasks.persist_findings")
     def test_both_scanners_succeed(self, mock_persist, mock_scan, tmp_path):
         """Both scanners return findings, all get deduped and persisted."""
         from src.scan.tasks import run_scan
@@ -69,7 +69,7 @@ class TestRunScan:
         assert result["findings_by_source"]["trivy"] == 2
         assert result["findings_by_source"]["grype"] == 1
 
-    @patch('src.scan.tasks.run_scanner_sync')
+    @patch("src.scan.tasks.run_scanner_sync")
     def test_trivy_fails_grype_succeeds(self, mock_scan):
         """Trivy fails but Grype results are saved (partial success)."""
         from src.scan.tasks import run_scan
@@ -90,7 +90,7 @@ class TestRunScan:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["scanner"] == "trivy"
 
-    @patch('src.scan.tasks.run_scanner_sync')
+    @patch("src.scan.tasks.run_scanner_sync")
     def test_both_scanners_fail(self, mock_scan):
         """Both scanners fail — task should return failed status."""
         from src.scan.tasks import run_scan
@@ -106,8 +106,8 @@ class TestRunScan:
         assert len(result["errors"]) == 2
         assert mock_self.update_state.call_args.kwargs["state"] == "SCAN_FAILED"
 
-    @patch('src.scan.tasks.run_scanner_sync')
-    @patch('src.scan.tasks.persist_findings')
+    @patch("src.scan.tasks.run_scanner_sync")
+    @patch("src.scan.tasks.persist_findings")
     def test_no_findings_found(self, mock_persist, mock_scan):
         """Scanners run but find no vulnerabilities."""
         from src.scan.tasks import run_scan
@@ -122,8 +122,8 @@ class TestRunScan:
         assert result["findings"] == 0
         assert result["persisted"] == 0
 
-    @patch('src.scan.tasks.run_scanner_sync')
-    @patch('src.scan.tasks.persist_findings')
+    @patch("src.scan.tasks.run_scanner_sync")
+    @patch("src.scan.tasks.persist_findings")
     def test_database_persist_fails_marks_the_scan_failed(self, mock_persist, mock_scan):
         """Scanners succeed but saving findings fails: the scan must not claim completion."""
         from src.db.connection import get_session
@@ -142,8 +142,8 @@ class TestRunScan:
             assert (scan.status, scan.phase) == ("failed", "persistence_failed")
             assert "could not save findings" in scan.error_message
 
-    @patch('src.scan.tasks.run_scanner_sync')
-    @patch('src.scan.tasks.persist_findings')
+    @patch("src.scan.tasks.run_scanner_sync")
+    @patch("src.scan.tasks.persist_findings")
     def test_single_scanner_mode(self, mock_persist, mock_scan):
         """Run with only trivy scanner specified."""
         from src.scan.tasks import run_scan
@@ -159,7 +159,7 @@ class TestRunScan:
         assert result["scanners_completed"] == ["trivy"]
         assert "grype" not in result["scanners_completed"]
 
-    @patch('src.scan.tasks.run_scanner_sync')
+    @patch("src.scan.tasks.run_scanner_sync")
     def test_auto_generates_scan_id(self, mock_scan):
         """If no scan_id provided, one is generated."""
         from src.scan.tasks import run_scan
@@ -172,8 +172,8 @@ class TestRunScan:
         assert "scan_id" in result
         assert len(result["scan_id"]) > 0  # UUID
 
-    @patch('src.scan.tasks.run_scanner_sync')
-    @patch('src.scan.tasks.persist_findings')
+    @patch("src.scan.tasks.run_scanner_sync")
+    @patch("src.scan.tasks.persist_findings")
     def test_save_results_false(self, mock_persist, mock_scan):
         """When save_results=False, findings are not persisted."""
         from src.scan.tasks import run_scan
@@ -191,7 +191,7 @@ class TestRunScan:
         """Non-ScannerError exceptions should be caught and reported."""
         from src.scan.tasks import run_scan
 
-        with patch('src.scan.tasks.run_scanner_sync', side_effect=RuntimeError("unexpected")):
+        with patch("src.scan.tasks.run_scanner_sync", side_effect=RuntimeError("unexpected")):
             mock_self = MagicMock()
             result = run_scan.run.__func__(mock_self, "nginx:1.25")
 
@@ -220,6 +220,7 @@ class TestRunScan:
 
 # ---------------------------------------------------------------------------
 
+
 class TestRunScannerSync:
     """Tests for the run_scanner_sync wrapper."""
 
@@ -228,10 +229,12 @@ class TestRunScannerSync:
         from src.scan.tasks import run_scanner_sync
 
         mock_scanner = MagicMock()
-        mock_scanner.scan = AsyncMock(return_value=[
-            _make_finding(cve="CVE-2024-0001"),
-            _make_finding(cve="CVE-2024-0002"),
-        ])
+        mock_scanner.scan = AsyncMock(
+            return_value=[
+                _make_finding(cve="CVE-2024-0001"),
+                _make_finding(cve="CVE-2024-0002"),
+            ]
+        )
 
         findings = run_scanner_sync(mock_scanner, "nginx:1.25", "trivy")
 
@@ -255,9 +258,13 @@ class TestRunScannerSync:
         from src.scan.tasks import run_scanner_sync
 
         values = {}
+
         class Client:
-            def get(self, key): return values.get(key)
-            def set(self, key, value, ex): values[key] = value
+            def get(self, key):
+                return values.get(key)
+
+            def set(self, key, value, ex):
+                values[key] = value
 
         mock_scanner = MagicMock()
         mock_scanner.scan = AsyncMock(return_value=[_make_finding(cve="CVE-2024-CACHE")])

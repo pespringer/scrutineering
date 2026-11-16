@@ -2,7 +2,8 @@ from src.api.auth import is_api_key_authorized
 
 
 class Request:
-    def __init__(self, headers): self.headers = headers
+    def __init__(self, headers):
+        self.headers = headers
 
 
 def test_api_auth_accepts_bearer_and_x_api_key():

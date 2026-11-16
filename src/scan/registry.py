@@ -19,12 +19,14 @@ from urllib.request import Request, urlopen
 
 from src.scan.image_identity import ImageIdentity
 
-_MANIFEST_TYPES = ", ".join([
-    "application/vnd.oci.image.index.v1+json",
-    "application/vnd.oci.image.manifest.v1+json",
-    "application/vnd.docker.distribution.manifest.list.v2+json",
-    "application/vnd.docker.distribution.manifest.v2+json",
-])
+_MANIFEST_TYPES = ", ".join(
+    [
+        "application/vnd.oci.image.index.v1+json",
+        "application/vnd.oci.image.manifest.v1+json",
+        "application/vnd.docker.distribution.manifest.list.v2+json",
+        "application/vnd.docker.distribution.manifest.v2+json",
+    ]
+)
 _DOCKER_HUB_HOSTS = {"registry-1.docker.io", "docker.io", "index.docker.io"}
 _DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
 

@@ -21,8 +21,14 @@ def test_github_publisher_checks_protection_then_publishes():
         return Response({"number": 9, "html_url": "https://github.test/pr/9"})
 
     result = publish_validated_plan(
-        provider="github", repository="acme/api", title="Fix", body="Details",
-        head="auto/fix", base="main", token="secret", idempotency_key="run-1",
+        provider="github",
+        repository="acme/api",
+        title="Fix",
+        body="Details",
+        head="auto/fix",
+        base="main",
+        token="secret",
+        idempotency_key="run-1",
         transport=transport,
     )
     assert result.number == 9

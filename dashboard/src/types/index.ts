@@ -2,7 +2,7 @@ export interface ScanResult {
   scan_id: string;
   image_id?: number;
   image_name: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
+  status: "pending" | "running" | "completed" | "failed" | "cancelled" | "partial";
   phase?: string;
   task_id?: string | null;
   started_at: string;
@@ -34,7 +34,7 @@ export interface VulnerabilityFinding {
   package_version: string | null;
   package_type: string | null;
   file_path?: string | null;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
+  severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "UNKNOWN" | null;
   title: string;
   description: string | null;
   fixed_version: string | null;
@@ -43,7 +43,7 @@ export interface VulnerabilityFinding {
   last_seen: string;
   resolved_at?: string | null;
   reopened_at?: string | null;
-  lifecycle_status?: 'open' | 'resolved';
+  lifecycle_status?: "open" | "resolved";
   acknowledged?: boolean;
   assigned_to?: string | null;
   remediation_id?: number | null;
@@ -98,7 +98,15 @@ export interface RegistryInventory {
   registry: { host: string; url: string; internal_host?: string; reachable: boolean };
   repositories: string[];
   tags: RegistryTag[];
-  summary: { repositories: number; tags: number; scanned: number; not_scanned: number; scanning: number; issues_found: number; clean: number };
+  summary: {
+    repositories: number;
+    tags: number;
+    scanned: number;
+    not_scanned: number;
+    scanning: number;
+    issues_found: number;
+    clean: number;
+  };
 }
 
 export interface SeverityTrend {
@@ -114,4 +122,48 @@ export interface DashboardSession {
   subject?: string;
   email?: string | null;
   roles?: string[];
+}
+
+export interface RemediationEvent {
+  id: number;
+  event_type: string;
+  sequence: number;
+  detail: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface RemediationPublication {
+  id: number;
+  provider: string;
+  repository: string;
+  status: string;
+  url: string | null;
+  verification_status: string | null;
+  scan_status: string | null;
+  post_merge_scan_id: string | null;
+  verification_detail?: Record<string, unknown>;
+  findings_before: number | null;
+  findings_after: number | null;
+  rollback_command: string[] | null;
+}
+
+export interface RemediationAction {
+  action_type: string;
+  file_path?: string | null;
+  before_value: string | null;
+  after_value: string | null;
+}
+
+export interface RemediationRecord {
+  id: number;
+  image_id: number;
+  status: string;
+  workflow_state?: string;
+  workflow_label?: string;
+  finding_count: number;
+  open_finding_count?: number;
+  resolved_finding_count?: number;
+  resolution_status?: string;
+  actions: RemediationAction[];
+  publications: RemediationPublication[];
 }

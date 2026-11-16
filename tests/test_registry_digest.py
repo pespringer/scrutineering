@@ -45,8 +45,11 @@ def test_public_docker_hub_image_resolves_through_an_anonymous_bearer_token():
         if request.full_url.startswith("https://auth.docker.io/token"):
             return Response(body=json.dumps({"token": "anon"}).encode())
         if "Authorization" not in request.headers:
-            raise _unauthorized(request.full_url, 'Bearer realm="https://auth.docker.io/token",'
-                                'service="registry.docker.io",scope="repository:library/alpine:pull"')
+            raise _unauthorized(
+                request.full_url,
+                'Bearer realm="https://auth.docker.io/token",'
+                'service="registry.docker.io",scope="repository:library/alpine:pull"',
+            )
         return Response({"Docker-Content-Digest": DIGEST})
 
     assert resolve_digest(parse_image_reference("alpine:3.20"), opener=opener) == DIGEST
@@ -91,8 +94,9 @@ def test_basic_challenge_without_credentials_is_refused():
 
 def test_missing_digest_header_is_an_error():
     with pytest.raises(RuntimeError, match="sha256 digest"):
-        resolve_digest(parse_image_reference("registry:5000/a:1"), scheme="http",
-                       opener=lambda request, timeout: Response())
+        resolve_digest(
+            parse_image_reference("registry:5000/a:1"), scheme="http", opener=lambda request, timeout: Response()
+        )
 
 
 def test_pinned_reference_is_returned_without_a_request():

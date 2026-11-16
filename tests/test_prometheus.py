@@ -17,6 +17,7 @@ def test_metrics_registry_renders_counters_and_gauges():
 
 def test_metrics_registry_caps_series_cardinality():
     import pytest
+
     metrics = MetricsRegistry(max_series=1)
     metrics.increment("one")
     with pytest.raises(RuntimeError, match="series limit"):
@@ -25,4 +26,6 @@ def test_metrics_registry_caps_series_cardinality():
 
 def test_metrics_registry_rejects_negative_observations():
     import pytest
-    with pytest.raises(ValueError): MetricsRegistry().observe("latency", -1)
+
+    with pytest.raises(ValueError):
+        MetricsRegistry().observe("latency", -1)

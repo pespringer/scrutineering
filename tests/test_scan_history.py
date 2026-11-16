@@ -21,13 +21,20 @@ IMAGE = "registry:5000/team/app:1.0"
 
 def _finding(cve: str, package: str = "openssl", version: str = "1.1.1", fixed: str | None = "1.1.2"):
     return ScannerFinding(
-        package_name=package, package_version=version, package_type="os", cve_id=cve,
-        title=f"{cve} in {package}", description="", severity=Severity.HIGH, fixed_version=fixed,
+        package_name=package,
+        package_version=version,
+        package_type="os",
+        cve_id=cve,
+        title=f"{cve} in {package}",
+        description="",
+        severity=Severity.HIGH,
+        fixed_version=fixed,
     )
 
 
 def _scan(scan_id: str, *cves: str) -> dict:
     """Run the real worker with Trivy returning `cves` and Grype returning nothing."""
+
     def scanner(_scanner, _image, source):
         return [(_finding(cve), source) for cve in cves] if source == "trivy" else []
 
@@ -41,8 +48,10 @@ def _open_cves() -> set[str]:
 
 
 def _scan_cves(scan_id: str) -> set[str]:
-    return {item["cve_id"] for item in scan_findings(scan_id, limit=200, offset=0, severity=None,
-                                                     fixable_only=False)["items"]}
+    return {
+        item["cve_id"]
+        for item in scan_findings(scan_id, limit=200, offset=0, severity=None, fixable_only=False)["items"]
+    }
 
 
 def test_each_scan_keeps_what_it_saw_across_rescans():
@@ -72,11 +81,15 @@ def test_each_scan_keeps_what_it_saw_across_rescans():
 
 
 def test_vuln_key_ignores_the_package_version():
-    with patch("src.scan.tasks.run_scanner_sync",
-               side_effect=lambda _s, _i, source: [(_finding("CVE-9", version="1.0"), source)] if source == "trivy" else []):
+    with patch(
+        "src.scan.tasks.run_scanner_sync",
+        side_effect=lambda _s, _i, source: [(_finding("CVE-9", version="1.0"), source)] if source == "trivy" else [],
+    ):
         run_scan.run.__func__(MagicMock(), IMAGE, scan_id="v1")
-    with patch("src.scan.tasks.run_scanner_sync",
-               side_effect=lambda _s, _i, source: [(_finding("CVE-9", version="1.1"), source)] if source == "trivy" else []):
+    with patch(
+        "src.scan.tasks.run_scanner_sync",
+        side_effect=lambda _s, _i, source: [(_finding("CVE-9", version="1.1"), source)] if source == "trivy" else [],
+    ):
         run_scan.run.__func__(MagicMock(), IMAGE, scan_id="v2")
     with get_session() as session:
         rows = session.query(ScanFinding).all()
@@ -171,6 +184,7 @@ def test_partial_scan_records_observations_without_resolving_missing_findings():
     def trivy_only(_scanner, _image, source):
         if source == "grype":
             from src.scan.scanners.base import ScannerError
+
             raise ScannerError("grype", "down", "")
         return [(_finding("CVE-1"), source)]
 
@@ -190,7 +204,9 @@ def test_retry_uses_the_original_target(monkeypatch):
         session.query(Scan).filter_by(scan_id="r1").one().status = "failed"
     queued = []
     monkeypatch.setattr("src.scan.tasks.enqueue_scan", lambda target, **kw: queued.append(target))
-    request = SimpleNamespace(state=SimpleNamespace(principal_roles=["operator"], principal_id="op", auth_method="api_key"))
+    request = SimpleNamespace(
+        state=SimpleNamespace(principal_roles=["operator"], principal_id="op", auth_method="api_key")
+    )
 
     result = bulk_retry_scans(BulkIdsRequest(ids=["r1"]), request)
 

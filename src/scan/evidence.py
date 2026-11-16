@@ -37,8 +37,7 @@ def build_evidence(
     if not subject_digest.startswith("sha256:") or len(subject_digest) != 71:
         raise ValueError("subject_digest must be a sha256 digest")
     artifact_bytes = (
-        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
-        if isinstance(artifact, dict) else artifact
+        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode() if isinstance(artifact, dict) else artifact
     )
     timestamp = generated_at or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     subject = {"digest": subject_digest}
@@ -80,8 +79,7 @@ def verify_evidence(
         if (current - generated).total_seconds() > max_age_seconds:
             raise EvidenceVerificationError("evidence is stale")
     artifact_bytes = (
-        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode()
-        if isinstance(artifact, dict) else artifact
+        json.dumps(artifact, sort_keys=True, separators=(",", ":")).encode() if isinstance(artifact, dict) else artifact
     )
     if max_artifact_bytes is not None and len(artifact_bytes) > max_artifact_bytes:
         raise EvidenceVerificationError("evidence artifact exceeds size limit")
@@ -117,6 +115,10 @@ def verify_release_evidence(
     factory = verifier_factory or CosignVerifier
     verifier = factory(cosign_bin=cosign_bin, oidc_issuer=policy.get("issuer"), policy=policy)
     return verify_evidence(
-        envelope, artifact, verifier, now=now,
-        max_age_seconds=max_age_seconds, max_artifact_bytes=max_artifact_bytes,
+        envelope,
+        artifact,
+        verifier,
+        now=now,
+        max_age_seconds=max_age_seconds,
+        max_artifact_bytes=max_artifact_bytes,
     )

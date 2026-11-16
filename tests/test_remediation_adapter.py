@@ -4,7 +4,9 @@ from src.remediation.adapter import build_exact_match_changes, build_validation_
 
 
 def test_adapter_normalizes_exact_match_actions():
-    assert build_exact_match_changes([{"file_path": "Dockerfile", "before_value": "FROM a", "after_value": "FROM b"}]) == [{"file_path": "Dockerfile", "expected": "FROM a", "replacement": "FROM b"}]
+    assert build_exact_match_changes(
+        [{"file_path": "Dockerfile", "before_value": "FROM a", "after_value": "FROM b"}]
+    ) == [{"file_path": "Dockerfile", "expected": "FROM a", "replacement": "FROM b"}]
 
 
 @pytest.mark.parametrize("file_path", ["/tmp/Dockerfile", "../Dockerfile", ""])

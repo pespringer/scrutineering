@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 class BackendError extends Error {
-  constructor(public readonly status: number, public readonly payload: unknown = null) {
+  constructor(
+    public readonly status: number,
+    public readonly payload: unknown = null,
+  ) {
     super(`dashboard backend returned ${status}`);
   }
 }

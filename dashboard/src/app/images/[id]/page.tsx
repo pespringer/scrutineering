@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
 import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { cx } from "@/lib/cx";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -29,7 +30,8 @@ export default function ImageDetailPage() {
   const [canManage, setCanManage] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
-  const isActionable = (finding: VulnerabilityFinding) => Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
+  const isActionable = (finding: VulnerabilityFinding) =>
+    Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -38,9 +40,9 @@ export default function ImageDetailPage() {
       const imgData = await imgRes.json();
       setImage(imgData.image || null);
 
-      const findingsRes = await fetch(
-        `/api/images/${imageId}?${new URLSearchParams({ ...(severityFilter !== "all" ? { severity: severityFilter } : {}), limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) })}`
-      );
+      const query = new URLSearchParams({ limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) });
+      if (severityFilter !== "all") query.set("severity", severityFilter);
+      const findingsRes = await fetch(`/api/images/${imageId}?${query}`);
       const findingsData = await findingsRes.json();
       setFindings(findingsData.findings || []);
       setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
@@ -54,24 +56,54 @@ export default function ImageDetailPage() {
     loadData();
   }, [loadData]);
 
-  useEffect(() => { fetch("/api/permissions", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then((permissions) => setCanManage(Boolean(permissions?.can_manage_scans))).catch(() => undefined); }, []);
+  useEffect(() => {
+    fetch("/api/permissions", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((permissions) => setCanManage(Boolean(permissions?.can_manage_scans)))
+      .catch(() => undefined);
+  }, []);
 
   async function acknowledgeSelected() {
     if (!selectedFindings.length) return;
-    const response = await fetch("/api/findings/bulk-acknowledge", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ids: selectedFindings }) });
+    const response = await fetch("/api/findings/bulk-acknowledge", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: selectedFindings }),
+    });
     setNotice(response.ok ? "Selected findings acknowledged." : "Unable to acknowledge findings.");
-    if (response.ok) { setSelectedFindings([]); loadData(); }
+    if (response.ok) {
+      setSelectedFindings([]);
+      loadData();
+    }
   }
 
   async function proposeRemediation() {
     if (!selectedFindings.length) return;
-    const actionableIds = selectedFindings.filter((id) => findings.some((finding) => finding.id === id && isActionable(finding)));
-    if (!actionableIds.length) { setNotice("No selected findings have an explicit source file path. Select only findings marked with a safe path."); setSelectedFindings([]); return; }
+    const actionableIds = selectedFindings.filter((id) =>
+      findings.some((finding) => finding.id === id && isActionable(finding)),
+    );
+    if (!actionableIds.length) {
+      setNotice(
+        "No selected findings have an explicit source file path. Select only findings marked with a safe path.",
+      );
+      setSelectedFindings([]);
+      return;
+    }
     setNotice("Creating remediation proposal…");
-    const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: actionableIds }) });
+    const response = await fetch("/api/remediations", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ image_id: Number(imageId), finding_ids: actionableIds }),
+    });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
-      const detail = typeof body.detail === "string" ? body.detail : body.detail?.code === "finding_already_in_remediation" ? `Those findings are already reserved by remediation #${body.detail.remediation_ids?.join(", #") || "another"}.` : "Unable to create a remediation proposal.";
+      const detail =
+        typeof body.detail === "string"
+          ? body.detail
+          : body.detail?.code === "finding_already_in_remediation"
+            ? "Those findings are already reserved by remediation " +
+              `#${body.detail.remediation_ids?.join(", #") || "another"}.`
+            : "Unable to create a remediation proposal.";
       setNotice(detail);
       setSelectedFindings([]);
       loadData();
@@ -79,7 +111,8 @@ export default function ImageDetailPage() {
     }
     const remediation = await response.json();
     setSelectedFindings([]);
-    setNotice(`Remediation #${remediation.id} created for ${actionableIds.length} safe finding${actionableIds.length === 1 ? "" : "s"}.`);
+    const plural = actionableIds.length === 1 ? "" : "s";
+    setNotice(`Remediation #${remediation.id} created for ${actionableIds.length} safe finding${plural}.`);
     loadData();
   }
 
@@ -88,8 +121,18 @@ export default function ImageDetailPage() {
     setFindingsOffset(0);
   };
 
-  if (loading) return <Layout><LoadingSpinner /></Layout>;
-  if (!image) return <Layout><EmptyState icon={Package} title="Image not found" description="No scan data exists for this image." /></Layout>;
+  if (loading)
+    return (
+      <Layout>
+        <LoadingSpinner />
+      </Layout>
+    );
+  if (!image)
+    return (
+      <Layout>
+        <EmptyState icon={Package} title="Image not found" description="No scan data exists for this image." />
+      </Layout>
+    );
 
   return (
     <Layout>
@@ -105,7 +148,13 @@ export default function ImageDetailPage() {
       {/* Image header */}
       <div className="panel relative mb-6 overflow-hidden rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-300/[0.08]">
+          <div
+            className={cx(
+              "flex h-11 w-11 items-center",
+              "justify-center rounded-xl border border-cyan-300/15",
+              "bg-cyan-300/[0.08]",
+            )}
+          >
             <Package className="w-5 h-5 text-blue-400" />
           </div>
           <div>
@@ -130,7 +179,10 @@ export default function ImageDetailPage() {
             { label: "Low", value: image.low_count, color: "text-slate-400" },
             { label: "Resolved", value: image.resolved_findings || 0, color: "text-emerald-300" },
           ].map((stat) => (
-            <div key={stat.label} className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-center">
+            <div
+              key={stat.label}
+              className="rounded-xl border border-slate-700/60 bg-slate-950/40 px-3 py-3 text-center"
+            >
               <span className={`text-lg font-bold ${stat.color}`}>{stat.value}</span>
               <span className="text-xs text-slate-500 block">{stat.label}</span>
             </div>
@@ -149,15 +201,22 @@ export default function ImageDetailPage() {
               onClick={() => handleSeverityChange(sev)}
               className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
                 severityFilter === sev
-                  ? sev === "CRITICAL" ? "bg-red-500/20 text-red-400 border border-red-500/30"
-                    : sev === "HIGH" ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                    : sev === "MEDIUM" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-                    : "bg-slate-600/20 text-slate-300 border border-slate-600/30"
+                  ? sev === "CRITICAL"
+                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                    : sev === "HIGH"
+                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                      : sev === "MEDIUM"
+                        ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
+                        : "bg-slate-600/20 text-slate-300 border border-slate-600/30"
                   : "bg-slate-800 text-slate-500 hover:text-slate-300 border border-transparent"
               }`}
             >
-              {sev === "all" ? "All" : (
-                <><SeverityBadge severity={sev as any} /> </>
+              {sev === "all" ? (
+                "All"
+              ) : (
+                <>
+                  <SeverityBadge severity={sev as any} />{" "}
+                </>
               )}
               {sev === "all" || sev}
             </button>
@@ -167,16 +226,66 @@ export default function ImageDetailPage() {
 
       {/* Findings count */}
       <p className="mb-3 text-sm text-slate-500">
-        Showing {findingsOffset + (findings.length ? 1 : 0)}–{findingsOffset + findings.length} of {findingsTotal} findings
+        Showing {findingsOffset + (findings.length ? 1 : 0)}–{findingsOffset + findings.length} of {findingsTotal}{" "}
+        findings
       </p>
 
       {/* Findings table */}
-      {canManage && selectedFindings.length > 0 && <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200"><span>{selectedFindings.length} selected</span><button onClick={proposeRemediation} className="inline-flex items-center gap-1 rounded-lg bg-cyan-400 px-2.5 py-1.5 font-semibold text-slate-950"><ShieldCheck className="h-3.5 w-3.5" /> Propose remediation</button><button onClick={acknowledgeSelected} className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"><Check className="h-3.5 w-3.5" /> Acknowledge</button><button onClick={() => setSelectedFindings([])} className="text-slate-400">Clear</button></div>}
+      {canManage && selectedFindings.length > 0 && (
+        <div
+          className={cx(
+            "mb-4 flex flex-wrap items-center gap-2 rounded-xl",
+            "border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs",
+            "text-cyan-200",
+          )}
+        >
+          <span>{selectedFindings.length} selected</span>
+          <button
+            onClick={proposeRemediation}
+            className="inline-flex items-center gap-1 rounded-lg bg-cyan-400 px-2.5 py-1.5 font-semibold text-slate-950"
+          >
+            <ShieldCheck className="h-3.5 w-3.5" /> Propose remediation
+          </button>
+          <button
+            onClick={acknowledgeSelected}
+            className="inline-flex items-center gap-1 rounded-lg border border-cyan-400/30 px-2.5 py-1.5"
+          >
+            <Check className="h-3.5 w-3.5" /> Acknowledge
+          </button>
+          <button onClick={() => setSelectedFindings([])} className="text-slate-400">
+            Clear
+          </button>
+        </div>
+      )}
       {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
       <div className="panel rounded-2xl p-4 sm:p-6">
-        <FindingsTable findings={findings} selectable={canManage} selected={selectedFindings} onSelect={(id, checked) => setSelectedFindings((current) => checked ? [...new Set([...current, id])] : current.filter((value) => value !== id))} />
+        <FindingsTable
+          findings={findings}
+          selectable={canManage}
+          selected={selectedFindings}
+          onSelect={(id, checked) =>
+            setSelectedFindings((current) =>
+              checked ? [...new Set([...current, id])] : current.filter((value) => value !== id),
+            )
+          }
+        />
       </div>
-      <div className="mt-4 flex justify-end gap-3 text-xs"><button disabled={findingsOffset === 0} onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))} className="text-cyan-300 disabled:text-slate-700">Previous</button><button disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal} onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)} className="text-cyan-300 disabled:text-slate-700">Next</button></div>
+      <div className="mt-4 flex justify-end gap-3 text-xs">
+        <button
+          disabled={findingsOffset === 0}
+          onClick={() => setFindingsOffset(Math.max(0, findingsOffset - FINDINGS_PAGE_SIZE))}
+          className="text-cyan-300 disabled:text-slate-700"
+        >
+          Previous
+        </button>
+        <button
+          disabled={findingsOffset + FINDINGS_PAGE_SIZE >= findingsTotal}
+          onClick={() => setFindingsOffset(findingsOffset + FINDINGS_PAGE_SIZE)}
+          className="text-cyan-300 disabled:text-slate-700"
+        >
+          Next
+        </button>
+      </div>
     </Layout>
   );
 }

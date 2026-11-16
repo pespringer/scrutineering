@@ -110,11 +110,13 @@ class RemediationRepository:
 
     @staticmethod
     def get_by_id(session: Session, remediation_id: int) -> Remediation | None:
-        return session.execute(
-            select(Remediation)
-            .options(joinedload(Remediation.actions))
-            .where(Remediation.id == remediation_id)
-        ).unique().scalar_one_or_none()
+        return (
+            session.execute(
+                select(Remediation).options(joinedload(Remediation.actions)).where(Remediation.id == remediation_id)
+            )
+            .unique()
+            .scalar_one_or_none()
+        )
 
     @staticmethod
     def append_event(session: Session, event: dict) -> RemediationEvent:
@@ -131,36 +133,50 @@ class RemediationRepository:
 
     @staticmethod
     def list_events(session: Session, remediation_id: int) -> Sequence[RemediationEvent]:
-        return session.execute(
-            select(RemediationEvent)
-            .where(RemediationEvent.remediation_id == remediation_id)
-            .order_by(RemediationEvent.sequence, RemediationEvent.id)
-        ).scalars().all()
+        return (
+            session.execute(
+                select(RemediationEvent)
+                .where(RemediationEvent.remediation_id == remediation_id)
+                .order_by(RemediationEvent.sequence, RemediationEvent.id)
+            )
+            .scalars()
+            .all()
+        )
 
     @staticmethod
-    def list_by_image(
-        session: Session, image_id: int, limit: int = 20
-    ) -> Sequence[Remediation]:
-        return session.execute(
-            select(Remediation)
-            .where(Remediation.image_id == image_id)
-            .order_by(Remediation.created_at.desc())
-            .limit(limit)
-        ).scalars().all()
+    def list_by_image(session: Session, image_id: int, limit: int = 20) -> Sequence[Remediation]:
+        return (
+            session.execute(
+                select(Remediation)
+                .where(Remediation.image_id == image_id)
+                .order_by(Remediation.created_at.desc())
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
 
     @staticmethod
     def list_in_progress(session: Session) -> Sequence[Remediation]:
-        return session.execute(
-            select(Remediation)
-            .where(
-                Remediation.status.in_(
-                    [RemediationStatus.PENDING, RemediationStatus.ANALYZING,
-                     RemediationStatus.PATCHING, RemediationStatus.BUILDING,
-                     RemediationStatus.VERIFYING]
+        return (
+            session.execute(
+                select(Remediation)
+                .where(
+                    Remediation.status.in_(
+                        [
+                            RemediationStatus.PENDING,
+                            RemediationStatus.ANALYZING,
+                            RemediationStatus.PATCHING,
+                            RemediationStatus.BUILDING,
+                            RemediationStatus.VERIFYING,
+                        ]
+                    )
                 )
+                .order_by(Remediation.created_at)
             )
-            .order_by(Remediation.created_at)
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
 
 
 class AuditLogRepository:

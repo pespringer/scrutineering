@@ -13,11 +13,18 @@ from sqlalchemy import func
 
 from src.db.connection import get_session
 from src.db.models import (
-    AuditEventType, Image, Scan, ScanFinding,
+    AuditEventType,
+    Image,
+    Scan,
+    ScanFinding,
 )
 from src.api.schemas import BulkIdsRequest
 from src.api.serializers import (
-    enum_value, finding_payload, image_payload, iso, paginate,
+    enum_value,
+    finding_payload,
+    image_payload,
+    iso,
+    paginate,
 )
 from src.api.routes._access import record_operator_event, require_role, severity_filter
 
@@ -50,15 +57,24 @@ def _registry_json(path: str) -> dict:
 
 def _registry_manifest_metadata(repository: str, tag: str) -> dict:
     path = f"/v2/{quote(repository, safe='/')}/manifests/{quote(tag, safe='')}"
-    request = UrlRequest(f"{_local_registry_base_url()}{path}", headers={
-        "accept": ", ".join([
-            "application/vnd.oci.image.manifest.v1+json",
-            "application/vnd.docker.distribution.manifest.v2+json",
-            "application/vnd.docker.distribution.manifest.list.v2+json",
-        ])
-    }, method="HEAD")
+    request = UrlRequest(
+        f"{_local_registry_base_url()}{path}",
+        headers={
+            "accept": ", ".join(
+                [
+                    "application/vnd.oci.image.manifest.v1+json",
+                    "application/vnd.docker.distribution.manifest.v2+json",
+                    "application/vnd.docker.distribution.manifest.list.v2+json",
+                ]
+            )
+        },
+        method="HEAD",
+    )
     with urlopen(request, timeout=10) as response:
-        return {"digest": response.headers.get("Docker-Content-Digest"), "size": int(response.headers.get("Content-Length") or 0)}
+        return {
+            "digest": response.headers.get("Docker-Content-Digest"),
+            "size": int(response.headers.get("Content-Length") or 0),
+        }
 
 
 @router.get("/images")
@@ -74,20 +90,48 @@ def image_inventory(
         if search:
             query = query.filter(Image.repo_name.ilike(f"%{search.strip()}%"))
         if severity_value:
-            query = query.filter(Image.id.in_(session.query(ScanFinding.image_id).filter(ScanFinding.resolved_at.is_(None), ScanFinding.severity == severity_value.value)))
+            query = query.filter(
+                Image.id.in_(
+                    session.query(ScanFinding.image_id).filter(
+                        ScanFinding.resolved_at.is_(None), ScanFinding.severity == severity_value.value
+                    )
+                )
+            )
         total = query.order_by(None).count()
         images = query.order_by(Image.repo_name.asc()).offset(offset).limit(limit).all()
         image_ids = [image.id for image in images]
-        findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id.in_(image_ids), ScanFinding.resolved_at.is_(None),
-        ).all() if image_ids else []
-        resolved_counts = dict(session.query(ScanFinding.image_id, func.count(ScanFinding.id)).filter(
-            ScanFinding.image_id.in_(image_ids), ScanFinding.resolved_at.is_not(None),
-        ).group_by(ScanFinding.image_id).all()) if image_ids else {}
+        findings = (
+            session.query(ScanFinding)
+            .filter(
+                ScanFinding.image_id.in_(image_ids),
+                ScanFinding.resolved_at.is_(None),
+            )
+            .all()
+            if image_ids
+            else []
+        )
+        resolved_counts = (
+            dict(
+                session.query(ScanFinding.image_id, func.count(ScanFinding.id))
+                .filter(
+                    ScanFinding.image_id.in_(image_ids),
+                    ScanFinding.resolved_at.is_not(None),
+                )
+                .group_by(ScanFinding.image_id)
+                .all()
+            )
+            if image_ids
+            else {}
+        )
     findings_by_image: dict[int, list[ScanFinding]] = defaultdict(list)
     for finding in findings:
         findings_by_image[finding.image_id].append(finding)
-    return paginate([image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)) for image in images], limit, offset, total)
+    return paginate(
+        [image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)) for image in images],
+        limit,
+        offset,
+        total,
+    )
 
 
 @router.get("/registry/inventory")
@@ -113,7 +157,14 @@ def registry_inventory(request: Request) -> dict:
     with get_session() as session:
         images = session.query(Image).filter(Image.active.is_(True)).all()
         image_ids = [image.id for image in images]
-        scans = session.query(Scan).filter(Scan.image_id.in_(image_ids)).order_by(Scan.started_at.desc(), Scan.id.desc()).all() if image_ids else []
+        scans = (
+            session.query(Scan)
+            .filter(Scan.image_id.in_(image_ids))
+            .order_by(Scan.started_at.desc(), Scan.id.desc())
+            .all()
+            if image_ids
+            else []
+        )
         findings = session.query(ScanFinding).filter(ScanFinding.image_id.in_(image_ids)).all() if image_ids else []
 
     scans_by_image: dict[int, Scan] = {}
@@ -129,8 +180,12 @@ def registry_inventory(request: Request) -> dict:
 
     tags: list[dict] = []
     for item in catalog_items:
-        image = image_lookup.get((f"{registry_host}/{item['repository']}", item["tag"])) or image_lookup.get((item["repository"], item["tag"]))
-        image_findings = [finding for finding in findings_by_image.get(image.id, []) if finding.resolved_at is None] if image else []
+        image = image_lookup.get((f"{registry_host}/{item['repository']}", item["tag"])) or image_lookup.get(
+            (item["repository"], item["tag"])
+        )
+        image_findings = (
+            [finding for finding in findings_by_image.get(image.id, []) if finding.resolved_at is None] if image else []
+        )
         scan = scans_by_image.get(image.id) if image else None
         scan_status = enum_value(scan.status) if scan else None
         if scan_status in {"pending", "running"}:
@@ -143,22 +198,29 @@ def registry_inventory(request: Request) -> dict:
             security_status = "issues_found"
         else:
             security_status = "clean"
-        tags.append({
-            **item,
-            "image_id": image.id if image else None,
-            "scan_id": scan.scan_id if scan else None,
-            "scan_status": scan_status,
-            "last_scan_at": iso(image.last_scan_at) if image else None,
-            "security_status": security_status,
-            "open_findings": len(image_findings),
-            "critical_count": sum(1 for finding in image_findings if enum_value(finding.severity) == "critical"),
-            "high_count": sum(1 for finding in image_findings if enum_value(finding.severity) == "high"),
-            "image_name": f"{registry_host}/{item['repository']}:{item['tag']}",
-        })
+        tags.append(
+            {
+                **item,
+                "image_id": image.id if image else None,
+                "scan_id": scan.scan_id if scan else None,
+                "scan_status": scan_status,
+                "last_scan_at": iso(image.last_scan_at) if image else None,
+                "security_status": security_status,
+                "open_findings": len(image_findings),
+                "critical_count": sum(1 for finding in image_findings if enum_value(finding.severity) == "critical"),
+                "high_count": sum(1 for finding in image_findings if enum_value(finding.severity) == "high"),
+                "image_name": f"{registry_host}/{item['repository']}:{item['tag']}",
+            }
+        )
 
     counts = Counter(item["security_status"] for item in tags)
     return {
-        "registry": {"host": os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000"), "url": _local_registry_public_url(), "internal_host": registry_host, "reachable": True},
+        "registry": {
+            "host": os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000"),
+            "url": _local_registry_public_url(),
+            "internal_host": registry_host,
+            "reachable": True,
+        },
         "repositories": repositories,
         "tags": tags,
         "summary": {
@@ -182,7 +244,14 @@ def bulk_archive_images(payload: BulkIdsRequest, request: Request) -> dict:
         for image in session.query(Image).filter(Image.id.in_(image_ids), Image.active.is_(True)).all():
             image.active = False
             archived.append(image.id)
-            record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(image.id), {"action": "archive_image"}, entity_type="image")
+            record_operator_event(
+                session,
+                request,
+                AuditEventType.CONFIG_CHANGED,
+                str(image.id),
+                {"action": "archive_image"},
+                entity_type="image",
+            )
     return {"requested": image_ids, "archived": archived, "count": len(archived)}
 
 
@@ -203,8 +272,14 @@ def image_detail(
             query = query.filter(ScanFinding.severity == severity_value.value)
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
-        all_findings = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_(None)).all()
-        resolved_count = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_not(None)).count()
+        all_findings = (
+            session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_(None)).all()
+        )
+        resolved_count = (
+            session.query(ScanFinding)
+            .filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_not(None))
+            .count()
+        )
     return {
         "image": image_payload(image, all_findings, resolved_count),
         "findings": [finding_payload(finding) for finding in findings],

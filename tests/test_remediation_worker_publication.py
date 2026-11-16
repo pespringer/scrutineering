@@ -35,8 +35,16 @@ def test_worker_publication_persists_provider_result(monkeypatch):
     monkeypatch.setenv("REMEDIATION_PUBLICATION_BASE", "main")
     monkeypatch.setenv("REMEDIATION_ALLOWED_REPOSITORIES", "acme/service")
     monkeypatch.setenv("GITHUB_TOKEN", "token")
-    monkeypatch.setattr(worker, "build_publication_plan", lambda **kwargs: SimpleNamespace(**kwargs, rollback_command=()))
-    monkeypatch.setattr(worker, "publish_validated_plan", lambda **kwargs: SimpleNamespace(provider="github", repository="acme/service", number=12, url="https://github.com/acme/service/pull/12"))
+    monkeypatch.setattr(
+        worker, "build_publication_plan", lambda **kwargs: SimpleNamespace(**kwargs, rollback_command=())
+    )
+    monkeypatch.setattr(
+        worker,
+        "publish_validated_plan",
+        lambda **kwargs: SimpleNamespace(
+            provider="github", repository="acme/service", number=12, url="https://github.com/acme/service/pull/12"
+        ),
+    )
 
     result = worker._publish_branch(session, remediation, "scrutineering/remediation/4", "a" * 40)
 

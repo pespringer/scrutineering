@@ -62,8 +62,11 @@ def api(monkeypatch):
     monkeypatch.setenv("PYTHON_API_KEY", API_KEY)
     monkeypatch.setenv("DASHBOARD_DEFAULT_ROLES", "dashboard,operator,remediator,security-operator")
     monkeypatch.setenv("REMEDIATION_EXECUTION_ENABLED", "true")
-    monkeypatch.setattr(tasks, "enqueue_scan",
-                        lambda target, **kw: tasks.run_scan.run.__func__(MagicMock(), target, scan_id=kw["scan_id"]))
+    monkeypatch.setattr(
+        tasks,
+        "enqueue_scan",
+        lambda target, **kw: tasks.run_scan.run.__func__(MagicMock(), target, scan_id=kw["scan_id"]),
+    )
     client = TestClient(create_app())
     client.headers["x-api-key"] = API_KEY
     return client
@@ -82,8 +85,9 @@ def _target_finding(api: TestClient, scan_id: str) -> dict:
     page = 0
     while len(items) == 200 * (page + 1):
         page += 1
-        items += api.get(f"/api/dashboard/scans/{scan_id}/findings",
-                         params={"limit": 200, "offset": 200 * page}).json()["items"]
+        items += api.get(
+            f"/api/dashboard/scans/{scan_id}/findings", params={"limit": 200, "offset": 200 * page}
+        ).json()["items"]
     matches = [item for item in items if item["cve_id"] == TARGET_CVE and item["package_name"] == TARGET_PACKAGE]
     assert len(matches) == 1, f"expected one {TARGET_CVE} finding, got {len(matches)}"
     return matches[0]
@@ -151,12 +155,14 @@ def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage
     scan = _scan(api)
     lodash = _target_finding(api, scan["scan_id"])
 
-    preview = api.post("/api/dashboard/remediations/preview",
-                       json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]}).json()
+    preview = api.post(
+        "/api/dashboard/remediations/preview", json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]}
+    ).json()
     assert preview["actionable_count"] == 1, preview
 
-    created = api.post("/api/dashboard/remediations",
-                       json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]})
+    created = api.post(
+        "/api/dashboard/remediations", json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]}
+    )
     assert created.status_code == 201, created.text
     remediation_id = created.json()["id"]
 

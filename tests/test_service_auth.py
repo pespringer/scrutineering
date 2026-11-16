@@ -10,4 +10,6 @@ def test_service_request_auth_is_body_and_time_bound():
 
 def test_service_names_are_safe():
     import pytest
-    with pytest.raises(ValueError): sign_service_request("bad service", b"x", "secret", 100)
+
+    with pytest.raises(ValueError):
+        sign_service_request("bad service", b"x", "secret", 100)

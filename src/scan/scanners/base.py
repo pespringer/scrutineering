@@ -19,8 +19,8 @@ class ScannerFinding:
     description: Optional[str]
     severity: Optional[Severity]
     fixed_version: Optional[str]
-    cvss_scores: Optional[dict] = None   # {"nvd": 9.8, "redhat": 8.6}
-    cvss_vector: Optional[str] = None    # "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+    cvss_scores: Optional[dict] = None  # {"nvd": 9.8, "redhat": 8.6}
+    cvss_vector: Optional[str] = None  # "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
     file_path: Optional[str] = None
 
     def make_fingerprint(self) -> str:

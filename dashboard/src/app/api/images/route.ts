@@ -6,7 +6,10 @@ export async function GET(req: Request) {
   const severity = url.searchParams.get("severity");
 
   if (id) {
-    return dashboardResponse(`/api/dashboard/images/${id}${severity ? `?severity=${encodeURIComponent(severity)}` : ""}`, req);
+    return dashboardResponse(
+      `/api/dashboard/images/${id}${severity ? `?severity=${encodeURIComponent(severity)}` : ""}`,
+      req,
+    );
   }
 
   const query = new URLSearchParams(url.searchParams);

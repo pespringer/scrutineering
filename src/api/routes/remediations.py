@@ -10,14 +10,22 @@ from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.db.connection import get_session
 from src.db.models import (
-    AuditEventType, Image, Remediation, RemediationActionType,
-    RemediationStatus, ScanFinding,
+    AuditEventType,
+    Image,
+    Remediation,
+    RemediationActionType,
+    RemediationStatus,
+    ScanFinding,
 )
 from src.db.repositories import RemediationRepository
 from src.remediation.worker import execute_approved_remediation
 from src.api.schemas import RemediationRequest
 from src.api.serializers import (
-    enum_value, image_payload, iso, paginate, remediation_payload,
+    enum_value,
+    image_payload,
+    iso,
+    paginate,
+    remediation_payload,
 )
 from src.api.routes._access import record_operator_event, require_role
 
@@ -37,17 +45,22 @@ def _remediation_file_path(finding: ScanFinding, image: Image | None = None) -> 
 
 
 def _remediation_actions(findings: list[ScanFinding], image: Image | None = None) -> list[dict]:
-    return [{
-        "finding_id": finding.id,
-        "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
-        "package_name": finding.package_name,
-        "from_version": finding.package_version,
-        "to_version": finding.fixed_version,
-        "file_path": _remediation_file_path(finding, image),
-        "cve_id": finding.cve_id,
-        "severity": enum_value(finding.severity),
-        "safe_to_apply": bool(finding.fix_available and finding.fixed_version and _remediation_file_path(finding, image)),
-    } for finding in findings]
+    return [
+        {
+            "finding_id": finding.id,
+            "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
+            "package_name": finding.package_name,
+            "from_version": finding.package_version,
+            "to_version": finding.fixed_version,
+            "file_path": _remediation_file_path(finding, image),
+            "cve_id": finding.cve_id,
+            "severity": enum_value(finding.severity),
+            "safe_to_apply": bool(
+                finding.fix_available and finding.fixed_version and _remediation_file_path(finding, image)
+            ),
+        }
+        for finding in findings
+    ]
 
 
 def _unsafe_remediation_actions(actions: list[dict]) -> list[dict]:
@@ -59,11 +72,16 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
     require_role(request, "remediator", "security-operator")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
-        findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id == payload.image_id,
-            ScanFinding.id.in_(payload.finding_ids),
-            ScanFinding.resolved_at.is_(None),
-        ).order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).all()
+        findings = (
+            session.query(ScanFinding)
+            .filter(
+                ScanFinding.image_id == payload.image_id,
+                ScanFinding.id.in_(payload.finding_ids),
+                ScanFinding.resolved_at.is_(None),
+            )
+            .order_by(ScanFinding.severity.asc(), ScanFinding.id.asc())
+            .all()
+        )
     if image is None:
         raise HTTPException(status_code=404, detail="image_not_found")
     if len(findings) != len(set(payload.finding_ids)):
@@ -108,27 +126,36 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         raise HTTPException(status_code=400, detail="finding_ids_must_be_unique")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
-        requested_findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id == payload.image_id,
-            ScanFinding.id.in_(requested_ids),
-        ).all()
+        requested_findings = (
+            session.query(ScanFinding)
+            .filter(
+                ScanFinding.image_id == payload.image_id,
+                ScanFinding.id.in_(requested_ids),
+            )
+            .all()
+        )
         already_owned = {
-            finding.id: finding.remediation_id
-            for finding in requested_findings
-            if finding.remediation_id is not None
+            finding.id: finding.remediation_id for finding in requested_findings if finding.remediation_id is not None
         }
         if already_owned:
-            raise HTTPException(status_code=409, detail={
-                "code": "finding_already_in_remediation",
-                "finding_ids": sorted(already_owned),
-                "remediation_ids": sorted({value for value in already_owned.values() if value is not None}),
-            })
-        findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id == payload.image_id,
-            ScanFinding.id.in_(requested_ids),
-            ScanFinding.resolved_at.is_(None),
-            ScanFinding.fix_available.is_(True),
-        ).all()
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "finding_already_in_remediation",
+                    "finding_ids": sorted(already_owned),
+                    "remediation_ids": sorted({value for value in already_owned.values() if value is not None}),
+                },
+            )
+        findings = (
+            session.query(ScanFinding)
+            .filter(
+                ScanFinding.image_id == payload.image_id,
+                ScanFinding.id.in_(requested_ids),
+                ScanFinding.resolved_at.is_(None),
+                ScanFinding.fix_available.is_(True),
+            )
+            .all()
+        )
         if image is None:
             raise HTTPException(status_code=404, detail="image_not_found")
         if len(findings) != len(set(payload.finding_ids)):
@@ -136,11 +163,14 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         actions = _remediation_actions(findings, image)
         unsafe_actions = _unsafe_remediation_actions(actions)
         if unsafe_actions:
-            raise HTTPException(status_code=400, detail={
-                "code": "findings_not_actionable",
-                "finding_ids": [action["finding_id"] for action in unsafe_actions],
-                "reason": "Each remediation action requires a fixed version and explicit source file path.",
-            })
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "findings_not_actionable",
+                    "finding_ids": [action["finding_id"] for action in unsafe_actions],
+                    "reason": "Each remediation action requires a fixed version and explicit source file path.",
+                },
+            )
         severities = Counter(enum_value(finding.severity) or "unknown" for finding in findings)
         remediation = RemediationRepository.create(
             session,
@@ -152,12 +182,27 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         for finding, action in zip(findings, actions):
             finding.remediation_id = remediation.id
             RemediationRepository.add_action(
-                session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
+                session,
+                remediation.id,
+                RemediationActionType.DEPENDENCY_UPDATE,
                 file_path=_remediation_file_path(finding, image),
-                before_value=finding.package_version, after_value=finding.fixed_version,
-                detail={"finding_id": finding.id, "package_name": finding.package_name, "cve_id": finding.cve_id, "file_path": _remediation_file_path(finding, image)},
+                before_value=finding.package_version,
+                after_value=finding.fixed_version,
+                detail={
+                    "finding_id": finding.id,
+                    "package_name": finding.package_name,
+                    "cve_id": finding.cve_id,
+                    "file_path": _remediation_file_path(finding, image),
+                },
             )
-        record_operator_event(session, request, AuditEventType.REMEDIATION_STARTED, str(remediation.id), {"action": "remediation_requested", "finding_ids": payload.finding_ids}, entity_type="remediation")
+        record_operator_event(
+            session,
+            request,
+            AuditEventType.REMEDIATION_STARTED,
+            str(remediation.id),
+            {"action": "remediation_requested", "finding_ids": payload.finding_ids},
+            entity_type="remediation",
+        )
         return remediation_payload(remediation, actions)
 
 
@@ -178,14 +223,28 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
         if session.get(Remediation, remediation_id) is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
         events = RemediationRepository.list_events(session, remediation_id)
-    return {"remediation_id": remediation_id, "latest_event": ({
-        "event_type": events[-1].event_type,
-        "detail": events[-1].detail,
-        "created_at": iso(events[-1].created_at),
-    } if events else None), "events": [{
-        "id": event.id, "event_type": event.event_type, "sequence": event.sequence,
-        "detail": event.detail, "created_at": iso(event.created_at),
-    } for event in events]}
+    return {
+        "remediation_id": remediation_id,
+        "latest_event": (
+            {
+                "event_type": events[-1].event_type,
+                "detail": events[-1].detail,
+                "created_at": iso(events[-1].created_at),
+            }
+            if events
+            else None
+        ),
+        "events": [
+            {
+                "id": event.id,
+                "event_type": event.event_type,
+                "sequence": event.sequence,
+                "detail": event.detail,
+                "created_at": iso(event.created_at),
+            }
+            for event in events
+        ],
+    }
 
 
 @router.post("/remediations/{remediation_id}/approve")
@@ -200,12 +259,19 @@ def approve_remediation(remediation_id: int, request: Request) -> dict:
         if enum_value(remediation.status) != RemediationStatus.REQUIRES_REVIEW.value:
             raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
         RemediationRepository.update_status(
-            session, remediation_id, RemediationStatus.ANALYZING,
-            approved_by=approver, approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+            session,
+            remediation_id,
+            RemediationStatus.ANALYZING,
+            approved_by=approver,
+            approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
         record_operator_event(
-            session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id),
-            {"action": "remediation_approved", "approver": approver}, entity_type="remediation",
+            session,
+            request,
+            AuditEventType.CONFIG_CHANGED,
+            str(remediation_id),
+            {"action": "remediation_approved", "approver": approver},
+            entity_type="remediation",
         )
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         return remediation_payload(remediation)
@@ -227,14 +293,24 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
             raise HTTPException(status_code=409, detail="remediation_execution_already_queued")
         if enum_value(remediation.status) != RemediationStatus.ANALYZING.value:
             raise HTTPException(status_code=409, detail="remediation_not_approved")
-        RemediationRepository.append_event(session, {
-            "remediation_id": remediation_id,
-            "event_type": "execution_queued",
-            "sequence": len(events) + 1,
-            "detail": {"action": "execution_queued"},
-        })
+        RemediationRepository.append_event(
+            session,
+            {
+                "remediation_id": remediation_id,
+                "event_type": "execution_queued",
+                "sequence": len(events) + 1,
+                "detail": {"action": "execution_queued"},
+            },
+        )
         task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
-        record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
+        record_operator_event(
+            session,
+            request,
+            AuditEventType.CONFIG_CHANGED,
+            str(remediation_id),
+            {"action": "remediation_execution_requested", "task_id": task.id},
+            entity_type="remediation",
+        )
     return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
 
 
@@ -251,10 +327,13 @@ def retry_remediation(remediation_id: int, request: Request) -> dict:
         RemediationRepository.update_status(session, remediation_id, RemediationStatus.REQUIRES_REVIEW)
         remediation.error_message = None
         events = RemediationRepository.list_events(session, remediation_id)
-        RemediationRepository.append_event(session, {
-            "remediation_id": remediation_id,
-            "event_type": "execution_retry_requested",
-            "sequence": len(events) + 1,
-            "detail": {"action": "execution_retry_requested"},
-        })
+        RemediationRepository.append_event(
+            session,
+            {
+                "remediation_id": remediation_id,
+                "event_type": "execution_retry_requested",
+                "sequence": len(events) + 1,
+                "detail": {"action": "execution_retry_requested"},
+            },
+        )
         return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))

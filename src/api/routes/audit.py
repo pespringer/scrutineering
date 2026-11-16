@@ -13,7 +13,9 @@ from src.db.models import (
     AuditLog,
 )
 from src.api.serializers import (
-    enum_value, iso, paginate,
+    enum_value,
+    iso,
+    paginate,
 )
 from src.api.routes._access import require_role
 
@@ -41,29 +43,62 @@ def dashboard_audit(
             query = query.filter(AuditLog.timestamp <= until.replace(tzinfo=None))
         total = query.order_by(None).count()
         records = query.order_by(AuditLog.timestamp.desc(), AuditLog.id.desc()).offset(offset).limit(limit).all()
-    items = [{
-        "id": record.id,
-        "timestamp": iso(record.timestamp),
-        "event_type": enum_value(record.event_type),
-        "entity_type": record.entity_type,
-        "entity_id": record.entity_id,
-        "detail": record.detail,
-        "actor": record.actor,
-        "actor_kind": record.actor_kind,
-    } for record in records]
+    items = [
+        {
+            "id": record.id,
+            "timestamp": iso(record.timestamp),
+            "event_type": enum_value(record.event_type),
+            "entity_type": record.entity_type,
+            "entity_id": record.entity_id,
+            "detail": record.detail,
+            "actor": record.actor,
+            "actor_kind": record.actor_kind,
+        }
+        for record in records
+    ]
     return paginate(items, limit, offset, total)
 
 
 @router.get("/audit/export")
-def dashboard_audit_export(request: Request, limit: int = Query(default=1000, ge=1, le=5000), actor: str | None = Query(default=None), event_type: str | None = Query(default=None), since: datetime | None = Query(default=None), until: datetime | None = Query(default=None)) -> dict:
+def dashboard_audit_export(
+    request: Request,
+    limit: int = Query(default=1000, ge=1, le=5000),
+    actor: str | None = Query(default=None),
+    event_type: str | None = Query(default=None),
+    since: datetime | None = Query(default=None),
+    until: datetime | None = Query(default=None),
+) -> dict:
     require_role(request, "security-operator", "admin")
     with get_session() as session:
         query = session.query(AuditLog)
-        if actor: query = query.filter(AuditLog.actor == actor)
-        if event_type: query = query.filter(AuditLog.event_type == event_type.lower())
-        if since: query = query.filter(AuditLog.timestamp >= since.replace(tzinfo=None))
-        if until: query = query.filter(AuditLog.timestamp <= until.replace(tzinfo=None))
+        if actor:
+            query = query.filter(AuditLog.actor == actor)
+        if event_type:
+            query = query.filter(AuditLog.event_type == event_type.lower())
+        if since:
+            query = query.filter(AuditLog.timestamp >= since.replace(tzinfo=None))
+        if until:
+            query = query.filter(AuditLog.timestamp <= until.replace(tzinfo=None))
         records = query.order_by(AuditLog.timestamp.asc(), AuditLog.id.asc()).limit(limit).all()
-    items = [{"id": record.id, "timestamp": iso(record.timestamp), "event_type": enum_value(record.event_type), "entity_type": record.entity_type, "entity_id": record.entity_id, "detail": record.detail, "actor": record.actor, "actor_kind": record.actor_kind, "record_hash": record.record_hash, "previous_hash": record.previous_hash} for record in records]
+    items = [
+        {
+            "id": record.id,
+            "timestamp": iso(record.timestamp),
+            "event_type": enum_value(record.event_type),
+            "entity_type": record.entity_type,
+            "entity_id": record.entity_id,
+            "detail": record.detail,
+            "actor": record.actor,
+            "actor_kind": record.actor_kind,
+            "record_hash": record.record_hash,
+            "previous_hash": record.previous_hash,
+        }
+        for record in records
+    ]
     canonical = json.dumps(items, sort_keys=True, separators=(",", ":")).encode()
-    return {"format": "scrutineering-audit-v1", "count": len(items), "sha256": hashlib.sha256(canonical).hexdigest(), "records": items}
+    return {
+        "format": "scrutineering-audit-v1",
+        "count": len(items),
+        "sha256": hashlib.sha256(canonical).hexdigest(),
+        "records": items,
+    }

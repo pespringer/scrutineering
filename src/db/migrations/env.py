@@ -6,6 +6,7 @@ from alembic import context
 
 # Import models so Alembic can detect them
 import os, sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
 from src.db.models import Base
 

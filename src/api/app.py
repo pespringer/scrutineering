@@ -18,7 +18,9 @@ import hmac
 from fastapi.responses import JSONResponse
 
 
-def is_service_request_authorized(headers, body: bytes, secret: str, replay_guard, *, max_skew_seconds: int = 300) -> bool:
+def is_service_request_authorized(
+    headers, body: bytes, secret: str, replay_guard, *, max_skew_seconds: int = 300
+) -> bool:
     """Verify one internal request and consume its signature replay token."""
     if not secret:
         return False
@@ -30,7 +32,10 @@ def is_service_request_authorized(headers, body: bytes, secret: str, replay_guar
 
 def is_provider_webhook_path(path: str) -> bool:
     """Provider callbacks authenticate with their provider HMAC, not API keys."""
-    return bool(re.fullmatch(r"/api/dashboard/webhooks/(github|gitlab)", path)) or path == "/api/dashboard/deployment-evidence"
+    return (
+        bool(re.fullmatch(r"/api/dashboard/webhooks/(github|gitlab)", path))
+        or path == "/api/dashboard/deployment-evidence"
+    )
 
 
 def create_app() -> FastAPI:
@@ -62,7 +67,11 @@ def create_app() -> FastAPI:
                 except ValueError:
                     return JSONResponse({"error": "invalid_service_auth_config"}, status_code=500)
                 service_authenticated = is_service_request_authorized(
-                    service_headers, body, service_secret, service_replay_guard, max_skew_seconds=max_skew,
+                    service_headers,
+                    body,
+                    service_secret,
+                    service_replay_guard,
+                    max_skew_seconds=max_skew,
                 )
             api_authenticated = bool(expected and is_api_key_authorized(request, expected))
             proxy_secret = os.environ.get("DASHBOARD_TRUSTED_PROXY_SECRET", "")
@@ -74,13 +83,39 @@ def create_app() -> FastAPI:
             )
             required_service_auth = os.environ.get("SERVICE_AUTH_REQUIRED", "").lower() in {"1", "true", "yes"}
             dashboard_api_key_allowed = request.url.path.startswith("/api/dashboard") and api_authenticated
-            if (required_service_auth and not service_authenticated and not proxy_authenticated and not dashboard_api_key_allowed) or (not required_service_auth and not api_authenticated and not service_authenticated and not proxy_authenticated):
+            if (
+                required_service_auth
+                and not service_authenticated
+                and not proxy_authenticated
+                and not dashboard_api_key_allowed
+            ) or (
+                not required_service_auth
+                and not api_authenticated
+                and not service_authenticated
+                and not proxy_authenticated
+            ):
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
-            request.state.auth_method = "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
-            request.state.principal_id = request.headers.get("x-authenticated-sub", "dashboard-service") if proxy_authenticated else "dashboard-service"
-            request.state.principal_email = request.headers.get("x-authenticated-email") if proxy_authenticated else None
-            default_roles = [role.strip() for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",") if role.strip()]
-            request.state.principal_roles = [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()] if proxy_authenticated else default_roles
+            request.state.auth_method = (
+                "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
+            )
+            request.state.principal_id = (
+                request.headers.get("x-authenticated-sub", "dashboard-service")
+                if proxy_authenticated
+                else "dashboard-service"
+            )
+            request.state.principal_email = (
+                request.headers.get("x-authenticated-email") if proxy_authenticated else None
+            )
+            default_roles = [
+                role.strip()
+                for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",")
+                if role.strip()
+            ]
+            request.state.principal_roles = (
+                [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()]
+                if proxy_authenticated
+                else default_roles
+            )
         if provider_webhook:
             request.state.auth_method = "provider_hmac"
             request.state.principal_id = f"provider:{request.url.path.rsplit('/', 1)[-1]}"
@@ -94,8 +129,13 @@ def create_app() -> FastAPI:
     @application.get("/version", tags=["health"])
     def version() -> dict[str, str]:
         revision = os.environ.get("SCRUTINEERING_REVISION", "unknown")
-        if not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", revision): revision = "unknown"
-        return {"service": "scrutineering", "version": os.environ.get("SCRUTINEERING_VERSION", "1.0"), "revision": revision}
+        if not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", revision):
+            revision = "unknown"
+        return {
+            "service": "scrutineering",
+            "version": os.environ.get("SCRUTINEERING_VERSION", "1.0"),
+            "revision": revision,
+        }
 
     @application.get("/ready", tags=["health"])
     def readiness():

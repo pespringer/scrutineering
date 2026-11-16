@@ -27,11 +27,7 @@ class ContainerdCollector:
         if returncode != 0:
             logger.warning("ctr containers list failed: %s", stderr.strip())
             return []
-        return [
-            {"id": line.strip(), "namespace": self.namespace}
-            for line in stdout.splitlines()
-            if line.strip()
-        ]
+        return [{"id": line.strip(), "namespace": self.namespace} for line in stdout.splitlines() if line.strip()]
 
     async def get_container_info(self, container_id: str) -> dict[str, Any] | None:
         """Return key/value pairs from `ctr containers info`, or None on failure."""

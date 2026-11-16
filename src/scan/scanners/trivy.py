@@ -58,9 +58,12 @@ class TrivyScanner(ScannerAdapter):
         max_findings: int = 100_000,
         insecure: bool = False,
     ):
-        if timeout < 1: raise ValueError("timeout must be positive")
-        if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
-        if max_findings < 1: raise ValueError("max_findings must be positive")
+        if timeout < 1:
+            raise ValueError("timeout must be positive")
+        if max_output_bytes < 1:
+            raise ValueError("max_output_bytes must be positive")
+        if max_findings < 1:
+            raise ValueError("max_findings must be positive")
         self.severities = ",".join(part.strip().upper() for part in severities.split(",") if part.strip())
         self.timeout = timeout
         self.trivy_cmd = trivy_cmd
@@ -89,10 +92,14 @@ class TrivyScanner(ScannerAdapter):
         cmd = [
             self.trivy_cmd,
             mode,
-            "--format", "json",
-            "--scanners", "vuln",
-            "--severity", self.severities,
-            "--cache-dir", self.cache_dir,
+            "--format",
+            "json",
+            "--scanners",
+            "vuln",
+            "--severity",
+            self.severities,
+            "--cache-dir",
+            self.cache_dir,
             scan_target,
         ]
         if root is not None and (ignore_file := root / ".trivyignore").is_file():
@@ -102,8 +109,11 @@ class TrivyScanner(ScannerAdapter):
 
         # Only this scan's credentials and transport apply; inherited TRIVY_* auth or
         # insecure settings from a global .env are dropped.
-        env = {key: value for key, value in os.environ.items()
-               if key not in {"TRIVY_USERNAME", "TRIVY_PASSWORD", "TRIVY_INSECURE"}}
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"TRIVY_USERNAME", "TRIVY_PASSWORD", "TRIVY_INSECURE"}
+        }
         if root is None and self.registry_username and self.registry_password:
             env.update({"TRIVY_USERNAME": self.registry_username, "TRIVY_PASSWORD": self.registry_password})
 
@@ -115,19 +125,13 @@ class TrivyScanner(ScannerAdapter):
                 env=env,
             )
         except FileNotFoundError:
-            raise ScannerError(
-                "trivy", f"Trivy binary not found at '{self.trivy_cmd}'", ""
-            )
+            raise ScannerError("trivy", f"Trivy binary not found at '{self.trivy_cmd}'", "")
 
         try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(), timeout=self.timeout
-            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self.timeout)
         except asyncio.TimeoutError:
             proc.kill()
-            raise ScannerError(
-                "trivy", f"Scan timed out after {self.timeout}s", ""
-            )
+            raise ScannerError("trivy", f"Scan timed out after {self.timeout}s", "")
 
         if proc.returncode not in (0, 1):
             # Trivy returns 1 when findings exist (not an error for us)
@@ -138,7 +142,8 @@ class TrivyScanner(ScannerAdapter):
                 stderr_text,
             )
 
-        if len(stdout) > self.max_output_bytes: raise ScannerError("trivy", "scan output exceeds size limit")
+        if len(stdout) > self.max_output_bytes:
+            raise ScannerError("trivy", "scan output exceeds size limit")
         findings = self._parse_trivy_output(stdout.decode(errors="replace"), root_path=root)
         if len(findings) > self.max_findings:
             raise ScannerError("trivy", "scan findings exceed size limit")
@@ -175,9 +180,7 @@ class TrivyScanner(ScannerAdapter):
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as e:
-            raise ScannerError(
-                "trivy", f"Failed to parse JSON output: {e}", raw_json[:500]
-            )
+            raise ScannerError("trivy", f"Failed to parse JSON output: {e}", raw_json[:500])
 
         findings = []
         results = data.get("Results", [])
@@ -202,7 +205,12 @@ class TrivyScanner(ScannerAdapter):
                     description=vuln.get("Description"),
                     severity=severity,
                     fixed_version=vuln.get("FixedVersion"),
-                    file_path=(relative_source_path(vuln.get("PkgPath") or vuln.get("FilePath"), root_path) or relative_source_path(result.get("Target"), root_path)) if root_path else None,
+                    file_path=(
+                        relative_source_path(vuln.get("PkgPath") or vuln.get("FilePath"), root_path)
+                        or relative_source_path(result.get("Target"), root_path)
+                    )
+                    if root_path
+                    else None,
                     cvss_scores=cvss["scores"],
                     cvss_vector=cvss.get("vector"),
                 )
@@ -223,8 +231,7 @@ class TrivyScanner(ScannerAdapter):
         vector = None
         max_score = 0.0
 
-        vendor_order = ["nvd", "redhat", "debian", "ubuntu", "alpine",
-                        "ghsa", "osv", "amazon", "oracle"]
+        vendor_order = ["nvd", "redhat", "debian", "ubuntu", "alpine", "ghsa", "osv", "amazon", "oracle"]
 
         for vendor in vendor_order:
             vendor_data = cvss_data.get(vendor, {})

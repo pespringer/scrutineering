@@ -41,9 +41,12 @@ class GrypeScanner(ScannerAdapter):
         insecure: bool = False,
         local_registry_host: str = "registry:5000",
     ):
-        if timeout < 1: raise ValueError("timeout must be positive")
-        if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
-        if max_findings < 1: raise ValueError("max_findings must be positive")
+        if timeout < 1:
+            raise ValueError("timeout must be positive")
+        if max_output_bytes < 1:
+            raise ValueError("max_output_bytes must be positive")
+        if max_findings < 1:
+            raise ValueError("max_findings must be positive")
         self.timeout = timeout
         self.grype_cmd = grype_cmd
         self.max_output_bytes = max_output_bytes
@@ -68,8 +71,10 @@ class GrypeScanner(ScannerAdapter):
         """
         root = filesystem_path(image_name)
         scan_target = self._registry_scan_target(image_name) if root is None else f"dir:{root}"
-        command = [self.grype_cmd,
-            "-o", "json",
+        command = [
+            self.grype_cmd,
+            "-o",
+            "json",
             "-q",
             scan_target,
         ]
@@ -81,14 +86,10 @@ class GrypeScanner(ScannerAdapter):
         )
 
         try:
-            stdout, stderr = await asyncio.wait_for(
-                result.communicate(), timeout=self.timeout
-            )
+            stdout, stderr = await asyncio.wait_for(result.communicate(), timeout=self.timeout)
         except asyncio.TimeoutError:
             result.kill()
-            raise ScannerError(
-                "grype", f"Scan timed out after {self.timeout}s", ""
-            )
+            raise ScannerError("grype", f"Scan timed out after {self.timeout}s", "")
 
         if result.returncode != 0:
             stderr_text = stderr.decode(errors="replace").strip()
@@ -98,7 +99,8 @@ class GrypeScanner(ScannerAdapter):
                 stderr_text,
             )
 
-        if len(stdout) > self.max_output_bytes: raise ScannerError("grype", "scan output exceeds size limit")
+        if len(stdout) > self.max_output_bytes:
+            raise ScannerError("grype", "scan output exceeds size limit")
         findings = self._parse_grype_output(stdout.decode(errors="replace"), root_path=root)
         if len(findings) > self.max_findings:
             raise ScannerError("grype", "scan finding count exceeds limit")
@@ -113,13 +115,17 @@ class GrypeScanner(ScannerAdapter):
         base = {key: value for key, value in os.environ.items() if not key.startswith("GRYPE_REGISTRY_")}
         extra: dict[str, str] = {}
         if self.registry_username and self.registry_password:
-            extra.update({
-                "GRYPE_REGISTRY_AUTH_AUTHORITY": self.registry_authority or "",
-                "GRYPE_REGISTRY_AUTH_USERNAME": self.registry_username,
-                "GRYPE_REGISTRY_AUTH_PASSWORD": self.registry_password,
-            })
+            extra.update(
+                {
+                    "GRYPE_REGISTRY_AUTH_AUTHORITY": self.registry_authority or "",
+                    "GRYPE_REGISTRY_AUTH_USERNAME": self.registry_username,
+                    "GRYPE_REGISTRY_AUTH_PASSWORD": self.registry_password,
+                }
+            )
         if self.insecure:
-            extra.update({"GRYPE_REGISTRY_INSECURE_USE_HTTP": "true", "GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY": "true"})
+            extra.update(
+                {"GRYPE_REGISTRY_INSECURE_USE_HTTP": "true", "GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY": "true"}
+            )
         return {**base, **extra}
 
     def _registry_scan_target(self, image_name: str) -> str:
@@ -133,9 +139,7 @@ class GrypeScanner(ScannerAdapter):
         try:
             data = json.loads(raw_json)
         except json.JSONDecodeError as e:
-            raise ScannerError(
-                "grype", f"Failed to parse JSON output: {e}", raw_json[:500]
-            )
+            raise ScannerError("grype", f"Failed to parse JSON output: {e}", raw_json[:500])
 
         findings = []
         matches = data.get("matches", [])

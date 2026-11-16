@@ -22,15 +22,23 @@ def _labels_match(labels: Any, expression: str | None) -> bool:
     return isinstance(labels, dict) and labels.get(key) == expected
 
 
-def select_runtime_images(containers: list[dict[str, Any]], *, include: list[str] | None = None,
-                         exclude: list[str] | None = None, exclude_containers: list[str] | None = None,
-                         include_label: str | None = None, limit: int = 100) -> list[str]:
+def select_runtime_images(
+    containers: list[dict[str, Any]],
+    *,
+    include: list[str] | None = None,
+    exclude: list[str] | None = None,
+    exclude_containers: list[str] | None = None,
+    include_label: str | None = None,
+    limit: int = 100,
+) -> list[str]:
     """Return stable, unique image references selected from running containers."""
     if limit < 1:
         raise ValueError("runtime discovery limit must be positive")
     include = include if include is not None else _patterns("SCAN_RUNTIME_INCLUDE_IMAGES")
     exclude = exclude if exclude is not None else _patterns("SCAN_RUNTIME_EXCLUDE_IMAGES")
-    exclude_containers = exclude_containers if exclude_containers is not None else _patterns("SCAN_RUNTIME_EXCLUDE_CONTAINERS")
+    exclude_containers = (
+        exclude_containers if exclude_containers is not None else _patterns("SCAN_RUNTIME_EXCLUDE_CONTAINERS")
+    )
     include_label = include_label if include_label is not None else os.environ.get("SCAN_RUNTIME_INCLUDE_LABEL")
     selected: list[str] = []
     seen: set[str] = set()
@@ -53,15 +61,21 @@ def select_runtime_images(containers: list[dict[str, Any]], *, include: list[str
     return selected
 
 
-async def discover_runtime_containers(*, use_containerd: bool = False,
-                                      docker_bin: str = "docker", ctr_bin: str = "ctr",
-                                      containerd_namespace: str = "default") -> list[dict[str, Any]]:
+async def discover_runtime_containers(
+    *,
+    use_containerd: bool = False,
+    docker_bin: str = "docker",
+    ctr_bin: str = "ctr",
+    containerd_namespace: str = "default",
+) -> list[dict[str, Any]]:
     """Discover containers and enrich containerd records with image names."""
     if use_containerd:
         from src.scan.discovery import ContainerdCollector
+
         collector = ContainerdCollector(ctr_bin=ctr_bin, namespace=containerd_namespace)
     else:
         from src.scan.discovery import DockerRuntimeCollector
+
         collector = DockerRuntimeCollector(docker_bin=docker_bin)
     containers = await collector.list_running_containers()
     if use_containerd:

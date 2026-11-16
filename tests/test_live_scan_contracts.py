@@ -4,19 +4,30 @@ from src.scan.scheduled import schedule_active_scans
 
 
 class Image:
-    def __init__(self, name): self.full_name = name
+    def __init__(self, name):
+        self.full_name = name
 
 
 class Query:
-    def filter(self, *_): return self
-    def order_by(self, *_): return self
-    def all(self): return [Image("alpine:3.20"), Image("nginx:1.27")]
+    def filter(self, *_):
+        return self
+
+    def order_by(self, *_):
+        return self
+
+    def all(self):
+        return [Image("alpine:3.20"), Image("nginx:1.27")]
 
 
 class Session:
-    def query(self, *_): return Query()
-    def __enter__(self): return self
-    def __exit__(self, *_): return False
+    def query(self, *_):
+        return Query()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
 
 
 def test_schedule_active_scans_queues_bounded_inventory(monkeypatch):

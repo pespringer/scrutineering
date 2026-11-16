@@ -6,6 +6,8 @@ Tests cover:
 - Deduplication across scanners
 """
 
+import json
+
 import pytest
 from src.scan.scanners.base import ScannerFinding, ScannerError
 from src.scan.scanners.trivy import TrivyScanner
@@ -14,6 +16,7 @@ from src.db.models import Severity
 
 
 # -- Trivy parser tests ---------------------------------------------------- #
+
 
 class TestTrivyParser:
     """Test Trivy JSON output parsing without requiring Trivy binary."""
@@ -62,7 +65,14 @@ class TestTrivyParser:
 
     def test_parse_filesystem_target_as_source_path(self, tmp_path):
         scanner = TrivyScanner(trivy_cmd="echo")
-        raw = '{"Results": [{"Target": "package-lock.json", "Type": "npm", "Vulnerabilities": [{"VulnerabilityID": "CVE-FS", "Severity": "HIGH", "PkgName": "lodash", "InstalledVersion": "4.17.20", "FixedVersion": "4.17.21"}]}]}'
+        vuln = {
+            "VulnerabilityID": "CVE-FS",
+            "Severity": "HIGH",
+            "PkgName": "lodash",
+            "InstalledVersion": "4.17.20",
+            "FixedVersion": "4.17.21",
+        }
+        raw = json.dumps({"Results": [{"Target": "package-lock.json", "Type": "npm", "Vulnerabilities": [vuln]}]})
         findings = scanner._parse_trivy_output(raw, root_path=tmp_path)
         assert findings[0].file_path == "package-lock.json"
 
@@ -72,10 +82,12 @@ class TestTrivyParser:
         {
             "Results": [
                 {"Target": "alpine:3.14", "Type": "apt", "Vulnerabilities": [
-                    {"VulnerabilityID": "CVE-2021-001", "Severity": "CRITICAL", "PkgName": "libssl", "InstalledVersion": "1.0"}
+                    {"VulnerabilityID": "CVE-2021-001", "Severity": "CRITICAL", "PkgName": "libssl",
+                     "InstalledVersion": "1.0"}
                 ]},
                 {"Target": "app", "Type": "pip", "Vulnerabilities": [
-                    {"VulnerabilityID": "CVE-2021-002", "Severity": "LOW", "PkgName": "requests", "InstalledVersion": "2.25.0"}
+                    {"VulnerabilityID": "CVE-2021-002", "Severity": "LOW", "PkgName": "requests",
+                     "InstalledVersion": "2.25.0"}
                 ]}
             ]
         }
@@ -134,6 +146,7 @@ class TestTrivyParser:
 
 # -- Grype parser tests ---------------------------------------------------- #
 
+
 class TestGrypeParser:
     def test_local_registry_images_use_grype_registry_source(self, monkeypatch):
         monkeypatch.setenv("LOCAL_REGISTRY_HOST", "registry:5000")
@@ -172,7 +185,13 @@ class TestGrypeParser:
 
     def test_parse_filesystem_locations_as_relative_paths(self, tmp_path):
         scanner = GrypeScanner(grype_cmd="echo")
-        raw = '{"matches": [{"vulnerability": {"id": "CVE-FS", "severity": "High"}, "artifact": {"name": "requests", "version": "2.0", "type": "python", "locations": [{"path": "' + str(tmp_path / "requirements.txt") + '"}]}}]}'
+        artifact = {
+            "name": "requests",
+            "version": "2.0",
+            "type": "python",
+            "locations": [{"path": str(tmp_path / "requirements.txt")}],
+        }
+        raw = json.dumps({"matches": [{"vulnerability": {"id": "CVE-FS", "severity": "High"}, "artifact": artifact}]})
         findings = scanner._parse_grype_output(raw, root_path=tmp_path)
         assert findings[0].file_path == "requirements.txt"
 
@@ -183,6 +202,7 @@ class TestGrypeParser:
 
 
 # -- Registry detection tests --------------------------------------------- #
+
 
 class TestFingerprint:
     def test_deterministic(self):

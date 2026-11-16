@@ -11,8 +11,14 @@ import json
 import sys
 
 TRIVY_VULN_FIELDS = (
-    "VulnerabilityID", "PkgName", "PkgPath", "InstalledVersion", "FixedVersion",
-    "Severity", "Title", "CVSS",
+    "VulnerabilityID",
+    "PkgName",
+    "PkgPath",
+    "InstalledVersion",
+    "FixedVersion",
+    "Severity",
+    "Title",
+    "CVSS",
 )
 # Grype has no title field: the parser titles findings from the description, so keep it.
 GRYPE_VULN_FIELDS = ("id", "severity", "description", "fix")
@@ -23,24 +29,25 @@ def trim_trivy(data: dict) -> dict:
     results = []
     for result in data.get("Results") or []:
         vulns = [
-            {key: vuln[key] for key in TRIVY_VULN_FIELDS if key in vuln}
-            for vuln in result.get("Vulnerabilities") or []
+            {key: vuln[key] for key in TRIVY_VULN_FIELDS if key in vuln} for vuln in result.get("Vulnerabilities") or []
         ]
         vulns.sort(key=lambda v: (v.get("PkgName", ""), v.get("VulnerabilityID", "")))
-        results.append({key: result[key] for key in ("Target", "Class", "Type") if key in result}
-                       | {"Vulnerabilities": vulns})
-    return {"SchemaVersion": data.get("SchemaVersion", 2), "ArtifactName": data.get("ArtifactName"),
-            "Results": results}
+        results.append(
+            {key: result[key] for key in ("Target", "Class", "Type") if key in result} | {"Vulnerabilities": vulns}
+        )
+    return {"SchemaVersion": data.get("SchemaVersion", 2), "ArtifactName": data.get("ArtifactName"), "Results": results}
 
 
 def trim_grype(data: dict) -> dict:
     matches = []
     for match in data.get("matches") or []:
         vuln, artifact = match.get("vulnerability", {}), match.get("artifact", {})
-        matches.append({
-            "vulnerability": {key: vuln[key] for key in GRYPE_VULN_FIELDS if key in vuln},
-            "artifact": {key: artifact[key] for key in GRYPE_ARTIFACT_FIELDS if key in artifact},
-        })
+        matches.append(
+            {
+                "vulnerability": {key: vuln[key] for key in GRYPE_VULN_FIELDS if key in vuln},
+                "artifact": {key: artifact[key] for key in GRYPE_ARTIFACT_FIELDS if key in artifact},
+            }
+        )
     matches.sort(key=lambda m: (m["artifact"].get("name", ""), m["vulnerability"].get("id", "")))
     return {"matches": matches}
 
