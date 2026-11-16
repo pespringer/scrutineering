@@ -5,7 +5,7 @@ from fastapi.responses import PlainTextResponse
 from uuid import uuid4
 import re
 
-from src.analytics.dashboard_api import router as dashboard_router
+from src.api.routes import router as dashboard_router
 from src.db.connection import get_session
 from src.db.models import Scan
 from src.api.readiness import check_database

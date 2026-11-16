@@ -13,8 +13,7 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 ```
 scrutineering/
 ├── src/
-│   ├── api/              # Composed FastAPI application
-│   ├── analytics/        # Dashboard API routes
+│   ├── api/              # FastAPI app; routes/, schemas.py, serializers.py
 │   ├── scan/             # Celery workers (Trivy/Grype scans)
 │   ├── remediation/      # Worktrees, edits, validation, publication
 │   ├── db/               # SQLAlchemy models + Alembic migrations

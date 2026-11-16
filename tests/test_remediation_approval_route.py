@@ -5,7 +5,7 @@ from unittest.mock import Mock
 import pytest
 from fastapi import HTTPException
 
-from src.analytics import dashboard_api
+from src.api.routes import remediations as dashboard_api
 from src.db.models import RemediationStatus
 
 
@@ -27,8 +27,8 @@ def remediation_store(monkeypatch):
     monkeypatch.setattr(dashboard_api, "get_session", fake_session)
     monkeypatch.setattr(dashboard_api.RemediationRepository, "update_status", update_status)
     monkeypatch.setattr(dashboard_api.RemediationRepository, "get_by_id", lambda *_: remediation)
-    monkeypatch.setattr(dashboard_api, "_record_operator_event", Mock())
-    monkeypatch.setattr(dashboard_api, "_remediation_payload", lambda record: {"status": "approved"})
+    monkeypatch.setattr(dashboard_api, "record_operator_event", Mock())
+    monkeypatch.setattr(dashboard_api, "remediation_payload", lambda record: {"status": "approved"})
     return SimpleNamespace(remediation=remediation, session=session, update_status=update_status)
 
 

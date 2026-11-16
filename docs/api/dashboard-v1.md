@@ -1,7 +1,7 @@
 # Dashboard API v1
 
 The dashboard API is mounted at `/api/dashboard` on the Python API
-(`src/analytics/dashboard_api.py`). Every route except the provider webhook
+(`src/api/routes/`, one module per section below). Every route except the provider webhook
 requires `PYTHON_API_KEY`, service authentication, or a verified trusted-proxy
 identity. The Next.js dashboard calls these routes server-side, so API keys and
 the proxy secret never reach the browser.

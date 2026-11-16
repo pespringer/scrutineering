@@ -5,7 +5,11 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import RemediationRequest, ScanRequest, _finding_payload, _image_payload, _local_registry_public_url, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
+from src.api.routes._access import require_role
+from src.api.routes.images import _local_registry_public_url
+from src.api.routes.remediations import _remediation_actions
+from src.api.schemas import RemediationRequest, ScanRequest
+from src.api.serializers import finding_payload, image_payload, paginate, remediation_payload, remediation_workflow_state, scan_payload, severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -28,12 +32,12 @@ def test_dashboard_serializers_match_frontend_contract():
         total_findings=1, critical_count=0, high_count=1, medium_count=0, low_count=0,
     )
 
-    assert _severity_counts([finding]) == {"critical": 0, "high": 1, "medium": 0, "low": 0}
-    assert _image_payload(image, [finding])["open_findings"] == 1
-    assert _image_payload(image, [finding], resolved_count=2)["resolved_findings"] == 2
-    assert _scan_payload(scan)["status"] == "completed"
-    assert _finding_payload(finding)["severity"] == "HIGH"
-    assert _finding_payload(finding)["remediation_id"] is None
+    assert severity_counts([finding]) == {"critical": 0, "high": 1, "medium": 0, "low": 0}
+    assert image_payload(image, [finding])["open_findings"] == 1
+    assert image_payload(image, [finding], resolved_count=2)["resolved_findings"] == 2
+    assert scan_payload(scan)["status"] == "completed"
+    assert finding_payload(finding)["severity"] == "HIGH"
+    assert finding_payload(finding)["remediation_id"] is None
 
 
 def test_remediation_serializer_exposes_open_and_resolved_counts():
@@ -44,7 +48,7 @@ def test_remediation_serializer_exposes_open_and_resolved_counts():
         publications=[], actions=[],
     )
 
-    payload = _remediation_payload(remediation)
+    payload = remediation_payload(remediation)
 
     assert payload["open_finding_count"] == 1
     assert payload["resolved_finding_count"] == 1
@@ -59,7 +63,7 @@ def test_remediation_serializer_exposes_operator_workflow_state():
         events=[SimpleNamespace(event_type="execution_ready")],
     )
 
-    payload = _remediation_payload(remediation)
+    payload = remediation_payload(remediation)
 
     assert payload["workflow_state"] == "execution_ready"
     assert payload["workflow_label"] == "Execution ready"
@@ -76,21 +80,21 @@ def test_remediation_serializer_exposes_operator_workflow_state():
 )
 def test_remediation_workflow_state_tracks_execution_events(event_type, expected):
     remediation = SimpleNamespace(status="analyzing")
-    assert _remediation_workflow_state(remediation, [SimpleNamespace(event_type=event_type)]) == expected
+    assert remediation_workflow_state(remediation, [SimpleNamespace(event_type=event_type)]) == expected
 
 
 def test_reapproved_retry_shows_approved_state_not_awaiting_approval():
     events = [SimpleNamespace(event_type=name) for name in (
         "execution_queued", "execution_started", "execution_blocked", "execution_retry_requested",
     )]
-    assert _remediation_workflow_state(SimpleNamespace(status="analyzing"), events) == "analyzing"
-    assert _remediation_workflow_state(SimpleNamespace(status="requires_review"), events) == "requires_review"
+    assert remediation_workflow_state(SimpleNamespace(status="analyzing"), events) == "analyzing"
+    assert remediation_workflow_state(SimpleNamespace(status="requires_review"), events) == "requires_review"
 
 
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
-    assert _page([{"id": 1}], limit=20, offset=0, total=41) == {
+    assert paginate([{"id": 1}], limit=20, offset=0, total=41) == {
         "items": [{"id": 1}], "limit": 20, "offset": 0, "count": 1, "total": 41,
     }
 
@@ -109,9 +113,9 @@ def test_registry_dashboard_uses_public_host_for_browser_links(monkeypatch):
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():
     readonly = SimpleNamespace(state=SimpleNamespace(principal_roles=["dashboard"]))
     operator = SimpleNamespace(state=SimpleNamespace(principal_roles=["operator"]))
-    _require_role(operator, "operator", "security-operator")
+    require_role(operator, "operator", "security-operator")
     with pytest.raises(HTTPException) as error:
-        _require_role(readonly, "operator", "security-operator")
+        require_role(readonly, "operator", "security-operator")
     assert error.value.status_code == 403
 
 

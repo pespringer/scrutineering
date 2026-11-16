@@ -434,7 +434,7 @@ The bugs found in the review, each with a regression test.
 - [x] **Add a live variant** (`make e2e`) that runs the same flow against
   `docker compose` with real scanners and the local registry. Run it before
   every merge to `main`; it doesn't run in unit CI.
-- [ ] **Split `src/analytics/dashboard_api.py`** (1,728 lines) into
+- [x] **Split `src/analytics/dashboard_api.py`** (1,728 lines) into
   `src/api/routes/{scans,images,findings,remediations,audit,webhooks,session}.py`
   plus `src/api/schemas.py` (the Pydantic models) and `src/api/serializers.py`
   (the `_payload` helpers).
@@ -466,6 +466,17 @@ The bugs found in the review, each with a regression test.
   scanned the same day with the same database: newer OpenSSL, musl and zlib
   releases carry CVEs the old ones didn't. A strict "no new critical/high"
   rule would reject every such bump; see decision D6.
+
+**3b status: done.**
+- **The split:** `dashboard_api.py` (1,098 lines after the Phase 1 cuts)
+  became `src/api/schemas.py`, `src/api/serializers.py` and
+  `src/api/routes/{posture,scans,images,findings,session,audit,remediations,webhooks}.py`,
+  plus `_access.py` for role checks and operator audit events. The largest
+  module is 260 lines.
+- **Names:** shared helpers are now public (`scan_payload`, `paginate`,
+  `require_role`, and the rest). `src/analytics/` is gone.
+- **Routes unchanged:** the OpenAPI table (35 method-and-path pairs and their
+  operation IDs) is identical to `main` before the split.
 
 **Done when:** the golden-path test exists and its scan half passes, no source
 line is over 120 characters, and no route file is over about 400 lines.
