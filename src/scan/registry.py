@@ -154,3 +154,39 @@ def resolve_digest(
     if not _DIGEST.fullmatch(digest):
         raise RuntimeError("registry did not return an immutable sha256 digest")
     return digest
+
+
+def list_tags(
+    identity: ImageIdentity,
+    *,
+    credentials: Credentials | None = None,
+    scheme: str = "https",
+    opener: Callable = urlopen,
+    max_pages: int = 20,
+) -> list[str]:
+    """List a repository's tags through the registry API, following `Link` pagination."""
+    if scheme not in {"http", "https"}:
+        raise ValueError("registry scheme must be http or https")
+    if any(part in {".", ".."} for part in identity.repository.split("/")):
+        raise ValueError("invalid repository path")
+    base = f"{scheme}://{identity.host}"
+    url = f"{base}/v2/{identity.repository}/tags/list?n=1000"
+    authorization = None
+    tags: list[str] = []
+    for _ in range(max_pages):
+        headers = {"Authorization": authorization} if authorization else {}
+        try:
+            response = opener(Request(url, headers=headers), timeout=30)
+        except HTTPError as error:
+            if error.code != 401 or authorization:
+                raise
+            authorization = _authorization(error.headers.get("WWW-Authenticate", ""), credentials, opener)
+            response = opener(Request(url, headers={"Authorization": authorization}), timeout=30)
+        with response:
+            tags.extend(json.loads(response.read().decode()).get("tags") or [])
+            link = response.headers.get("Link", "")
+        match = re.match(r'<([^>]+)>;\s*rel="next"', link)
+        if not match:
+            break
+        url = match.group(1) if match.group(1).startswith("http") else f"{base}{match.group(1)}"
+    return tags

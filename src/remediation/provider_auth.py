@@ -7,7 +7,9 @@ from datetime import datetime, timezone
 
 
 def credential_diagnostics(provider: str) -> dict:
-    name = "GITHUB_TOKEN" if provider == "github" else "GITLAB_TOKEN"
+    if provider != "github":
+        raise ValueError("GitHub is the only publication provider")
+    name = "GITHUB_TOKEN"
     token = os.environ.get(name, "")
     rotated_at = os.environ.get(f"{name}_ROTATED_AT", "")
     age_days = None

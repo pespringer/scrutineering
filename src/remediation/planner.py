@@ -17,26 +17,14 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-OS_PACKAGE_TYPES = {
-    "alpine",
-    "apk",
-    "wolfi",
-    "chainguard",
-    "debian",
-    "deb",
-    "ubuntu",
-    "rpm",
-    "redhat",
-    "centos",
-    "rocky",
-    "alma",
-    "amazon",
-    "fedora",
-    "oracle",
-    "photon",
-    "suse",
-    "opensuse",
+OS_FAMILIES = {
+    **dict.fromkeys(("alpine", "apk", "wolfi", "chainguard"), "apk"),
+    **dict.fromkeys(("debian", "deb", "ubuntu"), "apt"),
+    **dict.fromkeys(
+        ("rpm", "redhat", "centos", "rocky", "alma", "amazon", "fedora", "oracle", "photon", "suse", "opensuse"), "rpm"
+    ),
 }
+OS_PACKAGE_TYPES = set(OS_FAMILIES)
 ECOSYSTEMS = {
     "node-pkg": "npm",
     "npm": "npm",
@@ -160,7 +148,7 @@ def classify(finding: FindingInput) -> tuple[str, str | None]:
 def plan(findings: list[FindingInput]) -> Plan:
     """Group findings into the smallest set of actions that should fix them."""
     dependency: dict[tuple[str, str], PlannedAction] = {}
-    os_upgrade: PlannedAction | None = None
+    os_upgrades: dict[str, PlannedAction] = {}
     base_bump: PlannedAction | None = None
     manual: list[ManualFinding] = []
     for finding in findings:
@@ -185,7 +173,8 @@ def plan(findings: list[FindingInput]) -> Plan:
             if version_key(fixed) > version_key(action.to_version or ""):
                 action.to_version = fixed
         elif strategy == "os_package_upgrade":
-            action = os_upgrade = os_upgrade or PlannedAction(strategy=strategy)
+            family = OS_FAMILIES[(finding.package_type or "").lower()]
+            action = os_upgrades.setdefault(family, PlannedAction(strategy=strategy, ecosystem=family))
             current = action.packages.get(finding.package_name)
             if current is None or version_key(fixed) > version_key(current):
                 action.packages[finding.package_name] = fixed
@@ -194,5 +183,6 @@ def plan(findings: list[FindingInput]) -> Plan:
         action.finding_ids.append(finding.id)
         action.vuln_keys.append(finding.vuln_key)
     actions = [*sorted(dependency.values(), key=lambda a: (a.ecosystem or "", a.package or ""))]
-    actions += [action for action in (os_upgrade, base_bump) if action is not None]
+    actions += [os_upgrades[family] for family in sorted(os_upgrades)]
+    actions += [base_bump] if base_bump is not None else []
     return Plan(actions=actions, manual=manual)

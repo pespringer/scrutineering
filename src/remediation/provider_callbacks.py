@@ -47,15 +47,6 @@ def normalize_callback(
         state = str(request.get("state") or payload.get("action") or "updated")
         merge_commit = request.get("merge_commit_sha") or payload.get("merge_commit")
         event_type = event_type or str(payload.get("action") or "pull_request")
-    elif provider == "gitlab":
-        attributes = payload.get("object_attributes", {})
-        project = payload.get("project", {})
-        repository = str(project.get("path_with_namespace") or payload.get("repository") or "")
-        number = int(attributes.get("iid") or payload.get("number") or 0)
-        merged = bool(attributes.get("state") == "merged" or attributes.get("merged_at"))
-        state = str(attributes.get("state") or payload.get("state") or "updated")
-        merge_commit = attributes.get("merge_commit_sha") or payload.get("merge_commit")
-        event_type = event_type or str(payload.get("event_name") or "merge_request")
     else:
         raise ValueError("provider not supported")
     return ProviderCallback(

@@ -43,27 +43,10 @@ services:
       - DASHBOARD_TRUSTED_PROXY_SECRET=${DASHBOARD_TRUSTED_PROXY_SECRET:-}
       - DASHBOARD_DEFAULT_ROLES=${DASHBOARD_DEFAULT_ROLES:-dashboard,operator}
       - REMEDIATION_EXECUTION_ENABLED=${REMEDIATION_EXECUTION_ENABLED:-false}
-      - REMEDIATION_PUSH_ENABLED=${REMEDIATION_PUSH_ENABLED:-false}
-      - REMEDIATION_BRANCH_PREFIX=${REMEDIATION_BRANCH_PREFIX:-scrutineering/remediation}
-      - REMEDIATION_GIT_REMOTE=${REMEDIATION_GIT_REMOTE:-origin}
-      - REMEDIATION_REPOSITORY_ROOT=${REMEDIATION_REPOSITORY_ROOT:-}
       - REMEDIATION_SCAN_REPOSITORY_ROOT=${REMEDIATION_SCAN_REPOSITORY_ROOT:-/workspace/repository}
-      - REMEDIATION_EVIDENCE_FILE=${REMEDIATION_EVIDENCE_FILE:-}
-      - REMEDIATION_EVIDENCE_ARTIFACT_FILE=${REMEDIATION_EVIDENCE_ARTIFACT_FILE:-}
-      - REMEDIATION_VALIDATION_PROVIDER=${REMEDIATION_VALIDATION_PROVIDER:-}
-      - REMEDIATION_VALIDATION_ECOSYSTEM=${REMEDIATION_VALIDATION_ECOSYSTEM:-}
-      - REMEDIATION_VALIDATION_WORKING_DIRECTORY=${REMEDIATION_VALIDATION_WORKING_DIRECTORY:-}
-      - REMEDIATION_ALLOWED_REPOSITORIES=${REMEDIATION_ALLOWED_REPOSITORIES:-}
-      - REMEDIATION_PUBLICATION_ENABLED=${REMEDIATION_PUBLICATION_ENABLED:-false}
-      - REMEDIATION_PUBLICATION_PROVIDER=${REMEDIATION_PUBLICATION_PROVIDER:-github}
-      - REMEDIATION_PUBLICATION_REPOSITORY=${REMEDIATION_PUBLICATION_REPOSITORY:-}
-      - REMEDIATION_PUBLICATION_BASE=${REMEDIATION_PUBLICATION_BASE:-main}
-      - REMEDIATION_MAX_CHANGED_FILES=${REMEDIATION_MAX_CHANGED_FILES:-50}
-      - REMEDIATION_COMMAND_OUTPUT_BYTES=${REMEDIATION_COMMAND_OUTPUT_BYTES:-2000}
       - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - GITLAB_TOKEN=${GITLAB_TOKEN:-}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
-      - GITLAB_WEBHOOK_SECRET=${GITLAB_WEBHOOK_SECRET:-}
       - SCRUTINEERING_VERSION=${SCRUTINEERING_VERSION:-1.0}
       - SCRUTINEERING_REVISION=${SCRUTINEERING_REVISION:-local}
     depends_on:
@@ -218,29 +201,18 @@ services:
       - SCAN_RUNTIME_EXCLUDE_CONTAINERS=${SCAN_RUNTIME_EXCLUDE_CONTAINERS:-}
       - SCAN_RUNTIME_INCLUDE_LABEL=${SCAN_RUNTIME_INCLUDE_LABEL:-}
       - SCAN_RUNTIME_MAX_IMAGES=${SCAN_RUNTIME_MAX_IMAGES:-100}
-      - REMEDIATION_MAX_CHANGED_FILES=${REMEDIATION_MAX_CHANGED_FILES:-50}
-      - REMEDIATION_COMMAND_OUTPUT_BYTES=${REMEDIATION_COMMAND_OUTPUT_BYTES:-2000}
       - REMEDIATION_EXECUTION_ENABLED=${REMEDIATION_EXECUTION_ENABLED:-false}
-      - REMEDIATION_PUBLICATION_ENABLED=${REMEDIATION_PUBLICATION_ENABLED:-false}
-      - REMEDIATION_PUBLICATION_PROVIDER=${REMEDIATION_PUBLICATION_PROVIDER:-github}
-      - REMEDIATION_PUBLICATION_REPOSITORY=${REMEDIATION_PUBLICATION_REPOSITORY:-}
-      - REMEDIATION_PUBLICATION_BASE=${REMEDIATION_PUBLICATION_BASE:-main}
-      - REMEDIATION_PUSH_ENABLED=${REMEDIATION_PUSH_ENABLED:-false}
-      - REMEDIATION_BRANCH_PREFIX=${REMEDIATION_BRANCH_PREFIX:-scrutineering/remediation}
-      - REMEDIATION_GIT_REMOTE=${REMEDIATION_GIT_REMOTE:-origin}
-      - REMEDIATION_REPOSITORY_ROOT=${REMEDIATION_REPOSITORY_ROOT:-/workspace/repository}
+      - REMEDIATION_SOURCES_ROOT=/workspace/sources
+      - BUILDKIT_HOST=tcp://buildkitd:1234
       - REMEDIATION_SCAN_REPOSITORY_ROOT=${REMEDIATION_SCAN_REPOSITORY_ROOT:-/workspace/repository}
-      - REMEDIATION_EVIDENCE_FILE=${REMEDIATION_EVIDENCE_FILE:-/workspace/evidence/envelope.json}
-      - REMEDIATION_EVIDENCE_ARTIFACT_FILE=${REMEDIATION_EVIDENCE_ARTIFACT_FILE:-/workspace/evidence/artifact.json}
-      - REMEDIATION_VALIDATION_PROVIDER=${REMEDIATION_VALIDATION_PROVIDER:-}
-      - REMEDIATION_VALIDATION_ECOSYSTEM=${REMEDIATION_VALIDATION_ECOSYSTEM:-}
-      - REMEDIATION_VALIDATION_WORKING_DIRECTORY=${REMEDIATION_VALIDATION_WORKING_DIRECTORY:-}
       - COSIGN_CERTIFICATE_IDENTITY=${COSIGN_CERTIFICATE_IDENTITY:-}
       - COSIGN_OIDC_ISSUER=${COSIGN_OIDC_ISSUER:-}
     volumes:
-      - ${REMEDIATION_HOST_REPOSITORY_ROOT:-./.local/remediation-repo}:/workspace/repository:rw
-      - ${REMEDIATION_HOST_EVIDENCE_ROOT:-./.local/remediation-evidence}:/workspace/evidence:ro
+      # Image sources that remediations patch: one git repository per folder, read-only.
+      - ${REMEDIATION_HOST_SOURCES:-./.local/remediation-sources}:/workspace/sources:ro
     depends_on:
+      buildkitd:
+        condition: service_healthy
       redis:
         condition: service_healthy
       postgres:
@@ -263,6 +235,29 @@ services:
         reservations:
           cpus: "1"
           memory: 512M
+
+  # ---------------------------------------------------------------------------
+  # BuildKit — builds remediation candidate images (rootless; no Docker socket)
+  # ---------------------------------------------------------------------------
+  buildkitd:
+    image: moby/buildkit:v0.16.0-rootless
+    container_name: scrutineering-buildkitd
+    # Rootless BuildKit needs user namespaces; these options relax only this container's
+    # seccomp/AppArmor profiles so it can create them. It is reachable only on the internal network.
+    command: ["--addr", "tcp://0.0.0.0:1234", "--oci-worker-no-process-sandbox"]
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
+    volumes:
+      - buildkit-cache:/home/user/.local/share/buildkit
+    restart: unless-stopped
+    networks:
+      - scrutineering
+    healthcheck:
+      test: ["CMD", "buildctl", "--addr", "tcp://127.0.0.1:1234", "debug", "workers"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
 
   # ---------------------------------------------------------------------------
   # Celery Beat — periodic task scheduler (scheduled scan orchestration)
@@ -310,4 +305,6 @@ volumes:
   pgdata:
     driver: local
   registrydata:
+    driver: local
+  buildkit-cache:
     driver: local

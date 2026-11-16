@@ -89,21 +89,18 @@ history.
 
 `operator` and `remediator` routes also accept `security-operator`.
 
-A remediation can be created only for open findings that have a fixed version
-and a source file path. Today that means findings from `fs:` (directory)
-scans; Phase 4 of the reset plan extends remediation to container images.
-
-Execution runs on the worker. It requires a signed evidence envelope and a
-validation provider/ecosystem, applies the edits in an isolated worktree, and
-runs install, test, build, SBOM and rescan steps. When `REMEDIATION_PUSH_ENABLED`
-and `REMEDIATION_PUBLICATION_ENABLED` are set and the repository is in
-`REMEDIATION_ALLOWED_REPOSITORIES`, the worker pushes a branch and opens a PR.
-It never merges. Blocked runs are recorded as events with a reason.
+A remediation can be proposed for open findings on an image with a connected
+source, when each finding has an automatic fix (see the preview's `manual` list
+for the ones that do not). Execution patches the source, builds a candidate
+image with BuildKit, and scans it; see
+[remediation execution](../operations/remediation-execution.md). The detail
+payload includes the `patch`, `candidate_image`, `candidate_digest` and
+`verification` it produced.
 
 ## Provider webhooks
 
-`POST /webhooks/{github|gitlab}` authenticates with the provider's HMAC
-signature (`GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`), not the API key.
+`POST /webhooks/github` authenticates with GitHub's HMAC signature
+(`GITHUB_WEBHOOK_SECRET`), not the API key. GitHub is the only provider (decision D4).
 Delivery IDs are recorded, so replays are accepted without reprocessing. A merge
 callback updates the matching publication. If the callback carries digest and
 scan evidence it is evaluated immediately; otherwise a follow-up scan is queued

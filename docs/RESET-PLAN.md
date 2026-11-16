@@ -548,19 +548,21 @@ finding data alone and the worker resolves files and lines against the checkout)
   and the findings left for manual work. Proposing requires a connected source.
 
 ### 4c. Apply, build, verify
-- [ ] Apply the change in an isolated worktree (`worktree.py` already exists).
-- [ ] Build with BuildKit. **Decision needed (D3):** mount the Docker socket
-  into the worker (simple, effectively root on the host) or run a rootless
-  `buildkitd` sidecar (recommended). Push the result to the local registry as
-  `<repo>:scrutineering-candidate-<remediation_id>`.
-- [ ] Scan the candidate image with the same scanners and settings as the original.
-- [ ] Pass when every targeted `vuln_key` is gone **and** no new CRITICAL or
-  HIGH `vuln_key` appeared. (Decision D6: the Phase 3 fixture shows base-image
-  bumps routinely add new critical/high findings, so these may need operator
-  approval rather than automatic rejection.) Store the diff on the remediation. This replaces the
-  `trivy fs . --exit-code 1` gate, which fails whenever any vulnerability remains.
-- [ ] Run the repo's tests if the source declares a test command. Make it
-  optional for each source, not a global setting.
+Done (D3: rootless `buildkitd`; D6: `needs_acceptance`). See
+[remediation execution](operations/remediation-execution.md).
+
+- [x] Clone the source at its ref into a temporary directory and apply the
+  actions (npm via the package manager, pip pins, OS upgrade line, `FROM` bump).
+- [x] Build with the rootless `buildkitd` service and push
+  `<repository>:scrutineering-candidate-<id>` to the local registry.
+- [x] Scan the candidate by digest with the same scanners; `failed` if a
+  targeted `vuln_key` remains, `needs_acceptance` if new critical/high appear,
+  otherwise `ready`. The patch, candidate and verdict are stored on the remediation.
+  The `trivy fs --exit-code 1` gate, signed-evidence gate and
+  `remediation-evidence.yml` are removed.
+- [x] `make e2e` runs the whole loop live and the golden-path test has no `xfail`.
+- [ ] Run the source's `test_command`. Not done: running repository code inside
+  the worker is not isolated enough. It belongs in a BuildKit stage, as a follow-up.
 
 ### 4d. Publish and close
 - [ ] Without a provider configured, the remediation ends at `ready`. The
@@ -625,10 +627,10 @@ observation, multi-user roles.
 |---|---|---|
 | D1 | Keep `k8s/` in the repo during the reset? | Remove it; it's in the tag. Target Docker Compose on the home lab until Phase 6. |
 | D2 | Drop-table migration, or squash migrations? | **Decided: squash** (Phase 1d). |
-| D3 | How should the worker build images? | A rootless `buildkitd` sidecar. |
-| D4 | First PR provider? | GitHub only. |
+| D3 | How should the worker build images? | **Decided: a rootless `buildkitd` service** (Phase 4c). |
+| D4 | First PR provider? | **Decided: GitHub only.** The GitLab merge-request publisher, callback parsing and webhook route are removed (Phase 4c); Phase 4d builds publication on GitHub alone. |
 | D5 | Which severities do the scanners collect by default? | **Decided: all** (already true; see Phase 2b). |
-| D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | Pass when the targeted findings are gone; show the full before/after delta and require approval when new critical/high findings appear, instead of rejecting outright. |
+| D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | **Decided: require acceptance.** The candidate goes to `needs_acceptance`, listing the new critical/high findings; a security operator accepts (→ `ready`) or cancels (Phases 4c, 4e). |
 
 ## Mapping review findings to phases
 

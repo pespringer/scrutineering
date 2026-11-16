@@ -1,91 +1,81 @@
-# Remediation Execution Gate
+# Remediation execution
 
-`src.remediation.executor.execute_remediation` is the first executable Phase 2
-boundary. It refuses to run without verified evidence, and can verify an
-evidence envelope itself before applying caller-supplied
-changes only inside a detached worktree, executes validation commands without a
-shell, captures bounded command output, and returns `ready` only when every
-command passes.
+A remediation fixes selected findings on one image: it patches the image's
+source, builds a candidate image, and scans the candidate to prove the targeted
+findings are gone. The server decides every outcome from what it checked out,
+built and scanned itself.
 
-The executor creates a local commit only after all gates pass. The worker can
-optionally push that commit to a new branch when `REMEDIATION_PUSH_ENABLED=true`;
-it still never merges or opens a pull request. Parser-aware edit adapters and
-post-change SBOM/rescan commands should be added before enabling publication.
-Guarded `replace_text` edits can build on this boundary. Callers should provide `evidence_envelope`, `evidence_artifact`,
-and the provider verifier rather than asserting a boolean in production.
+## Prerequisites
 
-`run_validation_pipeline` defines those publication gates explicitly: install,
-test, build, SBOM generation, and post-change rescan. Missing phases or the
-first failed command block the run, and later phases are not attempted.
+1. **A connected source.** On the image page, use **Source → Connect source** (or
+   `PUT /api/dashboard/images/{id}/source`). The repository is either an
+   `https://` git URL, or a folder (a git repository) under the worker's sources
+   directory. Locally that is `./.local/remediation-sources`
+   (`REMEDIATION_HOST_SOURCES`), mounted read-only at `/workspace/sources`.
+   Also set the ref, the Dockerfile path and the build context.
+2. **Execution enabled.** Set `REMEDIATION_EXECUTION_ENABLED=true` for the API.
+3. **The `buildkitd` service running.** `make up` starts it. It is rootless
+   BuildKit: the worker reaches it at `BUILDKIT_HOST` (`tcp://buildkitd:1234`)
+   and never needs the Docker socket. The host kernel must allow unprivileged
+   user namespaces (`/proc/sys/user/max_user_namespaces` greater than 0).
 
-`build_rollback_plan` produces a validated `git revert --no-edit` command for a
-published commit. It never executes the rollback; operators must run the plan
-inside an isolated worktree and repeat verification gates before publication.
-Validated execution can optionally create a local commit artifact with
-`commit_message`. The worker's branch publisher refuses existing branch names,
-uses a short-lived Git askpass credential, and records the branch in the
-`execution_ready` event. It does not merge or open a pull request.
+## How a fix is chosen
 
-To enable the handoff in a disposable checkout, set `REMEDIATION_PUSH_ENABLED=true`
-and provide `GITHUB_TOKEN` with repository Contents **Read and write** and Pull
-requests **Read and write** permissions for the target repository. A
-fine-grained token must be granted access to that repository; a classic token
-needs the `repo` scope. A token that can read administration settings but
-cannot write repository contents will authenticate and still fail at `git push`
-with HTTP 403. The checkout's `origin` must point at the intended repository; use
-`REMEDIATION_GIT_REMOTE` only for an explicitly configured remote. Leave the
-flag false for dry-run execution.
+The preview (`POST /api/dashboard/remediations/preview`) groups the selected
+findings into actions by package type:
 
-To create the GitHub PR automatically after the branch is pushed, also set
-`REMEDIATION_PUBLICATION_ENABLED=true`,
-`REMEDIATION_PUBLICATION_PROVIDER=github`,
-`REMEDIATION_PUBLICATION_REPOSITORY=owner/repository`, and
-`REMEDIATION_ALLOWED_REPOSITORIES=owner/repository`. The worker reuses the
-existing evidence, allowlist, protected-base, and idempotency gates, then
-persists the PR URL and number on the remediation record. It will block rather
-than publish if any gate or token is missing.
+| Strategy | Findings | What execution does |
+|---|---|---|
+| `dependency_update` | npm or pip packages with a fixed version | npm: `npm install pkg@version --save-exact --package-lock-only --ignore-scripts` for a direct dependency, or an `overrides` entry for a transitive one. pip: rewrite `pkg==` pins in `requirements*.txt`. |
+| `os_package_upgrade` | apk, deb or rpm packages with a fixed version | Add `RUN apk add --upgrade …` (or the apt/dnf equivalent) right after the final stage's `FROM`. |
+| `base_image_bump` | Runtime binaries that ship in the base image (for example `node`) | Rewrite the final stage's `FROM` to the newest tag of the same line, found through the registry tags API (`18.12-alpine` → `18.20-alpine`). |
+| manual | No fixed version, or an unsupported ecosystem | Nothing; the preview shows why. |
 
-## Provider merge callbacks
+Package-manager commands run without the worker's credentials in their
+environment, and npm never runs package scripts.
 
-GitHub and GitLab merge callbacks often identify the merge but do not include
-the deployed image digest or a completed post-merge scan. In that case the API
-queues one correlated follow-up scan and records the publication as `pending`
-until that scan completes. For filesystem remediations, set
-`REMEDIATION_SCAN_REPOSITORY_ROOT` to the path visible inside the worker
-(Compose defaults to `/workspace/repository`).
+## What execution does
 
-## Validation
+`POST /remediations/{id}/execute` moves an approved remediation to `building`
+and queues it on `remediation.normal`. The worker then:
 
-`build_provider_validation_commands()` creates the required install, test,
-build, SBOM, and rescan gates for the GitHub Actions or GitLab CI provider and
-the Node or Python ecosystem.
+1. Clones the source at its ref into a temporary directory. The source itself is
+   never modified.
+2. Applies each action and records the resulting `git diff` as the remediation's
+   `patch`, and the commit it patched as `source_commit`.
+3. Builds the patched source with BuildKit and pushes the result to the local
+   registry as `<repository>:scrutineering-candidate-<id>`. This is recorded as
+   `candidate_image` and `candidate_digest`.
+4. Moves to `verifying` and scans the candidate by digest with the same scanners
+   and settings as any scan. Nothing about the candidate is saved to the
+   inventory.
+5. Decides the outcome:
+   - If any targeted `vuln_key` is still present, the remediation is `failed`.
+   - If it introduced critical or high findings the image did not already have,
+     it is `needs_acceptance` (decision D6). A security operator accepts it
+     (→ `ready`) or cancels it.
+   - Otherwise it is `ready`.
 
-Production callers can set `release_evidence=True` on `execute_remediation()`
-to force the configured Cosign keyless policy through `verify_release_evidence`;
-the executor blocks before creating a worktree when that gate fails.
+   The comparison is stored as `verification`.
 
-## Compose test workspace
+Every failure leaves the remediation `failed` with the reason in
+`error_message`: no source, clone failure, the package not being in the source,
+a build error (the last part of the build log is kept), or an incomplete
+candidate scan. **Retry** returns it to `proposed`, so it is approved again.
 
-The Compose worker mounts a disposable Git checkout at `/workspace/repository`
-and signed evidence at `/workspace/evidence`. Configure the host directories
-with `REMEDIATION_HOST_REPOSITORY_ROOT` and
-`REMEDIATION_HOST_EVIDENCE_ROOT`; keep the container-side paths at their
-defaults. Set `REMEDIATION_SCAN_REPOSITORY_ROOT` to the worker-visible checkout
-root when merge callbacks must queue a filesystem rescan. The checkout must be separate from the main working tree and writable
-by the worker's unprivileged `scanner` user. The worker image includes Git,
-Node/npm, Syft, Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
-trusted release workflow.
+A `ready` remediation becomes `completed` when a complete rescan of the image no
+longer shows any targeted finding. That happens once the image is rebuilt from
+the patched source and scanned again.
 
-### Remediation statuses
+## Remediation statuses
 
 A remediation has one `status`, changed only through the transitions in
 `src/remediation/state_machine.py`:
 
 `proposed` → `approved` → `building` → `verifying` → `ready` → `completed`
 
-- `needs_acceptance` follows `verifying` when the patched image fixes the
-  targeted findings but adds new critical or high ones. A security operator
-  accepts it (→ `ready`) or cancels it.
+- `needs_acceptance` follows `verifying` when the candidate adds new critical or
+  high findings.
 - `failed` records the reason in `error_message`; retry returns it to `proposed`.
 - `cancelled` releases the remediation's findings so they can be proposed again.
 - `completed` is set by the server when a complete rescan of the image no longer
@@ -95,82 +85,14 @@ Creating a remediation reserves its findings. Requests that do not match the
 current status return 409 with the allowed statuses. Events record history and
 are never read to decide current state.
 
-### Generate the local test bundle
+## Trying it locally
 
-The repository includes `.github/workflows/remediation-evidence.yml`. Run it
-manually from **Actions → Remediation Evidence → Run workflow**, keep `ref` set
-to `main`, and wait for the job to finish. It uses GitHub's OIDC identity to
-Cosign-sign the evidence artifact and uploads a seven-day bundle.
+`make e2e` pushes the fixture image, connects its source (a git copy of
+`fixtures/images/vulnerable-node` under `.local/remediation-sources`), fixes
+lodash, and checks that the candidate is verified and the remediation completes
+after a rescan.
 
-Download and unpack the workflow artifact into the local evidence mount:
+## Post-merge rescans
 
-```bash
-mkdir -p .local/remediation-evidence
-unzip scrutineering-remediation-evidence-*.zip -d .local/remediation-evidence
-cp .local/remediation-evidence/evidence-artifact.json .local/remediation-evidence/artifact.json
-```
-
-Set the certificate identity in `.env` to the workflow identity used by the
-run (for this repository's `main` workflow):
-
-```dotenv
-COSIGN_CERTIFICATE_IDENTITY=https://github.com/pespringer/scrutineering/.github/workflows/remediation-evidence.yml@refs/heads/main
-COSIGN_OIDC_ISSUER=https://token.actions.githubusercontent.com
-```
-
-The worker consumes only `envelope.json` and `artifact.json`; retain the
-signature and certificate files for audit evidence. Rebuild the worker after
-changing `.env`:
-
-```bash
-docker compose up -d --build celery-worker
-```
-
-### Source-file scan test mode
-
-Container image scans remain the default. For a disposable checkout, the
-Celery scan task also accepts an explicit `fs:/absolute/path` target. Trivy and
-Grype then scan the checkout directory, normalize scanner locations to relative
-paths such as `requirements.txt`, and persist a local scan record. The public
-dashboard image endpoint does not accept filesystem targets.
-
-The Compose setup already provides a disposable checkout at
-`.local/remediation-repo/source-fixture`. It contains a deliberately vulnerable
-`lodash@4.17.20` dependency and is mounted into the worker as
-`/workspace/repository/source-fixture`. This lets you validate the complete
-local workflow without pushing an image to a registry. The fixture’s committed
-`.trivyignore` narrows the scenario to one CVE so the post-change rescan can
-prove a clean result without mixing unrelated lodash advisories.
-
-Queue the scan through Celery so it receives a real task ID and follows the
-same execution path as dashboard scans:
-
-```bash
-docker compose exec celery-worker python - <<'PY'
-from src.scan.tasks import run_scan
-
-result = run_scan.delay("fs:/workspace/repository/source-fixture", scanners=["trivy"])
-print({"task_id": result.id, "result": result.get(timeout=900)})
-PY
-```
-
-The scan creates an image named `local/source-fixture:filesystem`. Open it in
-the dashboard, select its fixable findings, and create a remediation. Approve it
-(security-operator role), then select **Queue execution**. The
-worker should create a remediation result using the mounted checkout; no image
-registry is involved. The checkout is intentionally disposable and may be
-reset with `git -C .local/remediation-repo/source-fixture clean -fdx` followed by
-restoring the fixture files if a test modifies it.
-
-Only source paths explicitly returned by a filesystem scanner can become
-remediation actions; image findings without a repository coordinate continue to
-block safely.
-
-For filesystem targets, dashboard-created remediation actions preserve the
-scanned checkout directory (for example, `source-fixture/package-lock.json`)
-so the action remains rooted correctly when the worker opens the repository
-worktree.
-
-For monorepos, set `REMEDIATION_VALIDATION_WORKING_DIRECTORY` to a safe
-relative project directory such as `services/api`. Validation runs there while
-the Git worktree and changed-file guard remain rooted at the repository.
+Provider merge callbacks queue a follow-up rescan. Filesystem rescans read from
+`REMEDIATION_SCAN_REPOSITORY_ROOT`.

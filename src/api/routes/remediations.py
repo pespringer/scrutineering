@@ -123,8 +123,11 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             )
             .all()
         )
+        # A completed remediation no longer holds its findings: if one reopens, it can be fixed again.
         already_owned = {
-            finding.id: finding.remediation_id for finding in requested_findings if finding.remediation_id is not None
+            finding.id: finding.remediation_id
+            for finding in requested_findings
+            if finding.remediation is not None and finding.remediation.status != RemediationStatus.COMPLETED
         }
         if already_owned:
             raise HTTPException(

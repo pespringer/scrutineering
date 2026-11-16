@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Live golden path against the running Compose stack (make up), with real scanners.
 
-Builds fixtures/images/vulnerable-node, pushes it to the local registry, scans it
-through the dashboard API, and checks the targeted finding. The remediation half
-(propose -> approve -> build -> rescan -> resolved) is reported as pending until
-Phase 4 of docs/RESET-PLAN.md implements it.
+Scan half: build fixtures/images/vulnerable-node, push it to the local registry,
+scan it through the dashboard API, and check the targeted lodash finding.
+
+Remediation half: connect the image to a git copy of its source under
+.local/remediation-sources, propose the lodash fix, approve and execute it (the
+worker patches the source with npm, builds the candidate on buildkitd, and scans
+it), then publish the candidate as the image's tag, rescan, and expect the
+remediation to complete. Needs REMEDIATION_EXECUTION_ENABLED=true.
 
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
 E2E_PUSH_HOST (localhost:5000), E2E_SCAN_HOST (registry:5000), E2E_TIMEOUT_SECONDS (900).
@@ -14,6 +18,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -52,6 +57,82 @@ def request(method: str, path: str, body: dict | None = None) -> dict:
     raise AssertionError("unreachable")
 
 
+def wait_for_scan(scan_id: str) -> dict:
+    deadline = time.monotonic() + TIMEOUT
+    while True:
+        scan = request("GET", f"/api/scans/{scan_id}")
+        if scan["status"] in {"completed", "partial", "failed", "cancelled"}:
+            return scan
+        if time.monotonic() > deadline:
+            fail(f"scan {scan_id} still {scan['status']} after {TIMEOUT}s")
+        time.sleep(3)
+
+
+def scan_image(image: str) -> dict:
+    scan = wait_for_scan(request("POST", "/api/scans", {"image_name": image, "priority": "high"})["scan_id"])
+    if scan["status"] != "completed":
+        fail(f"scan ended {scan['status']}: {scan.get('error_message')}")
+    return scan
+
+
+def prepare_source() -> str:
+    """A fresh git repository of the fixture source, where the worker mounts sources from."""
+    name = "vulnerable-node-e2e"
+    repository = ROOT / ".local" / "remediation-sources" / name
+    shutil.rmtree(repository, ignore_errors=True)
+    shutil.copytree(ROOT / "fixtures/images/vulnerable-node", repository)
+    for args in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "fixture"]):
+        subprocess.run(
+            ["git", "-c", "user.name=e2e", "-c", "user.email=e2e@example.invalid", *args], cwd=repository, check=True
+        )
+    return name
+
+
+def remediation_half(scan: dict, target: dict) -> None:
+    image_id = scan["image_id"]
+    if target.get("remediation_id"):
+        # A previous run's remediation may still hold the finding.
+        previous = request("GET", f"/api/remediations/{target['remediation_id']}")
+        if previous["status"] not in {"completed", "cancelled"}:
+            request("POST", f"/api/remediations/{previous['id']}/cancel")
+
+    step("connect the image to its source")
+    request("PUT", f"/api/images/{image_id}/source", {"repository": prepare_source()})
+
+    step(f"propose, approve and execute the {TARGET_PACKAGE} fix")
+    body = {"image_id": image_id, "finding_ids": [target["id"]]}
+    preview = request("POST", "/api/remediations/preview", body)
+    if preview["actionable_count"] != 1:
+        fail(f"expected one actionable finding, preview: {preview}")
+    remediation_id = request("POST", "/api/remediations", body)["id"]
+    request("POST", f"/api/remediations/{remediation_id}/approve")
+    request("POST", f"/api/remediations/{remediation_id}/execute")
+    deadline = time.monotonic() + TIMEOUT
+    while True:
+        remediation = request("GET", f"/api/remediations/{remediation_id}")
+        if remediation["status"] not in {"building", "verifying"}:
+            break
+        if time.monotonic() > deadline:
+            fail(f"remediation {remediation_id} still {remediation['status']} after {TIMEOUT}s")
+        time.sleep(5)
+    if remediation["status"] != "ready":
+        fail(f"remediation {remediation_id} ended {remediation['status']}: {remediation.get('error_message')}")
+    verification = remediation["verification"]
+    print(f"    ready: {remediation['candidate_image']}@{remediation['candidate_digest'][:19]}…")
+    print(f"    candidate has {verification['candidate_findings']} findings, none of the targeted ones")
+
+    step("publish the candidate as the image's tag and rescan it")
+    candidate = remediation["candidate_image"].replace(SCAN_HOST, PUSH_HOST, 1)
+    for command in (["pull", "-q", candidate], ["tag", candidate, f"{PUSH_HOST}/{REPO}"]):
+        subprocess.run(["docker", *command], check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(["docker", "push", "-q", f"{PUSH_HOST}/{REPO}"], check=True, stdout=subprocess.DEVNULL)
+    scan_image(f"{SCAN_HOST}/{REPO}")
+    remediation = request("GET", f"/api/remediations/{remediation_id}")
+    if remediation["status"] != "completed" or remediation["resolved_finding_count"] != 1:
+        fail(f"expected remediation {remediation_id} completed, got {remediation['status']}")
+    print(f"    remediation {remediation_id} completed; {TARGET_CVE} resolved")
+
+
 def main() -> None:
     step(f"build and push {PUSH_HOST}/{REPO}")
     subprocess.run(
@@ -63,17 +144,8 @@ def main() -> None:
 
     image = f"{SCAN_HOST}/{REPO}"
     step(f"scan {image} through the dashboard")
-    scan_id = request("POST", "/api/scans", {"image_name": image, "priority": "high"})["scan_id"]
-    deadline = time.monotonic() + TIMEOUT
-    while True:
-        scan = request("GET", f"/api/scans/{scan_id}")
-        if scan["status"] in {"completed", "partial", "failed", "cancelled"}:
-            break
-        if time.monotonic() > deadline:
-            fail(f"scan {scan_id} still {scan['status']} after {TIMEOUT}s")
-        time.sleep(3)
-    if scan["status"] != "completed":
-        fail(f"scan ended {scan['status']}: {scan.get('error_message')}")
+    scan = scan_image(image)
+    scan_id = scan["scan_id"]
     print(f"    completed: {scan['findings']} findings")
 
     step(f"check {TARGET_CVE} in {TARGET_PACKAGE}")
@@ -91,8 +163,8 @@ def main() -> None:
         fail(f"expected fixed version {FIXED}, got {target[0]['fixed_version']}")
     print(f"    found: {TARGET_PACKAGE} {target[0]['package_version']} -> {FIXED}")
 
-    step("remediation half: pending Phase 4 (propose, approve, build, rescan, resolve)")
-    print("PASS: scan half of the golden path")
+    remediation_half(scan, target[0])
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete)")
 
 
 if __name__ == "__main__":

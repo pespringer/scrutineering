@@ -138,3 +138,17 @@ def test_remediations_that_are_not_ready_are_never_completed_by_a_scan(client, p
     persist_findings(_scan_id(), proposal["image_id"], [], "trivy", reconcile_missing=True)
     with get_session() as session:
         assert session.get(Remediation, proposal["id"]).status == RemediationStatus.PROPOSED
+
+
+def test_a_finding_that_reopens_after_completion_can_be_proposed_again(client, proposal):
+    rid, image_id = proposal["id"], proposal["image_id"]
+    _force(rid, RemediationStatus.APPROVED, RemediationStatus.BUILDING, RemediationStatus.VERIFYING)
+    _force(rid, RemediationStatus.READY)
+    persist_findings(_scan_id(), image_id, [], "trivy", reconcile_missing=True)
+    assert _status(client, rid) == "completed"
+
+    persist_findings(_scan_id(), image_id, [{**LODASH, "fixed_version": "4.17.21"}], "trivy", reconcile_missing=True)
+    again = client.post(
+        "/api/dashboard/remediations", json={"image_id": image_id, "finding_ids": [proposal["finding_id"]]}
+    )
+    assert again.status_code == 201, again.text

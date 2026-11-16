@@ -1,5 +1,8 @@
 # GitHub Publication Boundary
 
+> Remediation execution does not call publication yet; Phase 4d of
+> [the reset plan](../RESET-PLAN.md) connects it. This page describes the publisher modules.
+
 `createGitHubPublisher` is a deliberately narrow PR adapter. It requires an
 allowlisted `owner/repo`, non-empty branch metadata, and `evidenceVerified:
 true` before calling GitHub. It uses the GitHub JSON API and never logs the
@@ -20,6 +23,5 @@ the GitHub branch-protection endpoint immediately before creating a PR and
 fails closed if protection cannot be verified. A cached installation-token
 provider coalesces concurrent refreshes and refreshes before expiry.
 
-The GitLab adapter applies the same default `main`/`master` target-branch
-policy and permits a narrower configured list when a repository uses a
-different protected branch.
+GitHub is the only publication provider (decision D4); the target branch must
+be `main` or `master`.

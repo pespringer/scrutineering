@@ -167,6 +167,18 @@ export interface RemediationAction {
   detail?: { description?: string; packages?: Record<string, string>; finding_ids?: number[] };
 }
 
+export interface RemediationVerification {
+  targeted: number;
+  still_present: string[];
+  new_critical_or_high: {
+    cve_id: string | null;
+    package_name: string;
+    package_version: string | null;
+    severity: string;
+  }[];
+  candidate_findings: number;
+}
+
 /** One status column; transitions are defined in src/remediation/state_machine.py. */
 export type RemediationStatus =
   | "proposed"
@@ -186,6 +198,11 @@ export interface RemediationRecord {
   status_label: string;
   error_message?: string | null;
   approved_by?: string | null;
+  source_commit?: string | null;
+  patch?: string | null;
+  candidate_image?: string | null;
+  candidate_digest?: string | null;
+  verification?: RemediationVerification | null;
   finding_count: number;
   open_finding_count?: number;
   resolved_finding_count?: number;

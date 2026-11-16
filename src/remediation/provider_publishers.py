@@ -1,4 +1,4 @@
-"""Small, injectable provider clients used after all local remediation gates pass."""
+"""The GitHub pull-request client (decision D4: GitHub is the only provider)."""
 
 from __future__ import annotations
 
@@ -61,27 +61,4 @@ def publish_validated_plan(
             transport=transport,
         )
         return PublicationResult(provider, repository, int(result["number"]), str(result["html_url"]))
-    if provider == "gitlab":
-        headers = {"PRIVATE-TOKEN": token}
-        if require_branch_protection:
-            _request(
-                f"https://gitlab.com/api/v4/projects/{repository}/protected_branches/{base}",
-                token=token,
-                headers=headers,
-                transport=transport,
-            )
-        result = _request(
-            f"https://gitlab.com/api/v4/projects/{repository}/merge_requests",
-            token=token,
-            headers=headers,
-            payload={
-                "title": title,
-                "description": body,
-                "source_branch": head,
-                "target_branch": base,
-                "labels": "security,auto-remediation",
-            },
-            transport=transport,
-        )
-        return PublicationResult(provider, repository, int(result["iid"]), str(result["web_url"]))
     raise ValueError("publication provider is not supported")
