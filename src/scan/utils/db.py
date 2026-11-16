@@ -26,6 +26,21 @@ def _finding_source(finding: dict, default: str) -> FindingSource:
     return FindingSource(sorted(sources)[0])
 
 
+def _column_limit(model, name: str) -> int | None:
+    return getattr(model.__table__.c[name].type, "length", None)
+
+
+def _bounded(model, name: str, value):
+    """Fit scanner text to its column: titles and versions are free-form and can be very long."""
+    if value is None:
+        return None
+    text = str(value)
+    limit = _column_limit(model, name)
+    if limit is None or len(text) <= limit:
+        return text
+    return text[: limit - 1] + "…"
+
+
 def _severity(value) -> Severity | None:
     if not value:
         return None
@@ -85,16 +100,16 @@ def persist_findings(
                     image_id=image_id,
                     fingerprint=fingerprint,
                     vuln_key=make_vuln_key(finding.get("cve_id") or "", finding["package_name"]),
-                    package_name=finding["package_name"],
-                    package_version=finding.get("package_version"),
-                    package_type=finding.get("package_type"),
-                    file_path=finding.get("file_path"),
-                    cve_id=finding.get("cve_id"),
-                    title=finding.get("title", ""),
+                    package_name=_bounded(ScanFinding, "package_name", finding["package_name"]),
+                    package_version=_bounded(ScanFinding, "package_version", finding.get("package_version")),
+                    package_type=_bounded(ScanFinding, "package_type", finding.get("package_type")),
+                    file_path=_bounded(ScanFinding, "file_path", finding.get("file_path")),
+                    cve_id=_bounded(ScanFinding, "cve_id", finding.get("cve_id")),
+                    title=_bounded(ScanFinding, "title", finding.get("title", "")) or "",
                     description=finding.get("description"),
                     severity=severity,
                     source=_finding_source(finding, source_name),
-                    fixed_version=finding.get("fixed_version"),
+                    fixed_version=_bounded(ScanFinding, "fixed_version", finding.get("fixed_version")),
                     fix_available=bool(finding.get("fixed_version")),
                     first_seen=now,
                     last_seen=now,
@@ -106,15 +121,16 @@ def persist_findings(
                 apply_finding_observation(row, observed=True, observed_at=now)
                 if severity:
                     row.severity = severity
-                row.title = finding.get("title", row.title)
+                row.title = _bounded(ScanFinding, "title", finding.get("title", row.title)) or ""
                 if finding.get("file_path"):
-                    row.file_path = finding["file_path"]
+                    row.file_path = _bounded(ScanFinding, "file_path", finding["file_path"])
                 if finding.get("fixed_version"):
-                    row.fixed_version = finding["fixed_version"]
+                    row.fixed_version = _bounded(ScanFinding, "fixed_version", finding["fixed_version"])
                     row.fix_available = True
             session.add(FindingObservation(
                 scan_id=scan_id, finding_id=row.id, severity=severity,
-                fixed_version=finding.get("fixed_version"), file_path=finding.get("file_path"),
+                fixed_version=_bounded(FindingObservation, "fixed_version", finding.get("fixed_version")),
+                file_path=_bounded(FindingObservation, "file_path", finding.get("file_path")),
                 observed_at=now,
             ))
 

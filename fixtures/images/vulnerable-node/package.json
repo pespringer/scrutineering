@@ -1,0 +1,14 @@
+{
+  "name": "scrutineering-vulnerable-node",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Golden-path fixture: a tiny app with one known-fixable dependency CVE.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node -e \"require('./server.js')\""
+  },
+  "dependencies": {
+    "lodash": "4.17.20"
+  }
+}

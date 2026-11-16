@@ -11,4 +11,5 @@ fastapi
 uvicorn
 greenlet
 pytest
+httpx
 pytest-cov

@@ -1,0 +1,2545 @@
+{
+ "ArtifactName": "registry:5000/fixtures/vulnerable-node:after",
+ "Results": [
+  {
+   "Class": "os-pkgs",
+   "Target": "registry:5000/fixtures/vulnerable-node:after (alpine 3.21.3)",
+   "Type": "alpine",
+   "Vulnerabilities": [
+    {
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "busybox",
+     "Severity": "MEDIUM",
+     "Title": "In netstat in BusyBox through 1.37.0, local users can launch of networ ...",
+     "VulnerabilityID": "CVE-2024-58251"
+    },
+    {
+     "CVSS": {
+      "nvd": {
+       "V3Score": 3.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "busybox",
+     "Severity": "LOW",
+     "Title": "In tar in BusyBox through 1.37.0, a TAR archive can have filenames hid ...",
+     "VulnerabilityID": "CVE-2025-46394"
+    },
+    {
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "busybox-binsh",
+     "Severity": "MEDIUM",
+     "Title": "In netstat in BusyBox through 1.37.0, local users can launch of networ ...",
+     "VulnerabilityID": "CVE-2024-58251"
+    },
+    {
+     "CVSS": {
+      "nvd": {
+       "V3Score": 3.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "busybox-binsh",
+     "Severity": "LOW",
+     "Title": "In tar in BusyBox through 1.37.0, a TAR archive can have filenames hid ...",
+     "VulnerabilityID": "CVE-2025-46394"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Remote code execution or Denial of Service via oversized Initialization Vector in CMS parsing",
+     "VulnerabilityID": "CVE-2025-15467"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via NULL pointer dereference in QUIC protocol handling",
+     "VulnerabilityID": "CVE-2025-15468"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to excessive memory allocation in TLS 1.3 certificate compression",
+     "VulnerabilityID": "CVE-2025-66199"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to out-of-bounds write in BIO filter",
+     "VulnerabilityID": "CVE-2025-68160"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 4,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Information disclosure and data tampering via specific low-level OCB encryption/decryption calls",
+     "VulnerabilityID": "CVE-2025-69418"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Arbitrary code execution due to out-of-bounds write in PKCS#12 processing",
+     "VulnerabilityID": "CVE-2025-69419"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via malformed TimeStamp Response",
+     "VulnerabilityID": "CVE-2025-69420"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service via malformed PKCS#12 file processing",
+     "VulnerabilityID": "CVE-2025-69421"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.6,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Out-of-bounds read & write in RFC 3211 KEK Unwrap",
+     "VulnerabilityID": "CVE-2025-9230"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Timing side-channel in SM2 algorithm on 64 bit ARM",
+     "VulnerabilityID": "CVE-2025-9231"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 3.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: Out-of-bounds read in HTTP client no_proxy handling",
+     "VulnerabilityID": "CVE-2025-9232"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to type confusion in PKCS#12 file processing",
+     "VulnerabilityID": "CVE-2026-22795"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via type confusion in PKCS#7 signature verification",
+     "VulnerabilityID": "CVE-2026-22796"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "nvd": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Arbitrary code execution due to use-after-free in DANE TLSA authentication",
+     "VulnerabilityID": "CVE-2026-28387"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service due to NULL pointer dereference in delta CRL processing",
+     "VulnerabilityID": "CVE-2026-28388"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service vulnerability in CMS processing",
+     "VulnerabilityID": "CVE-2026-28389"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service due to NULL pointer dereference in CMS EnvelopedData processing",
+     "VulnerabilityID": "CVE-2026-28390"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "nvd": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.8,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "CRITICAL",
+     "Title": "openssl: OpenSSL: Heap buffer overflow on 32-bit systems from large X.509 certificate processing",
+     "VulnerabilityID": "CVE-2026-31789"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Information Disclosure from Uninitialized Memory via Invalid RSA Public Key",
+     "VulnerabilityID": "CVE-2026-31790"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 9.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: CMS AuthEnvelopedData Processing May Accept Forged Messages",
+     "VulnerabilityID": "CVE-2026-34182"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Unbounded Memory Growth in the QUIC PATH_CHALLENGE Handler",
+     "VulnerabilityID": "CVE-2026-34183"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: openssl: Denial of Service via excessive memory allocation in CRL distribution point processing",
+     "VulnerabilityID": "CVE-2026-35189"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: Possible NULL Dereference in Password-Based CMS Decryption",
+     "VulnerabilityID": "CVE-2026-42766"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 6.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: Multi-RecipientInfo Bleichenbacher Oracle in CMS_decrypt() and PKCS7_decrypt()",
+     "VulnerabilityID": "CVE-2026-42768"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: FFC-DH Peer Validation Uses Attacker-Supplied q",
+     "VulnerabilityID": "CVE-2026-42770"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 9.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: AES-OCB IV Ignored on EVP_Cipher() Path",
+     "VulnerabilityID": "CVE-2026-45445"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: Incorrect Tag Processing for Empty Messages in AES-GCM-SIV and AES-SIV modes",
+     "VulnerabilityID": "CVE-2026-45446"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: Heap Use-After-Free in OpenSSL PKCS7_verify()",
+     "VulnerabilityID": "CVE-2026-45447"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Private key recovery via timing side-channel in generic elliptic curve operations",
+     "VulnerabilityID": "CVE-2026-54872"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: information disclosure via non-constant-time SM2 scalar multiplication on ARM64 and RISC-V",
+     "VulnerabilityID": "CVE-2026-54875"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: heap buffer overflow in CMS key unwrapping",
+     "VulnerabilityID": "CVE-2026-63072"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: untrusted sender DN used as format string in CMP response validation",
+     "VulnerabilityID": "CVE-2026-63073"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: invalid pointer dereference in CMP server via crafted protectionAlg",
+     "VulnerabilityID": "CVE-2026-63076"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Denial of Service via out-of-bounds write during TLS context switch",
+     "VulnerabilityID": "CVE-2026-72897"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: openssl: AEAD forgeries possible with empty ciphertext in EVP_Cipher()",
+     "VulnerabilityID": "CVE-2026-75803"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via unenforced QUIC connection flow control",
+     "VulnerabilityID": "CVE-2026-75804"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Denial of Service via crafted CMP certificate revocation response",
+     "VulnerabilityID": "CVE-2026-75805"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via undersized DTLS record",
+     "VulnerabilityID": "CVE-2026-75806"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Private key recovery via SM2 timing side-channel",
+     "VulnerabilityID": "CVE-2026-77696"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "HIGH",
+     "Title": "openssl: compat-openssl: openssl: Information disclosure via DTLS handshake retransmission",
+     "VulnerabilityID": "CVE-2026-84782"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via unbounded QUIC connection identifier backlog",
+     "VulnerabilityID": "CVE-2026-84784"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libcrypto3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to heap out-of-bounds read in CMS password-based decryption",
+     "VulnerabilityID": "CVE-2026-9076"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Remote code execution or Denial of Service via oversized Initialization Vector in CMS parsing",
+     "VulnerabilityID": "CVE-2025-15467"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via NULL pointer dereference in QUIC protocol handling",
+     "VulnerabilityID": "CVE-2025-15468"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to excessive memory allocation in TLS 1.3 certificate compression",
+     "VulnerabilityID": "CVE-2025-66199"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to out-of-bounds write in BIO filter",
+     "VulnerabilityID": "CVE-2025-68160"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 4,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Information disclosure and data tampering via specific low-level OCB encryption/decryption calls",
+     "VulnerabilityID": "CVE-2025-69418"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Arbitrary code execution due to out-of-bounds write in PKCS#12 processing",
+     "VulnerabilityID": "CVE-2025-69419"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via malformed TimeStamp Response",
+     "VulnerabilityID": "CVE-2025-69420"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service via malformed PKCS#12 file processing",
+     "VulnerabilityID": "CVE-2025-69421"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.6,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Out-of-bounds read & write in RFC 3211 KEK Unwrap",
+     "VulnerabilityID": "CVE-2025-9230"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Timing side-channel in SM2 algorithm on 64 bit ARM",
+     "VulnerabilityID": "CVE-2025-9231"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 3.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.5-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: Out-of-bounds read in HTTP client no_proxy handling",
+     "VulnerabilityID": "CVE-2025-9232"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to type confusion in PKCS#12 file processing",
+     "VulnerabilityID": "CVE-2026-22795"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.6-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service via type confusion in PKCS#7 signature verification",
+     "VulnerabilityID": "CVE-2026-22796"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "nvd": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Arbitrary code execution due to use-after-free in DANE TLSA authentication",
+     "VulnerabilityID": "CVE-2026-28387"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service due to NULL pointer dereference in delta CRL processing",
+     "VulnerabilityID": "CVE-2026-28388"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service vulnerability in CMS processing",
+     "VulnerabilityID": "CVE-2026-28389"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: OpenSSL: Denial of Service due to NULL pointer dereference in CMS EnvelopedData processing",
+     "VulnerabilityID": "CVE-2026-28390"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "nvd": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.8,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "CRITICAL",
+     "Title": "openssl: OpenSSL: Heap buffer overflow on 32-bit systems from large X.509 certificate processing",
+     "VulnerabilityID": "CVE-2026-31789"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r0",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Information Disclosure from Uninitialized Memory via Invalid RSA Public Key",
+     "VulnerabilityID": "CVE-2026-31790"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 9.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: CMS AuthEnvelopedData Processing May Accept Forged Messages",
+     "VulnerabilityID": "CVE-2026-34182"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: Unbounded Memory Growth in the QUIC PATH_CHALLENGE Handler",
+     "VulnerabilityID": "CVE-2026-34183"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: openssl: Denial of Service via excessive memory allocation in CRL distribution point processing",
+     "VulnerabilityID": "CVE-2026-35189"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: Possible NULL Dereference in Password-Based CMS Decryption",
+     "VulnerabilityID": "CVE-2026-42766"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 6.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: Multi-RecipientInfo Bleichenbacher Oracle in CMS_decrypt() and PKCS7_decrypt()",
+     "VulnerabilityID": "CVE-2026-42768"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: FFC-DH Peer Validation Uses Attacker-Supplied q",
+     "VulnerabilityID": "CVE-2026-42770"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      },
+      "redhat": {
+       "V3Score": 9.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: AES-OCB IV Ignored on EVP_Cipher() Path",
+     "VulnerabilityID": "CVE-2026-45445"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 4.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: Incorrect Tag Processing for Empty Messages in AES-GCM-SIV and AES-SIV modes",
+     "VulnerabilityID": "CVE-2026-45446"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: Heap Use-After-Free in OpenSSL PKCS7_verify()",
+     "VulnerabilityID": "CVE-2026-45447"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Private key recovery via timing side-channel in generic elliptic curve operations",
+     "VulnerabilityID": "CVE-2026-54872"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 4.7,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: information disclosure via non-constant-time SM2 scalar multiplication on ARM64 and RISC-V",
+     "VulnerabilityID": "CVE-2026-54875"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: heap buffer overflow in CMS key unwrapping",
+     "VulnerabilityID": "CVE-2026-63072"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: untrusted sender DN used as format string in CMP response validation",
+     "VulnerabilityID": "CVE-2026-63073"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: invalid pointer dereference in CMP server via crafted protectionAlg",
+     "VulnerabilityID": "CVE-2026-63076"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Denial of Service via out-of-bounds write during TLS context switch",
+     "VulnerabilityID": "CVE-2026-72897"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 3.7,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: openssl: AEAD forgeries possible with empty ciphertext in EVP_Cipher()",
+     "VulnerabilityID": "CVE-2026-75803"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via unenforced QUIC connection flow control",
+     "VulnerabilityID": "CVE-2026-75804"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: openssl: Denial of Service via crafted CMP certificate revocation response",
+     "VulnerabilityID": "CVE-2026-75805"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via undersized DTLS record",
+     "VulnerabilityID": "CVE-2026-75806"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Private key recovery via SM2 timing side-channel",
+     "VulnerabilityID": "CVE-2026-77696"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "HIGH",
+     "Title": "openssl: compat-openssl: openssl: Information disclosure via DTLS handshake retransmission",
+     "VulnerabilityID": "CVE-2026-84782"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "3.3.7-r2",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "MEDIUM",
+     "Title": "openssl: OpenSSL: Denial of Service via unbounded QUIC connection identifier backlog",
+     "VulnerabilityID": "CVE-2026-84784"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "3.3.7-r1",
+     "InstalledVersion": "3.3.3-r0",
+     "PkgName": "libssl3",
+     "Severity": "LOW",
+     "Title": "openssl: OpenSSL: Denial of Service due to heap out-of-bounds read in CMS password-based decryption",
+     "VulnerabilityID": "CVE-2026-9076"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r12",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl",
+     "Severity": "HIGH",
+     "Title": "musl: musl: Arbitrary code execution via integer overflow in regcomp",
+     "VulnerabilityID": "CVE-2026-107891"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.8,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:C/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r11",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl",
+     "Severity": "HIGH",
+     "Title": "musl: musl libc: Arbitrary code execution and denial of service via stack-based memory corruption in qsort",
+     "VulnerabilityID": "CVE-2026-40200"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r10",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl",
+     "Severity": "MEDIUM",
+     "Title": "musl libc: GB18030 4-byte Decoder: musl libc: Denial of Service via inefficient algorithmic complexity in iconv",
+     "VulnerabilityID": "CVE-2026-6042"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r12",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl-utils",
+     "Severity": "HIGH",
+     "Title": "musl: musl: Arbitrary code execution via integer overflow in regcomp",
+     "VulnerabilityID": "CVE-2026-107891"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 7.8,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:N/S:C/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r11",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl-utils",
+     "Severity": "HIGH",
+     "Title": "musl: musl libc: Arbitrary code execution and denial of service via stack-based memory corruption in qsort",
+     "VulnerabilityID": "CVE-2026-40200"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "1.2.5-r10",
+     "InstalledVersion": "1.2.5-r9",
+     "PkgName": "musl-utils",
+     "Severity": "MEDIUM",
+     "Title": "musl libc: GB18030 4-byte Decoder: musl libc: Denial of Service via inefficient algorithmic complexity in iconv",
+     "VulnerabilityID": "CVE-2026-6042"
+    },
+    {
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "ssl_client",
+     "Severity": "MEDIUM",
+     "Title": "In netstat in BusyBox through 1.37.0, local users can launch of networ ...",
+     "VulnerabilityID": "CVE-2024-58251"
+    },
+    {
+     "CVSS": {
+      "nvd": {
+       "V3Score": 3.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "1.37.0-r14",
+     "InstalledVersion": "1.37.0-r12",
+     "PkgName": "ssl_client",
+     "Severity": "LOW",
+     "Title": "In tar in BusyBox through 1.37.0, a TAR archive can have filenames hid ...",
+     "VulnerabilityID": "CVE-2025-46394"
+    },
+    {
+     "CVSS": {
+      "nvd": {
+       "V3Score": 7.8,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 8.6,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:L/A:H"
+      }
+     },
+     "FixedVersion": "1.3.2-r0",
+     "InstalledVersion": "1.3.1-r2",
+     "PkgName": "zlib",
+     "Severity": "HIGH",
+     "Title": "zlib: zlib: Arbitrary code execution via buffer overflow in untgz utility",
+     "VulnerabilityID": "CVE-2026-22184"
+    },
+    {
+     "CVSS": {
+      "julia": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 3.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "1.3.2-r0",
+     "InstalledVersion": "1.3.1-r2",
+     "PkgName": "zlib",
+     "Severity": "MEDIUM",
+     "Title": "zlib: zlib: Denial of Service via infinite loop in CRC32 combine functions",
+     "VulnerabilityID": "CVE-2026-27171"
+    },
+    {
+     "CVSS": {
+      "bitnami": {
+       "V40Score": 9.4,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H/E:A/S:P/AU:Y/R:U/V:C/RE:L/U:Amber"
+      },
+      "julia": {
+       "V40Score": 9.4,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:H/VI:H/VA:H/SC:H/SI:H/SA:H/E:A/S:P/AU:Y/R:U/V:C/RE:L/U:Amber"
+      }
+     },
+     "FixedVersion": "1.4-r0",
+     "InstalledVersion": "1.3.1-r2",
+     "PkgName": "zlib",
+     "Severity": "MEDIUM",
+     "Title": "Improper Restriction of Operations within the Bounds of a Memory Buffe ...",
+     "VulnerabilityID": "CVE-2026-4738"
+    },
+    {
+     "CVSS": {
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "1.3.2-r1",
+     "InstalledVersion": "1.3.1-r2",
+     "PkgName": "zlib",
+     "Severity": "HIGH",
+     "Title": "zlib: zlib: Heap buffer overflow in gz_vacate() allows arbitrary code execution",
+     "VulnerabilityID": "CVE-2026-85091"
+    }
+   ]
+  },
+  {
+   "Class": "lang-pkgs",
+   "Target": "Node.js",
+   "Type": "node-pkg",
+   "Vulnerabilities": [
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.4,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:N/I:L/A:L"
+      }
+     },
+     "FixedVersion": "3.2.1",
+     "InstalledVersion": "1.1.0",
+     "PkgName": "@sigstore/core",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/@sigstore/core/package.json",
+     "Severity": "MEDIUM",
+     "Title": "sigstore-core: @sigstore/core: Signature bypass due to incorrect encoding in preAuthEncoding",
+     "VulnerabilityID": "CVE-2026-48758"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 3.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:L",
+       "V40Score": 1.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:H/AT:N/PR:L/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:P"
+      },
+      "redhat": {
+       "V3Score": 3.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "2.0.2, 1.1.12, 3.0.1, 4.0.1",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "LOW",
+     "Title": "brace-expansion: juliangruber brace-expansion index.js expand redos",
+     "VulnerabilityID": "CVE-2025-5889"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "5.0.10, 3.0.7, 2.1.5, 1.1.19",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "HIGH",
+     "Title": "brace-expansion: brace-expansion: Denial of Service via stack exhaustion from crafted brace patterns",
+     "VulnerabilityID": "CVE-2026-102276"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "5.0.12, 3.0.9, 2.1.7, 1.1.21",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "MEDIUM",
+     "Title": "brace-expansion: brace-expansion: Denial of Service via crafted brace patterns",
+     "VulnerabilityID": "CVE-2026-102277"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "5.0.11, 3.0.8, 2.1.6, 1.1.20",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "HIGH",
+     "Title": "brace-expansion: brace-expansion: Denial of Service via uncontrolled recursion in nested brace patterns",
+     "VulnerabilityID": "CVE-2026-102278"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L",
+       "V40Score": 7.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:P/S:N/AU:Y/R:U/V:D/RE:M/U:Amber"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "5.0.7, 1.1.16, 2.1.2",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "HIGH",
+     "Title": "brace-expansion: Brace-expansion: Denial of Service due to exponential-time complexity",
+     "VulnerabilityID": "CVE-2026-13149"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "5.0.8, 3.0.3, 2.1.3, 1.1.17",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "HIGH",
+     "Title": "brace-expansion: Brace-expansion: Denial of Service via memory exhaustion in expand() function",
+     "VulnerabilityID": "CVE-2026-14257"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "5.0.5, 3.0.2, 2.0.3, 1.1.13",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "MEDIUM",
+     "Title": "brace-expansion: brace-expansion: Denial of Service via zero step value in brace pattern",
+     "VulnerabilityID": "CVE-2026-33750"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "1.1.18, 2.1.4, 3.0.6, 5.0.9",
+     "InstalledVersion": "2.0.1",
+     "PkgName": "brace-expansion",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/brace-expansion/package.json",
+     "Severity": "HIGH",
+     "Title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+     "VulnerabilityID": "CVE-2026-69152"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V40Score": 7.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:P"
+      },
+      "redhat": {
+       "V3Score": 4.4,
+       "V3Vector": "CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "7.0.5, 6.0.6",
+     "InstalledVersion": "7.0.3",
+     "PkgName": "cross-spawn",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/cross-spawn/package.json",
+     "Severity": "HIGH",
+     "Title": "cross-spawn: regular expression denial of service",
+     "VulnerabilityID": "CVE-2024-21538"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 2.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:U"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "8.0.3, 5.2.2, 4.0.4, 3.5.1",
+     "InstalledVersion": "5.2.0",
+     "PkgName": "diff",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/diff/package.json",
+     "Severity": "LOW",
+     "Title": "jsdiff: denial of service vulnerability in parsePatch and applyPatch",
+     "VulnerabilityID": "CVE-2026-24001"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:L/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "11.1.0, 10.5.0",
+     "InstalledVersion": "10.4.2",
+     "PkgName": "glob",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/glob/package.json",
+     "Severity": "HIGH",
+     "Title": "glob: glob: Command Injection Vulnerability via Malicious Filenames",
+     "VulnerabilityID": "CVE-2025-64756"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "14.0.2",
+     "InstalledVersion": "10.4.2",
+     "PkgName": "glob",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/glob/package.json",
+     "Severity": "MEDIUM",
+     "Title": "glob: glob: Denial of Service (DoS) via incomplete traversal cancellation",
+     "VulnerabilityID": "CVE-2026-118773"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "10.7.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "MEDIUM",
+     "Title": "ip-address: ip-address: Denial of Service via unbounded IPv6 address parsing",
+     "VulnerabilityID": "CVE-2026-101911"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:L/VA:N/SC:N/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      }
+     },
+     "FixedVersion": "10.7.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "MEDIUM",
+     "Title": "ip-address: ip-address: Access control bypass via cross-family subnet comparison",
+     "VulnerabilityID": "CVE-2026-101912"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:L/VI:N/VA:N/SC:L/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
+      }
+     },
+     "FixedVersion": "10.5.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "MEDIUM",
+     "Title": "ip-address: ip-address: Security bypass via incomplete IPv6 link-local address validation",
+     "VulnerabilityID": "CVE-2026-101913"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "10.7.4",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "MEDIUM",
+     "Title": "ip-address: ip-address: Denial of Service via excessive percent characters in IPv6 address input",
+     "VulnerabilityID": "CVE-2026-111997"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 5.3,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N"
+      },
+      "nvd": {
+       "V3Score": 6.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "10.1.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "MEDIUM",
+     "Title": "ip-address: ip-address: Cross-site scripting via improper HTML escaping of untrusted input",
+     "VulnerabilityID": "CVE-2026-42338"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 7.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:L/VI:N/VA:N/SC:H/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 8.6,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N"
+      }
+     },
+     "FixedVersion": "10.3.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "ip-address",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/ip-address/package.json",
+     "Severity": "HIGH",
+     "Title": "ip-address: ip-address: Inconsistent IP address parsing leads to Server-Side Request Forgery (SSRF) and trust-boundary bypass",
+     "VulnerabilityID": "CVE-2026-69192"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:L",
+       "V40Score": 6.9,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:L/VA:L/SC:H/SI:H/SA:H/E:P"
+      },
+      "nvd": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.2,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:L/A:H"
+      }
+     },
+     "FixedVersion": "4.17.23",
+     "InstalledVersion": "4.17.21",
+     "PkgName": "lodash",
+     "PkgPath": "app/node_modules/lodash/package.json",
+     "Severity": "MEDIUM",
+     "Title": "lodash: prototype pollution in _.unset and _.omit functions",
+     "VulnerabilityID": "CVE-2025-13465"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "nvd": {
+       "V3Score": 9.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      },
+      "redhat": {
+       "V3Score": 8.1,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "4.18.0",
+     "InstalledVersion": "4.17.21",
+     "PkgName": "lodash",
+     "PkgPath": "app/node_modules/lodash/package.json",
+     "Severity": "HIGH",
+     "Title": "lodash: lodash: Arbitrary code execution via untrusted input in template imports",
+     "VulnerabilityID": "CVE-2026-4800"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.9,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "11.0.1",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "minimatch",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/minimatch/package.json",
+     "Severity": "MEDIUM",
+     "Title": "minimatch: minimatch: Denial of Service via crafted glob pattern expansion",
+     "VulnerabilityID": "CVE-2026-118764"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 8.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "10.2.1, 9.0.6, 8.0.5, 7.4.7, 6.2.1, 5.1.7, 4.2.4, 3.1.3",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "minimatch",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/minimatch/package.json",
+     "Severity": "HIGH",
+     "Title": "minimatch: minimatch: Denial of Service via specially crafted glob patterns",
+     "VulnerabilityID": "CVE-2026-26996"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "10.2.3, 9.0.7, 8.0.6, 7.4.8, 6.2.2, 5.1.8, 4.2.5, 3.1.3",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "minimatch",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/minimatch/package.json",
+     "Severity": "HIGH",
+     "Title": "minimatch: minimatch: Denial of Service due to unbounded recursive backtracking via crafted glob patterns",
+     "VulnerabilityID": "CVE-2026-27903"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 6.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "10.2.3, 9.0.7, 8.0.6, 7.4.8, 6.2.2, 5.1.8, 4.2.5, 3.1.4",
+     "InstalledVersion": "9.0.5",
+     "PkgName": "minimatch",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/minimatch/package.json",
+     "Severity": "HIGH",
+     "Title": "minimatch: Minimatch: Denial of Service via catastrophic backtracking in glob expressions",
+     "VulnerabilityID": "CVE-2026-27904"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V40Score": 7.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N/E:P"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "21.5.1",
+     "InstalledVersion": "18.0.6",
+     "PkgName": "pacote",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/pacote/package.json",
+     "Severity": "HIGH",
+     "Title": "pacote: Pacote: Denial of Service via crafted spec.rawSpec value in addGitSha function",
+     "VulnerabilityID": "CVE-2026-9496"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "7.1.6, 6.1.5",
+     "InstalledVersion": "6.1.0",
+     "PkgName": "postcss-selector-parser",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/postcss-selector-parser/package.json",
+     "Severity": "MEDIUM",
+     "Title": "postcss-selector-parser: postcss-selector-parser: Denial of Service via crafted CSS selectors",
+     "VulnerabilityID": "CVE-2026-104844"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 4.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L",
+       "V40Score": 2.1,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N/E:P"
+      },
+      "redhat": {
+       "V3Score": 4.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "6.1.3, 7.1.3",
+     "InstalledVersion": "6.1.0",
+     "PkgName": "postcss-selector-parser",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/postcss-selector-parser/package.json",
+     "Severity": "LOW",
+     "Title": "postcss-selector-parser: Postcss: Denial of Service via uncontrolled recursion in AST Serialization",
+     "VulnerabilityID": "CVE-2026-9358"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N"
+      }
+     },
+     "FixedVersion": "4.1.1",
+     "InstalledVersion": "2.3.1",
+     "PkgName": "sigstore",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/sigstore/package.json",
+     "Severity": "HIGH",
+     "Title": "sigstore: Sigstore: Unauthorized certificates accepted due to ignored `certificateOIDs` verification option",
+     "VulnerabilityID": "CVE-2026-48815"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 8.2,
+       "V40Vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:A/VC:H/VI:L/VA:N/SC:H/SI:L/SA:N"
+      },
+      "nvd": {
+       "V3Score": 6.1,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.2,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:R/S:C/C:H/I:H/A:H"
+      }
+     },
+     "FixedVersion": "7.5.3",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "node-tar: tar: node-tar: Arbitrary file overwrite and symlink poisoning via unsanitized linkpaths in archives",
+     "VulnerabilityID": "CVE-2026-23745"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L"
+      },
+      "nvd": {
+       "V3Score": 5.9,
+       "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.8,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:H/A:L"
+      }
+     },
+     "FixedVersion": "7.5.4",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "node-tar: tar: node-tar: Arbitrary file overwrite via Unicode path collision race condition",
+     "VulnerabilityID": "CVE-2026-23950"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 8.2,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.2,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:H/I:L/A:N"
+      }
+     },
+     "FixedVersion": "7.5.7",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "node-tar: tar: node-tar: Arbitrary file creation via path traversal bypass in hardlink security check",
+     "VulnerabilityID": "CVE-2026-24842"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.1,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+      },
+      "nvd": {
+       "V3Score": 7.1,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 7.1,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:N"
+      }
+     },
+     "FixedVersion": "7.5.8",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "node-tar: node-tar: Arbitrary file read/write via malicious archive hardlink creation",
+     "VulnerabilityID": "CVE-2026-26960"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 8.2,
+       "V40Vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:P/VC:N/VI:H/VA:L/SC:N/SI:H/SA:L"
+      },
+      "nvd": {
+       "V3Score": 6.3,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:C/C:N/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 8.6,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:H/A:N"
+      }
+     },
+     "FixedVersion": "7.5.10",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "node-tar: hardlink path traversal via drive-relative linkpath",
+     "VulnerabilityID": "CVE-2026-29786"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 8.2,
+       "V40Vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:H/SA:N"
+      },
+      "nvd": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 6.2,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N"
+      }
+     },
+     "FixedVersion": "7.5.11",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "tar: tar: File overwrite via drive-relative symlink traversal",
+     "VulnerabilityID": "CVE-2026-31802"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V40Score": 6.9,
+       "V40Vector": "CVSS:4.0/AV:L/AC:L/AT:N/PR:N/UI:N/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N"
+      },
+      "nvd": {
+       "V3Score": 5.5,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:N/I:H/A:N"
+      },
+      "redhat": {
+       "V3Score": 6.1,
+       "V3Vector": "CVSS:3.1/AV:L/AC:L/PR:N/UI:R/S:U/C:L/I:H/A:N"
+      }
+     },
+     "FixedVersion": "7.5.16",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "MEDIUM",
+     "Title": "node-tar: node-tar: File smuggling due to inconsistent tar archive parsing",
+     "VulnerabilityID": "CVE-2026-53655"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "7.5.18",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "MEDIUM",
+     "Title": "node-tar: node-tar: Denial of Service due to incorrect PAX path handling",
+     "VulnerabilityID": "CVE-2026-59871"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V40Score": 9.2,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:H"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "7.5.19",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "CRITICAL",
+     "Title": "tar: node-tar: Denial of Service via crafted gzip bomb",
+     "VulnerabilityID": "CVE-2026-59873"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H",
+       "V40Score": 8.7,
+       "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:H/SC:N/SI:N/SA:N"
+      },
+      "nvd": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "7.5.18",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "tar: Node-tar: Denial of Service via malformed tar archive header",
+     "VulnerabilityID": "CVE-2026-59874"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      },
+      "redhat": {
+       "V3Score": 5.3,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:L"
+      }
+     },
+     "FixedVersion": "7.5.17",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "MEDIUM",
+     "Title": "node-tar: node-tar: Denial of Service via crafted archive with NUL bytes in metadata",
+     "VulnerabilityID": "CVE-2026-59875"
+    },
+    {
+     "CVSS": {
+      "ghsa": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      },
+      "redhat": {
+       "V3Score": 7.5,
+       "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H"
+      }
+     },
+     "FixedVersion": "7.5.21",
+     "InstalledVersion": "6.2.1",
+     "PkgName": "tar",
+     "PkgPath": "usr/local/lib/node_modules/npm/node_modules/tar/package.json",
+     "Severity": "HIGH",
+     "Title": "tar: node-tar: Denial of Service via crafted long-path tar archive",
+     "VulnerabilityID": "CVE-2026-73566"
+    }
+   ]
+  }
+ ],
+ "SchemaVersion": 2
+}

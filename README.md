@@ -114,6 +114,7 @@ dashboard and repository checks), and Docker.
 make test         # Python tests plus repository checks
 make test-python  # Python tests only
 make check        # Doc links, deployment manifests, frontend layout
+make e2e          # Golden path against the running stack with real scanners
 make fmt-check    # Ruff and Prettier (advisory until Phase 3)
 
 # Run the composed Python API
