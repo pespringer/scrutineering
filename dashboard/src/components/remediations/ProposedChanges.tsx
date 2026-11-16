@@ -8,7 +8,7 @@ export default function ProposedChanges({ actions }: { actions: RemediationActio
         {actions.map((action, index) => (
           <div key={index} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 text-sm">
             <div className="text-slate-300">
-              {action.action_type.replaceAll("_", " ")}
+              {action.detail?.description || action.action_type.replaceAll("_", " ")}
               {action.file_path && <span className="ml-2 font-mono text-xs text-slate-500">{action.file_path}</span>}
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-xs">

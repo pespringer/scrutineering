@@ -14,6 +14,7 @@ from src.db.models import (
     Scan,
     ScanFinding,
 )
+from src.remediation.state_machine import LABELS
 
 
 def iso(value: datetime | None) -> str | None:
@@ -142,26 +143,15 @@ def paginate(items: list[dict], limit: int, offset: int, total: int) -> dict:
 def remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
-    remediation_events = list(getattr(remediation, "events", []) or [])
-    latest_event = remediation_events[-1] if remediation_events else None
-    workflow_state = remediation_workflow_state(remediation, remediation_events)
-    workflow_label = {
-        "execution_queued": "Queued for execution",
-        "execution_started": "Execution in progress",
-        "execution_ready": "Execution ready",
-        "execution_blocked": "Execution blocked",
-        "requires_review": "Awaiting approval",
-        "analyzing": "Awaiting execution",
-        "completed": "Completed",
-        "failed": "Failed",
-    }.get(workflow_state, workflow_state.replace("_", " ").title())
+    status = RemediationStatus(enum_value(remediation.status))
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
-        "status": enum_value(remediation.status),
-        "workflow_state": workflow_state,
-        "workflow_label": workflow_label,
-        "latest_event_type": latest_event.event_type if latest_event else None,
+        "status": status.value,
+        "status_label": LABELS[status],
+        "error_message": getattr(remediation, "error_message", None),
+        "started_at": iso(getattr(remediation, "started_at", None)),
+        "completed_at": iso(getattr(remediation, "completed_at", None)),
         "finding_count": remediation.finding_count,
         "open_finding_count": max(len(remediation_findings) - resolved_findings, 0),
         "resolved_finding_count": resolved_findings,
@@ -205,25 +195,3 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
             for publication in remediation.publications
         ],
     }
-
-
-def remediation_workflow_state(remediation: Remediation, events: list | None = None) -> str:
-    """Return the operator-facing state, including asynchronous execution progress."""
-    status = enum_value(remediation.status)
-    if status == RemediationStatus.REQUIRES_REVIEW.value:
-        return status
-    execution_events = {
-        "execution_queued",
-        "execution_started",
-        "execution_ready",
-        "execution_blocked",
-        "execution_retry_requested",
-    }
-    for event in reversed(events if events is not None else list(getattr(remediation, "events", []) or [])):
-        if event.event_type == "execution_retry_requested":
-            # A retry returns the record to review; once re-approved the status
-            # column is authoritative until a new execution event arrives.
-            return status
-        if event.event_type in execution_events:
-            return event.event_type
-    return status

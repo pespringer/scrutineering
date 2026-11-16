@@ -85,18 +85,17 @@ class ImageRegistry(str, enum.Enum):
 
 
 class RemediationStatus(str, enum.Enum):
-    """Lifecycle states of a remediation effort."""
+    """Lifecycle of a remediation. Transitions live in src/remediation/state_machine.py."""
 
-    PENDING = "pending"
-    ANALYZING = "analyzing"
-    PATCHING = "patching"
+    PROPOSED = "proposed"
+    APPROVED = "approved"
     BUILDING = "building"
     VERIFYING = "verifying"
-    PR_OPENED = "pr_opened"
+    NEEDS_ACCEPTANCE = "needs_acceptance"
+    READY = "ready"
     COMPLETED = "completed"
     FAILED = "failed"
-    SKIPPED = "skipped"
-    REQUIRES_REVIEW = "requires_review"
+    CANCELLED = "cancelled"
 
 
 class RemediationActionType(str, enum.Enum):
@@ -432,7 +431,7 @@ class Remediation(Base):
     image = relationship("Image", lazy="joined")
 
     status: Mapped[RemediationStatus] = mapped_column(
-        Enum(RemediationStatus, values_callable=_enum_values), nullable=False, default=RemediationStatus.PENDING
+        Enum(RemediationStatus, values_callable=_enum_values), nullable=False, default=RemediationStatus.PROPOSED
     )
 
     # Trigger

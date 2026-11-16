@@ -68,14 +68,24 @@ show what they found at the time.
 
 | Method | Path | Role | Purpose |
 |---|---|---|---|
-| POST | `/remediations/preview` | remediator | Proposed actions for selected findings; changes nothing |
-| POST | `/remediations` | remediator | Create a remediation in `requires_review` |
+| POST | `/remediations/preview` | remediator | How the selected findings would be fixed; changes nothing |
+| POST | `/remediations` | remediator | Propose a remediation (status `proposed`); the image needs a connected source |
 | GET | `/remediations?status&limit&offset` | remediator | Paginated remediation queue |
 | GET | `/remediations/{id}` | remediator | Remediation detail with actions and publications |
-| GET | `/remediations/{id}/events` | remediator | Ordered execution events |
-| POST | `/remediations/{id}/approve` | security-operator | Approve (no body); moves the record to `analyzing` |
-| POST | `/remediations/{id}/execute` | remediator | Queue execution; requires `REMEDIATION_EXECUTION_ENABLED=true` |
-| POST | `/remediations/{id}/retry` | security-operator | Return a failed remediation to review |
+| GET | `/remediations/{id}/events` | remediator | Ordered history of the remediation |
+| POST | `/remediations/{id}/approve` | security-operator | `proposed` → `approved` |
+| POST | `/remediations/{id}/execute` | remediator | `approved` → `building`; requires `REMEDIATION_EXECUTION_ENABLED=true` |
+| POST | `/remediations/{id}/accept` | security-operator | `needs_acceptance` → `ready`: accept new critical/high findings |
+| POST | `/remediations/{id}/retry` | security-operator | `failed` → `proposed` (approval is required again) |
+| POST | `/remediations/{id}/cancel` | remediator | Any open status → `cancelled`; releases the findings |
+| GET/PUT/DELETE | `/images/{id}/source` | remediator to change | The repository, ref, Dockerfile and build context the image is built from |
+
+Statuses, in order: `proposed`, `approved`, `building`, `verifying`, then
+`ready` (or `needs_acceptance` when the patched image adds new critical or high
+findings), then `completed`. `failed` and `cancelled` end a run. The server sets
+`completed` itself, when a complete rescan of the image no longer shows any
+targeted finding. The `status` column is the only current state; events are
+history.
 
 `operator` and `remediator` routes also accept `security-operator`.
 

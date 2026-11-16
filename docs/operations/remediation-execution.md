@@ -76,22 +76,24 @@ by the worker's unprivileged `scanner` user. The worker image includes Git,
 Node/npm, Syft, Trivy, Grype, and Cosign, but evidence must still be produced and signed by a
 trusted release workflow.
 
-### Dashboard workflow states
+### Remediation statuses
 
-The dashboard treats a finding reservation and execution request as one
-idempotent workflow. Creating a remediation reserves each selected finding;
-reserved findings display their remediation number and cannot be selected for a
-second proposal. Queueing execution records `execution_queued`, and the worker
-then records `execution_started` followed by either `execution_ready` or
-`execution_blocked`. The queue control is locked for queued, in-progress, and
-ready work. A failed execution exposes an explicit restart action, which sends
-the remediation back through approval before it can run again.
+A remediation has one `status`, changed only through the transitions in
+`src/remediation/state_machine.py`:
 
-The database `status` is retained for compatibility with older integrations,
-but the UI uses the durable execution event state. This prevents an internal
-`analyzing` value from appearing as if work is stalled. Repeated API requests
-are rejected with a conflict response instead of creating duplicate worker
-tasks.
+`proposed` → `approved` → `building` → `verifying` → `ready` → `completed`
+
+- `needs_acceptance` follows `verifying` when the patched image fixes the
+  targeted findings but adds new critical or high ones. A security operator
+  accepts it (→ `ready`) or cancels it.
+- `failed` records the reason in `error_message`; retry returns it to `proposed`.
+- `cancelled` releases the remediation's findings so they can be proposed again.
+- `completed` is set by the server when a complete rescan of the image no longer
+  shows any targeted `vuln_key`, at any version.
+
+Creating a remediation reserves its findings. Requests that do not match the
+current status return 409 with the allowed statuses. Events record history and
+are never read to decide current state.
 
 ### Generate the local test bundle
 

@@ -19,6 +19,7 @@ from src.db.models import (
 )
 from src.db.repositories import RemediationRepository
 from src.remediation.planner import Plan, finding_input
+from src.remediation.state_machine import TRANSITIONS
 from src.remediation.planner import plan as plan_fixes
 from src.remediation.worker import execute_approved_remediation
 from src.api.schemas import RemediationRequest
@@ -168,7 +169,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             finding_count=len(findings),
             target_severities=dict(severities),
         )
-        remediation.status = RemediationStatus.REQUIRES_REVIEW
+        remediation.status = RemediationStatus.PROPOSED
         for finding in findings:
             finding.remediation_id = remediation.id
         for action in plan.actions:
@@ -235,93 +236,116 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
     }
 
 
+def _load(session, remediation_id: int) -> Remediation:
+    remediation = session.get(Remediation, remediation_id)
+    if remediation is None:
+        raise HTTPException(status_code=404, detail="remediation_not_found")
+    return remediation
+
+
+def _require_status(remediation: Remediation, *allowed: RemediationStatus) -> None:
+    if remediation.status not in allowed:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "invalid_remediation_status",
+                "status": enum_value(remediation.status),
+                "allowed": [status.value for status in allowed],
+            },
+        )
+
+
+def _actor(request: Request) -> str:
+    return getattr(request.state, "principal_id", "dashboard-service")
+
+
+def _audit(session, request: Request, remediation_id: int, action: str, **detail) -> None:
+    record_operator_event(
+        session,
+        request,
+        AuditEventType.CONFIG_CHANGED,
+        str(remediation_id),
+        {"action": action, **detail},
+        entity_type="remediation",
+    )
+
+
 @router.post("/remediations/{remediation_id}/approve")
 def approve_remediation(remediation_id: int, request: Request) -> dict:
     """Approve a proposed remediation for execution. Requires the security-operator role."""
     require_role(request, "security-operator")
-    approver = getattr(request.state, "principal_id", "dashboard-service")
+    approver = _actor(request)
     with get_session() as session:
-        remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        if enum_value(remediation.status) != RemediationStatus.REQUIRES_REVIEW.value:
-            raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
+        _require_status(_load(session, remediation_id), RemediationStatus.PROPOSED)
         RemediationRepository.update_status(
             session,
             remediation_id,
-            RemediationStatus.ANALYZING,
+            RemediationStatus.APPROVED,
             approved_by=approver,
             approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
-        record_operator_event(
-            session,
-            request,
-            AuditEventType.CONFIG_CHANGED,
-            str(remediation_id),
-            {"action": "remediation_approved", "approver": approver},
-            entity_type="remediation",
-        )
-        remediation = RemediationRepository.get_by_id(session, remediation_id)
-        return remediation_payload(remediation)
+        RemediationRepository.record_event(session, remediation_id, "approved", {"approver": approver})
+        _audit(session, request, remediation_id, "remediation_approved", approver=approver)
+        return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
 
 
 @router.post("/remediations/{remediation_id}/execute", status_code=202)
 def execute_remediation(remediation_id: int, request: Request) -> dict:
+    """Start building and verifying the patched image. The status moves to `building` before the task is queued."""
     require_role(request, "remediator", "security-operator")
     if os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
         raise HTTPException(status_code=503, detail="remediation_execution_disabled")
     with get_session() as session:
-        remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        events = RemediationRepository.list_events(session, remediation_id)
-        if any(event.event_type == "execution_ready" for event in events):
-            raise HTTPException(status_code=409, detail="remediation_execution_already_complete")
-        if any(event.event_type in {"execution_queued", "execution_started"} for event in events):
-            raise HTTPException(status_code=409, detail="remediation_execution_already_queued")
-        if enum_value(remediation.status) != RemediationStatus.ANALYZING.value:
-            raise HTTPException(status_code=409, detail="remediation_not_approved")
-        RemediationRepository.append_event(
-            session,
-            {
-                "remediation_id": remediation_id,
-                "event_type": "execution_queued",
-                "sequence": len(events) + 1,
-                "detail": {"action": "execution_queued"},
-            },
-        )
-        task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
-        record_operator_event(
-            session,
-            request,
-            AuditEventType.CONFIG_CHANGED,
-            str(remediation_id),
-            {"action": "remediation_execution_requested", "task_id": task.id},
-            entity_type="remediation",
-        )
-    return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
+        _require_status(_load(session, remediation_id), RemediationStatus.APPROVED)
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.BUILDING, error_message=None)
+        RemediationRepository.record_event(session, remediation_id, "execution_queued", {"by": _actor(request)})
+    # Dispatch after the status commit so the worker always sees `building`.
+    task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
+    with get_session() as session:
+        _audit(session, request, remediation_id, "remediation_execution_requested", task_id=task.id)
+    return {"remediation_id": remediation_id, "task_id": task.id, "status": RemediationStatus.BUILDING.value}
+
+
+@router.post("/remediations/{remediation_id}/accept")
+def accept_remediation(remediation_id: int, request: Request) -> dict:
+    """Accept a verified candidate that introduced new critical/high findings (decision D6)."""
+    require_role(request, "security-operator")
+    with get_session() as session:
+        _require_status(_load(session, remediation_id), RemediationStatus.NEEDS_ACCEPTANCE)
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.READY)
+        RemediationRepository.record_event(session, remediation_id, "accepted", {"by": _actor(request)})
+        _audit(session, request, remediation_id, "remediation_new_findings_accepted")
+        return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
 
 
 @router.post("/remediations/{remediation_id}/retry")
 def retry_remediation(remediation_id: int, request: Request) -> dict:
-    """Return a failed execution to approval so an operator can deliberately restart it."""
+    """Return a failed remediation to approval so an operator can deliberately restart it."""
     require_role(request, "security-operator")
     with get_session() as session:
+        _require_status(_load(session, remediation_id), RemediationStatus.FAILED)
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.PROPOSED)
         remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        if enum_value(remediation.status) != RemediationStatus.FAILED.value:
-            raise HTTPException(status_code=409, detail="remediation_not_failed")
-        RemediationRepository.update_status(session, remediation_id, RemediationStatus.REQUIRES_REVIEW)
         remediation.error_message = None
-        events = RemediationRepository.list_events(session, remediation_id)
-        RemediationRepository.append_event(
-            session,
-            {
-                "remediation_id": remediation_id,
-                "event_type": "execution_retry_requested",
-                "sequence": len(events) + 1,
-                "detail": {"action": "execution_retry_requested"},
-            },
+        remediation.approved_by = None
+        remediation.approved_at = None
+        RemediationRepository.record_event(session, remediation_id, "retry_requested", {"by": _actor(request)})
+        _audit(session, request, remediation_id, "remediation_retry_requested")
+        return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
+
+
+@router.post("/remediations/{remediation_id}/cancel")
+def cancel_remediation(remediation_id: int, request: Request) -> dict:
+    """Stop a remediation and release its findings so they can be proposed again."""
+    require_role(request, "remediator", "security-operator")
+    with get_session() as session:
+        remediation = _load(session, remediation_id)
+        _require_status(
+            remediation, *(status for status in RemediationStatus if RemediationStatus.CANCELLED in TRANSITIONS[status])
         )
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.CANCELLED)
+        for finding in session.query(ScanFinding).filter(ScanFinding.remediation_id == remediation_id):
+            finding.remediation_id = None
+        RemediationRepository.record_event(session, remediation_id, "cancelled", {"by": _actor(request)})
+        _audit(session, request, remediation_id, "remediation_cancelled")
         return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))

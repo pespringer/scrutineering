@@ -574,11 +574,18 @@ finding data alone and the worker resolves files and lines against the checkout)
   image, and `failed` with a reason if they don't.
 
 ### 4e. One state machine
-Statuses go on `remediations.status` only: `proposed → approved → building →
-verifying → ready → published → completed`, plus `failed` and `cancelled`. A
-failed remediation can retry from `approved`. `remediation_events` records
-transitions and logs but is never read to work out state. Remove
-`workflow_state` and `workflow_label` and the logic that derives them from events.
+Done. `remediations.status` is the only current state (migration 0005 maps the
+old values): `proposed → approved → building → verifying → ready → completed`,
+with `needs_acceptance` between `verifying` and `ready` (D6), plus `failed` and
+`cancelled`. Transitions live in `src/remediation/state_machine.py`.
+`workflow_state`/`workflow_label` are gone; events are history only.
+
+- A failed remediation retries from `proposed`, so it is approved again, rather
+  than from `approved`.
+- The server sets `completed` when a complete rescan of the image no longer
+  shows any targeted `vuln_key`.
+- `published` is not added yet; 4d inserts it between `ready` and `completed`
+  when it opens the pull request.
 
 **Done when:** the golden-path test passes with no `xfail`s, and `make e2e`
 fixes the fixture image's base-image CVE and one npm CVE, both verified by rescan.

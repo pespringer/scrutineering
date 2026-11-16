@@ -164,14 +164,28 @@ export interface RemediationAction {
   file_path?: string | null;
   before_value: string | null;
   after_value: string | null;
+  detail?: { description?: string; packages?: Record<string, string>; finding_ids?: number[] };
 }
+
+/** One status column; transitions are defined in src/remediation/state_machine.py. */
+export type RemediationStatus =
+  | "proposed"
+  | "approved"
+  | "building"
+  | "verifying"
+  | "needs_acceptance"
+  | "ready"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface RemediationRecord {
   id: number;
   image_id: number;
-  status: string;
-  workflow_state?: string;
-  workflow_label?: string;
+  status: RemediationStatus;
+  status_label: string;
+  error_message?: string | null;
+  approved_by?: string | null;
   finding_count: number;
   open_finding_count?: number;
   resolved_finding_count?: number;

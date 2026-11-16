@@ -13,6 +13,7 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import RemediationPublication, RemediationStatus
 from src.db.repositories import RemediationRepository
+from src.remediation.state_machine import ACTIVE
 from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
 from .publisher import publish_remediation_branch
 from .publication import build_publication_plan
@@ -26,12 +27,7 @@ def execution_enabled() -> bool:
 def _blocked(session, remediation_id: int, reason: str) -> dict:
     remediation = RemediationRepository.get_by_id(session, remediation_id)
     if remediation is not None:
-        terminal = {
-            RemediationStatus.COMPLETED,
-            RemediationStatus.FAILED,
-            RemediationStatus.SKIPPED,
-        }
-        if remediation.status not in terminal:
+        if remediation.status in ACTIVE:
             RemediationRepository.update_status(
                 session,
                 remediation_id,
@@ -141,7 +137,7 @@ def _publish_branch(session, remediation, branch_name: str, commit: str) -> dict
     publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
     remediation.pr_url = result.url
     remediation.pr_number = result.number
-    remediation.status = RemediationStatus.PR_OPENED
+    remediation.status = RemediationStatus.READY
     return {"publication_id": publication.id, "status": publication.status, "number": result.number, "url": result.url}
 
 
@@ -159,7 +155,7 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         if remediation is None:
             return {"remediation_id": remediation_id, "status": "blocked", "reason": "remediation_not_found"}
-        if remediation.status != RemediationStatus.ANALYZING:
+        if remediation.status != RemediationStatus.BUILDING:
             return _blocked(session, remediation_id, "remediation_not_approved")
         events = RemediationRepository.list_events(session, remediation_id)
         if any(event.event_type == "execution_ready" for event in events):

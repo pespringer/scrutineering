@@ -51,7 +51,7 @@ def test_worker_publication_persists_provider_result(monkeypatch):
     assert result["number"] == 12
     assert remediation.pr_number == 12
     assert remediation.pr_url.endswith("/12")
-    assert remediation.status.value == "pr_opened"
+    assert remediation.status.value == "ready"
     assert session.added[0].status == "published"
 
 
