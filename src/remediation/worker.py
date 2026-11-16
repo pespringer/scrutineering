@@ -39,6 +39,8 @@ def _blocked(session, remediation_id: int, reason: str) -> dict:
         else:
             remediation.error_message = reason
     events = RemediationRepository.list_events(session, remediation_id)
+    if events and events[-1].event_type == "execution_blocked" and events[-1].detail.get("reason") == reason:
+        return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
     RemediationRepository.append_event(session, {
         "remediation_id": remediation_id,
         "event_type": "execution_blocked",
@@ -114,6 +116,16 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
             return {"remediation_id": remediation_id, "status": "blocked", "reason": "remediation_not_found"}
         if remediation.status != RemediationStatus.ANALYZING:
             return _blocked(session, remediation_id, "remediation_not_approved")
+        events = RemediationRepository.list_events(session, remediation_id)
+        if any(event.event_type == "execution_ready" for event in events):
+            return {"remediation_id": remediation_id, "status": "ready", "reason": "already_executed"}
+        if not any(event.event_type == "execution_started" for event in events):
+            RemediationRepository.append_event(session, {
+                "remediation_id": remediation_id,
+                "event_type": "execution_started",
+                "sequence": len(events) + 1,
+                "detail": {"action": "execution_started"},
+            })
         repository_root = os.environ.get("REMEDIATION_REPOSITORY_ROOT", "")
         if not execution_enabled() or not repository_root:
             return _blocked(session, remediation_id, "execution_adapter_not_configured")

@@ -3,6 +3,8 @@ export interface ScanResult {
   image_id?: number;
   image_name: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'partial';
+  phase?: string;
+  task_id?: string | null;
   started_at: string;
   completed_at?: string;
   findings: number;
@@ -44,6 +46,7 @@ export interface VulnerabilityFinding {
   lifecycle_status?: 'open' | 'resolved';
   acknowledged?: boolean;
   assigned_to?: string | null;
+  remediation_id?: number | null;
 }
 
 export interface PostureSummary {
@@ -66,10 +69,34 @@ export interface ImageDetail {
   last_scan_at: string | null;
   last_scan_id: string | null;
   open_findings: number;
+  resolved_findings?: number;
   critical_count: number;
   high_count: number;
   medium_count: number;
   low_count: number;
+}
+
+export interface RegistryTag {
+  repository: string;
+  tag: string;
+  digest: string | null;
+  size: number;
+  image_id: number | null;
+  scan_id: string | null;
+  scan_status: string | null;
+  last_scan_at: string | null;
+  security_status: "clean" | "issues_found" | "scanning" | "scan_failed" | "not_scanned";
+  open_findings: number;
+  critical_count: number;
+  high_count: number;
+  image_name: string;
+}
+
+export interface RegistryInventory {
+  registry: { host: string; url: string; internal_host?: string; reachable: boolean };
+  repositories: string[];
+  tags: RegistryTag[];
+  summary: { repositories: number; tags: number; scanned: number; not_scanned: number; scanning: number; issues_found: number; clean: number };
 }
 
 export interface SeverityTrend {
@@ -78,4 +105,11 @@ export interface SeverityTrend {
   high: number;
   medium: number;
   low: number;
+}
+
+export interface DashboardSession {
+  authenticated: boolean;
+  subject?: string;
+  email?: string | null;
+  roles?: string[];
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 class BackendError extends Error {
-  constructor(public readonly status: number) {
+  constructor(public readonly status: number, public readonly payload: unknown = null) {
     super(`dashboard backend returned ${status}`);
   }
 }
@@ -18,7 +18,10 @@ export async function backendJson<T>(path: string, init?: RequestInit): Promise<
       ...(init?.headers || {}),
     },
   });
-  if (!response.ok) throw new BackendError(response.status);
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null);
+    throw new BackendError(response.status, payload);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -50,7 +53,7 @@ export async function dashboardResponse<T>(
     return NextResponse.json(payload);
   } catch (error) {
     if (error instanceof BackendError) {
-      return NextResponse.json({ error: "dashboard_backend_rejected" }, { status: error.status });
+      return NextResponse.json(error.payload || { error: "dashboard_backend_rejected" }, { status: error.status });
     }
     return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
   }
@@ -66,7 +69,7 @@ export async function dashboardMutationResponse<T>(path: string, request: Reques
     return NextResponse.json(payload, { status });
   } catch (error) {
     if (error instanceof BackendError) {
-      return NextResponse.json({ error: "dashboard_backend_rejected" }, { status: error.status });
+      return NextResponse.json(error.payload || { error: "dashboard_backend_rejected" }, { status: error.status });
     }
     return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
   }

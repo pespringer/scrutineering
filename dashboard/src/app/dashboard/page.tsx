@@ -13,7 +13,7 @@ import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import StatCard from "@/components/StatCard";
-import type { ImageDetail, Page, PostureSummary, ScanResult, SeverityTrend } from "@/types";
+import type { DashboardSession, ImageDetail, Page, PostureSummary, ScanResult, SeverityTrend } from "@/types";
 
 const EMPTY_POSTURE: PostureSummary = {
   total_scanned_images: 0, total_findings: 0, critical_count: 0,
@@ -38,6 +38,8 @@ export default function DashboardPage() {
   const [images, setImages] = useState<ImageDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [session, setSession] = useState<DashboardSession | null>(null);
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   const loadDashboard = useCallback(async () => {
     setLoading(true);
@@ -50,7 +52,7 @@ export default function DashboardPage() {
         getJson<ScanResult[] | Page<ScanResult>>(`${api}/api/scans`),
         getJson<ImageDetail[] | Page<ImageDetail>>(`${api}/api/images`),
       ]);
-      setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages));
+      setPosture(summary); setTrends(trend); setScans(items(scanHistory)); setImages(items(trackedImages)); setLastRefreshAt(new Date());
     } catch {
       if (api) {
         try {
@@ -64,7 +66,16 @@ export default function DashboardPage() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { loadDashboard(); }, [loadDashboard]);
+  useEffect(() => {
+    loadDashboard();
+    fetch("/api/session", { cache: "no-store" }).then((response) => response.ok ? response.json() : null).then(setSession).catch(() => setSession(null));
+  }, [loadDashboard]);
+
+  const identity = session?.email || session?.subject || "operator";
+  const firstName = identity.includes("@") ? identity.split("@")[0] : identity.split(/[./:_-]/)[0];
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const activeScans = scans.filter((scan) => scan.status === "pending" || scan.status === "running");
 
   const riskTotal = Math.max(posture.critical_count + posture.high_count + posture.medium_count + posture.low_count, 1);
   const risk = useMemo(() => [
@@ -79,11 +90,15 @@ export default function DashboardPage() {
   return (
     <Layout>
       <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div><div className="eyebrow mb-3 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-400" /> Security operations</div><h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Good morning, sentinel.</h1><p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">One view of your container estate, its exposure, and the work that needs attention next.</p></div>
+        <div><div className="eyebrow mb-3 flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-400" /> Security operations</div><h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{greeting}, {firstName}.</h1><p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">One view of your container estate, its exposure, and the work that needs attention next.</p>{lastRefreshAt && <p className="mt-2 text-xs text-slate-600">Data refreshed {lastRefreshAt.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</p>}</div>
         <button onClick={loadDashboard} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"><RefreshCw className="h-4 w-4" /> Refresh data</button>
       </div>
 
       {error && <div className="mb-6 flex items-center gap-3 rounded-2xl border border-amber-400/20 bg-amber-400/[0.07] px-4 py-3 text-sm text-amber-200"><Info className="h-4 w-4 shrink-0" />{error}<button onClick={loadDashboard} className="ml-auto font-semibold underline underline-offset-4">Retry</button></div>}
+
+      {activeScans.length > 0 && <section className="mb-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.06] px-5 py-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-sm font-semibold text-cyan-100">Scan activity in progress</div><p className="mt-1 text-xs text-cyan-200/70">{activeScans.length} scan{activeScans.length === 1 ? " is" : "s are"} in the control plane. Open Scan history to follow the current phase.</p></div><Link href="/scans" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-200 hover:text-white">Follow activity <ArrowRight className="h-4 w-4" /></Link></div></section>}
+
+      <section className="panel mb-6 rounded-2xl p-5 sm:p-6"><div className="mb-4"><div className="eyebrow mb-2">How the control plane works</div><h2 className="text-lg font-semibold text-white">From image to resolved risk</h2><p className="mt-1 text-sm text-slate-500">Every finding follows this path. The dashboard links each step to its durable record.</p></div><div className="grid gap-3 md:grid-cols-5">{[["1", "Discover", "Inventory or targeted image"], ["2", "Scan", "Trivy + Grype workers"], ["3", "Decide", "Normalize and prioritize"], ["4", "Remediate", "Review and execute a fix"], ["5", "Verify", "Rescan and close the loop"]].map(([number, title, detail]) => <div key={number} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4"><div className="mb-3 flex h-7 w-7 items-center justify-center rounded-full bg-cyan-400/10 text-xs font-bold text-cyan-200">{number}</div><div className="text-sm font-medium text-slate-200">{title}</div><div className="mt-1 text-xs leading-5 text-slate-500">{detail}</div></div>)}</div><div className="mt-4 rounded-xl border border-amber-400/15 bg-amber-400/[0.04] px-4 py-3 text-xs leading-5 text-amber-200/80">Provider publication, deployment observation, and live alert delivery are optional external gates. They are shown as deferred until configured; local scan, findings, remediation, and verification remain usable without them.</div></section>
 
       <section className="panel relative mb-6 overflow-hidden rounded-3xl p-6 sm:p-8">
         <div className="absolute -right-24 -top-32 h-80 w-80 rounded-full bg-cyan-400/10 blur-3xl" />

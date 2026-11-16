@@ -8,10 +8,12 @@ import hashlib
 import hmac
 import json
 import uuid
-from urllib.request import urlopen
+from urllib.parse import quote
+from urllib.request import Request as UrlRequest, urlopen
 import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
+from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
@@ -191,6 +193,8 @@ def _scan_payload(scan: Scan) -> dict:
         "image_id": getattr(scan, "image_id", None),
         "image_name": scan.image.full_name if scan.image else "unknown",
         "status": _value(scan.status),
+        "phase": getattr(scan, "phase", None) or _value(scan.status),
+        "task_id": getattr(scan, "task_id", None),
         "started_at": _iso(scan.started_at),
         "completed_at": _iso(scan.completed_at),
         "findings": scan.total_findings or 0,
@@ -205,7 +209,7 @@ def _scan_payload(scan: Scan) -> dict:
     }
 
 
-def _image_payload(image: Image, findings: list[ScanFinding]) -> dict:
+def _image_payload(image: Image, findings: list[ScanFinding], resolved_count: int = 0) -> dict:
     counts = _severity_counts(findings)
     return {
         "id": image.id,
@@ -215,11 +219,49 @@ def _image_payload(image: Image, findings: list[ScanFinding]) -> dict:
         "last_scan_at": _iso(image.last_scan_at),
         "last_scan_id": image.last_scan_id,
         "open_findings": len(findings),
+        "resolved_findings": resolved_count,
         "critical_count": counts["critical"],
         "high_count": counts["high"],
         "medium_count": counts["medium"],
         "low_count": counts["low"],
     }
+
+
+def _local_registry_base_url() -> str:
+    configured = os.environ.get("LOCAL_REGISTRY_URL", "").strip()
+    if configured:
+        return configured.rstrip("/")
+    host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
+    return f"{scheme}://{host}"
+
+
+def _local_registry_public_url() -> str:
+    configured = os.environ.get("LOCAL_REGISTRY_PUBLIC_URL", "").strip()
+    if configured:
+        return configured.rstrip("/")
+    host = os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000").strip()
+    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
+    return f"{scheme}://{host}"
+
+
+def _registry_json(path: str) -> dict:
+    request = UrlRequest(f"{_local_registry_base_url()}{path}", headers={"accept": "application/json"})
+    with urlopen(request, timeout=10) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def _registry_manifest_metadata(repository: str, tag: str) -> dict:
+    path = f"/v2/{quote(repository, safe='/')}/manifests/{quote(tag, safe='')}"
+    request = UrlRequest(f"{_local_registry_base_url()}{path}", headers={
+        "accept": ", ".join([
+            "application/vnd.oci.image.manifest.v1+json",
+            "application/vnd.docker.distribution.manifest.v2+json",
+            "application/vnd.docker.distribution.manifest.list.v2+json",
+        ])
+    }, method="HEAD")
+    with urlopen(request, timeout=10) as response:
+        return {"digest": response.headers.get("Docker-Content-Digest"), "size": int(response.headers.get("Content-Length") or 0)}
 
 
 def _finding_payload(finding: ScanFinding) -> dict:
@@ -245,6 +287,7 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
+        "remediation_id": getattr(finding, "remediation_id", None),
     }
 
 
@@ -332,11 +375,23 @@ def _remediation_actions(findings: list[ScanFinding], image: Image | None = None
 
 def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
     stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
+    remediation_findings = list(getattr(remediation, "findings", []) or [])
+    resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
+    remediation_events = list(getattr(remediation, "events", []) or [])
+    latest_event = remediation_events[-1] if remediation_events else None
+    workflow_state = _remediation_workflow_state(remediation, remediation_events)
+    workflow_label = {"execution_queued": "Queued for execution", "execution_started": "Execution in progress", "execution_ready": "Execution ready", "execution_blocked": "Execution blocked", "requires_review": "Awaiting approval", "analyzing": "Awaiting execution", "completed": "Completed", "failed": "Failed"}.get(workflow_state, workflow_state.replace("_", " ").title())
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
         "status": _value(remediation.status),
+        "workflow_state": workflow_state,
+        "workflow_label": workflow_label,
+        "latest_event_type": latest_event.event_type if latest_event else None,
         "finding_count": remediation.finding_count,
+        "open_finding_count": max(len(remediation_findings) - resolved_findings, 0),
+        "resolved_finding_count": resolved_findings,
+        "resolution_status": "resolved" if remediation_findings and resolved_findings == len(remediation_findings) else "open",
         "target_severities": remediation.target_severities,
         "approved_by": remediation.approved_by,
         "approved_at": _iso(remediation.approved_at),
@@ -370,11 +425,25 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
     }
 
 
+def _remediation_workflow_state(remediation: Remediation, events: list | None = None) -> str:
+    """Return the operator-facing state, including asynchronous execution progress."""
+    status = _value(remediation.status)
+    if status == RemediationStatus.REQUIRES_REVIEW.value:
+        return status
+    execution_events = {"execution_queued", "execution_started", "execution_ready", "execution_blocked", "execution_retry_requested"}
+    for event in reversed(events if events is not None else list(getattr(remediation, "events", []) or [])):
+        if event.event_type == "execution_retry_requested":
+            return RemediationStatus.REQUIRES_REVIEW.value
+        if event.event_type in execution_events:
+            return event.event_type
+    return status
+
+
 @router.get("/posture/summary")
 def posture_summary() -> dict:
     with get_session() as session:
         images = session.query(Image).filter_by(active=True).all()
-        findings = session.query(ScanFinding).filter_by(remediated=False).all()
+        findings = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all()
         latest_scan = session.query(Scan).order_by(Scan.started_at.desc()).first()
 
     counts = _severity_counts(findings)
@@ -396,6 +465,20 @@ def posture_trend(days: int = Query(default=30, ge=1, le=365)) -> list[dict]:
     cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days)
     with get_session() as session:
         snapshots = session.query(SeveritySnapshot).filter(SeveritySnapshot.snapshot_date >= cutoff).all()
+        if not snapshots:
+            scans = session.query(Scan).filter(
+                Scan.status.in_([ScanStatus.COMPLETED, ScanStatus.PARTIAL]),
+                Scan.completed_at >= cutoff,
+            ).order_by(Scan.completed_at).all()
+            grouped = defaultdict(lambda: {"critical": 0, "high": 0, "medium": 0, "low": 0})
+            for scan in scans:
+                if scan.completed_at:
+                    day = scan.completed_at.date().isoformat()
+                    grouped[day]["critical"] = max(grouped[day]["critical"], scan.critical_count or 0)
+                    grouped[day]["high"] = max(grouped[day]["high"], scan.high_count or 0)
+                    grouped[day]["medium"] = max(grouped[day]["medium"], scan.medium_count or 0)
+                    grouped[day]["low"] = max(grouped[day]["low"], scan.low_count or 0)
+            return [{"date": day, **grouped[day]} for day in sorted(grouped)]
 
     grouped: dict[str, dict[str, int]] = defaultdict(lambda: {"critical": 0, "high": 0, "medium": 0, "low": 0})
     for snapshot in snapshots:
@@ -495,7 +578,7 @@ def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
         scans = session.query(Scan).join(Image).filter(Scan.scan_id.in_([str(value) for value in payload.ids]), Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED])).all()
         for scan in scans:
             retry_id = uuid.uuid4().hex
-            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, started_at=now, image_digest=scan.image_digest))
+            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, phase="queued", task_id=retry_id, started_at=now, image_digest=scan.image_digest))
             _record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id, {"action": "retry_scan", "source_scan_id": scan.scan_id})
             retried.append({"source_scan_id": scan.scan_id, "scan_id": retry_id, "image_name": scan.image.full_name})
     for item in retried:
@@ -530,7 +613,7 @@ def scan_findings(
         if severity_value:
             query = query.filter(ScanFinding.severity == severity_value.value)
         if fixable_only:
-            query = query.filter(ScanFinding.fix_available.is_(True), ScanFinding.remediated.is_(False))
+            query = query.filter(ScanFinding.fix_available.is_(True), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
     return {"scan_id": scan_id, "image_id": scan.image_id, **_page([_finding_payload(finding) for finding in findings], limit, offset, total)}
@@ -563,6 +646,8 @@ def start_scan(payload: ScanRequest, request: Request) -> dict:
                 scan_id=scan_id,
                 image_id=image.id,
                 status=ScanStatus.PENDING.value,
+                phase="queued",
+                task_id=scan_id,
                 started_at=now,
                 image_digest=identity.digest,
             ))
@@ -586,17 +671,103 @@ def image_inventory(
         if search:
             query = query.filter(Image.repo_name.ilike(f"%{search.strip()}%"))
         if severity_value:
-            query = query.filter(Image.id.in_(session.query(ScanFinding.image_id).filter_by(remediated=False, severity=severity_value.value)))
+            query = query.filter(Image.id.in_(session.query(ScanFinding.image_id).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None), ScanFinding.severity == severity_value.value)))
         total = query.order_by(None).count()
         images = query.order_by(Image.repo_name.asc()).offset(offset).limit(limit).all()
         image_ids = [image.id for image in images]
         findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id.in_(image_ids), ScanFinding.remediated.is_(False),
+            ScanFinding.image_id.in_(image_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None),
         ).all() if image_ids else []
+        resolved_counts = dict(session.query(ScanFinding.image_id, func.count(ScanFinding.id)).filter(
+            ScanFinding.image_id.in_(image_ids), ScanFinding.resolved_at.is_not(None),
+        ).group_by(ScanFinding.image_id).all()) if image_ids else {}
     findings_by_image: dict[int, list[ScanFinding]] = defaultdict(list)
     for finding in findings:
         findings_by_image[finding.image_id].append(finding)
-    return _page([_image_payload(image, findings_by_image[image.id]) for image in images], limit, offset, total)
+    return _page([_image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)) for image in images], limit, offset, total)
+
+
+@router.get("/registry/inventory")
+def registry_inventory(request: Request) -> dict:
+    """Return the local registry catalog joined with scan and finding state."""
+    _require_role(request, "dashboard", "operator", "security-operator")
+    try:
+        catalog = _registry_json("/v2/_catalog?n=1000")
+        repositories = [str(value) for value in catalog.get("repositories", [])]
+        catalog_items: list[dict] = []
+        for repository in repositories:
+            tags_payload = _registry_json(f"/v2/{quote(repository, safe='/')}/tags/list")
+            for tag in sorted(tags_payload.get("tags") or []):
+                try:
+                    manifest = _registry_manifest_metadata(repository, str(tag))
+                except Exception as exc:
+                    manifest = {"digest": None, "size": 0, "error": str(exc)[:200]}
+                catalog_items.append({"repository": repository, "tag": str(tag), **manifest})
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="local_registry_unavailable") from exc
+
+    registry_host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+    with get_session() as session:
+        images = session.query(Image).filter(Image.active.is_(True)).all()
+        image_ids = [image.id for image in images]
+        scans = session.query(Scan).filter(Scan.image_id.in_(image_ids)).order_by(Scan.started_at.desc(), Scan.id.desc()).all() if image_ids else []
+        findings = session.query(ScanFinding).filter(ScanFinding.image_id.in_(image_ids)).all() if image_ids else []
+
+    scans_by_image: dict[int, Scan] = {}
+    for scan in scans:
+        scans_by_image.setdefault(scan.image_id, scan)
+    findings_by_image: dict[int, list[ScanFinding]] = defaultdict(list)
+    for finding in findings:
+        findings_by_image[finding.image_id].append(finding)
+    image_lookup: dict[tuple[str, str], Image] = {}
+    for image in images:
+        image_lookup[(f"{registry_host}/{image.repo_name}", image.tag)] = image
+        image_lookup[(image.repo_name, image.tag)] = image
+
+    tags: list[dict] = []
+    for item in catalog_items:
+        image = image_lookup.get((f"{registry_host}/{item['repository']}", item["tag"])) or image_lookup.get((item["repository"], item["tag"]))
+        image_findings = [finding for finding in findings_by_image.get(image.id, []) if not finding.remediated and finding.resolved_at is None] if image else []
+        scan = scans_by_image.get(image.id) if image else None
+        scan_status = _value(scan.status) if scan else None
+        if scan_status in {"pending", "running"}:
+            security_status = "scanning"
+        elif scan_status == "failed":
+            security_status = "scan_failed"
+        elif scan is None:
+            security_status = "not_scanned"
+        elif image_findings:
+            security_status = "issues_found"
+        else:
+            security_status = "clean"
+        tags.append({
+            **item,
+            "image_id": image.id if image else None,
+            "scan_id": scan.scan_id if scan else None,
+            "scan_status": scan_status,
+            "last_scan_at": _iso(image.last_scan_at) if image else None,
+            "security_status": security_status,
+            "open_findings": len(image_findings),
+            "critical_count": sum(1 for finding in image_findings if _value(finding.severity) == "critical"),
+            "high_count": sum(1 for finding in image_findings if _value(finding.severity) == "high"),
+            "image_name": f"{registry_host}/{item['repository']}:{item['tag']}",
+        })
+
+    counts = Counter(item["security_status"] for item in tags)
+    return {
+        "registry": {"host": os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000"), "url": _local_registry_public_url(), "internal_host": registry_host, "reachable": True},
+        "repositories": repositories,
+        "tags": tags,
+        "summary": {
+            "repositories": len(repositories),
+            "tags": len(tags),
+            "scanned": len(tags) - counts.get("not_scanned", 0),
+            "not_scanned": counts.get("not_scanned", 0),
+            "scanning": counts.get("scanning", 0),
+            "issues_found": counts.get("issues_found", 0),
+            "clean": counts.get("clean", 0),
+        },
+    }
 
 
 @router.post("/images/bulk-archive")
@@ -624,14 +795,15 @@ def image_detail(
         image = session.get(Image, image_id)
         if image is None:
             raise HTTPException(status_code=404, detail="image_not_found")
-        query = session.query(ScanFinding).filter_by(image_id=image_id, remediated=False)
+        query = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
         if severity_value:
             query = query.filter(ScanFinding.severity == severity_value.value)
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
-        all_findings = session.query(ScanFinding).filter_by(image_id=image_id, remediated=False).all()
+        all_findings = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all()
+        resolved_count = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_not(None)).count()
     return {
-        "image": _image_payload(image, all_findings),
+        "image": _image_payload(image, all_findings, resolved_count),
         "findings": [_finding_payload(finding) for finding in findings],
         "findings_page": _page([_finding_payload(finding) for finding in findings], limit, offset, total),
     }
@@ -643,7 +815,7 @@ def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict
     finding_ids = [int(value) for value in payload.ids]
     changed: list[int] = []
     with get_session() as session:
-        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(finding_ids), ScanFinding.remediated.is_(False)).all():
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(finding_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all():
             finding.acknowledged = True
             changed.append(finding.id)
         if changed:
@@ -656,7 +828,7 @@ def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request
     _require_role(request, "operator", "security-operator")
     changed: list[int] = []
     with get_session() as session:
-        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.remediated.is_(False)).all():
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all():
             finding.assigned_to = payload.assignee
             changed.append(finding.id)
         if changed:
@@ -669,7 +841,7 @@ def export_findings(request: Request, limit: int = Query(default=1000, ge=1, le=
     _require_role(request, "dashboard", "operator", "security-operator")
     severity_value = _severity_filter(severity)
     with get_session() as session:
-        query = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False))
+        query = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
         if severity_value: query = query.filter(ScanFinding.severity == severity_value.value)
         if image_id: query = query.filter(ScanFinding.image_id == image_id)
         if acknowledged is not None: query = query.filter(ScanFinding.acknowledged.is_(acknowledged))
@@ -805,7 +977,7 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
         findings = session.query(ScanFinding).filter(
             ScanFinding.image_id == payload.image_id,
             ScanFinding.id.in_(payload.finding_ids),
-            ScanFinding.remediated.is_(False),
+            ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None),
         ).order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).all()
     if image is None:
         raise HTTPException(status_code=404, detail="image_not_found")
@@ -878,12 +1050,31 @@ def publication_reconciliation_health(request: Request) -> dict:
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
+    requested_ids = set(payload.finding_ids)
+    if len(requested_ids) != len(payload.finding_ids):
+        raise HTTPException(status_code=400, detail="finding_ids_must_be_unique")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
+        requested_findings = session.query(ScanFinding).filter(
+            ScanFinding.image_id == payload.image_id,
+            ScanFinding.id.in_(requested_ids),
+        ).all()
+        already_owned = {
+            finding.id: finding.remediation_id
+            for finding in requested_findings
+            if finding.remediation_id is not None
+        }
+        if already_owned:
+            raise HTTPException(status_code=409, detail={
+                "code": "finding_already_in_remediation",
+                "finding_ids": sorted(already_owned),
+                "remediation_ids": sorted({value for value in already_owned.values() if value is not None}),
+            })
         findings = session.query(ScanFinding).filter(
             ScanFinding.image_id == payload.image_id,
-            ScanFinding.id.in_(payload.finding_ids),
+            ScanFinding.id.in_(requested_ids),
             ScanFinding.remediated.is_(False),
+            ScanFinding.resolved_at.is_(None),
             ScanFinding.fix_available.is_(True),
         ).all()
         if image is None:
@@ -900,6 +1091,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         remediation.status = RemediationStatus.REQUIRES_REVIEW
         actions = _remediation_actions(findings, image)
         for finding, action in zip(findings, actions):
+            finding.remediation_id = remediation.id
             RemediationRepository.add_action(
                 session, remediation.id, RemediationActionType.DEPENDENCY_UPDATE,
                 file_path=_remediation_file_path(finding, image),
@@ -927,7 +1119,11 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
         if session.get(Remediation, remediation_id) is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
         events = RemediationRepository.list_events(session, remediation_id)
-    return {"remediation_id": remediation_id, "events": [{
+    return {"remediation_id": remediation_id, "latest_event": ({
+        "event_type": events[-1].event_type,
+        "detail": events[-1].detail,
+        "created_at": _iso(events[-1].created_at),
+    } if events else None), "events": [{
         "id": event.id, "event_type": event.event_type, "sequence": event.sequence,
         "detail": event.detail, "created_at": _iso(event.created_at),
     } for event in events]}
@@ -984,11 +1180,44 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
         remediation = session.get(Remediation, remediation_id)
         if remediation is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
+        events = RemediationRepository.list_events(session, remediation_id)
+        if any(event.event_type == "execution_ready" for event in events):
+            raise HTTPException(status_code=409, detail="remediation_execution_already_complete")
+        if any(event.event_type in {"execution_queued", "execution_started"} for event in events):
+            raise HTTPException(status_code=409, detail="remediation_execution_already_queued")
         if _value(remediation.status) != RemediationStatus.ANALYZING.value:
             raise HTTPException(status_code=409, detail="remediation_not_approved")
-        task = execute_approved_remediation.delay(remediation_id)
+        RemediationRepository.append_event(session, {
+            "remediation_id": remediation_id,
+            "event_type": "execution_queued",
+            "sequence": len(events) + 1,
+            "detail": {"action": "execution_queued"},
+        })
+        task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
         _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_execution_requested", "task_id": task.id}, entity_type="remediation")
     return {"remediation_id": remediation_id, "task_id": task.id, "status": "queued"}
+
+
+@router.post("/remediations/{remediation_id}/retry")
+def retry_remediation(remediation_id: int, request: Request) -> dict:
+    """Return a failed execution to approval so an operator can deliberately restart it."""
+    _require_role(request, "security-operator")
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise HTTPException(status_code=404, detail="remediation_not_found")
+        if _value(remediation.status) != RemediationStatus.FAILED.value:
+            raise HTTPException(status_code=409, detail="remediation_not_failed")
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.REQUIRES_REVIEW)
+        remediation.error_message = None
+        events = RemediationRepository.list_events(session, remediation_id)
+        RemediationRepository.append_event(session, {
+            "remediation_id": remediation_id,
+            "event_type": "execution_retry_requested",
+            "sequence": len(events) + 1,
+            "detail": {"action": "execution_retry_requested"},
+        })
+        return _remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
 
 
 @router.post("/remediations/{remediation_id}/publication-plan")

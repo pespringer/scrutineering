@@ -30,7 +30,8 @@ from src.scan.queue import scan_task_options
 from src.scan.redis_cache import SyncRedisScanCache
 from src.scan.models import Severity
 from src.db.connection import get_session as get_db_session
-from src.db.models import Image, Scan, ScanStatus
+from src.db.models import AuditEventType, Image, Scan, ScanFinding, ScanStatus, Severity as DbSeverity, SeveritySnapshot
+from src.db.repositories import AuditLogRepository
 from src.scan.image_identity import parse_image_reference
 from src.scan.source_target import storage_reference
 from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
@@ -78,7 +79,8 @@ def discover_runtime_scans() -> dict[str, int | str]:
 
 def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
                         total_findings: int = 0, counts: dict[str, int] | None = None,
-                        error_message: str | None = None) -> None:
+                        error_message: str | None = None, phase: str | None = None,
+                        task_id: str | None = None) -> None:
     """Keep durable scan status aligned with Celery progress."""
     identity = parse_image_reference(image_name)
     now = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -98,6 +100,9 @@ def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
         elif scan.status == ScanStatus.CANCELLED and status not in {ScanStatus.FAILED, ScanStatus.PARTIAL}:
             return
         scan.status = status.value
+        scan.phase = phase or status.value
+        if task_id:
+            scan.task_id = task_id
         scan.total_findings = total_findings
         scan.critical_count = (counts or {}).get("critical", 0)
         scan.high_count = (counts or {}).get("high", 0)
@@ -116,6 +121,59 @@ def _safe_update_scan_record(*args, **kwargs) -> None:
         _update_scan_record(*args, **kwargs)
     except Exception:
         logger.exception("Unable to update durable scan state")
+
+
+def _record_scan_event(scan_id: str, event_type: AuditEventType, detail: dict) -> None:
+    """Record worker outcomes without allowing audit persistence to fail a scan."""
+    try:
+        with get_db_session() as session:
+            AuditLogRepository.record(
+                session, event_type=event_type, entity_type="scan", entity_id=scan_id,
+                detail=detail, actor="celery-worker", actor_kind="system",
+            )
+    except Exception:
+        logger.exception("Unable to record scan audit event %s", scan_id)
+
+
+def _scan_was_cancelled(scan_id: str) -> bool:
+    try:
+        with get_db_session() as session:
+            scan = session.query(Scan).filter_by(scan_id=scan_id).first()
+            return bool(scan and scan.status == ScanStatus.CANCELLED)
+    except Exception:
+        # Unit tests and scanner-only harnesses may intentionally omit a DB.
+        return False
+
+
+def _write_severity_snapshot(image_name: str, scan_id: str) -> None:
+    """Persist today's current posture so the dashboard trend has real data."""
+    identity = parse_image_reference(image_name)
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    snapshot_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    with get_db_session() as session:
+        image = session.query(Image).filter_by(
+            registry_name=identity.registry, repo_name=identity.repo_name, tag=identity.tag,
+        ).first()
+        if image is None:
+            return
+        findings = session.query(ScanFinding).filter(
+            ScanFinding.image_id == image.id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)
+        ).all()
+        counts = {severity.value: 0 for severity in DbSeverity}
+        for finding in findings:
+            if finding.severity:
+                counts[finding.severity.value] = counts.get(finding.severity.value, 0) + 1
+        snapshot = session.query(SeveritySnapshot).filter_by(
+            image_id=image.id, snapshot_date=snapshot_date
+        ).first()
+        if snapshot is None:
+            snapshot = SeveritySnapshot(image_id=image.id, snapshot_date=snapshot_date)
+            session.add(snapshot)
+        snapshot.critical_count = counts.get("critical", 0)
+        snapshot.high_count = counts.get("high", 0)
+        snapshot.medium_count = counts.get("medium", 0)
+        snapshot.low_count = counts.get("low", 0)
+        snapshot.total_open = len(findings)
 
 
 def create_shared_scan_cache():
@@ -289,7 +347,11 @@ def run_scan(
         scanners,
     )
 
-    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING)
+    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING, phase="starting", task_id=self.request.id)
+    _record_scan_event(scan_id, AuditEventType.SCAN_STARTED, {
+        "action": "worker_started", "phase": "starting", "task_id": self.request.id,
+        "image_name": image_name, "scanners": scanners,
+    })
 
     # Task state tracking
     self.update_state(
@@ -302,9 +364,22 @@ def run_scan(
     scanners_completed: list[str] = []
     scanners_failed: list[str] = []
 
+    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING,
+                             phase="scanning", task_id=self.request.id)
+
     # Run all scanners concurrently with isolated error handling. The helper
     # preserves configured order even when completion order differs.
     scanner_results = run_scanners_concurrently(scanners, image_name, cache=create_shared_scan_cache())
+    if _scan_was_cancelled(scan_id):
+        _record_scan_event(scan_id, AuditEventType.SCAN_CANCELLED, {
+            "action": "worker_stopped_after_cancel", "phase": "scanning",
+            "task_id": self.request.id, "image_name": image_name,
+        })
+        return {
+            "scan_id": scan_id, "image_name": image_name, "status": "cancelled",
+            "findings": 0, "scanners_completed": [], "scanners_failed": [],
+            "persisted": 0, "errors": [{"component": "worker", "error": "scan_cancelled"}],
+        }
     for scanner_name, status, data in scanner_results:
         if status == "ok":
             all_findings.extend(data)
@@ -334,7 +409,12 @@ def run_scan(
             },
         )
         _safe_update_scan_record(scan_id, storage_name, ScanStatus.FAILED,
-                                 error_message="all configured scanners failed")
+                                 error_message="all configured scanners failed", phase="failed",
+                                 task_id=self.request.id)
+        _record_scan_event(scan_id, AuditEventType.SCAN_FAILED, {
+            "action": "worker_failed", "phase": "scanning", "task_id": self.request.id,
+            "errors": errors, "image_name": image_name,
+        })
         return {
             "scan_id": scan_id,
             "image_name": image_name,
@@ -391,6 +471,20 @@ def run_scan(
         scan_id, storage_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
         total_findings=len(deduped), counts=counts,
         error_message="; ".join(error.get("error", "") for error in errors) or None,
+        phase="completed" if status == "completed" else "partial", task_id=self.request.id,
+    )
+    if status == "completed":
+        try:
+            _write_severity_snapshot(storage_name, scan_id)
+        except Exception:
+            logger.exception("Unable to write severity snapshot for scan %s", scan_id)
+    _record_scan_event(
+        scan_id,
+        AuditEventType.SCAN_COMPLETED if status == "completed" else AuditEventType.SCAN_FAILED,
+        {"action": "worker_finished", "phase": status, "task_id": self.request.id,
+         "status": status, "findings": len(deduped), "persisted": persisted,
+         "scanners_completed": scanners_completed, "scanners_failed": scanners_failed,
+         "errors": errors, "image_name": image_name},
     )
 
     # Build result summary

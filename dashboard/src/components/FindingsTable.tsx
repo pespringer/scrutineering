@@ -98,7 +98,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
               </tr>
             ) : sorted.map((f, i) => (
               <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
-                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400" /></td>}
+                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} disabled={Boolean(f.remediation_id)} title={f.remediation_id ? `Already included in remediation #${f.remediation_id}` : undefined} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40" /></td>}
                 <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
                   {f.cve_id ? (
                     <a
@@ -132,6 +132,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
                   ) : (
                     <span className="text-slate-600">-</span>
                   )}
+                  {f.remediation_id ? <span className="ml-2 rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200">Remediation #{f.remediation_id}</span> : null}
                 </td>
               </tr>
             ))}

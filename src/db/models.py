@@ -271,6 +271,8 @@ class Scan(Base):
     # Status
     status: Mapped[ScanStatus] = mapped_column(
         Enum(ScanStatus, values_callable=_enum_values), nullable=False, default=ScanStatus.PENDING)
+    phase: Mapped[str] = mapped_column(String(64), nullable=False, default="queued")
+    task_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # Counters — set on completion
     total_findings: Mapped[int] = mapped_column(Integer, default=0)

@@ -51,6 +51,13 @@ internal Compose network unless `docker-compose.host-access.yml` is explicitly
 selected.
 The worker image and Compose service expose health checks for early failure
 detection.
+The Images workspace at `http://localhost:3001/images` also reads the local
+registry catalog, showing repositories, tags, immutable digests, scan state,
+open findings, and scan/rescan actions in one view.
+
+The operator workflow is documented in [Product coherence guide](docs/operations/product-coherence.md).
+The dashboard shows live scan phases, durable worker outcomes, severity trends,
+and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
 
 Provider publication and callbacks are gated by explicit configuration. Use
 `npm run drill:staging-provider` to exercise normalized merge callbacks,
@@ -86,6 +93,24 @@ curl -I http://localhost:3001/dashboard
 docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
 docker compose exec app node scripts/run-verification-harness.mjs
 ```
+
+The default Compose stack also starts a persistent local OCI registry at
+`http://localhost:5000`. Push images from the host using `localhost:5000`,
+then scan them from the application network using `registry:5000`:
+
+```bash
+docker compose ps registry
+docker tag your-image:tag localhost:5000/scrutineering-test:latest
+docker push localhost:5000/scrutineering-test:latest
+# Use registry:5000/scrutineering-test:latest in the dashboard scan form.
+curl http://localhost:5000/v2/
+```
+
+Registry data is stored in the `registrydata` Compose volume. The development
+registry uses HTTP and is intentionally enabled only for local testing; use a
+TLS-protected registry and set `REGISTRY_INSECURE=false` outside local
+development. See [local registry operations](docs/operations/local-registry.md)
+for the complete workflow.
 
 ## Development Setup
 

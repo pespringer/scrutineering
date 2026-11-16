@@ -142,6 +142,14 @@ class TestTrivyParser:
 # -- Grype parser tests ---------------------------------------------------- #
 
 class TestGrypeParser:
+    def test_local_registry_images_use_grype_registry_source(self, monkeypatch):
+        monkeypatch.setenv("LOCAL_REGISTRY_HOST", "registry:5000")
+        scanner = GrypeScanner(grype_cmd="echo")
+        # The command is exercised by the integration path; this assertion
+        # documents the supported registry source prefix without requiring the
+        # vulnerability database in a unit test.
+        assert scanner._registry_scan_target("registry:5000/app:latest") == "registry:registry:5000/app:latest"
+
     def test_parse_single_match(self):
         scanner = GrypeScanner(grype_cmd="echo")
         grype_json = """

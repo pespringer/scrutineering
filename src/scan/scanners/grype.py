@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import os
 from typing import Optional
 
 from .base import ScannerAdapter, ScannerFinding, ScannerError
@@ -48,12 +49,14 @@ class GrypeScanner(ScannerAdapter):
             ScannerError: If Grype fails to run or produces malformed output.
         """
         root = filesystem_path(image_name)
-        scan_target = f"dir:{root}" if root is not None else image_name
-        result = await asyncio.create_subprocess_exec(
-            self.grype_cmd,
+        scan_target = self._registry_scan_target(image_name) if root is None else f"dir:{root}"
+        command = [self.grype_cmd,
             "-o", "json",
             "-q",
             scan_target,
+        ]
+        result = await asyncio.create_subprocess_exec(
+            *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -78,6 +81,13 @@ class GrypeScanner(ScannerAdapter):
 
         if len(stdout) > self.max_output_bytes: raise ScannerError("grype", "scan output exceeds size limit")
         return self._parse_grype_output(stdout.decode(errors="replace"), root_path=root)
+
+    @staticmethod
+    def _registry_scan_target(image_name: str) -> str:
+        local_registry = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+        if local_registry and image_name.startswith(f"{local_registry}/"):
+            return f"registry:{image_name}"
+        return image_name
 
     def _parse_grype_output(self, raw_json: str, root_path=None) -> list[ScannerFinding]:
         """Parse Grype JSON output into normalized findings."""

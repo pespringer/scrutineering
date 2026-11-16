@@ -63,6 +63,7 @@ def resolve_registry_digest(
     reference: str,
     *,
     token: str | None = None,
+    scheme: str = "https",
     opener=urlopen,
 ) -> str:
     """Resolve a tag through the OCI Registry v2 manifest API."""
@@ -70,7 +71,9 @@ def resolve_registry_digest(
         raise ValueError("invalid registry image coordinates")
     if any(part in {".", ".."} for part in repository.split("/")):
         raise ValueError("invalid repository path")
-    url = f"https://{registry}/v2/{repository}/manifests/{reference}"
+    if scheme not in {"http", "https"}:
+        raise ValueError("registry scheme must be http or https")
+    url = f"{scheme}://{registry}/v2/{repository}/manifests/{reference}"
     headers = {"Accept": ", ".join([
         "application/vnd.oci.image.manifest.v1+json",
         "application/vnd.docker.distribution.manifest.v2+json",
@@ -118,7 +121,7 @@ def detect_registry(image_name: str) -> str:
         return "gitlab"
 
     # Harbor / private registry (contains a dot but not a known public one)
-    if "." in first_part:
+    if "." in first_part or ":" in first_part or first_part == "registry":
         if first_part.endswith("harbor") or "harbor" in first_part.lower():
             return "harbor"
         return first_part  # Treat as private registry host
@@ -299,9 +302,20 @@ async def resolve_image_digest_with_fallback(image_name: str, token: str | None 
         identity = parse_image_reference(image_name)
         host = "registry-1.docker.io" if identity.registry.value == "dockerhub" else identity.registry.value
         repository = identity.repo_name
+        if "/" in image_name:
+            candidate_host, remainder = image_name.split("/", 1)
+            if "." in candidate_host or ":" in candidate_host or candidate_host == "registry":
+                host = candidate_host
+                repository = remainder
+        reference = identity.tag
+        if "@" in repository:
+            repository, reference = repository.rsplit("@", 1)
+        elif ":" in repository.rsplit("/", 1)[-1]:
+            repository, reference = repository.rsplit(":", 1)
         if host == "registry-1.docker.io" and "/" not in repository:
             repository = f"library/{repository}"
         try:
-            return await asyncio.to_thread(resolve_registry_digest, host, repository, identity.tag, token=token)
+            scheme = "http" if os.environ.get("REGISTRY_INSECURE", "false").lower() in {"1", "true", "yes"} else "https"
+            return await asyncio.to_thread(resolve_registry_digest, host, repository, reference, token=token, scheme=scheme)
         except Exception as remote_error:
             raise RuntimeError(f"local and remote digest resolution failed: {local_error}; {remote_error}") from remote_error
