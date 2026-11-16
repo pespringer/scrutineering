@@ -36,7 +36,6 @@ tell the difference between “nothing has been scanned” and “the risk is go
 
 ## External gates
 
-Provider publication, deployment observation, and live alert delivery are
-optional gates. They are intentionally shown as deferred when their provider,
-ingress, or receiver configuration is absent. Local scanning, finding triage,
+Provider publication is an optional gate. It stays off until a provider token,
+`REMEDIATION_ALLOWED_REPOSITORIES`, and the push and publication flags are set. Local scanning, finding triage,
 remediation planning, and verification remain usable without those integrations.

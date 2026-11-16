@@ -88,10 +88,9 @@ From the repository root:
 
 ```bash
 docker compose up -d
-docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade heads
+make migrate
 curl http://localhost:8000/health
-npm run smoke:dashboard
-npm run drill:staging-provider
+make smoke
 ```
 
 The provider webhook path is the one deliberate exception to the internal API
@@ -102,7 +101,7 @@ requirements.
 
 Then use GitHub’s webhook **Test delivery** or create one controlled staging
 pull request. Confirm the delivery is successful, the callback appears in the
-remediation timeline, and reconciliation reports the publication state.
+remediation timeline, and the publication shows its verification status.
 
 ## Cleanup
 

@@ -20,6 +20,5 @@ configuration validator rejects a worker pool that omits any priority queue.
 
 Scanner result caches can use `RedisScanCache` for cross-worker reuse. The
 adapter keys entries by scanner plus immutable image reference, applies a
-bounded TTL and entry size, and works with the async Redis client. `ScanService`
-awaits either the local filesystem cache or the shared adapter, so callers do
-not need separate orchestration paths.
+bounded TTL and entry size. The Celery worker uses the synchronous adapter
+(`SyncRedisScanCache`) when a Redis URL is configured.

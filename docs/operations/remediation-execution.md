@@ -49,51 +49,16 @@ than publish if any gate or token is missing.
 
 GitHub and GitLab merge callbacks often identify the merge but do not include
 the deployed image digest or a completed post-merge scan. In that case the API
-queues one correlated follow-up scan and records the publication as `pending`;
-the verifier persists its findings but does not claim success until deployment
-digest evidence is supplied. For filesystem remediations, set
+queues one correlated follow-up scan and records the publication as `pending`
+until that scan completes. For filesystem remediations, set
 `REMEDIATION_SCAN_REPOSITORY_ROOT` to the path visible inside the worker
 (Compose defaults to `/workspace/repository`).
-Once that scan is terminal, a security operator can submit only the expected
-and observed digests to `/api/dashboard/remediations/publications/{id}/deployment-evidence`;
-the API derives the scan counts and applies the same idempotent verification
-policy.
-For an automated release source, configure `DEPLOYMENT_EVIDENCE_SECRET` and
-POST the same digest payload to `/api/dashboard/deployment-evidence` with a
-unique `x-deployment-event-id` and HMAC-SHA256 `x-deployment-signature`.
-Rotate this secret with the deployment workflow credentials; missing or
-replayed signatures fail closed.
 
-A deployment workflow can send the observation after rollout verification:
+## Validation
 
-The repository includes `.github/workflows/deployment-evidence.yml` for this
-handoff. Run it from **Actions → Deployment Evidence → Run workflow** after
-the deployment, provide the public tunnel URL, publication ID, verified digest,
-and digest resolved from the running workload. It uses the repository secret
-`DEPLOYMENT_EVIDENCE_SECRET` and does not request GitHub API permissions.
-
-```bash
-payload=$(jq -nc --argjson publication_id "$PUBLICATION_ID" \
-  --arg expected_digest "$EXPECTED_DIGEST" --arg observed_digest "$DEPLOYED_DIGEST" \
-  '{publication_id:$publication_id,expected_digest:$expected_digest,observed_digest:$observed_digest}')
-signature=$(printf %s "$payload" | openssl dgst -sha256 -hmac "$DEPLOYMENT_EVIDENCE_SECRET" -hex | awk '{print $2}')
-curl --fail-with-body -X POST "$SCRUTINEERING_URL/api/dashboard/deployment-evidence" \
-  -H 'content-type: application/json' -H "x-deployment-event-id: $GITHUB_RUN_ID" \
-  -H "x-deployment-signature: sha256=$signature" --data "$payload"
-```
-
-The deployer, not the scanner, is the source of `DEPLOYED_DIGEST`; it should
-come from the orchestrator's resolved image or rollout status rather than a
-mutable tag.
-
-## Recovery and validation
-
-Remediation lifecycle transitions emit ordered events through the durable event
-store. Workers can reconstruct a lifecycle with `RemediationLifecycle.recover`
-after restart; missing or out-of-order sequences fail closed. Use
-`build_provider_validation_commands()` to create the required install, test,
-build, SBOM, and rescan gates for GitHub Actions or GitLab CI and the Node or
-Python ecosystem.
+`build_provider_validation_commands()` creates the required install, test,
+build, SBOM, and rescan gates for the GitHub Actions or GitLab CI provider and
+the Node or Python ecosystem.
 
 Production callers can set `release_evidence=True` on `execute_remediation()`
 to force the configured Cosign keyless policy through `verify_release_evidence`;
@@ -188,8 +153,8 @@ PY
 ```
 
 The scan creates an image named `local/source-fixture:filesystem`. Open it in
-the dashboard, select its fixable findings, and create a remediation. Issue an
-approval token, approve the remediation, then select **Queue execution**. The
+the dashboard, select its fixable findings, and create a remediation. Approve it
+(security-operator role), then select **Queue execution**. The
 worker should create a remediation result using the mounted checkout; no image
 registry is involved. The checkout is intentionally disposable and may be
 reset with `git -C .local/remediation-repo/source-fixture clean -fdx` followed by

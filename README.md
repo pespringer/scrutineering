@@ -7,7 +7,8 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 > **Reset in progress.** Work follows [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
 > Phases 1a–1d removed the Node planner, the Python subsystems the dashboard
 > never called, and the remediation side systems, and squashed the database
-> migrations into one baseline; Phase 1e trims scripts and docs.
+> migrations into one baseline. Phase 1e trimmed scripts and docs; Phase 2 fixes
+> the scan and finding data model.
 
 ```
 scrutineering/
@@ -55,10 +56,7 @@ The operator workflow is documented in [Product coherence guide](docs/operations
 The dashboard shows live scan phases, durable worker outcomes, severity trends,
 and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
 
-Provider publication and callbacks are gated by explicit configuration. Use
-`PYTHONPATH=. python scripts/run-staging-provider-post-merge-drill.py` to exercise normalized merge callbacks,
-post-merge verification, and rollback output with deterministic fixtures.
-Provider merge callbacks queue a correlated worker rescan and remain `pending`
+Provider publication and callbacks are gated by explicit configuration. Provider merge callbacks queue a correlated worker rescan and remain `pending`
 until it completes; see [remediation execution operations](docs/operations/remediation-execution.md)
 for the `REMEDIATION_SCAN_REPOSITORY_ROOT` setting used by filesystem scans.
 
@@ -202,19 +200,10 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 
 ## Documentation
 
-- [Architecture Decision Records](docs/adr/)
-- [Database Schema Design](docs/db-schema-design.md)
-- [Operations Playbook](docs/operations/on-call-playbook.md)
-- [GitHub and Cloudflare staging callback setup](docs/operations/github-cloudflare-staging.md)
-- [GitHub Publication Boundary](docs/operations/github-publication.md)
-- [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
-- [Remediation Execution](docs/operations/remediation-execution.md)
-- [Evidence Generation and Verification](docs/security/evidence-generation.md)
-- [Scan Queue Priorities](docs/operations/scan-queues.md)
-- [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
-- [Reset Plan](docs/RESET-PLAN.md) (current work; supersedes the upgrade roadmap)
-- [Upgrade Roadmap](docs/upgrade-roadmap.md)
-- [Dashboard Operations](docs/operations/dashboard.md)
-- Deployment manifests can be checked with `make check`.
-- [Staging Readiness Validation](docs/operations/staging-readiness.md)
-- [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
+- [Reset Plan](docs/RESET-PLAN.md): current work
+- [Documentation index](docs/README.md)
+- [Dashboard API v1](docs/api/dashboard-v1.md)
+- [Product coherence guide](docs/operations/product-coherence.md)
+- [Local registry](docs/operations/local-registry.md)
+- [Remediation execution](docs/operations/remediation-execution.md)
+- [Product requirements](docs/PRD.md)

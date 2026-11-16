@@ -252,6 +252,34 @@ make up && make migrate
   `tests/`), and `tests/test_v1_readiness.py`, `test_v1_1_readiness.py`, and
   `test_production_*.py` outright.
 
+**Status: done.** Changes beyond the list above:
+- **`scripts/backup-postgres.py`** had been importing the removed
+  `src/remediation/backup.py` since 1b, so it was replaced by a tested
+  `make backup` target (`pg_dump` to `./backups/`, git-ignored).
+  `src/scan/registry_diagnostics.py` was removed with its script.
+- **Kept scripts:**
+  - repository checks: doc links, deployment config, frontend config, and
+    the dashboard build check (`dashboard/package.json` uses it)
+  - `smoke-dashboard.mjs` and `smoke-live-scan.mjs` (`make smoke`)
+  - `smoke-milestone1.mjs` and `verify-live-scan-edges.mjs` were removed:
+    they overlapped `smoke-live-scan.mjs`, and Phase 3's golden-path test
+    replaces them.
+- **Docs, 66 → 18:**
+  - Removed as well as the list above: the production readiness checklist,
+    on-call playbook, scanning-engine design, scanner resilience, remediation
+    lifecycle, and staging readiness and post-merge drills. These described
+    the Node CI and rollout controls, `ScanService`, or deleted scripts.
+  - `docs/api/dashboard-v1.md` was rewritten from the current route table,
+    including the required roles.
+  - The kept operations docs were corrected, and the ADR is marked superseded.
+  - Every relative link in the docs resolves.
+- **Tests:** the tests for removed modules came out in 1a–1d as each group landed.
+
+**Phase 1 result:**
+- tracked files: 593 → 233
+- non-test source: 324 files / ~26k lines → 115 files / ~8.6k lines
+- Compose services: 8 → 7
+
 **Phase 1 is done when:**
 - `docker compose up` starts exactly these services: `api`, `dashboard`,
   `celery-worker`, `celery-beat`, `postgres`, `redis`, `registry`.
@@ -281,6 +309,9 @@ The bugs found in the review, each with a regression test.
   `storage_reference(raw)`. For `fs:` targets these produce different records.
   Create the image record only in the API and pass `image_id` to the worker.
   The worker must never create an image.
+  Also fix the display name: local-registry images render as
+  `other/registry:5000/repo:tag`, because the `other` registry label is
+  prepended to a name that already includes the host.
 - [ ] **Fail honestly.**
   - If saving findings fails, mark the scan `failed` instead of `completed`
     (`src/scan/tasks.py:441`).

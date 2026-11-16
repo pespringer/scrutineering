@@ -24,7 +24,7 @@ docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml up 
 
 Discovery runs every 15 minutes, deduplicates image references across running
 containers, and submits scans through the existing `scan.low` queue. Partial
-runtime access or a missing CLI produces an empty discovery result; operators
-should use `npm run probe:deployment-observation` to validate deployment
-evidence access separately. Containerd mode uses `SCAN_RUNTIME_USE_CONTAINERD`
+runtime access or a missing CLI produces an empty discovery result. The worker
+image needs the `docker` CLI and the socket override above for Docker discovery.
+Containerd mode uses `SCAN_RUNTIME_USE_CONTAINERD`
 and `SCAN_RUNTIME_CONTAINERD_NAMESPACE` and requires `ctr` in the worker image.

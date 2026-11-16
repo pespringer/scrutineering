@@ -6,10 +6,10 @@ Run the composed FastAPI application with:
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 ```
 
-`src.api.app:create_app()` mounts the scan-data v1, runtime monitoring,
-analytics, and forensics routers. `/health` is intentionally lightweight;
-database readiness and authenticated cross-service access remain deployment
-configuration work.
+`src.api.app:create_app()` mounts the dashboard router (`/api/dashboard/*`;
+see [Dashboard API v1](dashboard-v1.md)). `/health` is a lightweight liveness
+check, `/ready` checks database connectivity, `/version` reports the configured
+version, and `/metrics` serves Prometheus text metrics.
 
 All responses receive a safe `X-Request-ID`; callers may supply a matching
 identifier for cross-service tracing.
