@@ -61,7 +61,6 @@ jobs:
   # ------------------------------------------------
   format-check:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -70,8 +69,10 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
       - name: Ruff format check
+        continue-on-error: true
         run: uvx ruff@0.6.9 format --check src tests
       - name: Prettier check
+        continue-on-error: true
         working-directory: dashboard
         run: npx --yes prettier@3.3.3 --check "src/**/*.{ts,tsx,css}"
 
