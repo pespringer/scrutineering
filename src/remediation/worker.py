@@ -1,253 +1,196 @@
-"""Fail-closed Celery boundary for approved remediation execution."""
+"""Execute an approved remediation: patch the source, build a candidate image, and verify it by scanning.
+
+    building:  clone the image's source, apply each planned action, record the patch,
+               build the candidate with BuildKit and push it to the local registry
+    verifying: scan the candidate with the same scanners; the targeted vuln_keys must be gone
+    → ready             nothing new at critical/high
+    → needs_acceptance  new critical/high findings (decision D6); an operator decides
+    → failed            any step failed; `error_message` says which and why
+
+The server decides every outcome from what it checked out, built, and scanned itself.
+"""
 
 from __future__ import annotations
 
-import os
-import json
-import subprocess
-import hashlib
-from datetime import datetime, timezone
+import logging
+import tempfile
+from pathlib import Path
 
 from celery import shared_task
 
 from src.db.connection import get_session
-from src.db.models import RemediationPublication, RemediationStatus
+from src.db.models import Image, Remediation, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
-from src.remediation.state_machine import ACTIVE
-from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
-from .publisher import publish_remediation_branch
-from .publication import build_publication_plan
-from .provider_publishers import publish_validated_plan
+from src.remediation.apply import ApplyError, apply_action
+from src.remediation.build import BuildError, BuiltImage, build_and_push, checkout, diff
+from src.remediation.sources import SourceError, settings_from_record
+from src.scan.image_identity import parse_image_reference
+from src.scan.inspection import inspect_image
+from src.scan.registry import credentials_for_host, list_tags
+from src.scan.settings import ScannerSettings
+from src.scan.utils.db import make_vuln_key
+
+logger = logging.getLogger(__name__)
+
+MAX_PATCH_BYTES = 200_000
+BLOCKING_SEVERITIES = {"critical", "high"}
+RUNNING = {RemediationStatus.BUILDING, RemediationStatus.VERIFYING}
 
 
-def execution_enabled() -> bool:
-    return os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() in {"1", "true", "yes"}
+class RemediationStopped(Exception):
+    """The remediation left `building`/`verifying` while running (for example, it was cancelled)."""
 
 
-def _blocked(session, remediation_id: int, reason: str) -> dict:
-    remediation = RemediationRepository.get_by_id(session, remediation_id)
-    if remediation is not None:
-        if remediation.status in ACTIVE:
-            RemediationRepository.update_status(
-                session,
-                remediation_id,
-                RemediationStatus.FAILED,
-                error_message=reason,
-            )
-        else:
-            remediation.error_message = reason
-    events = RemediationRepository.list_events(session, remediation_id)
-    if events and events[-1].event_type == "execution_blocked" and events[-1].detail.get("reason") == reason:
-        return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
-    RemediationRepository.append_event(
-        session,
+def candidate_reference(image: Image, remediation_id: int) -> str:
+    """Where the candidate is pushed: the image's repository path, in the local registry."""
+    repository = parse_image_reference(image.full_name).repository
+    registry = ScannerSettings.from_env().local_registry_host
+    return f"{registry}/{repository}:scrutineering-candidate-{remediation_id}"
+
+
+def registry_tags(image: str) -> list[str]:
+    """Tags of a base image, for base-image bumps. Uses the scan credentials for its registry."""
+    identity = parse_image_reference(image)
+    scheme = "http" if ScannerSettings.from_env().insecure_host(identity.host) else "https"
+    return list_tags(identity, credentials=credentials_for_host(identity.host), scheme=scheme)
+
+
+def verdict(targets: set[str], baseline: set[str], findings: list[dict]) -> dict:
+    """Compare the candidate's findings with the targets and with what the image already had."""
+
+    def key(item: dict) -> str:
+        return make_vuln_key(item.get("cve_id") or "", item["package_name"])
+
+    new_blocking = [
         {
-            "remediation_id": remediation_id,
-            "event_type": "execution_blocked",
-            "sequence": len(events) + 1,
-            "detail": {"reason": reason},
-        },
-    )
-    return {"remediation_id": remediation_id, "status": "blocked", "reason": reason}
-
-
-def _publish_branch(session, remediation, branch_name: str, commit: str) -> dict:
-    """Publish one validated branch through the existing provider gates."""
-    provider = os.environ.get("REMEDIATION_PUBLICATION_PROVIDER", "github").strip().lower()
-    repository = os.environ.get("REMEDIATION_PUBLICATION_REPOSITORY", "").strip()
-    base = os.environ.get("REMEDIATION_PUBLICATION_BASE", "main").strip()
-    allowed = {
-        value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()
-    }
-    idempotency_key = f"remediation-{remediation.id}-{commit}"
-    plan = build_publication_plan(
-        provider=provider,
-        repository=repository,
-        head=branch_name,
-        base=base,
-        idempotency_key=idempotency_key,
-        commit=commit,
-        evidence_verified=True,
-        allowed_repositories=allowed,
-    )
-    title = f"Apply verified security remediation #{remediation.id}"
-    body = (
-        "This pull request was created by Scrutineering after approval, "
-        "signed evidence verification, isolated validation, and a clean "
-        f"remediation commit ({commit}).\n\nRemediation: {remediation.id}"
-    )
-    request_hash = hashlib.sha256(
-        json.dumps(
-            {
-                "provider": plan.provider,
-                "repository": plan.repository,
-                "head": plan.head,
-                "base": plan.base,
-                "commit": commit,
-            },
-            sort_keys=True,
-        ).encode()
-    ).hexdigest()
-    publication = (
-        session.query(RemediationPublication)
-        .filter_by(
-            provider=plan.provider,
-            repository=plan.repository,
-            idempotency_key=plan.idempotency_key,
-        )
-        .first()
-    )
-    if publication and publication.status == "published":
-        return {
-            "publication_id": publication.id,
-            "status": publication.status,
-            "number": publication.provider_number,
-            "url": publication.url,
+            "cve_id": item.get("cve_id"),
+            "package_name": item["package_name"],
+            "package_version": item.get("package_version"),
+            "severity": str(item.get("severity") or "").lower(),
         }
-    publication = publication or RemediationPublication(
-        remediation_id=remediation.id,
-        provider=plan.provider,
-        repository=plan.repository,
-        idempotency_key=plan.idempotency_key,
-        status="pending",
-        request_hash=request_hash,
-    )
-    session.add(publication)
-    session.flush()
-    token = os.environ.get("GITHUB_TOKEN" if plan.provider == "github" else "GITLAB_TOKEN", "")
-    try:
-        result = publish_validated_plan(
-            provider=plan.provider,
-            repository=plan.repository,
-            title=title,
-            body=body,
-            head=plan.head,
-            base=plan.base,
-            token=token,
-            idempotency_key=plan.idempotency_key,
+        for item in findings
+        if str(item.get("severity") or "").lower() in BLOCKING_SEVERITIES and key(item) not in baseline
+    ]
+    return {
+        "targeted": len(targets),
+        "still_present": sorted(targets & {key(item) for item in findings}),
+        "new_critical_or_high": sorted(new_blocking, key=lambda item: (item["cve_id"] or "", item["package_name"])),
+        "candidate_findings": len(findings),
+    }
+
+
+def _advance(remediation_id: int, expected: RemediationStatus, target: RemediationStatus, **values) -> None:
+    """Record `values` and move to `target`, unless someone else changed the status meanwhile."""
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None or remediation.status != expected:
+            raise RemediationStopped(remediation.status.value if remediation else "deleted")
+        for name, value in values.items():
+            setattr(remediation, name, value)
+        if target != expected:
+            RemediationRepository.update_status(session, remediation_id, target)
+
+
+def _event(remediation_id: int, event_type: str, detail: dict) -> None:
+    with get_session() as session:
+        RemediationRepository.record_event(session, remediation_id, event_type, detail)
+
+
+def _fail(remediation_id: int, reason: str) -> dict:
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is not None and remediation.status in RUNNING:
+            RemediationRepository.update_status(
+                session, remediation_id, RemediationStatus.FAILED, error_message=reason[:4000]
+            )
+            RemediationRepository.record_event(session, remediation_id, "failed", {"reason": reason[:1000]})
+    return {"remediation_id": remediation_id, "status": "failed", "reason": reason}
+
+
+def _load(remediation_id: int) -> dict:
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        if remediation is None:
+            raise RemediationStopped("deleted")
+        if remediation.status != RemediationStatus.BUILDING:
+            raise RemediationStopped(remediation.status.value)
+        image = remediation.image
+        if image.source is None:
+            raise SourceError("the image has no connected source")
+        open_keys = session.query(ScanFinding.vuln_key).filter(
+            ScanFinding.image_id == image.id, ScanFinding.resolved_at.is_(None)
         )
-    except Exception as exc:
-        publication.status = "failed"
-        publication.error_message = str(exc)[:1000]
-        publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        raise
-    publication.status = "published"
-    publication.provider_number = result.number
-    publication.url = result.url
-    publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-    remediation.pr_url = result.url
-    remediation.pr_number = result.number
-    remediation.status = RemediationStatus.READY
-    return {"publication_id": publication.id, "status": publication.status, "number": result.number, "url": result.url}
+        return {
+            "settings": settings_from_record(image.source),
+            "actions": [dict(action.detail or {}) for action in remediation.actions],
+            "targets": {finding.vuln_key for finding in remediation.findings},
+            "baseline": {vuln_key for (vuln_key,) in open_keys},
+            "candidate": candidate_reference(image, remediation_id),
+        }
+
+
+def _patch_and_build(remediation_id: int, job: dict) -> BuiltImage:
+    with tempfile.TemporaryDirectory(prefix="scrutineering-remediation-") as workdir:
+        source, commit = checkout(job["settings"], Path(workdir))
+        applied = [apply_action(source, detail, registry_tags) for detail in job["actions"]]
+        patch = diff(source)
+        if not patch.strip():
+            raise ApplyError("the actions changed nothing in the source")
+        _advance(
+            remediation_id,
+            RemediationStatus.BUILDING,
+            RemediationStatus.BUILDING,
+            source_commit=commit,
+            patch=patch[:MAX_PATCH_BYTES],
+        )
+        _event(remediation_id, "patched", {"commit": commit, "applied": applied})
+        return build_and_push(source, job["settings"].build_args, job["candidate"])
+
+
+def run_remediation(remediation_id: int) -> dict:
+    """Run one remediation from `building` to a resting status. Every exit leaves it out of `building`."""
+    try:
+        job = _load(remediation_id)
+        built = _patch_and_build(remediation_id, job)
+        _advance(
+            remediation_id,
+            RemediationStatus.BUILDING,
+            RemediationStatus.VERIFYING,
+            candidate_image=built.reference,
+            candidate_digest=built.digest,
+        )
+        _event(remediation_id, "built", {"candidate": built.reference, "digest": built.digest})
+
+        scan = inspect_image(f"{built.reference.rsplit(':', 1)[0]}@{built.digest}")
+        if not scan.complete:
+            raise BuildError("the candidate scan did not complete: " + "; ".join(scan.errors)[:1500])
+        result = verdict(job["targets"], job["baseline"], scan.findings)
+        if result["still_present"]:
+            _advance(remediation_id, RemediationStatus.VERIFYING, RemediationStatus.VERIFYING, verification=result)
+            count = len(result["still_present"])
+            return _fail(remediation_id, f"the patched image still has {count} of the targeted findings")
+        outcome = RemediationStatus.NEEDS_ACCEPTANCE if result["new_critical_or_high"] else RemediationStatus.READY
+        _advance(
+            remediation_id,
+            RemediationStatus.VERIFYING,
+            outcome,
+            verification=result,
+            verified=True,
+        )
+        summary = {name: value for name, value in result.items() if name != "new_critical_or_high"}
+        _event(remediation_id, "verified", {"outcome": outcome.value, **summary})
+        return {"remediation_id": remediation_id, "status": outcome.value, **result}
+    except RemediationStopped as stopped:
+        return {"remediation_id": remediation_id, "status": str(stopped), "reason": "not_running"}
+    except (SourceError, ApplyError, BuildError) as exc:
+        return _fail(remediation_id, str(exc))
+    except Exception as exc:  # leave a resting status whatever happens
+        logger.exception("Remediation %s failed unexpectedly", remediation_id)
+        return _fail(remediation_id, f"unexpected error: {exc}")
 
 
 @shared_task(
     bind=True, name="src.remediation.worker.execute_approved_remediation", acks_late=True, task_time_limit=3600
 )
 def execute_approved_remediation(self, remediation_id: int) -> dict:
-    """Validate an approved record before handing it to a configured adapter.
-
-    The adapter is intentionally not implicit: without an explicit repository
-    root and execution enablement this task performs no mutation and reports a
-    durable blocked result.
-    """
-    with get_session() as session:
-        remediation = RemediationRepository.get_by_id(session, remediation_id)
-        if remediation is None:
-            return {"remediation_id": remediation_id, "status": "blocked", "reason": "remediation_not_found"}
-        if remediation.status != RemediationStatus.BUILDING:
-            return _blocked(session, remediation_id, "remediation_not_approved")
-        events = RemediationRepository.list_events(session, remediation_id)
-        if any(event.event_type == "execution_ready" for event in events):
-            return {"remediation_id": remediation_id, "status": "ready", "reason": "already_executed"}
-        if not any(event.event_type == "execution_started" for event in events):
-            RemediationRepository.append_event(
-                session,
-                {
-                    "remediation_id": remediation_id,
-                    "event_type": "execution_started",
-                    "sequence": len(events) + 1,
-                    "detail": {"action": "execution_started"},
-                },
-            )
-        repository_root = os.environ.get("REMEDIATION_REPOSITORY_ROOT", "")
-        if not execution_enabled() or not repository_root:
-            return _blocked(session, remediation_id, "execution_adapter_not_configured")
-        if any(not action.file_path for action in remediation.actions):
-            return _blocked(session, remediation_id, "actions_require_explicit_file_paths")
-        envelope_path = os.environ.get("REMEDIATION_EVIDENCE_FILE", "")
-        artifact_path = os.environ.get("REMEDIATION_EVIDENCE_ARTIFACT_FILE", "")
-        provider = os.environ.get("REMEDIATION_VALIDATION_PROVIDER", "")
-        ecosystem = os.environ.get("REMEDIATION_VALIDATION_ECOSYSTEM", "")
-        if not envelope_path or not artifact_path or not provider or not ecosystem:
-            return _blocked(session, remediation_id, "evidence_or_validation_config_missing")
-        try:
-            envelope, artifact = load_release_evidence(envelope_path, artifact_path)
-            validation_commands = build_validation_sequence(provider, ecosystem)
-            result = execute_repository_adapter(
-                repository_root,
-                [
-                    {
-                        "file_path": action.file_path,
-                        "before_value": action.before_value,
-                        "after_value": action.after_value,
-                    }
-                    for action in remediation.actions
-                ],
-                validation_commands,
-                evidence_envelope=envelope,
-                evidence_artifact=artifact,
-                evidence_env=dict(os.environ),
-                remediation_id=str(remediation_id),
-                validation_working_directory=os.environ.get("REMEDIATION_VALIDATION_WORKING_DIRECTORY") or None,
-            )
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
-            return _blocked(session, remediation_id, f"execution_plan_invalid:{exc}")
-        if result.status != "ready":
-            return _blocked(session, remediation_id, result.error or "execution_failed")
-        branch_name = None
-        if os.environ.get("REMEDIATION_PUSH_ENABLED", "false").lower() in {"1", "true", "yes"}:
-            if not result.commit:
-                return _blocked(session, remediation_id, "validated_changes_did_not_produce_commit")
-            prefix = os.environ.get("REMEDIATION_BRANCH_PREFIX", "scrutineering/remediation").strip("/")
-            branch_name = f"{prefix}/{remediation_id}"
-            try:
-                published = publish_remediation_branch(
-                    repository_root,
-                    result.commit,
-                    branch_name,
-                    token=os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN"),
-                    remote=os.environ.get("REMEDIATION_GIT_REMOTE", "origin"),
-                )
-            except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
-                return _blocked(session, remediation_id, f"branch_publication_failed:{exc}")
-            remediation.branch_name = published["branch_name"]
-        publication = None
-        if os.environ.get("REMEDIATION_PUBLICATION_ENABLED", "false").lower() in {"1", "true", "yes"}:
-            if not branch_name:
-                return _blocked(session, remediation_id, "publication_requires_branch_push")
-            try:
-                publication = _publish_branch(session, remediation, branch_name, result.commit or "")
-            except (OSError, ValueError, KeyError, subprocess.SubprocessError) as exc:
-                return _blocked(session, remediation_id, f"provider_publication_failed:{exc}")
-        events = RemediationRepository.list_events(session, remediation_id)
-        detail = {"commit": result.commit, "branch_name": branch_name, "changed_files": result.changed_files}
-        if publication:
-            detail["publication"] = publication
-        RemediationRepository.append_event(
-            session,
-            {
-                "remediation_id": remediation_id,
-                "event_type": "execution_ready",
-                "sequence": len(events) + 1,
-                "detail": detail,
-            },
-        )
-        return {
-            "remediation_id": remediation_id,
-            "status": "ready",
-            "commit": result.commit,
-            "branch_name": branch_name,
-            "publication": publication,
-            "changed_files": result.changed_files,
-        }
+    return run_remediation(remediation_id)

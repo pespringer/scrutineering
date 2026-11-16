@@ -446,6 +446,13 @@ class Remediation(Base):
 
     # Verification
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    # What execution produced: the source commit it patched, the patch, the candidate image, and the
+    # candidate scan's verdict (targeted vuln_keys still present, new critical/high findings).
+    source_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    patch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    candidate_image: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    candidate_digest: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    verification: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

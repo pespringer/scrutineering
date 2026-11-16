@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Rebuild the golden-path fixture images and re-record their scanner output.
 #
-# Requires the running Compose stack (make up). Builds two images from
+# Requires the running Compose stack (make up). Builds images from
 # fixtures/images/vulnerable-node:
-#   before  - the fixture as committed (node:18.12-alpine, lodash 4.17.20)
-#   after   - what a successful remediation produces (node:18.20.8-alpine, lodash 4.17.21)
-# pushes both to the local registry, scans them with the worker's Trivy and
+#   before   - the fixture as committed (node:18.12-alpine, lodash 4.17.20)
+#   patched  - what the lodash remediation produces: same base, lodash 4.17.21
+#   after    - a newer base as well (node:18.20.8-alpine, lodash 4.17.21)
+# pushes them to the local registry, scans them with the worker's Trivy and
 # Grype, and writes trimmed JSON to fixtures/scanner-output/vulnerable-node/.
+#
+# Usage: scripts/record-golden-fixtures.sh [stage ...]   (default: all stages)
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,14 +21,27 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$out"
 
-docker build -q -t "$push_host/fixtures/vulnerable-node:before" "$src" >/dev/null
+stages=("${@:-before patched after}")
+read -r -a stages <<< "${stages[*]}"
 
-cp -r "$src/." "$work/"
-sed -i 's#^FROM node:18.12-alpine#FROM node:18.20.8-alpine#' "$work/Dockerfile"
-(cd "$work" && npm install --package-lock-only --ignore-scripts --no-audit --no-fund lodash@4.17.21 >/dev/null)
-docker build -q -t "$push_host/fixtures/vulnerable-node:after" "$work" >/dev/null
+build_stage() {
+  local stage="$1" dir="$work/$1"
+  cp -r "$src/." "$dir/"
+  if [ "$stage" != before ]; then
+    # The same command the remediation worker runs for a direct npm dependency.
+    (cd "$dir" && npm install lodash@4.17.21 --save --save-exact --package-lock-only --ignore-scripts \
+      --no-audit --no-fund >/dev/null)
+  fi
+  if [ "$stage" = after ]; then
+    sed -i 's#^FROM node:18.12-alpine#FROM node:18.20.8-alpine#' "$dir/Dockerfile"
+  fi
+  docker build -q -t "$push_host/fixtures/vulnerable-node:$stage" "$dir" >/dev/null
+}
 
-for stage in before after; do
+for stage in "${stages[@]}"; do
+  case "$stage" in before|patched|after) ;; *) echo "unknown stage: $stage" >&2; exit 2 ;; esac
+  mkdir -p "$work/$stage"
+  build_stage "$stage"
   docker push -q "$push_host/fixtures/vulnerable-node:$stage" >/dev/null
   ref="$scan_host/fixtures/vulnerable-node:$stage"
   docker compose -f "$root/docker-compose.yml" exec -T celery-worker \

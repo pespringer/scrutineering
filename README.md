@@ -55,9 +55,8 @@ The operator workflow is documented in [Product coherence guide](docs/operations
 The dashboard shows live scan phases, durable worker outcomes, severity trends,
 and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
 
-Provider publication and callbacks are gated by explicit configuration. Provider merge callbacks queue a correlated worker rescan and remain `pending`
-until it completes; see [remediation execution operations](docs/operations/remediation-execution.md)
-for the `REMEDIATION_SCAN_REPOSITORY_ROOT` setting used by filesystem scans.
+Provider merge callbacks queue a correlated worker rescan and remain `pending`
+until it completes; see [remediation execution](docs/operations/remediation-execution.md).
 
 ## Quick Start
 
@@ -129,8 +128,6 @@ cd dashboard && npm ci && npm run validate:build
 - Pull requests: Python tests, repository checks (`make check`), dashboard
   build and audit, and an advisory format check.
 - Merge to main: Docker image builds and a Trivy scan of the API image.
-- Manual: `remediation-evidence.yml` produces the signed evidence bundle the
-  remediation worker requires.
 
 See `.github/workflows/ci.yml`.
 
@@ -190,16 +187,14 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
   API-key sessions, or the roles forwarded by a verified OIDC ingress. The
   dashboard always reads live data from the API; there is no demo mode.
 - **Remediation** is shown at `/remediations` to the `remediator` and
-  `security-operator` roles. A security operator approves a proposal, then
-  execution runs on the worker only when `REMEDIATION_EXECUTION_ENABLED=true`.
-  Execution requires a signed evidence envelope (`REMEDIATION_EVIDENCE_FILE`,
-  produced by `.github/workflows/remediation-evidence.yml`) and runs validation
-  in an isolated worktree. Execution events are kept with the remediation so
-  blocked work stays visible.
-- **Publication** is off by default. With `REMEDIATION_PUSH_ENABLED=true` and
-  `REMEDIATION_PUBLICATION_ENABLED=true`, the worker pushes a branch and opens a
-  PR only for repositories listed in `REMEDIATION_ALLOWED_REPOSITORIES`. It never
-  merges.
+  `security-operator` roles. Connect an image to its source repository, propose
+  fixes for selected findings, and have a security operator approve. With
+  `REMEDIATION_EXECUTION_ENABLED=true` the worker patches the source, builds a
+  candidate image on the rootless `buildkitd` service, and scans it; the
+  remediation completes when a rescan of the image no longer shows the targeted
+  findings. See [remediation execution](docs/operations/remediation-execution.md).
+- **Publication** (opening a pull request with the patch) is not connected to
+  execution yet.
 - **Provider webhooks** (`/api/dashboard/webhooks/{github,gitlab}`) require
   `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`, are replay-safe, and queue a
   follow-up scan after a merge.

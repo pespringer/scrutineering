@@ -1,5 +1,8 @@
 # GitHub Publication Boundary
 
+> Remediation execution does not call publication yet; Phase 4d of
+> [the reset plan](../RESET-PLAN.md) connects it. This page describes the publisher modules.
+
 `createGitHubPublisher` is a deliberately narrow PR adapter. It requires an
 allowlisted `owner/repo`, non-empty branch metadata, and `evidenceVerified:
 true` before calling GitHub. It uses the GitHub JSON API and never logs the

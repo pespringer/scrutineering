@@ -21,9 +21,7 @@ reference; until then, this is the set that describes the current system.
 - [operations/readiness.md](operations/readiness.md): health and readiness probes
 
 ## Remediation
-- [operations/remediation-execution.md](operations/remediation-execution.md): enabling execution, evidence, and the test workspace
-- [operations/remediation-worktrees.md](operations/remediation-worktrees.md): isolated worktrees for edits
+- [operations/remediation-execution.md](operations/remediation-execution.md): sources, fix strategies, building and verifying candidates
 - [operations/github-publication.md](operations/github-publication.md): GitHub PR publication
 - [operations/gitlab-publication.md](operations/gitlab-publication.md): GitLab MR publication
 - [operations/github-cloudflare-staging.md](operations/github-cloudflare-staging.md): testing GitHub webhooks against a local stack
-- [security/evidence-generation.md](security/evidence-generation.md): building and verifying evidence envelopes

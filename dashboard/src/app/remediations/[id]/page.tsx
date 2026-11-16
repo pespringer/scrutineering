@@ -7,6 +7,7 @@ import Layout from "@/components/Layout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EventTimeline from "@/components/remediations/EventTimeline";
 import ExecutionControls from "@/components/remediations/ExecutionControls";
+import CandidatePanel from "@/components/remediations/CandidatePanel";
 import ProposedChanges from "@/components/remediations/ProposedChanges";
 import Publications from "@/components/remediations/Publications";
 import WorkflowStatus from "@/components/remediations/WorkflowStatus";
@@ -74,6 +75,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
         <section className="space-y-6">
           <ExecutionControls remediation={remediation} busy={busy} onAction={act} />
           <ProposedChanges actions={remediation.actions} />
+          <CandidatePanel remediation={remediation} />
           <EventTimeline events={events} />
         </section>
         <aside className="space-y-6">

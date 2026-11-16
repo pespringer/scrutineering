@@ -21,6 +21,7 @@ type Props = { remediation: RemediationRecord; busy: boolean; onAction: (action:
 /** Only the actions the current status allows are shown. */
 export default function ExecutionControls({ remediation, busy, onAction }: Props) {
   const status = remediation.status;
+  if (status === "completed" || status === "cancelled") return null;
   return (
     <div className="panel rounded-2xl p-5 sm:p-6">
       <div className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-200">

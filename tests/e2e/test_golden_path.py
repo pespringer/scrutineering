@@ -1,24 +1,26 @@
 """Golden path: the product's core loop, end to end, without live scanners.
 
 This test defines "working" (docs/RESET-PLAN.md, ground rule 1). It drives the
-real FastAPI app over HTTP, the real worker functions, and a real schema. The
-only stand-ins are the scanner binaries: fake `trivy` and `grype` executables
-on PATH replay output recorded from the fixture image
-(fixtures/images/vulnerable-node, re-recorded by scripts/record-golden-fixtures.sh).
+real FastAPI app over HTTP, the real worker functions, a real git checkout of
+the fixture source, and a real schema. The stand-ins are external binaries on
+PATH: `trivy` and `grype` replay output recorded from the fixture images
+(fixtures/images/vulnerable-node, re-recorded by scripts/record-golden-fixtures.sh),
+`npm` rewrites the manifest and lockfile as `npm install --package-lock-only`
+would, and `buildctl` reports a digest instead of building.
 
-  scan the fixture -> findings -> propose a fix -> approve -> execute
-  -> rescan the patched image -> the targeted finding resolves -> remediation completed
-
-The scan half must pass today. The remediation half is the Phase 4 contract and
-is marked xfail(strict=True): when Phase 4 makes it pass, the strict marker
-turns that into a failure, so the marker gets removed in the same change.
+  scan the fixture -> findings -> connect its source -> propose a fix -> approve
+  -> execute: patch, build the candidate, scan it -> ready
+  -> rescan the rebuilt image -> the targeted finding resolves -> remediation completed
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -29,7 +31,8 @@ from src.api.app import create_app
 from src.db.connection import get_session
 from src.db.models import ScanFinding
 
-RECORDED = Path(__file__).resolve().parents[2] / "fixtures" / "scanner-output" / "vulnerable-node"
+FIXTURES = Path(__file__).resolve().parents[2] / "fixtures"
+RECORDED = FIXTURES / "scanner-output" / "vulnerable-node"
 IMAGE = "registry:5000/fixtures/vulnerable-node:1.0"
 TARGET_CVE, TARGET_PACKAGE = "CVE-2021-23337", "lodash"
 API_KEY = "golden-path-key"
@@ -54,6 +57,47 @@ def stage(tmp_path, monkeypatch):
     return use
 
 
+FAKE_NPM = """#!PYTHON
+# Stand-in for `npm install <pkg>@<version> --save --save-exact --package-lock-only`.
+import json, sys
+spec = next(arg for arg in sys.argv[2:] if not arg.startswith("-"))
+package, version = spec.rsplit("@", 1)
+manifest = json.load(open("package.json"))
+manifest["dependencies"][package] = version
+json.dump(manifest, open("package.json", "w"), indent=2)
+lock = json.load(open("package-lock.json"))
+lock["packages"][""]["dependencies"][package] = version
+lock["packages"]["node_modules/" + package]["version"] = version
+json.dump(lock, open("package-lock.json", "w"), indent=2)
+"""
+
+FAKE_BUILDCTL = """#!PYTHON
+# Stand-in for `buildctl build`: report a digest for the pushed image.
+import json, sys
+args = sys.argv
+json.dump({"containerimage.digest": "sha256:" + "c" * 64}, open(args[args.index("--metadata-file") + 1], "w"))
+"""
+
+
+@pytest.fixture
+def source(tmp_path, monkeypatch):
+    """The fixture image's source as a git repository under the worker's sources root."""
+    root = tmp_path / "sources"
+    repository = root / "vulnerable-node"
+    shutil.copytree(FIXTURES / "images" / "vulnerable-node", repository)
+    for command in (["init", "-q"], ["add", "."], ["commit", "-q", "-m", "fixture"]):
+        subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *command], cwd=repository, check=True)
+    bin_dir = tmp_path / "tools"
+    bin_dir.mkdir()
+    for name, body in (("npm", FAKE_NPM), ("buildctl", FAKE_BUILDCTL)):
+        script = bin_dir / name
+        script.write_text(body.replace("#!PYTHON", f"#!{sys.executable}"))
+        script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("REMEDIATION_SOURCES_ROOT", str(root))
+    return "vulnerable-node"
+
+
 @pytest.fixture
 def api(monkeypatch):
     """The real app, with scans run synchronously by the real worker."""
@@ -67,6 +111,16 @@ def api(monkeypatch):
         "enqueue_scan",
         lambda target, **kw: tasks.run_scan.run.__func__(MagicMock(), target, scan_id=kw["scan_id"]),
     )
+    from src.api.routes import remediations
+    from src.remediation.worker import run_remediation
+
+    class RunNow:
+        @staticmethod
+        def apply_async(args, queue):
+            run_remediation(*args)
+            return MagicMock(id="remediation-task")
+
+    monkeypatch.setattr(remediations, "execute_approved_remediation", RunNow)
     client = TestClient(create_app())
     client.headers["x-api-key"] = API_KEY
     return client
@@ -150,15 +204,17 @@ def test_rescan_of_the_patched_image_resolves_the_targeted_finding(api, stage):
     assert TARGET_CVE not in {item["cve_id"] for item in after_items["items"]}
 
 
-@pytest.mark.xfail(strict=True, reason="Phase 4: remediation of container-image findings is not implemented yet")
-def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage):
+def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage, source):
     scan = _scan(api)
     lodash = _target_finding(api, scan["scan_id"])
+    connected = api.put(f"/api/dashboard/images/{scan['image_id']}/source", json={"repository": source})
+    assert connected.status_code == 200, connected.text
 
     preview = api.post(
         "/api/dashboard/remediations/preview", json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]}
     ).json()
     assert preview["actionable_count"] == 1, preview
+    assert [action["strategy"] for action in preview["actions"]] == ["dependency_update"]
 
     created = api.post(
         "/api/dashboard/remediations", json={"image_id": scan["image_id"], "finding_ids": [lodash["id"]]}
@@ -167,9 +223,20 @@ def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage
     remediation_id = created.json()["id"]
 
     assert api.post(f"/api/dashboard/remediations/{remediation_id}/approve").status_code == 200
-    stage("after")  # Phase 4: execution builds the patched image, then rescans it
+    stage("patched")  # what the candidate built from the patched source scans as
     assert api.post(f"/api/dashboard/remediations/{remediation_id}/execute").status_code == 202
 
+    remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
+    assert remediation["status"] == "ready", remediation
+    assert '"lodash": "4.17.21"' in remediation["patch"]
+    assert remediation["candidate_image"] == (
+        "registry:5000/fixtures/vulnerable-node:scrutineering-candidate-" + str(remediation_id)
+    )
+    assert remediation["verification"]["still_present"] == []
+    assert remediation["verification"]["new_critical_or_high"] == []
+    assert remediation["resolved_finding_count"] == 0  # the running image is unchanged until it is rebuilt
+
+    _scan(api)  # the image is rebuilt from the patched source and scanned again
     remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
     assert remediation["status"] == "completed", remediation
     assert remediation["resolved_finding_count"] == 1
