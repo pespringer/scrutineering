@@ -13,7 +13,6 @@ from src.api.serializers import (
     image_payload,
     paginate,
     remediation_payload,
-    remediation_workflow_state,
     scan_payload,
     severity_counts,
 )
@@ -93,53 +92,29 @@ def test_remediation_serializer_exposes_open_and_resolved_counts():
     assert payload["resolution_status"] == "open"
 
 
-def test_remediation_serializer_exposes_operator_workflow_state():
+def test_remediation_payload_reports_the_status_column_only():
     remediation = SimpleNamespace(
         id=4,
         image_id=7,
-        status="analyzing",
+        status="building",
         finding_count=1,
         target_severities=["high"],
         approved_by=None,
         approved_at=None,
+        error_message=None,
+        started_at=None,
+        completed_at=None,
         findings=[SimpleNamespace(resolved_at=None)],
         publications=[],
         actions=[],
-        events=[SimpleNamespace(event_type="execution_ready")],
+        events=[SimpleNamespace(event_type="completed")],
     )
 
     payload = remediation_payload(remediation)
 
-    assert payload["workflow_state"] == "execution_ready"
-    assert payload["workflow_label"] == "Execution ready"
-
-
-@pytest.mark.parametrize(
-    "event_type,expected",
-    [
-        ("execution_queued", "execution_queued"),
-        ("execution_started", "execution_started"),
-        ("execution_ready", "execution_ready"),
-        ("execution_blocked", "execution_blocked"),
-    ],
-)
-def test_remediation_workflow_state_tracks_execution_events(event_type, expected):
-    remediation = SimpleNamespace(status="analyzing")
-    assert remediation_workflow_state(remediation, [SimpleNamespace(event_type=event_type)]) == expected
-
-
-def test_reapproved_retry_shows_approved_state_not_awaiting_approval():
-    events = [
-        SimpleNamespace(event_type=name)
-        for name in (
-            "execution_queued",
-            "execution_started",
-            "execution_blocked",
-            "execution_retry_requested",
-        )
-    ]
-    assert remediation_workflow_state(SimpleNamespace(status="analyzing"), events) == "analyzing"
-    assert remediation_workflow_state(SimpleNamespace(status="requires_review"), events) == "requires_review"
+    assert payload["status"] == "building"
+    assert payload["status_label"] == "Building patched image"
+    assert "workflow_state" not in payload
 
 
 def test_dashboard_page_and_scan_request_contracts():

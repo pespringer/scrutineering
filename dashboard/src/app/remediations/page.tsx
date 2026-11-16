@@ -12,8 +12,7 @@ type Remediation = {
   id: number;
   image_id: number;
   status: string;
-  workflow_label?: string;
-  workflow_state?: string;
+  status_label?: string;
   finding_count: number;
   open_finding_count?: number;
   resolved_finding_count?: number;
@@ -36,7 +35,7 @@ export default function RemediationsPage() {
         if (!remediations.ok) throw new Error();
         const payload = await remediations.json();
         setItems(
-          (payload.items || []).map((item: Remediation) => ({ ...item, status: item.workflow_label || item.status })),
+          (payload.items || []).map((item: Remediation) => ({ ...item, status: item.status_label || item.status })),
         );
         setTotal(payload.total || 0);
       })
@@ -92,9 +91,15 @@ export default function RemediationsPage() {
               className="rounded-xl border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
             >
               <option value="">All statuses</option>
-              <option value="requires_review">Awaiting approval</option>
-              <option value="analyzing">Approved</option>
-              <option value="pr_opened">PR opened</option>
+              <option value="proposed">Awaiting approval</option>
+              <option value="approved">Approved</option>
+              <option value="building">Building</option>
+              <option value="verifying">Verifying</option>
+              <option value="needs_acceptance">Needs acceptance</option>
+              <option value="ready">Ready</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="cancelled">Cancelled</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
             </select>

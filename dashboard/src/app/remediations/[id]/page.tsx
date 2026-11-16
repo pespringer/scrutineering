@@ -16,7 +16,7 @@ import { statusTone } from "@/lib/status";
 
 export default function RemediationDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { remediation, events, latestEvent, loadError, notice, busy, workflowState, act } = useRemediation(id);
+  const { remediation, events, loadError, notice, busy, act } = useRemediation(id);
 
   if (loadError && !remediation) {
     return (
@@ -38,7 +38,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
     );
   }
 
-  const label = remediation.workflow_label || workflowState.replaceAll("_", " ");
+  const label = remediation.status_label;
   return (
     <Layout>
       <Link href="/remediations" className="mb-6 inline-flex items-center gap-2 text-sm text-cyan-300">
@@ -55,7 +55,12 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
             · {remediation.finding_count} finding(s) · {label}
           </p>
         </div>
-        <div className={cx("rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider", statusTone(label))}>
+        <div
+          className={cx(
+            "rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider",
+            statusTone(remediation.status),
+          )}
+        >
           {label}
         </div>
       </div>
@@ -64,10 +69,10 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
           {notice}
         </div>
       )}
-      <WorkflowStatus remediation={remediation} workflowState={workflowState} label={label} latestEvent={latestEvent} />
+      <WorkflowStatus remediation={remediation} />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <section className="space-y-6">
-          <ExecutionControls remediation={remediation} workflowState={workflowState} busy={busy} onAction={act} />
+          <ExecutionControls remediation={remediation} busy={busy} onAction={act} />
           <ProposedChanges actions={remediation.actions} />
           <EventTimeline events={events} />
         </section>

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 
 from src.db.models import FindingObservation, FindingSource, ScanFinding, Severity
+from src.remediation.lifecycle import complete_verified_remediations
 
 
 def make_fingerprint(cve_id: str, package_name: str, package_version: str) -> str:
@@ -141,5 +142,7 @@ def persist_findings(
             for fingerprint, row in existing.items():
                 if fingerprint not in observed:
                     apply_finding_observation(row, observed=False, observed_at=now)
+            session.flush()
+            complete_verified_remediations(session, image_id, scan_id)
 
     return len(observed)

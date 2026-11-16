@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { getJson, postJson } from "@/lib/http";
-import type { RemediationEvent, RemediationRecord } from "@/types";
+import type { RemediationEvent, RemediationRecord, RemediationStatus } from "@/types";
+import type { RemediationAction } from "@/components/remediations/ExecutionControls";
 
 type EventsResponse = { events: RemediationEvent[]; latest_event: Omit<RemediationEvent, "id" | "sequence"> | null };
 
-/** Execution states where the worker still has to report back; the page polls until it does. */
-export const IN_FLIGHT_STATES = ["execution_queued", "execution_started"];
+/** Statuses where the worker still has to report back; the page polls until it does. */
+export const IN_FLIGHT_STATES: RemediationStatus[] = ["building", "verifying"];
 
 /** One remediation and its events, with actions that refresh it and polling while execution runs. */
 export function useRemediation(id: string | null, pollMs = 3000) {
@@ -38,22 +39,21 @@ export function useRemediation(id: string | null, pollMs = 3000) {
     load();
   }, [load]);
 
-  const workflowState = remediation?.workflow_state || remediation?.status || "";
+  const status = remediation?.status;
   useEffect(() => {
-    if (!IN_FLIGHT_STATES.includes(workflowState)) return;
+    if (!status || !IN_FLIGHT_STATES.includes(status)) return;
     const timer = window.setInterval(load, pollMs);
     return () => window.clearInterval(timer);
-  }, [workflowState, load, pollMs]);
+  }, [status, load, pollMs]);
 
-  /** POST an action (approve, execute, retry) and reload the record. */
+  /** POST a lifecycle action and reload the record. */
   const act = useCallback(
-    async (action: "approve" | "execute" | "retry") => {
+    async (action: RemediationAction) => {
       if (!id) return;
       setBusy(true);
       setNotice("");
       try {
-        const result = await postJson<{ status?: string }>(`/api/remediations/${id}/${action}`);
-        setNotice(result.status ? `Workflow status: ${result.status.replaceAll("_", " ")}` : "Action accepted.");
+        await postJson(`/api/remediations/${id}/${action}`);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Request failed");
       } finally {
@@ -64,5 +64,5 @@ export function useRemediation(id: string | null, pollMs = 3000) {
     [id, load],
   );
 
-  return { remediation, events, latestEvent, loadError, notice, busy, workflowState, act };
+  return { remediation, events, latestEvent, loadError, notice, busy, act };
 }

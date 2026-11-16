@@ -20,7 +20,7 @@ from src.db.models import (
     RemediationEvent,
     RemediationStatus,
 )
-from src.remediation.state_machine import transition
+from src.remediation.state_machine import TERMINAL, transition
 
 
 class RemediationRepository:
@@ -62,20 +62,9 @@ class RemediationRepository:
         transition(current_status, target_status)
 
         values: dict = {"status": target_status}
-        active_statuses = {
-            RemediationStatus.ANALYZING,
-            RemediationStatus.PATCHING,
-            RemediationStatus.BUILDING,
-            RemediationStatus.VERIFYING,
-            RemediationStatus.PR_OPENED,
-        }
-        if target_status in active_statuses and "started_at" not in kw:
+        if target_status == RemediationStatus.BUILDING and "started_at" not in kw:
             values["started_at"] = func.now()
-        if target_status in (
-            RemediationStatus.COMPLETED,
-            RemediationStatus.FAILED,
-            RemediationStatus.SKIPPED,
-        ):
+        if target_status in TERMINAL:
             values["completed_at"] = func.now()
         values.update({k: v for k, v in kw.items() if k in values or k not in ("status",)})
         session.execute(
@@ -132,6 +121,20 @@ class RemediationRepository:
         return record
 
     @staticmethod
+    def record_event(session: Session, remediation_id: int, event_type: str, detail: dict | None = None):
+        """Append the next event in sequence. History only: never read back to decide current state."""
+        sequence = (
+            session.execute(
+                select(func.max(RemediationEvent.sequence)).where(RemediationEvent.remediation_id == remediation_id)
+            ).scalar()
+            or 0
+        )
+        return RemediationRepository.append_event(
+            session,
+            {"remediation_id": remediation_id, "event_type": event_type, "sequence": sequence + 1, "detail": detail},
+        )
+
+    @staticmethod
     def list_events(session: Session, remediation_id: int) -> Sequence[RemediationEvent]:
         return (
             session.execute(
@@ -161,17 +164,7 @@ class RemediationRepository:
         return (
             session.execute(
                 select(Remediation)
-                .where(
-                    Remediation.status.in_(
-                        [
-                            RemediationStatus.PENDING,
-                            RemediationStatus.ANALYZING,
-                            RemediationStatus.PATCHING,
-                            RemediationStatus.BUILDING,
-                            RemediationStatus.VERIFYING,
-                        ]
-                    )
-                )
+                .where(Remediation.status.in_([RemediationStatus.BUILDING, RemediationStatus.VERIFYING]))
                 .order_by(Remediation.created_at)
             )
             .scalars()

@@ -1,45 +1,50 @@
-"""Tests for remediation lifecycle enforcement."""
+"""The remediation lifecycle allows only the documented transitions."""
 
 import pytest
 
-from src.db.models import RemediationStatus
-from src.remediation.state_machine import (
-    InvalidRemediationTransition,
-    transition,
-)
+from src.db.models import RemediationStatus as S
+from src.remediation.state_machine import LABELS, TERMINAL, TRANSITIONS, InvalidRemediationTransition, transition
+
+HAPPY_PATH = [S.PROPOSED, S.APPROVED, S.BUILDING, S.VERIFYING, S.READY, S.COMPLETED]
+
+
+def test_the_happy_path_is_a_chain_of_legal_steps():
+    for current, target in zip(HAPPY_PATH, HAPPY_PATH[1:]):
+        assert transition(current, target) == target
 
 
 @pytest.mark.parametrize(
-    "current,target",
+    ("current", "target"),
     [
-        (RemediationStatus.PENDING, RemediationStatus.ANALYZING),
-        (RemediationStatus.ANALYZING, RemediationStatus.PATCHING),
-        (RemediationStatus.PATCHING, RemediationStatus.BUILDING),
-        (RemediationStatus.BUILDING, RemediationStatus.VERIFYING),
-        (RemediationStatus.VERIFYING, RemediationStatus.PR_OPENED),
-        (RemediationStatus.PR_OPENED, RemediationStatus.COMPLETED),
-        (RemediationStatus.REQUIRES_REVIEW, RemediationStatus.ANALYZING),
-        (RemediationStatus.FAILED, RemediationStatus.REQUIRES_REVIEW),
+        (S.VERIFYING, S.NEEDS_ACCEPTANCE),
+        (S.NEEDS_ACCEPTANCE, S.READY),
+        (S.BUILDING, S.FAILED),
+        (S.FAILED, S.PROPOSED),
+        (S.PROPOSED, S.CANCELLED),
+        (S.READY, S.CANCELLED),
     ],
 )
-def test_valid_transitions_are_accepted(current, target):
+def test_side_paths_are_allowed(current, target):
     assert transition(current, target) == target
 
 
 @pytest.mark.parametrize(
-    "current,target",
+    ("current", "target"),
     [
-        (RemediationStatus.PENDING, RemediationStatus.COMPLETED),
-        (RemediationStatus.ANALYZING, RemediationStatus.COMPLETED),
-        (RemediationStatus.PR_OPENED, RemediationStatus.PATCHING),
-        (RemediationStatus.COMPLETED, RemediationStatus.ANALYZING),
-        (RemediationStatus.FAILED, RemediationStatus.PENDING),
+        (S.PROPOSED, S.BUILDING),  # must be approved first
+        (S.APPROVED, S.READY),  # must be built and verified
+        (S.VERIFYING, S.COMPLETED),  # completion needs a rescan of the real image
+        (S.NEEDS_ACCEPTANCE, S.COMPLETED),
+        (S.COMPLETED, S.PROPOSED),
+        (S.CANCELLED, S.PROPOSED),
     ],
 )
-def test_invalid_transitions_fail_closed(current, target):
+def test_shortcuts_are_rejected(current, target):
     with pytest.raises(InvalidRemediationTransition):
         transition(current, target)
 
 
-def test_same_state_is_idempotent():
-    assert transition(RemediationStatus.PENDING, RemediationStatus.PENDING) == RemediationStatus.PENDING
+def test_every_status_has_rules_and_a_label():
+    assert set(TRANSITIONS) == set(S) == set(LABELS)
+    assert TRANSITIONS[S.COMPLETED] == TRANSITIONS[S.CANCELLED] == frozenset()
+    assert S.FAILED in TERMINAL and transition(S.FAILED, S.FAILED) == S.FAILED

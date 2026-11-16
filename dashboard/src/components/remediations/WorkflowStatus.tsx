@@ -1,58 +1,43 @@
 import { cx } from "@/lib/cx";
-import type { RemediationEvent, RemediationRecord } from "@/types";
+import type { RemediationRecord, RemediationStatus } from "@/types";
 
-const MESSAGES: Record<string, string> = {
-  requires_review: "Review the proposed changes, then approve the remediation.",
-  execution_queued:
-    "Execution is queued for the remediation worker. This control is locked until the worker reports a result.",
-  execution_started:
-    "The worker is applying and validating the change. This page refreshes automatically as events arrive.",
-  execution_ready:
-    "Execution completed. The validated commit is ready for optional publication or follow-up verification.",
+const NEXT_STEP: Record<RemediationStatus, string> = {
+  proposed: "Review the proposed changes. A security operator approves before anything is built.",
+  approved: "Approved. Start execution to apply the changes and build a patched image.",
+  building: "Applying the changes to a fresh checkout and building the patched image. This page refreshes itself.",
+  verifying: "Scanning the patched image with the same scanners. This page refreshes itself.",
+  needs_acceptance:
+    "The patched image fixes the targeted findings but adds new critical or high findings. " +
+    "A security operator must accept it, or cancel the remediation.",
+  ready:
+    "The patched image is verified. The remediation completes when a full rescan of this image " +
+    "no longer shows the targeted findings.",
+  completed: "Completed: a full rescan of the image no longer shows the targeted findings.",
+  failed: "Stopped. Read the reason below, fix the cause, then restart the workflow.",
+  cancelled: "Cancelled. Its findings are free to be proposed again.",
 };
 
-function message(remediation: RemediationRecord, workflowState: string, label: string): string {
-  if (MESSAGES[workflowState]) return MESSAGES[workflowState];
-  if (remediation.status === "failed") {
-    return "Execution stopped. Review the failure event below, then restart the workflow once the cause is fixed.";
-  }
-  if (remediation.status === "completed") {
-    return "This remediation is complete. Confirm the follow-up scan shows the targeted findings resolved.";
-  }
-  return `Workflow status: ${label}.`;
-}
-
-type Props = {
-  remediation: RemediationRecord;
-  workflowState: string;
-  label: string;
-  latestEvent: Omit<RemediationEvent, "id" | "sequence"> | null;
+const TONE: Partial<Record<RemediationStatus, string>> = {
+  failed: "border-rose-400/20 bg-rose-400/5",
+  needs_acceptance: "border-amber-400/20 bg-amber-400/5",
+  ready: "border-emerald-400/20 bg-emerald-400/5",
+  completed: "border-emerald-400/20 bg-emerald-400/5",
+  cancelled: "border-slate-700 bg-slate-900/40",
 };
 
-/** "What happens next": the current state in plain words, plus the latest worker event and any blocking reason. */
-export default function WorkflowStatus({ remediation, workflowState, label, latestEvent }: Props) {
-  const tone =
-    remediation.status === "failed"
-      ? "border-rose-400/20 bg-rose-400/5"
-      : remediation.status === "completed" || workflowState === "execution_ready"
-        ? "border-emerald-400/20 bg-emerald-400/5"
-        : "border-cyan-400/20 bg-cyan-400/5";
+/** "What happens next": the current status in plain words, plus the failure reason when there is one. */
+export default function WorkflowStatus({ remediation }: { remediation: RemediationRecord }) {
   return (
-    <section className={cx("mb-6 rounded-2xl border p-5", tone)}>
+    <section
+      className={cx("mb-6 rounded-2xl border p-5", TONE[remediation.status] || "border-cyan-400/20 bg-cyan-400/5")}
+    >
       <div className="eyebrow mb-2">What happens next</div>
-      <p className="text-sm leading-6 text-slate-200">{message(remediation, workflowState, label)}</p>
-      {latestEvent && (
-        <p className="mt-2 text-xs text-slate-500">
-          Latest worker event:{" "}
-          <span className="font-medium text-slate-300">{latestEvent.event_type.replaceAll("_", " ")}</span> ·{" "}
-          {new Date(latestEvent.created_at).toLocaleString()}
+      <p className="text-sm leading-6 text-slate-200">{NEXT_STEP[remediation.status] || remediation.status_label}</p>
+      {remediation.error_message && (
+        <p className="mt-2 rounded-lg bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
+          Reason: {remediation.error_message}
         </p>
       )}
-      {latestEvent?.detail?.reason ? (
-        <p className="mt-2 rounded-lg bg-rose-950/30 px-3 py-2 text-xs text-rose-200">
-          Reason: {String(latestEvent.detail.reason)}
-        </p>
-      ) : null}
     </section>
   );
 }
