@@ -5,8 +5,6 @@ kind: ConfigMap
 metadata:
   name: scrutineering-config
 data:
-  PLANNER_HOST: "0.0.0.0"
-  PLANNER_PORT: "3000"
   TRIVY_SEVERITY: "CRITICAL,HIGH"
   GRYPE_SEVERITY_THRESHOLD: "High"
   SCANNER_TIMEOUT: "1800"

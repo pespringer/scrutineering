@@ -2,33 +2,39 @@
 
 ## Project Structure & Module Organization
 
-Scrutineering combines Node.js orchestration with Python scanning services:
+Scrutineering is a Python backend with a Next.js dashboard:
 
-- `src/planner`, `src/ci`, `src/pr-generator`, `src/harness`, `src/verification`, `src/rollout`, and `src/telemetry` contain Node.js modules and `.mjs` tests.
-- `src/scan`, `src/runtime`, `src/risk`, `src/forensics`, `src/analytics`, and `src/db` contain Python services, models, and migrations.
+- `src/api` composes the FastAPI app; `src/analytics/dashboard_api.py` holds the dashboard routes.
+- `src/scan`, `src/remediation`, `src/db`, and `src/telemetry` contain the scan workers, remediation pipeline,
+  models and migrations, and metrics. `src/runtime`, `src/risk`, `src/forensics`, and `src/platform` are
+  scheduled for removal in Phase 1b of the reset plan; do not extend them.
 - `tests/` holds the Python suite; `fixtures/` holds deterministic test data.
-- `dashboard/` is the supported Next.js frontend. Deployment manifests live in `k8s/`, observability configuration in `monitoring/`, and policy contracts in `schemas/`.
+- `dashboard/` is the Next.js frontend. Deployment manifests live in `k8s/` and observability
+  configuration in `monitoring/`. `scripts/` holds repository checks (with tests in `scripts/tests/`),
+  smoke tests, and operational scripts.
 
 ## Build, Test, and Development Commands
 
-Install dependencies with `npm ci` and `pip install -r requirements.txt`. Run the full suites with `npm test` and `pytest tests/ -v`. Useful focused commands include:
+Python dependencies come from `requirements.txt` (run through `uv`). Use the Makefile:
 
 ```bash
-node --test "src/**/*.test.mjs"
-node scripts/validate-policy-contract.mjs
-node scripts/run-remediation-dry-run-harness.mjs
-docker compose up --build
+make test         # Python tests plus repository checks
+make test-python  # pytest tests/
+make check        # doc links, deployment manifests, frontend layout, release config
+make fmt-check    # Ruff and Prettier (advisory until Phase 3)
+make up           # docker compose up --build -d
+make migrate      # apply Alembic migrations in the api container
 ```
 
 Run the frontend locally with `cd dashboard && npm run dev`; build it with `npm run build`.
 
 ## Coding Style & Naming Conventions
 
-Use four-space indentation for Python and the existing two-space JavaScript/TypeScript style. Follow standard `snake_case` for Python modules, functions, and variables; use `camelCase` for JavaScript functions and variables; use `PascalCase` for classes and React components. Keep Node files as `.mjs`, Python packages importable from `src`, and TypeScript types in the frontend `src/types` directories. No repository-wide formatter or linter is configured, so keep changes consistent with nearby code and run the relevant tests.
+Use four-space indentation for Python and the existing two-space JavaScript/TypeScript style. Follow standard `snake_case` for Python modules, functions, and variables; use `camelCase` for JavaScript functions and variables; use `PascalCase` for classes and React components. Keep repository scripts as `.mjs`, Python packages importable from `src`, and TypeScript types in the frontend `src/types` directories. Format with Ruff (`ruff.toml`) and Prettier (`dashboard/.prettierrc.json`).
 
 ## Testing Guidelines
 
-Python tests use `pytest` and are named `tests/test_*.py`; Node tests use the built-in `node:test` runner and are named `*.test.mjs`. Add regression coverage for scanner parsing, policy decisions, migrations, and harness behavior when changing those areas. Keep fixtures deterministic and avoid requiring live Trivy, Grype, databases, or external services in unit tests.
+Python tests use `pytest` and are named `tests/test_*.py`; repository-check tests use the built-in `node:test` runner and live in `scripts/tests/*.test.mjs`. Add regression coverage for scanner parsing, finding lifecycle, migrations, and remediation behavior when changing those areas. Keep fixtures deterministic and avoid requiring live Trivy, Grype, databases, or external services in unit tests.
 
 ## Commit & Pull Request Guidelines
 
@@ -36,7 +42,7 @@ Recent commits use short, imperative descriptions (for example, `Add full projec
 
 ## Security & Configuration
 
-Copy `.env.example` to `.env` for local settings and never commit credentials, generated reports, or real vulnerability data. Validate policy changes with `node scripts/validate-policy-contract.mjs`. For production-impacting changes, review the Docker, Kubernetes, migration, and security-scan paths in `.github/workflows/ci.yml`.
+Copy `.env.example` to `.env` for local settings and never commit credentials, generated reports, or real vulnerability data. For production-impacting changes, review the Docker, Kubernetes, migration, and security-scan paths in `.github/workflows/ci.yml`.
 
 ## Reset Rules (in force until docs/RESET-PLAN.md is complete)
 

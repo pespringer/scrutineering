@@ -7,9 +7,9 @@
   scrape_timeout: 10s
   metrics_path: '/metrics'
   static_configs:
-    - targets: ['scrutineering-planner:3000']
+    - targets: ['scrutineering-api:8000']
       labels:
-        service: container-sentinel-planner
+        service: container-sentinel-api
         env: production
 ---
 # Grafana provisioning datasource
