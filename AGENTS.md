@@ -22,7 +22,8 @@ Python dependencies come from `requirements.txt` (run through `uv`). Use the Mak
 make test         # Python tests plus repository checks
 make test-python  # pytest tests/
 make check        # doc links, deployment manifests, frontend layout, release config
-make fmt-check    # Ruff and Prettier (advisory until Phase 3)
+make fmt          # apply Ruff and Prettier
+make fmt-check    # formatting, lint, and the 120-character limit (enforced in CI)
 make e2e          # golden path against the running stack, real scanners
 make up           # docker compose up --build -d
 make migrate      # apply Alembic migrations in the api container

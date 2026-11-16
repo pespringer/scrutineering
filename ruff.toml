@@ -1,8 +1,9 @@
-# Python formatting and lint settings. See docs/RESET-PLAN.md (ground rule 5).
-# The CI check is advisory until Phase 3 reformats the codebase.
+# Python formatting and lint settings (docs/RESET-PLAN.md, ground rule 5). Enforced in CI.
 line-length = 120
 target-version = "py312"
+# Alembic revisions are generated; their long lines come from autogenerate.
 extend-exclude = ["src/db/migrations/versions", ".local", "source-fixture"]
 
 [lint]
-select = ["E", "F", "I", "B"]
+# Syntax errors, line length, and Pyflakes (unused imports and variables, undefined names).
+select = ["E9", "E501", "F"]

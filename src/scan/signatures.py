@@ -6,7 +6,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .cosign_policy import identity_allowed, load_cosign_policy
+from .cosign_policy import identity_allowed
 
 
 class CosignVerifier:

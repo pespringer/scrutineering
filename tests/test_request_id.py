@@ -1,5 +1,3 @@
-import asyncio
-
 from src.api.app import app
 
 

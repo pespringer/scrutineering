@@ -26,7 +26,10 @@ for (const file of required) {
     throw new Error("worker image health check is required");
   if (file === "k8s/resource-quota.yaml" && !content.includes("limits.memory"))
     throw new Error("resource quota memory limit is required");
-  if (file === "k8s/pod-disruption-budgets.yaml" && !content.includes("minAvailable"))
+  if (
+    file === "k8s/pod-disruption-budgets.yaml" &&
+    !content.includes("minAvailable")
+  )
     throw new Error("pod disruption budgets must define availability");
   console.log(`PASS ${file}`);
 }

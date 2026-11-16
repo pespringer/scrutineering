@@ -1,3 +1,5 @@
+import { cx } from "@/lib/cx";
+
 interface StatCardProps {
   label: string;
   value: number | string;
@@ -18,14 +20,21 @@ const colorMap: Record<string, string> = {
 export default function StatCard({ label, value, icon, color = "default", detail }: StatCardProps) {
   return (
     <div
-      className={`group min-w-0 rounded-2xl border p-5 ${colorMap[color] || colorMap.default} transition-all hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20`}
+      className={cx(
+        "group min-w-0 rounded-2xl border p-5 transition-all",
+        "hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/20",
+        colorMap[color] || colorMap.default,
+      )}
     >
       <div className="mb-5 flex items-center justify-between">
         <span className="text-xs font-semibold uppercase tracking-[0.14em] opacity-65">{label}</span>
         {icon && <span className="opacity-60 transition group-hover:scale-110">{icon}</span>}
       </div>
       <div
-        className={`break-words font-bold tracking-tight ${typeof value === "string" ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}
+        className={cx(
+          "break-words font-bold tracking-tight",
+          typeof value === "string" ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl",
+        )}
       >
         {value}
       </div>

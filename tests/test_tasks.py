@@ -1,6 +1,5 @@
 """Tests for the Celery scan orchestrator tasks."""
 
-import uuid
 import threading
 from unittest.mock import AsyncMock, MagicMock, patch
 

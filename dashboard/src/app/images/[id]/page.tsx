@@ -10,6 +10,7 @@ import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
 import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import { cx } from "@/lib/cx";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 
@@ -39,9 +40,9 @@ export default function ImageDetailPage() {
       const imgData = await imgRes.json();
       setImage(imgData.image || null);
 
-      const findingsRes = await fetch(
-        `/api/images/${imageId}?${new URLSearchParams({ ...(severityFilter !== "all" ? { severity: severityFilter } : {}), limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) })}`,
-      );
+      const query = new URLSearchParams({ limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) });
+      if (severityFilter !== "all") query.set("severity", severityFilter);
+      const findingsRes = await fetch(`/api/images/${imageId}?${query}`);
       const findingsData = await findingsRes.json();
       setFindings(findingsData.findings || []);
       setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
@@ -100,7 +101,8 @@ export default function ImageDetailPage() {
         typeof body.detail === "string"
           ? body.detail
           : body.detail?.code === "finding_already_in_remediation"
-            ? `Those findings are already reserved by remediation #${body.detail.remediation_ids?.join(", #") || "another"}.`
+            ? "Those findings are already reserved by remediation " +
+              `#${body.detail.remediation_ids?.join(", #") || "another"}.`
             : "Unable to create a remediation proposal.";
       setNotice(detail);
       setSelectedFindings([]);
@@ -109,9 +111,8 @@ export default function ImageDetailPage() {
     }
     const remediation = await response.json();
     setSelectedFindings([]);
-    setNotice(
-      `Remediation #${remediation.id} created for ${actionableIds.length} safe finding${actionableIds.length === 1 ? "" : "s"}.`,
-    );
+    const plural = actionableIds.length === 1 ? "" : "s";
+    setNotice(`Remediation #${remediation.id} created for ${actionableIds.length} safe finding${plural}.`);
     loadData();
   }
 
@@ -147,7 +148,13 @@ export default function ImageDetailPage() {
       {/* Image header */}
       <div className="panel relative mb-6 overflow-hidden rounded-3xl p-6 sm:p-8">
         <div className="flex items-center gap-3 mb-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/15 bg-cyan-300/[0.08]">
+          <div
+            className={cx(
+              "flex h-11 w-11 items-center",
+              "justify-center rounded-xl border border-cyan-300/15",
+              "bg-cyan-300/[0.08]",
+            )}
+          >
             <Package className="w-5 h-5 text-blue-400" />
           </div>
           <div>
@@ -225,7 +232,13 @@ export default function ImageDetailPage() {
 
       {/* Findings table */}
       {canManage && selectedFindings.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs text-cyan-200">
+        <div
+          className={cx(
+            "mb-4 flex flex-wrap items-center gap-2 rounded-xl",
+            "border border-cyan-400/20 bg-cyan-400/5 px-4 py-3 text-xs",
+            "text-cyan-200",
+          )}
+        >
           <span>{selectedFindings.length} selected</span>
           <button
             onClick={proposeRemediation}

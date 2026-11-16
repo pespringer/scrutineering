@@ -244,7 +244,6 @@ def deduplicate_findings_with_report(
             source_counts[source_name] = source_counts.get(source_name, 0) + 1
 
         # Build audit entry
-        finding_obj = group[0][0]
         severity_str = merged["severity"]
 
         if len(group) > 1:

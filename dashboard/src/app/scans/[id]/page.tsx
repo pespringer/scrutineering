@@ -8,6 +8,7 @@ import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ScanResult } from "@/types";
 import { ArrowLeft, CheckCircle2, Clock3, ExternalLink, XCircle } from "lucide-react";
+import { cx } from "@/lib/cx";
 
 type Finding = {
   id: number;
@@ -97,7 +98,12 @@ export default function ScanDetailPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1.5 text-xs uppercase tracking-wider text-slate-300">
+            <span
+              className={cx(
+                "inline-flex items-center gap-2 rounded-full border border-slate-700",
+                "px-3 py-1.5 text-xs uppercase tracking-wider text-slate-300",
+              )}
+            >
               {terminal ? (
                 <CheckCircle2 className="h-4 w-4 text-emerald-300" />
               ) : (
@@ -108,7 +114,10 @@ export default function ScanDetailPage() {
             {findings.some((finding) => finding.fix_available) && (
               <button
                 onClick={proposeFixes}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300"
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-3 py-2 text-xs font-semibold",
+                  "text-slate-950 hover:bg-cyan-300",
+                )}
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Propose fixes
               </button>

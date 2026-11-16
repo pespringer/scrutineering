@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import SeverityBadge from "@/components/SeverityBadge";
 import type { VulnerabilityFinding } from "@/types";
+import { cx } from "@/lib/cx";
 
 type SortKey = "cve_id" | "severity" | "package_name" | "package_version" | "first_seen";
 
@@ -74,7 +75,10 @@ export default function FindingsTable({
           value={filterSeverity}
           onChange={(e) => setFilterSeverity(e.target.value)}
           aria-label="Filter findings by severity"
-          className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10"
+          className={cx(
+            "rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 outline-none",
+            "focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10",
+          )}
         >
           <option value="">All</option>
           {["CRITICAL", "HIGH", "MEDIUM", "LOW", "UNKNOWN"].map((s) => (
@@ -94,7 +98,10 @@ export default function FindingsTable({
               {cols.map((c) => (
                 <th
                   key={c.key}
-                  className="cursor-pointer whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-600 transition hover:text-slate-300"
+                  className={cx(
+                    "cursor-pointer whitespace-nowrap px-3 py-3 text-left text-[10px] font-semibold uppercase",
+                    "tracking-[0.14em] text-slate-600 transition hover:text-slate-300",
+                  )}
                   onClick={() => handleSort(c.key)}
                 >
                   {c.label}
@@ -150,7 +157,13 @@ export default function FindingsTable({
                   </td>
                   <td className="px-3 py-4">
                     {f.lifecycle_status === "resolved" ? (
-                      <span className="rounded-full bg-emerald-400/10 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-200">
+                      <span
+                        className={cx(
+                          "rounded-full bg-emerald-400/10 px-2.5 py-1",
+                          "text-xs font-semibold uppercase tracking-wider",
+                          "text-emerald-200",
+                        )}
+                      >
                         Resolved
                       </span>
                     ) : (
@@ -174,7 +187,12 @@ export default function FindingsTable({
                       <span className="text-slate-600">-</span>
                     )}
                     {f.remediation_id ? (
-                      <span className="ml-2 rounded-full bg-violet-400/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-violet-200">
+                      <span
+                        className={cx(
+                          "ml-2 rounded-full bg-violet-400/10 px-2 py-1",
+                          "text-[10px] font-semibold uppercase tracking-wider text-violet-200",
+                        )}
+                      >
                         Remediation #{f.remediation_id}
                       </span>
                     ) : null}

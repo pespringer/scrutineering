@@ -141,7 +141,7 @@ def execute_remediation(
                     text=True,
                     env=_git_env(worktree),
                 )
-                committed = subprocess.run(
+                subprocess.run(
                     [
                         "git",
                         "-c",

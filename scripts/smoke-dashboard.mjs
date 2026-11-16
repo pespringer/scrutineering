@@ -1,9 +1,13 @@
-const base = (process.env.DASHBOARD_SMOKE_URL || "http://localhost:3001").replace(/\/$/, "");
+const base = (
+  process.env.DASHBOARD_SMOKE_URL || "http://localhost:3001"
+).replace(/\/$/, "");
 
 async function check(path, expectedStatus = 200) {
   const response = await fetch(`${base}${path}`);
   if (response.status !== expectedStatus)
-    throw new Error(`${path} returned ${response.status}, expected ${expectedStatus}`);
+    throw new Error(
+      `${path} returned ${response.status}, expected ${expectedStatus}`,
+    );
   return response.text();
 }
 

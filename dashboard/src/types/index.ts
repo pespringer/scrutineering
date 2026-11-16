@@ -123,3 +123,47 @@ export interface DashboardSession {
   email?: string | null;
   roles?: string[];
 }
+
+export interface RemediationEvent {
+  id: number;
+  event_type: string;
+  sequence: number;
+  detail: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface RemediationPublication {
+  id: number;
+  provider: string;
+  repository: string;
+  status: string;
+  url: string | null;
+  verification_status: string | null;
+  scan_status: string | null;
+  post_merge_scan_id: string | null;
+  verification_detail?: Record<string, unknown>;
+  findings_before: number | null;
+  findings_after: number | null;
+  rollback_command: string[] | null;
+}
+
+export interface RemediationAction {
+  action_type: string;
+  file_path?: string | null;
+  before_value: string | null;
+  after_value: string | null;
+}
+
+export interface RemediationRecord {
+  id: number;
+  image_id: number;
+  status: string;
+  workflow_state?: string;
+  workflow_label?: string;
+  finding_count: number;
+  open_finding_count?: number;
+  resolved_finding_count?: number;
+  resolution_status?: string;
+  actions: RemediationAction[];
+  publications: RemediationPublication[];
+}

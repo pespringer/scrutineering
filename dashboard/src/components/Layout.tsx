@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Activity, ArrowUpRight, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
+import { cx } from "@/lib/cx";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -19,9 +20,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-transparent text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
-        <aside className="hidden w-64 shrink-0 border-r border-slate-800/70 bg-[#0b111a]/80 px-5 py-6 lg:flex lg:flex-col">
+        <aside
+          className={cx(
+            "hidden w-64 shrink-0 border-r border-slate-800/70",
+            "bg-[#0b111a]/80 px-5 py-6 lg:flex lg:flex-col",
+          )}
+        >
           <Link href="/dashboard" className="mb-12 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/20">
+            <div
+              className={cx(
+                "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br",
+                "from-blue-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/20",
+              )}
+            >
               CS
             </div>
             <div>
@@ -70,7 +81,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <header className="sticky top-0 z-50 border-b border-slate-800/70 bg-[#080b12]/80 backdrop-blur-xl">
             <div className="flex h-16 items-center justify-between px-5 sm:px-8">
               <div className="flex items-center gap-3 lg:hidden">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-400 text-xs font-black text-slate-950">
+                <div
+                  className={cx(
+                    "flex h-8 w-8 items-center justify-center",
+                    "rounded-lg bg-cyan-400 text-xs font-black text-slate-950",
+                  )}
+                >
                   CS
                 </div>
                 <span className="font-semibold">Container Sentinel</span>
@@ -79,12 +95,21 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <Activity className="h-4 w-4 text-emerald-400" /> Live posture monitoring
               </div>
               <div className="ml-auto flex items-center gap-3">
-                <span className="hidden rounded-full border border-slate-700 px-3 py-1 text-xs text-slate-400 sm:inline-flex">
+                <span
+                  className={cx(
+                    "hidden rounded-full border border-slate-700",
+                    "px-3 py-1 text-xs text-slate-400",
+                    "sm:inline-flex",
+                  )}
+                >
                   {role} · {identity}
                 </span>
                 <div
                   title={identity}
-                  className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-xs font-semibold text-cyan-300"
+                  className={cx(
+                    "flex h-8 w-8 items-center justify-center rounded-full border border-slate-700 bg-slate-800",
+                    "text-xs font-semibold text-cyan-300",
+                  )}
                 >
                   {identity.slice(0, 2).toUpperCase()}
                 </div>
@@ -149,7 +174,14 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition ${active ? "bg-blue-400/10 font-medium text-blue-300 ring-1 ring-inset ring-blue-400/20" : "text-slate-500 hover:bg-slate-800/70 hover:text-slate-200"}`}
+      className={cx(
+        "group flex items-center gap-3",
+        "rounded-xl px-3 py-2.5 text-sm",
+        "transition",
+        active
+          ? "bg-blue-400/10 font-medium text-blue-300 ring-1 ring-inset ring-blue-400/20"
+          : "text-slate-500 hover:bg-slate-800/70 hover:text-slate-200",
+      )}
     >
       {icon}
       <span>{children}</span>

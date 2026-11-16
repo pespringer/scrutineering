@@ -6,6 +6,7 @@ import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { Page } from "@/types";
+import { cx } from "@/lib/cx";
 
 type AuditRecord = {
   id: number;
@@ -64,7 +65,10 @@ export default function AuditPage() {
         </div>
         <button
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm text-slate-300 hover:text-white"
+          className={cx(
+            "inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm",
+            "text-slate-300 hover:text-white",
+          )}
         >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
@@ -108,7 +112,13 @@ export default function AuditPage() {
                 </div>
                 <time className="text-xs text-slate-500">{new Date(record.timestamp).toLocaleString()}</time>
               </div>
-              <div className="ml-12 rounded-lg bg-slate-950/50 px-3 py-2 font-mono text-[11px] leading-5 text-slate-500">
+              <div
+                className={cx(
+                  "ml-12 rounded-lg bg-slate-950/50 px-3",
+                  "py-2 font-mono text-[11px] leading-5",
+                  "text-slate-500",
+                )}
+              >
                 {JSON.stringify(record.detail)}
               </div>
             </div>

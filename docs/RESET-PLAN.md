@@ -438,7 +438,7 @@ The bugs found in the review, each with a regression test.
   `src/api/routes/{scans,images,findings,remediations,audit,webhooks,session}.py`
   plus `src/api/schemas.py` (the Pydantic models) and `src/api/serializers.py`
   (the `_payload` helpers).
-- [ ] **Reformat `dashboard/src`** with Prettier, then break the single-line
+- [x] **Reformat `dashboard/src`** with Prettier, then break the single-line
   page components into components and hooks (`useScan`, `useRemediation`, and
   so on). Start with `remediations/[id]`, `scans/page`, and `dashboard/page`.
 
@@ -477,6 +477,37 @@ The bugs found in the review, each with a regression test.
   `require_role`, and the rest). `src/analytics/` is gone.
 - **Routes unchanged:** the OpenAPI table (35 method-and-path pairs and their
   operation IDs) is identical to `main` before the split.
+
+**3c status: done. Phase 3 is complete.**
+- **Formatting:** Ruff and Prettier formatted the whole codebase in one
+  mechanical commit.
+- **Line length and lint:** the remaining over-long lines (mostly Tailwind
+  class strings, which Prettier can't split) go through a small `cx()`
+  helper. `make fmt-check` (Ruff format and lint, Prettier, and
+  `scripts/check-line-length.mjs`) now blocks in CI, and the image-build job
+  depends on it. No source line is over 120 characters; generated
+  migrations are excluded.
+- **Pages broken up:** the three pages the plan named are now hooks and
+  components:
+  - **Scans:** 447 lines down to about 190, using `useScanHistory`,
+    `useScanWatcher` and `components/scans/*`.
+  - **Overview:** 479 down to about 170, using `useDashboardData` and
+    `components/dashboard/*`.
+  - **Remediation detail:** 280 down to about 80, using `useRemediation` and
+    `components/remediations/*`.
+  - **Shared code:** `lib/http.ts` (fetch helpers with readable API errors),
+    `lib/status.ts`, `usePermissions` and `Pagination`.
+- **Bugs fixed while splitting:**
+  - The scan watcher never stopped for `partial` scans.
+  - The scan filter had no `partial` option.
+  - Recent scans linked to the list, not the scan.
+  - The overview's "Continuous protection enabled" and "Monitoring active"
+    were hard-coded regardless of state.
+  - The overview's copy still described the deployment observation and alert
+    delivery removed in 1c.
+  - A remediation that failed to load showed an endless spinner.
+  - Execution status was re-polled on a fixed 3, 8 and 15 s schedule instead
+    of until the worker reports.
 
 **Done when:** the golden-path test exists and its scan half passes, no source
 line is over 120 characters, and no route file is over about 400 lines.

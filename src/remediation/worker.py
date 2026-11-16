@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from celery import shared_task
 
 from src.db.connection import get_session
-from src.db.models import Remediation, RemediationPublication, RemediationStatus
+from src.db.models import RemediationPublication, RemediationStatus
 from src.db.repositories import RemediationRepository
 from .adapter import build_validation_sequence, execute_repository_adapter, load_release_evidence
 from .publisher import publish_remediation_branch
@@ -213,7 +213,8 @@ def execute_approved_remediation(self, remediation_id: int) -> dict:
         if os.environ.get("REMEDIATION_PUSH_ENABLED", "false").lower() in {"1", "true", "yes"}:
             if not result.commit:
                 return _blocked(session, remediation_id, "validated_changes_did_not_produce_commit")
-            branch_name = f"{os.environ.get('REMEDIATION_BRANCH_PREFIX', 'scrutineering/remediation').strip('/')}/{remediation_id}"
+            prefix = os.environ.get("REMEDIATION_BRANCH_PREFIX", "scrutineering/remediation").strip("/")
+            branch_name = f"{prefix}/{remediation_id}"
             try:
                 published = publish_remediation_branch(
                     repository_root,

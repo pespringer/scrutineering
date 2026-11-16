@@ -114,7 +114,8 @@ make test         # Python tests plus repository checks
 make test-python  # Python tests only
 make check        # Doc links, deployment manifests, frontend layout
 make e2e          # Golden path against the running stack with real scanners
-make fmt-check    # Ruff and Prettier (advisory until Phase 3)
+make fmt          # Apply Ruff and Prettier
+make fmt-check    # Formatting, lint, and the 120-character line limit (CI)
 
 # Run the composed Python API
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000

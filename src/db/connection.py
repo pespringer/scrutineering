@@ -1,10 +1,9 @@
 """Database connection management — sync and async engines, session, init."""
 
-import os
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import Session, sessionmaker
 

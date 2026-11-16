@@ -16,6 +16,7 @@ import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { ImageDetail, Page, RegistryInventory, RegistryTag } from "@/types";
+import { cx } from "@/lib/cx";
 
 const statusCopy: Record<RegistryTag["security_status"], string> = {
   clean: "Clean",
@@ -103,7 +104,10 @@ export default function ImagesPage() {
         </div>
         <button
           onClick={load}
-          className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm text-slate-300 hover:text-white"
+          className={cx(
+            "inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/80 px-4 py-2.5 text-sm",
+            "text-slate-300 hover:text-white",
+          )}
         >
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
@@ -115,10 +119,22 @@ export default function ImagesPage() {
       )}
       {registry ? (
         <>
-          <section className="mb-6 rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-[#101d2d] to-[#0c131e] p-5 shadow-2xl shadow-cyan-950/10 sm:p-7">
+          <section
+            className={cx(
+              "mb-6 rounded-3xl border border-cyan-400/15 bg-gradient-to-br",
+              "from-[#101d2d] to-[#0c131e] p-5 shadow-2xl shadow-cyan-950/10",
+              "sm:p-7",
+            )}
+          >
             <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+                <div
+                  className={cx(
+                    "mb-3 flex items-center gap-2",
+                    "text-xs font-semibold uppercase tracking-[0.18em]",
+                    "text-cyan-300",
+                  )}
+                >
                   <span
                     className={`h-2 w-2 rounded-full ${registry.registry.reachable ? "bg-emerald-400" : "bg-rose-400"}`}
                   />{" "}
@@ -151,7 +167,13 @@ export default function ImagesPage() {
             </div>
           </section>
           <section className="panel mb-8 overflow-hidden rounded-2xl">
-            <div className="flex flex-col gap-2 border-b border-slate-800/80 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div
+              className={cx(
+                "flex flex-col gap-2 border-b border-slate-800/80",
+                "px-5 py-5 sm:flex-row sm:items-center sm:justify-between",
+                "sm:px-6",
+              )}
+            >
               <div>
                 <div className="eyebrow mb-2">Registry catalog</div>
                 <div className="text-sm text-slate-400">Every repository tag is actionable from this view.</div>
@@ -169,10 +191,19 @@ export default function ImagesPage() {
               {registry.tags.map((item) => (
                 <div
                   key={`${item.repository}:${item.tag}`}
-                  className="flex flex-col gap-4 p-5 transition hover:bg-slate-800/20 lg:flex-row lg:items-center lg:justify-between lg:px-6"
+                  className={cx(
+                    "flex flex-col gap-4 p-5 transition hover:bg-slate-800/20 lg:flex-row lg:items-center",
+                    "lg:justify-between lg:px-6",
+                  )}
                 >
                   <div className="flex min-w-0 items-center gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                    <div
+                      className={cx(
+                        "flex h-10 w-10 shrink-0 items-center",
+                        "justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10",
+                        "text-cyan-300",
+                      )}
+                    >
                       <Package className="h-5 w-5" />
                     </div>
                     <div className="min-w-0">
@@ -191,7 +222,12 @@ export default function ImagesPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-3 lg:justify-end">
                     <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wider ${statusStyle(item.security_status)}`}
+                      className={cx(
+                        "rounded-full px-3 py-1",
+                        "text-xs font-semibold uppercase",
+                        "tracking-wider",
+                        statusStyle(item.security_status),
+                      )}
                     >
                       {statusCopy[item.security_status]}
                     </span>
@@ -211,7 +247,10 @@ export default function ImagesPage() {
                     <button
                       disabled={scanning === item.image_name || item.security_status === "scanning"}
                       onClick={() => scanTag(item)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-violet-400/30 px-3 py-2 text-xs text-violet-100 disabled:cursor-not-allowed disabled:opacity-40"
+                      className={cx(
+                        "inline-flex items-center gap-1 rounded-lg border border-violet-400/30 px-3 py-2 text-xs",
+                        "text-violet-100 disabled:cursor-not-allowed disabled:opacity-40",
+                      )}
                     >
                       <Play className="h-3.5 w-3.5" />{" "}
                       {item.security_status === "scanning" ? "Scanning" : item.image_id ? "Rescan" : "Scan image"}
@@ -257,14 +296,26 @@ export default function ImagesPage() {
                 className="flex flex-col gap-4 p-5 transition hover:bg-slate-800/30 sm:flex-row sm:items-center sm:px-6"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-4">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+                  <div
+                    className={cx(
+                      "flex h-10 w-10 shrink-0 items-center",
+                      "justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10",
+                      "text-cyan-300",
+                    )}
+                  >
                     <Package className="h-5 w-5" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="truncate font-mono text-sm text-slate-200">{displayName}</div>
                       {localFixture && (
-                        <span className="rounded-full bg-violet-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-200">
+                        <span
+                          className={cx(
+                            "rounded-full bg-violet-400/10 px-2 py-0.5",
+                            "text-[10px] font-semibold uppercase tracking-wider",
+                            "text-violet-200",
+                          )}
+                        >
                           local fixture
                         </span>
                       )}

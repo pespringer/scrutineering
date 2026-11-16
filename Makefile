@@ -2,7 +2,7 @@
 
 PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt python -m pytest
 
-.PHONY: up down migrate backup test test-python check fmt-check smoke e2e record-fixtures
+.PHONY: up down migrate backup test test-python check fmt fmt-check smoke e2e record-fixtures
 
 up:
 	docker compose up --build -d
@@ -32,10 +32,18 @@ check:
 	node scripts/validate-frontend-config.mjs
 	node --test scripts/tests/*.test.mjs
 
-# Advisory until Phase 3 reformats the codebase.
+# Formatting and lint; enforced in CI.
 fmt-check:
-	uvx ruff@0.6.9 format --check src tests
-	cd dashboard && npx --yes prettier@3.3.3 --check "src/**/*.{ts,tsx,css}"
+	uvx ruff@0.6.9 format --check src tests scripts
+	uvx ruff@0.6.9 check src tests scripts
+	cd dashboard && npx --yes prettier@3.3.3 --check "src/**/*.{ts,tsx,css}" "../scripts/**/*.mjs"
+	node scripts/check-line-length.mjs
+
+# Apply the formatters.
+fmt:
+	uvx ruff@0.6.9 format src tests scripts
+	uvx ruff@0.6.9 check --fix src tests scripts
+	cd dashboard && npx --yes prettier@3.3.3 --write "src/**/*.{ts,tsx,css}" "../scripts/**/*.mjs"
 
 # Requires a running stack (make up).
 smoke:
