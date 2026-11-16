@@ -21,6 +21,7 @@ make test         # Python tests plus repository checks
 make test-python  # pytest tests/
 make check        # doc links, deployment manifests, frontend layout, release config
 make fmt-check    # Ruff and Prettier (advisory until Phase 3)
+make e2e          # golden path against the running stack, real scanners
 make up           # docker compose up --build -d
 make migrate      # apply Alembic migrations in the api container
 ```
@@ -50,8 +51,10 @@ scan → track findings → propose a fix → build a patched image → rescan �
 a PR → mark resolved. Work only on the current phase of
 [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
 
-1. The golden-path test (Phase 3) defines "working". A change that breaks it
-   does not merge, even if every other test passes.
+1. The golden-path test (`tests/e2e/test_golden_path.py`, live: `make e2e`)
+   defines "working". A change that breaks it does not merge, even if every
+   other test passes. When the remediation half starts passing, remove its
+   `xfail(strict=True)` marker in the same change.
 2. Do not add a top-level module, service, environment variable, or npm/Make
    target unless the current phase calls for it.
 3. Keep one status field per entity. Event tables record history; never derive

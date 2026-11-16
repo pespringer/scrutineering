@@ -1,9 +1,8 @@
 # Developer entry points.
 
-PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt \
-	--with pytest --with httpx python -m pytest
+PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt python -m pytest
 
-.PHONY: up down migrate backup test test-python check fmt-check smoke
+.PHONY: up down migrate backup test test-python check fmt-check smoke e2e record-fixtures
 
 up:
 	docker compose up --build -d
@@ -42,3 +41,11 @@ fmt-check:
 smoke:
 	node scripts/smoke-dashboard.mjs
 	node scripts/smoke-live-scan.mjs
+
+# Golden path against the running stack with real scanners (run before merging to main).
+e2e:
+	python3 scripts/e2e-golden-path.py
+
+# Rebuild the fixture images and re-record the scanner output the golden-path test replays.
+record-fixtures:
+	scripts/record-golden-fixtures.sh

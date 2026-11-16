@@ -422,16 +422,16 @@ The bugs found in the review, each with a regression test.
 
 ## Phase 3 — Golden-path test and readable code (size: M)
 
-- [ ] **Build a fixture image.** `fixtures/images/vulnerable-node/` holds a
+- [x] **Build a fixture image.** `fixtures/images/vulnerable-node/` holds a
   tiny `Dockerfile` (`FROM node:18.12-alpine`, plus a `package.json` and lockfile
   pinning a dependency with a known fixed CVE).
-- [ ] **Write a deterministic golden-path test** (`tests/e2e/test_golden_path.py`)
+- [x] **Write a deterministic golden-path test** (`tests/e2e/test_golden_path.py`)
   that runs in CI. It uses recorded Trivy and Grype JSON for the fixture before
   and after the fix, plus the real API, worker functions, and SQLite. It runs:
   scan → findings → propose → approve → execute (fake builder) → rescan with
   the "after" JSON → finding resolved → remediation `completed`. Mark the
   remediation steps `xfail` until Phase 4 lands them.
-- [ ] **Add a live variant** (`make e2e`) that runs the same flow against
+- [x] **Add a live variant** (`make e2e`) that runs the same flow against
   `docker compose` with real scanners and the local registry. Run it before
   every merge to `main`; it doesn't run in unit CI.
 - [ ] **Split `src/analytics/dashboard_api.py`** (1,728 lines) into
@@ -441,6 +441,31 @@ The bugs found in the review, each with a regression test.
 - [ ] **Reformat `dashboard/src`** with Prettier, then break the single-line
   page components into components and hooks (`useScan`, `useRemediation`, and
   so on). Start with `remediations/[id]`, `scans/page`, and `dashboard/page`.
+
+**3a status: done.**
+- **Fixture:** `fixtures/images/vulnerable-node`, from `node:18.12-alpine`,
+  pins `lodash@4.17.20` (CVE-2021-23337, fixed in 4.17.21).
+- **Recorded output:** `scripts/record-golden-fixtures.sh` (`make
+  record-fixtures`) builds the fixture as "before", plus an "after" image
+  (`node:18.20.8-alpine`, lodash 4.17.21). It scans both with the worker's
+  real Trivy and Grype and saves trimmed JSON under `fixtures/scanner-output/`.
+- **Deterministic test:** `tests/e2e/test_golden_path.py` drives the real app
+  over HTTP. Fake `trivy` and `grype` binaries on PATH replay the recorded
+  output. The scan half and the patched-image rescan pass. The remediation half
+  is `xfail(strict=True)` and fails at `actionable_count == 0`, the Phase 4 gap.
+- **Live test:** `make e2e` builds and pushes the fixture, scans it with real
+  scanners through the dashboard, and checks the lodash finding.
+- **Bug found by the first live run:** Grype has no title field, so long
+  descriptions became titles over the 1024-character column, and Postgres
+  rejected the insert. Thanks to Phase 2a's honest failure states the scan
+  failed visibly instead of showing completed. Text is now fitted to its
+  columns, and a golden-path test checks every saved value against its column
+  length, because SQLite doesn't enforce them.
+- **Finding for Phase 4:** bumping the base image to `node:18.20.8-alpine`
+  fixes 80 findings but introduces 93, 20 of them critical or high. Both were
+  scanned the same day with the same database: newer OpenSSL, musl and zlib
+  releases carry CVEs the old ones didn't. A strict "no new critical/high"
+  rule would reject every such bump; see decision D6.
 
 **Done when:** the golden-path test exists and its scan half passes, no source
 line is over 120 characters, and no route file is over about 400 lines.
@@ -486,7 +511,9 @@ and the Dockerfile:
   `<repo>:scrutineering-candidate-<remediation_id>`.
 - [ ] Scan the candidate image with the same scanners and settings as the original.
 - [ ] Pass when every targeted `vuln_key` is gone **and** no new CRITICAL or
-  HIGH `vuln_key` appeared. Store the diff on the remediation. This replaces the
+  HIGH `vuln_key` appeared. (Decision D6: the Phase 3 fixture shows base-image
+  bumps routinely add new critical/high findings, so these may need operator
+  approval rather than automatic rejection.) Store the diff on the remediation. This replaces the
   `trivy fs . --exit-code 1` gate, which fails whenever any vulnerability remains.
 - [ ] Run the repo's tests if the source declares a test command. Make it
   optional for each source, not a global setting.
@@ -550,6 +577,7 @@ observation, multi-user roles.
 | D3 | How should the worker build images? | A rootless `buildkitd` sidecar. |
 | D4 | First PR provider? | GitHub only. |
 | D5 | Which severities do the scanners collect by default? | **Decided: all** (already true; see Phase 2b). |
+| D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | Pass when the targeted findings are gone; show the full before/after delta and require approval when new critical/high findings appear, instead of rejecting outright. |
 
 ## Mapping review findings to phases
 
