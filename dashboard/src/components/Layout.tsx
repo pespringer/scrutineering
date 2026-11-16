@@ -3,11 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Activity, ArrowUpRight, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
+import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusPanel";
+import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { cx } from "@/lib/cx";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const system = useSystemStatus();
   const [session, setSession] = useState<{ subject?: string; email?: string | null; roles?: string[] } | null>(null);
   useEffect(() => {
     fetch("/api/session", { cache: "no-store" })
@@ -67,15 +70,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               Remediations
             </NavLink>
           </nav>
-          <div className="mt-auto rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.05] p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-emerald-300">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(56,211,159,.8)]" />
-              System operational
-            </div>
-            <p className="text-xs leading-5 text-slate-500">
-              All services are reporting. Last sync is live from the scan control plane.
-            </p>
-          </div>
+          <SystemStatusPanel system={system} />
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-50 border-b border-slate-800/70 bg-[#080b12]/80 backdrop-blur-xl">
@@ -91,9 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <span className="font-semibold">Container Sentinel</span>
               </div>
-              <div className="hidden items-center gap-2 text-sm text-slate-400 sm:flex">
-                <Activity className="h-4 w-4 text-emerald-400" /> Live posture monitoring
-              </div>
+              <SystemStatusBadge system={system} />
               <div className="ml-auto flex items-center gap-3">
                 <span
                   className={cx(
@@ -149,9 +142,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <footer className="border-t border-slate-800/70 px-5 py-5 text-xs text-slate-600 sm:px-8 lg:px-10">
             <div className="mx-auto flex max-w-[1360px] items-center justify-between">
               <span>Container Sentinel · Security posture control plane</span>
-              <span className="hidden items-center gap-1 sm:flex">
-                Protected by <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-              </span>
             </div>
           </footer>
         </div>
