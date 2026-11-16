@@ -41,6 +41,10 @@ from sqlalchemy.sql import func
 
 # -- Base ------------------------------------------------------------------- #
 
+# BIGINT on Postgres; INTEGER on SQLite, where only INTEGER primary keys auto-increment.
+PrimaryKey = BigInteger().with_variant(Integer(), "sqlite")
+
+
 class Base(DeclarativeBase):
     """Declarative base — all models inherit from this."""
     pass
@@ -158,7 +162,7 @@ class Image(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     # Image coordinates
@@ -187,20 +191,16 @@ class Image(Base):
 
     @property
     def full_name(self) -> str:
-        """Return the canonical image reference, preferring its digest."""
-        prefix = self.registry_name.value if self.registry_name != ImageRegistry.DOCKER_HUB else ""
-        if self.digest:
-            return f"{prefix + '/' if prefix else ''}{self.repo_name}@{self.digest}"
-        if prefix:
-            return f"{prefix}/{self.repo_name}:{self.tag}"
+        """Display reference. `repo_name` already includes any registry host."""
         return f"{self.repo_name}:{self.tag}"
 
 
 class Scan(Base):
     """A single scan execution for one image.
 
-    Each scan may run both Trivy and Grype; their raw outputs are
-    stored in `raw_scan_results`.
+    `target` is the exact reference handed to the scanners (an image reference,
+    or `fs:<path>` for an internal filesystem scan). What the scan observed is
+    recorded in `finding_observations`.
     """
     __tablename__ = "scans"
     __table_args__ = (
@@ -214,7 +214,7 @@ class Scan(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     # Unique ID for this scan execution (UUID or timestamp-based)
@@ -226,6 +226,7 @@ class Scan(Base):
                                                        ondelete="CASCADE"),
                                            nullable=False)
     image = relationship("Image", back_populates="scans", lazy="joined")
+    target: Mapped[str | None] = mapped_column(String(1024), nullable=True)
 
     # Timing
     started_at: Mapped[datetime] = mapped_column(
@@ -261,10 +262,13 @@ class Scan(Base):
 
 
 class ScanFinding(Base):
-    """A single deduplicated vulnerability finding on an image.
+    """One vulnerability on one image, tracked across scans.
 
-    Fingerprint is deterministic: hash(CVE + package_name + package_version)
-    so the same finding can be tracked across scans.
+    `fingerprint` = hash(CVE + package + version) identifies the finding.
+    `vuln_key` = hash(CVE + package) ignores the version, so verification can
+    ask whether a CVE is still present in a package after an upgrade. Each scan
+    that sees the finding adds a `FindingObservation`; a later complete scan
+    that does not see it sets `resolved_at`.
     """
     __tablename__ = "scan_findings"
     __table_args__ = (
@@ -272,7 +276,7 @@ class ScanFinding(Base):
         Index("idx_findings_severity", "severity"),
         Index("idx_findings_fingerprint", "fingerprint"),
         Index("idx_findings_first_seen", "first_seen"),
-        Index("idx_findings_remediated", "remediated"),
+        Index("idx_findings_vuln_key", "image_id", "vuln_key"),
         Index("idx_findings_resolved_at", "resolved_at"),
         Index("idx_findings_cve_image", "cve_id", "image_id"),
         UniqueConstraint("fingerprint", "image_id",
@@ -283,11 +287,10 @@ class ScanFinding(Base):
         ),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     # Links
-    scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     image_id: Mapped[int] = mapped_column(BigInteger,
                                            ForeignKey("images.id",
                                                        ondelete="CASCADE"),
@@ -295,6 +298,7 @@ class ScanFinding(Base):
     image = relationship("Image", back_populates="findings", lazy="joined")
 
     fingerprint: Mapped[str] = mapped_column(String(128), nullable=False)
+    vuln_key: Mapped[str] = mapped_column(String(64), nullable=False)
 
     # Package coordinates
     package_name: Mapped[str] = mapped_column(String(256))
@@ -329,7 +333,6 @@ class ScanFinding(Base):
                                                   server_default=func.now())
     last_seen: Mapped[datetime] = mapped_column(DateTime,
                                                  server_default=func.now())
-    remediated: Mapped[bool] = mapped_column(Boolean, default=False)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     reopened_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -341,6 +344,28 @@ class ScanFinding(Base):
     # Relationships
     remediation = relationship("Remediation", back_populates="findings",
                                lazy="selectin")
+
+
+class FindingObservation(Base):
+    """What one scan saw of one finding, so each scan's results stay intact."""
+    __tablename__ = "finding_observations"
+    __table_args__ = (
+        UniqueConstraint("scan_id", "finding_id", name="uq_observation_scan_finding"),
+        Index("idx_observations_finding_id", "finding_id"),
+    )
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    scan_id: Mapped[str] = mapped_column(
+        String(64), ForeignKey("scans.scan_id", ondelete="CASCADE"), nullable=False)
+    finding_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("scan_findings.id", ondelete="CASCADE"), nullable=False)
+    severity: Mapped[Severity | None] = mapped_column(
+        Enum(Severity, values_callable=_enum_values), nullable=True)
+    fixed_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    file_path: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    finding = relationship("ScanFinding", lazy="joined")
 
 
 class SeveritySnapshot(Base):
@@ -357,7 +382,7 @@ class SeveritySnapshot(Base):
                          name="uq_image_date"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     image_id: Mapped[int] = mapped_column(BigInteger,
@@ -386,7 +411,7 @@ class Remediation(Base):
         Index("idx_remediations_approved_by", "approved_by"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     image_id: Mapped[int] = mapped_column(BigInteger,
@@ -446,7 +471,7 @@ class RemediationPublication(Base):
         Index("idx_remediation_publications_status", "status"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
     remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)
     remediation = relationship("Remediation", back_populates="publications", lazy="joined")
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -479,7 +504,7 @@ class RemediationWebhookEvent(Base):
         Index("idx_remediation_webhook_events_remediation_id", "remediation_id"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
     remediation_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="SET NULL"), nullable=True)
     provider: Mapped[str] = mapped_column(String(32), nullable=False)
     event_id: Mapped[str] = mapped_column(String(256), nullable=False)
@@ -498,7 +523,7 @@ class RemediationAction(Base):
         Index("idx_remediation_actions_type", "action_type"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     remediation_id: Mapped[int] = mapped_column(
@@ -530,7 +555,7 @@ class RemediationEvent(Base):
     __tablename__ = "remediation_events"
     __table_args__ = (Index("idx_remediation_events_remediation_id", "remediation_id"), Index("idx_remediation_events_sequence", "remediation_id", "sequence"))
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
     remediation_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False)
     remediation = relationship("Remediation", back_populates="events", lazy="joined")
     event_type: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -551,7 +576,7 @@ class AuditLog(Base):
         Index("idx_audit_entity_id", "entity_type", "entity_id"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True,
                                      autoincrement=True)
 
     timestamp: Mapped[datetime] = mapped_column(DateTime,

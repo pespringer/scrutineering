@@ -295,7 +295,36 @@ Expected size: roughly 324 → 157 non-test source files and about 26k → 10k l
 
 The bugs found in the review, each with a regression test.
 
-- [ ] **Split findings from observations.**
+**Status: 2a done; 2b open.** 2a (the data model) checked off the items above:
+- **Observations:** findings stay one row per image, each scan records what it
+  saw in `finding_observations`, and the old scan detail pages keep their lists.
+  Migration `0002` carries each finding's old `scan_id` over as an
+  observation, backfills `vuln_key`, and drops `scan_id` and `remediated`.
+- **One scan-creation path:** `src/scan/records.py` creates the image and the
+  pending scan for every caller: dashboard, retry, scheduler, discovery and
+  post-merge. The worker never creates images. Each scan stores its exact
+  `target`, so retries of directory scans work.
+- **Identity:** `repo_name` keeps the registry host and Docker Hub names are
+  normalized, so the display name is the scannable reference. The
+  `other/registry:5000/...` names are gone.
+- **Failure states:** every worker exit, a failed save, and a queue that
+  rejects the task all end the scan as `failed`. A cancellation is never
+  overwritten.
+- **Silent rollbacks:** the publish route that rolled back its own failure
+  record was removed in 1c. The worker records publication failures through
+  `_blocked` in the same session.
+- **Also removed:** the unused Image, Scan and Finding repositories (a third
+  persistence path), the broken `run_batch_scan` task, and the stale
+  `run_image_scan` route.
+- **Tests:** they now run against a real schema (an in-memory SQLite fixture
+  in `tests/conftest.py`). Before, every worker test ran with no tables and
+  status updates failed silently.
+
+2b (scanner configuration) covers the remaining items: severities, immutable
+identity, registry credentials, scanner settings, and retries.
+
+
+- [x] **Split findings from observations.**
   - `findings` table: one row per (image, fingerprint), with `first_seen`,
     `last_seen`, `resolved_at`, `reopened_at`, and `status` (open, resolved,
     accepted, or false positive).
@@ -304,7 +333,7 @@ The bugs found in the review, each with a regression test.
   - Stop rewriting `finding.scan_id` on rescan (`src/scan/utils/db.py:155`).
   - The scan-detail page then reads observations, so old scans keep their
     findings.
-- [ ] **Use one image-identity function.** Today the API creates the image
+- [x] **Use one image-identity function.** Today the API creates the image
   record from `parse_image_reference(raw)` while the worker uses
   `storage_reference(raw)`. For `fs:` targets these produce different records.
   Create the image record only in the API and pass `image_id` to the worker.
@@ -312,25 +341,25 @@ The bugs found in the review, each with a regression test.
   Also fix the display name: local-registry images render as
   `other/registry:5000/repo:tag`, because the `other` registry label is
   prepended to a name that already includes the host.
-- [ ] **Fail honestly.**
+- [x] **Fail honestly.**
   - If saving findings fails, mark the scan `failed` instead of `completed`
     (`src/scan/tasks.py:441`).
   - If the worker raises before the first status update (for example, when
     `storage_reference` throws), the scan stays `pending` forever. Wrap the
     task body so every exit writes a terminal status.
-- [ ] **Show scheduled scans.** Scheduled and discovery scans should create a
+- [x] **Show scheduled scans.** Scheduled and discovery scans should create a
   `pending` scan record before they are queued, like manual scans already do.
 - [ ] **Line severity settings up with the UI.** Default `TRIVY_SEVERITY` and
   `GRYPE_SEVERITY_THRESHOLD` to include MEDIUM and LOW, or drop medium and low
   from the charts. Pick one.
-- [ ] **Fix the fingerprint semantics.**
+- [x] **Fix the fingerprint semantics.**
   - Keep `fingerprint = cve + package + version` for finding identity.
   - Add an indexed `vuln_key = cve + package` so verification can ask "is
     CVE-X in package-Y still present at any version?"
-- [ ] **Stop silent rollbacks.** Publication failure records currently roll
+- [x] **Stop silent rollbacks.** Publication failure records currently roll
   back with the HTTP error (`dashboard_api.py:1290`). Commit the failure in its
   own session before raising.
-- [ ] **Remove the dead `remediated` flag** from `scan_findings`. Resolution
+- [x] **Remove the dead `remediated` flag** from `scan_findings`. Resolution
   comes only from `resolved_at`, set by a later complete scan.
 - [ ] **Enforce immutable image identity in the worker.**
   - Resolve each tag to a digest before scanning (`src/scan/registry.py`
@@ -352,7 +381,7 @@ The bugs found in the review, each with a regression test.
 - [ ] **Add scanner retries for transient failures** (registry timeouts, DB
   download) in `run_scanners_concurrently`. The old retry and circuit-breaker
   logic was in `ScanService` only.
-- [ ] **Remove `fs:` targets from the public scan form.** Filesystem scans
+- [x] **Remove `fs:` targets from the public scan form.** Filesystem scans
   become an internal remediation tool (Phase 4), limited to paths under the
   configured workspace.
 
@@ -441,7 +470,9 @@ and the Dockerfile:
 - [ ] With GitHub configured (GitLab later), push the branch and open a PR. The
   PR body holds the plan and the before/after scan diff.
 - [ ] When the merge webhook arrives (or on the next scheduled scan of the real
-  tag), rescan. Set `completed` when the targeted findings resolve on the real
+  tag), rescan. (Today post-merge verification stops at `pending` with
+  `deployment_digest_evidence_required`, because 1c removed the routes that
+  supplied that evidence. This step replaces it.) Set `completed` when the targeted findings resolve on the real
   image, and `failed` with a reason if they don't.
 
 ### 4e. One state machine

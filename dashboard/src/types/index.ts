@@ -41,7 +41,6 @@ export interface VulnerabilityFinding {
   fix_available: boolean;
   first_seen: string;
   last_seen: string;
-  remediated: boolean;
   resolved_at?: string | null;
   reopened_at?: string | null;
   lifecycle_status?: 'open' | 'resolved';
@@ -65,6 +64,8 @@ export interface PostureSummary {
 export interface ImageDetail {
   id: number;
   registry: string;
+  /** Display reference, e.g. `nginx:1.27` or `registry:5000/team/app:1.0`. */
+  name: string;
   repo_name: string;
   tag: string;
   last_scan_at: string | null;

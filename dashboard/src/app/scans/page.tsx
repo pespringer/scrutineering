@@ -71,7 +71,11 @@ export default function ScansPage() {
     try {
       const response = await fetch("/api/scans", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_name: imageName.trim(), priority }) });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Unable to queue scan");
+      if (!response.ok) {
+        // FastAPI validation errors arrive as detail[].msg; other errors as detail or error strings.
+        const detail = Array.isArray(payload.detail) ? payload.detail[0]?.msg?.replace(/^Value error, /, "") : payload.detail;
+        throw new Error(detail || payload.error || "Unable to queue scan");
+      }
       setImageName(""); setActiveScanId(payload.scan_id); setNotice(`Scan queued for ${payload.image_name}.`); setOffset(0); loadScans();
     } catch (error) { setNotice(error instanceof Error ? error.message : "Unable to queue scan."); }
     finally { setStarting(false); }

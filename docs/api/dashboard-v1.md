@@ -14,6 +14,14 @@ every role check.
 
 **Pagination.** Paginated responses use `{ items, limit, offset, count, total }`.
 
+**Images, scans and findings.** An image is one `repo_name:tag`; `name` is its
+display reference (for example `registry:5000/team/app:1.0`). Every scan is
+created as `pending` before it is queued, and ends `completed`, `partial`,
+`failed` or `cancelled`. A finding is one vulnerability on one image across
+scans: a complete scan that no longer sees it sets `resolved_at`, and seeing it
+again reopens it. Each scan's own view of its findings is kept, so older scans
+show what they found at the time.
+
 ## Posture
 
 | Method | Path | Role | Purpose |
@@ -28,11 +36,11 @@ every role check.
 | GET | `/scans?limit&offset&status&search&include_archived` | any | Paginated scan history |
 | GET | `/scans/health` | any | Status counts and terminal rate over recent scans |
 | GET | `/scans/{scan_id}` | any | One scan's status, for polling |
-| GET | `/scans/{scan_id}/findings?severity&fixable_only` | any | Findings attached to a scan |
-| POST | `/scans` | operator | Queue a scan: `{ "image_name": "nginx:1.27", "priority": "normal" }` |
+| GET | `/scans/{scan_id}/findings?severity&fixable_only` | any | The findings this scan observed, as it saw them, with their current lifecycle state |
+| POST | `/scans` | operator | Queue a scan: `{ "image_name": "nginx:1.27", "priority": "normal" }`. Container image references only; `fs:` targets return 422 |
 | POST | `/scans/{scan_id}/cancel` | operator | Cancel a pending or running scan |
 | POST | `/scans/bulk-cancel` | operator | Cancel several scans: `{ "ids": [...] }` |
-| POST | `/scans/bulk-retry` | operator | Re-queue failed or cancelled scans |
+| POST | `/scans/bulk-retry` | operator | Re-queue failed or cancelled scans with their original target |
 | POST | `/scans/bulk-archive` | operator | Hide finished scans from history |
 
 ## Images and findings

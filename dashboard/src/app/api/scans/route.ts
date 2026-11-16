@@ -1,4 +1,4 @@
-import { backendJson, dashboardResponse, trustedIdentityHeaders } from "../_lib/backend";
+import { dashboardMutationResponse, dashboardResponse } from "../_lib/backend";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -8,17 +8,8 @@ export async function GET(req: Request) {
   return dashboardResponse(`/api/dashboard/scans?${query}`, req);
 }
 
+// Pass the API's status and body through, so validation errors (422) reach the
+// form instead of being reported as an unavailable queue.
 export async function POST(req: Request) {
-  if (!process.env.DASHBOARD_API_URL) {
-    return Response.json({ error: "scan_controls_require_live_api" }, { status: 503 });
-  }
-  try {
-    return Response.json(await backendJson("/api/dashboard/scans", {
-      method: "POST",
-      headers: { "content-type": "application/json", ...trustedIdentityHeaders(req) },
-      body: await req.text(),
-    }), { status: 202 });
-  } catch {
-    return Response.json({ error: "scan_queue_unavailable" }, { status: 503 });
-  }
+  return dashboardMutationResponse("/api/dashboard/scans", req, 202);
 }

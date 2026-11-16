@@ -6,7 +6,6 @@ from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
-import uuid
 from urllib.parse import quote
 from urllib.request import Request as UrlRequest, urlopen
 import os
@@ -16,7 +15,7 @@ from sqlalchemy import func
 from pydantic import BaseModel, Field, field_validator
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, FindingObservation, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
@@ -27,7 +26,8 @@ from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_
 from src.telemetry.scan_metrics import record_provider_callback
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
-from src.scan.tasks import app as celery_app, enqueue_scan
+from src.scan.records import queue_scan
+from src.scan.tasks import app as celery_app
 
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -39,10 +39,14 @@ class ScanRequest(BaseModel):
 
     @field_validator("image_name")
     @classmethod
-    def image_name_must_be_trimmed(cls, value: str) -> str:
+    def image_name_must_be_an_image_reference(cls, value: str) -> str:
         value = value.strip()
         if not value or any(char.isspace() for char in value):
             raise ValueError("image_name must be a single image reference")
+        if value.startswith("fs:"):
+            # Filesystem scans are an internal remediation tool, not a public scan target.
+            raise ValueError("image_name must be a container image reference")
+        parse_image_reference(value)
         return value
 
 
@@ -84,7 +88,8 @@ def _scan_payload(scan: Scan) -> dict:
     return {
         "scan_id": scan.scan_id,
         "image_id": getattr(scan, "image_id", None),
-        "image_name": scan.image.full_name if scan.image else "unknown",
+        "image_name": getattr(scan, "target", None) or (scan.image.full_name if scan.image else "unknown"),
+        "target": getattr(scan, "target", None),
         "status": _value(scan.status),
         "phase": getattr(scan, "phase", None) or _value(scan.status),
         "task_id": getattr(scan, "task_id", None),
@@ -107,6 +112,7 @@ def _image_payload(image: Image, findings: list[ScanFinding], resolved_count: in
     return {
         "id": image.id,
         "registry": _value(image.registry_name),
+        "name": image.full_name,
         "repo_name": image.repo_name,
         "tag": image.tag,
         "last_scan_at": _iso(image.last_scan_at),
@@ -174,13 +180,25 @@ def _finding_payload(finding: ScanFinding) -> dict:
         "fix_available": bool(finding.fix_available),
         "first_seen": _iso(finding.first_seen),
         "last_seen": _iso(finding.last_seen),
-        "remediated": bool(finding.remediated),
         "resolved_at": _iso(getattr(finding, "resolved_at", None)),
         "reopened_at": _iso(getattr(finding, "reopened_at", None)),
         "lifecycle_status": "resolved" if getattr(finding, "resolved_at", None) else "open",
         "acknowledged": bool(getattr(finding, "acknowledged", False)),
         "assigned_to": getattr(finding, "assigned_to", None),
         "remediation_id": getattr(finding, "remediation_id", None),
+    }
+
+
+def _observation_payload(observation: FindingObservation, finding: ScanFinding) -> dict:
+    """A finding as one scan saw it; lifecycle fields reflect its current state."""
+    severity = _value(observation.severity)
+    return {
+        **_finding_payload(finding),
+        "severity": severity.upper() if severity else "UNKNOWN",
+        "fixed_version": observation.fixed_version,
+        "fix_available": observation.fixed_version is not None,
+        "file_path": observation.file_path,
+        "observed_at": _iso(observation.observed_at),
     }
 
 
@@ -336,7 +354,7 @@ def _remediation_workflow_state(remediation: Remediation, events: list | None = 
 def posture_summary() -> dict:
     with get_session() as session:
         images = session.query(Image).filter_by(active=True).all()
-        findings = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all()
+        findings = session.query(ScanFinding).filter(ScanFinding.resolved_at.is_(None)).all()
         latest_scan = session.query(Scan).order_by(Scan.started_at.desc()).first()
 
     counts = _severity_counts(findings)
@@ -465,17 +483,24 @@ def bulk_archive_scans(payload: BulkIdsRequest, request: Request) -> dict:
 @router.post("/scans/bulk-retry", status_code=202)
 def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")
-    retried: list[dict] = []
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
     with get_session() as session:
-        scans = session.query(Scan).join(Image).filter(Scan.scan_id.in_([str(value) for value in payload.ids]), Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED])).all()
-        for scan in scans:
-            retry_id = uuid.uuid4().hex
-            session.add(Scan(scan_id=retry_id, image_id=scan.image_id, status=ScanStatus.PENDING.value, phase="queued", task_id=retry_id, started_at=now, image_digest=scan.image_digest))
-            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id, {"action": "retry_scan", "source_scan_id": scan.scan_id})
-            retried.append({"source_scan_id": scan.scan_id, "scan_id": retry_id, "image_name": scan.image.full_name})
-    for item in retried:
-        enqueue_scan(item["image_name"], scan_id=item["scan_id"])
+        sources = [
+            (scan.scan_id, scan.target or scan.image.full_name)
+            for scan in session.query(Scan).join(Image).filter(
+                Scan.scan_id.in_([str(value) for value in payload.ids]),
+                Scan.status.in_([ScanStatus.FAILED, ScanStatus.CANCELLED]),
+            ).all()
+        ]
+    retried: list[dict] = []
+    for source_scan_id, target in sources:
+        try:
+            retry_id = queue_scan(target, priority="normal", trigger="retry")
+        except Exception:
+            continue
+        with get_session() as session:
+            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, retry_id,
+                                   {"action": "retry_scan", "source_scan_id": source_scan_id})
+        retried.append({"source_scan_id": source_scan_id, "scan_id": retry_id, "image_name": target})
     return {"requested": payload.ids, "retried": retried, "count": len(retried)}
 
 
@@ -502,53 +527,32 @@ def scan_findings(
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
             raise HTTPException(status_code=404, detail="scan_not_found")
-        query = session.query(ScanFinding).filter(ScanFinding.scan_id == scan_id)
+        query = (session.query(FindingObservation, ScanFinding)
+                 .join(ScanFinding, FindingObservation.finding_id == ScanFinding.id)
+                 .filter(FindingObservation.scan_id == scan_id))
         if severity_value:
-            query = query.filter(ScanFinding.severity == severity_value.value)
+            query = query.filter(FindingObservation.severity == severity_value.value)
         if fixable_only:
-            query = query.filter(ScanFinding.fix_available.is_(True), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
+            query = query.filter(FindingObservation.fixed_version.is_not(None), ScanFinding.resolved_at.is_(None))
         total = query.order_by(None).count()
-        findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
-    return {"scan_id": scan_id, "image_id": scan.image_id, **_page([_finding_payload(finding) for finding in findings], limit, offset, total)}
+        rows = (query.order_by(FindingObservation.severity.asc(), ScanFinding.id.asc())
+                .offset(offset).limit(limit).all())
+        items = [_observation_payload(observation, finding) for observation, finding in rows]
+    return {"scan_id": scan_id, "image_id": scan.image_id, **_page(items, limit, offset, total)}
 
 
 @router.post("/scans", status_code=202)
 def start_scan(payload: ScanRequest, request: Request) -> dict:
     _require_role(request, "operator", "security-operator")
-    scan_id = uuid.uuid4().hex
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    identity = parse_image_reference(payload.image_name)
     try:
-        with get_session() as session:
-            image = session.query(Image).filter_by(
-                registry_name=identity.registry,
-                repo_name=identity.repo_name,
-                tag=identity.tag,
-            ).first()
-            if image is None:
-                image = Image(
-                    registry_name=identity.registry,
-                    repo_name=identity.repo_name,
-                    tag=identity.tag,
-                    digest=identity.digest,
-                )
-                session.add(image)
-                session.flush()
-            image.last_scan_id = scan_id
-            session.add(Scan(
-                scan_id=scan_id,
-                image_id=image.id,
-                status=ScanStatus.PENDING.value,
-                phase="queued",
-                task_id=scan_id,
-                started_at=now,
-                image_digest=identity.digest,
-            ))
-            _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {"action": "start_scan", "image_name": payload.image_name, "priority": payload.priority})
-        task = enqueue_scan(payload.image_name, priority=payload.priority, scan_id=scan_id)
+        scan_id = queue_scan(payload.image_name, priority=payload.priority, trigger="manual")
     except Exception as exc:
         raise HTTPException(status_code=503, detail="scan_queue_unavailable") from exc
-    return {"scan_id": scan_id, "task_id": task.id, "image_name": payload.image_name, "status": "pending"}
+    with get_session() as session:
+        _record_operator_event(session, request, AuditEventType.SCAN_STARTED, scan_id, {
+            "action": "start_scan", "image_name": payload.image_name, "priority": payload.priority,
+        })
+    return {"scan_id": scan_id, "task_id": scan_id, "image_name": payload.image_name, "status": "pending"}
 
 
 @router.get("/images")
@@ -564,12 +568,12 @@ def image_inventory(
         if search:
             query = query.filter(Image.repo_name.ilike(f"%{search.strip()}%"))
         if severity_value:
-            query = query.filter(Image.id.in_(session.query(ScanFinding.image_id).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None), ScanFinding.severity == severity_value.value)))
+            query = query.filter(Image.id.in_(session.query(ScanFinding.image_id).filter(ScanFinding.resolved_at.is_(None), ScanFinding.severity == severity_value.value)))
         total = query.order_by(None).count()
         images = query.order_by(Image.repo_name.asc()).offset(offset).limit(limit).all()
         image_ids = [image.id for image in images]
         findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id.in_(image_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None),
+            ScanFinding.image_id.in_(image_ids), ScanFinding.resolved_at.is_(None),
         ).all() if image_ids else []
         resolved_counts = dict(session.query(ScanFinding.image_id, func.count(ScanFinding.id)).filter(
             ScanFinding.image_id.in_(image_ids), ScanFinding.resolved_at.is_not(None),
@@ -620,7 +624,7 @@ def registry_inventory(request: Request) -> dict:
     tags: list[dict] = []
     for item in catalog_items:
         image = image_lookup.get((f"{registry_host}/{item['repository']}", item["tag"])) or image_lookup.get((item["repository"], item["tag"]))
-        image_findings = [finding for finding in findings_by_image.get(image.id, []) if not finding.remediated and finding.resolved_at is None] if image else []
+        image_findings = [finding for finding in findings_by_image.get(image.id, []) if finding.resolved_at is None] if image else []
         scan = scans_by_image.get(image.id) if image else None
         scan_status = _value(scan.status) if scan else None
         if scan_status in {"pending", "running"}:
@@ -688,12 +692,12 @@ def image_detail(
         image = session.get(Image, image_id)
         if image is None:
             raise HTTPException(status_code=404, detail="image_not_found")
-        query = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
+        query = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_(None))
         if severity_value:
             query = query.filter(ScanFinding.severity == severity_value.value)
         total = query.order_by(None).count()
         findings = query.order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).offset(offset).limit(limit).all()
-        all_findings = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all()
+        all_findings = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_(None)).all()
         resolved_count = session.query(ScanFinding).filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_not(None)).count()
     return {
         "image": _image_payload(image, all_findings, resolved_count),
@@ -708,7 +712,7 @@ def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict
     finding_ids = [int(value) for value in payload.ids]
     changed: list[int] = []
     with get_session() as session:
-        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(finding_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all():
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(finding_ids), ScanFinding.resolved_at.is_(None)).all():
             finding.acknowledged = True
             changed.append(finding.id)
         if changed:
@@ -721,7 +725,7 @@ def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request
     _require_role(request, "operator", "security-operator")
     changed: list[int] = []
     with get_session() as session:
-        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)).all():
+        for finding in session.query(ScanFinding).filter(ScanFinding.id.in_(payload.finding_ids), ScanFinding.resolved_at.is_(None)).all():
             finding.assigned_to = payload.assignee
             changed.append(finding.id)
         if changed:
@@ -734,7 +738,7 @@ def export_findings(request: Request, limit: int = Query(default=1000, ge=1, le=
     _require_role(request, "dashboard", "operator", "security-operator")
     severity_value = _severity_filter(severity)
     with get_session() as session:
-        query = session.query(ScanFinding).filter(ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None))
+        query = session.query(ScanFinding).filter(ScanFinding.resolved_at.is_(None))
         if severity_value: query = query.filter(ScanFinding.severity == severity_value.value)
         if image_id: query = query.filter(ScanFinding.image_id == image_id)
         if acknowledged is not None: query = query.filter(ScanFinding.acknowledged.is_(acknowledged))
@@ -825,7 +829,7 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
         findings = session.query(ScanFinding).filter(
             ScanFinding.image_id == payload.image_id,
             ScanFinding.id.in_(payload.finding_ids),
-            ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None),
+            ScanFinding.resolved_at.is_(None),
         ).order_by(ScanFinding.severity.asc(), ScanFinding.id.asc()).all()
     if image is None:
         raise HTTPException(status_code=404, detail="image_not_found")
@@ -889,7 +893,6 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         findings = session.query(ScanFinding).filter(
             ScanFinding.image_id == payload.image_id,
             ScanFinding.id.in_(requested_ids),
-            ScanFinding.remediated.is_(False),
             ScanFinding.resolved_at.is_(None),
             ScanFinding.fix_available.is_(True),
         ).all()

@@ -23,7 +23,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     op.create_table('images',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('registry', sa.Enum('dockerhub', 'gcr', 'ecr', 'ghcr', 'gitlab', 'harbor', 'quay', 'other', name='imageregistry'), nullable=False),
     sa.Column('repo_name', sa.String(length=512), nullable=False),
     sa.Column('tag', sa.String(length=256), nullable=False),
@@ -42,7 +42,7 @@ def upgrade() -> None:
     op.create_index('idx_images_registry', 'images', ['registry'], unique=False)
     op.create_index('idx_images_tag', 'images', ['tag'], unique=False)
     op.create_table('audit_log',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('timestamp', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('event_type', sa.Enum('scan_started', 'scan_completed', 'scan_failed', 'scan_cancelled', 'finding_created', 'finding_closed', 'remediation_started', 'remediation_completed', 'remediation_failed', 'policy_created', 'policy_updated', 'policy_violated', 'compliance_report_generated', 'config_changed', 'user_login', 'system_error', name='auditeventtype'), nullable=False),
     sa.Column('entity_type', sa.String(length=64), nullable=True),
@@ -62,7 +62,7 @@ def upgrade() -> None:
     op.create_index('idx_audit_timestamp', 'audit_log', ['timestamp'], unique=False)
     op.create_index(op.f('ix_audit_log_record_hash'), 'audit_log', ['record_hash'], unique=False)
     op.create_table('remediations',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('image_id', sa.BigInteger(), nullable=False),
     sa.Column('status', sa.Enum('pending', 'analyzing', 'patching', 'building', 'verifying', 'pr_opened', 'completed', 'failed', 'skipped', 'requires_review', name='remediationstatus'), nullable=False),
     sa.Column('scan_id', sa.String(length=64), nullable=True),
@@ -86,7 +86,7 @@ def upgrade() -> None:
     op.create_index('idx_remediations_image_id', 'remediations', ['image_id'], unique=False)
     op.create_index('idx_remediations_status', 'remediations', ['status'], unique=False)
     op.create_table('scans',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('scan_id', sa.String(length=64), nullable=False),
     sa.Column('image_id', sa.BigInteger(), nullable=False),
     sa.Column('started_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
@@ -116,7 +116,7 @@ def upgrade() -> None:
     op.create_index('idx_scans_started_at', 'scans', ['started_at'], unique=False)
     op.create_index('idx_scans_status', 'scans', ['status'], unique=False)
     op.create_table('severity_snapshots',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('image_id', sa.BigInteger(), nullable=False),
     sa.Column('snapshot_date', sa.DateTime(), nullable=False),
     sa.Column('critical_count', sa.Integer(), nullable=False),
@@ -132,7 +132,7 @@ def upgrade() -> None:
     op.create_index('idx_snapshots_date', 'severity_snapshots', ['snapshot_date'], unique=False)
     op.create_index('idx_snapshots_image_date', 'severity_snapshots', ['image_id', 'snapshot_date'], unique=True)
     op.create_table('remediation_actions',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('remediation_id', sa.BigInteger(), nullable=False),
     sa.Column('action_type', sa.Enum('base_image_bump', 'dependency_update', 'config_change', 'package_removal', 'custom', name='remediationactiontype'), nullable=False),
     sa.Column('file_path', sa.String(length=1024), nullable=True),
@@ -147,7 +147,7 @@ def upgrade() -> None:
     op.create_index('idx_remediation_actions_remediation_id', 'remediation_actions', ['remediation_id'], unique=False)
     op.create_index('idx_remediation_actions_type', 'remediation_actions', ['action_type'], unique=False)
     op.create_table('remediation_events',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('remediation_id', sa.BigInteger(), nullable=False),
     sa.Column('event_type', sa.String(length=64), nullable=False),
     sa.Column('sequence', sa.Integer(), nullable=True),
@@ -159,7 +159,7 @@ def upgrade() -> None:
     op.create_index('idx_remediation_events_remediation_id', 'remediation_events', ['remediation_id'], unique=False)
     op.create_index('idx_remediation_events_sequence', 'remediation_events', ['remediation_id', 'sequence'], unique=False)
     op.create_table('remediation_publications',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('remediation_id', sa.BigInteger(), nullable=False),
     sa.Column('provider', sa.String(length=32), nullable=False),
     sa.Column('repository', sa.String(length=256), nullable=False),
@@ -188,7 +188,7 @@ def upgrade() -> None:
     op.create_index('idx_remediation_publications_remediation_id', 'remediation_publications', ['remediation_id'], unique=False)
     op.create_index('idx_remediation_publications_status', 'remediation_publications', ['status'], unique=False)
     op.create_table('remediation_webhook_events',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('remediation_id', sa.BigInteger(), nullable=True),
     sa.Column('provider', sa.String(length=32), nullable=False),
     sa.Column('event_id', sa.String(length=256), nullable=False),
@@ -200,7 +200,7 @@ def upgrade() -> None:
     )
     op.create_index('idx_remediation_webhook_events_remediation_id', 'remediation_webhook_events', ['remediation_id'], unique=False)
     op.create_table('scan_findings',
-    sa.Column('id', sa.BigInteger(), autoincrement=True, nullable=False),
+    sa.Column('id', sa.BigInteger().with_variant(sa.Integer(), 'sqlite'), autoincrement=True, nullable=False),
     sa.Column('scan_id', sa.String(length=64), nullable=True),
     sa.Column('image_id', sa.BigInteger(), nullable=False),
     sa.Column('fingerprint', sa.String(length=128), nullable=False),

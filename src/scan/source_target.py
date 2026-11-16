@@ -16,10 +16,17 @@ def filesystem_path(target: str) -> Path | None:
 
 
 def storage_reference(target: str) -> str:
-    path = filesystem_path(target)
-    if path is None:
+    """Image-style name used to store a target. Does not touch the filesystem.
+
+    `fs:<dir>` becomes `local/<dir name>:filesystem`; image references pass through.
+    The API names filesystem targets it cannot see (the worker holds the
+    checkout), so existence is checked only by `filesystem_path` at scan time.
+    """
+    value = str(target or "")
+    if not value.startswith("fs:"):
         return target
-    name = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in path.name).strip("-") or "repository"
+    leaf = Path(value[3:].rstrip("/")).name
+    name = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in leaf).strip("-") or "repository"
     return f"local/{name}:filesystem"
 
 
