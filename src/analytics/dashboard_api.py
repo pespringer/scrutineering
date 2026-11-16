@@ -373,6 +373,10 @@ def _remediation_actions(findings: list[ScanFinding], image: Image | None = None
     } for finding in findings]
 
 
+def _unsafe_remediation_actions(actions: list[dict]) -> list[dict]:
+    return [action for action in actions if not action["safe_to_apply"]]
+
+
 def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
     stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     remediation_findings = list(getattr(remediation, "findings", []) or [])
@@ -1081,6 +1085,14 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             raise HTTPException(status_code=404, detail="image_not_found")
         if len(findings) != len(set(payload.finding_ids)):
             raise HTTPException(status_code=400, detail="all_findings_need_available_fixes")
+        actions = _remediation_actions(findings, image)
+        unsafe_actions = _unsafe_remediation_actions(actions)
+        if unsafe_actions:
+            raise HTTPException(status_code=400, detail={
+                "code": "findings_not_actionable",
+                "finding_ids": [action["finding_id"] for action in unsafe_actions],
+                "reason": "Each remediation action requires a fixed version and explicit source file path.",
+            })
         severities = Counter(_value(finding.severity) or "unknown" for finding in findings)
         remediation = RemediationRepository.create(
             session,
@@ -1089,7 +1101,6 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             target_severities=dict(severities),
         )
         remediation.status = RemediationStatus.REQUIRES_REVIEW
-        actions = _remediation_actions(findings, image)
         for finding, action in zip(findings, actions):
             finding.remediation_id = remediation.id
             RemediationRepository.add_action(

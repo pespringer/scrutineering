@@ -29,6 +29,7 @@ export default function ImageDetailPage() {
   const [canManage, setCanManage] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
+  const isActionable = (finding: VulnerabilityFinding) => Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -64,8 +65,10 @@ export default function ImageDetailPage() {
 
   async function proposeRemediation() {
     if (!selectedFindings.length) return;
+    const actionableIds = selectedFindings.filter((id) => findings.some((finding) => finding.id === id && isActionable(finding)));
+    if (!actionableIds.length) { setNotice("No selected findings have an explicit source file path. Select only findings marked with a safe path."); setSelectedFindings([]); return; }
     setNotice("Creating remediation proposal…");
-    const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: selectedFindings }) });
+    const response = await fetch("/api/remediations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ image_id: Number(imageId), finding_ids: actionableIds }) });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       const detail = typeof body.detail === "string" ? body.detail : body.detail?.code === "finding_already_in_remediation" ? `Those findings are already reserved by remediation #${body.detail.remediation_ids?.join(", #") || "another"}.` : "Unable to create a remediation proposal.";
@@ -76,7 +79,7 @@ export default function ImageDetailPage() {
     }
     const remediation = await response.json();
     setSelectedFindings([]);
-    setNotice(`Remediation #${remediation.id} created. Those findings are now reserved and cannot be proposed again.`);
+    setNotice(`Remediation #${remediation.id} created for ${actionableIds.length} safe finding${actionableIds.length === 1 ? "" : "s"}.`);
     loadData();
   }
 
