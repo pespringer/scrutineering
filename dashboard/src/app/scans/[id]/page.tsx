@@ -9,6 +9,7 @@ import EmptyState from "@/components/EmptyState";
 import type { ScanResult } from "@/types";
 import { ArrowLeft, CheckCircle2, Clock3, ExternalLink, XCircle } from "lucide-react";
 import { cx } from "@/lib/cx";
+import { proposeFixes as planAndPropose } from "@/lib/remediation";
 
 type Finding = {
   id: number;
@@ -58,16 +59,7 @@ export default function ScanDetailPage() {
       setNotice("No fixable findings are available in this scan.");
       return;
     }
-    const response = await fetch("/api/remediations", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ image_id: scan.image_id, finding_ids: fixable }),
-    });
-    setNotice(
-      response.ok
-        ? "Remediation proposal created. Review it in Remediations."
-        : "Unable to create a remediation proposal.",
-    );
+    setNotice(await planAndPropose(scan.image_id, fixable));
   }
   if (loading)
     return (

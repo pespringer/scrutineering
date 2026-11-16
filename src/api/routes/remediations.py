@@ -18,6 +18,8 @@ from src.db.models import (
     ScanFinding,
 )
 from src.db.repositories import RemediationRepository
+from src.remediation.planner import Plan, finding_input
+from src.remediation.planner import plan as plan_fixes
 from src.remediation.worker import execute_approved_remediation
 from src.api.schemas import RemediationRequest
 from src.api.serializers import (
@@ -32,46 +34,42 @@ from src.api.routes._access import record_operator_event, require_role
 router = APIRouter()
 
 
-def _remediation_file_path(finding: ScanFinding, image: Image | None = None) -> str | None:
-    file_path = getattr(finding, "file_path", None)
-    if not file_path or image is None:
-        return file_path
-    repository_name = str(getattr(image, "repo_name", ""))
-    if getattr(image, "tag", None) == "filesystem" and repository_name.startswith("local/"):
-        source_directory = repository_name.removeprefix("local/")
-        if source_directory and not file_path.startswith(f"{source_directory}/"):
-            return f"{source_directory}/{file_path}"
-    return file_path
+ACTION_TYPES = {
+    "dependency_update": RemediationActionType.DEPENDENCY_UPDATE,
+    "os_package_upgrade": RemediationActionType.OS_PACKAGE_UPGRADE,
+    "base_image_bump": RemediationActionType.BASE_IMAGE_BUMP,
+}
 
 
-def _remediation_actions(findings: list[ScanFinding], image: Image | None = None) -> list[dict]:
-    return [
-        {
-            "finding_id": finding.id,
-            "action_type": RemediationActionType.DEPENDENCY_UPDATE.value,
-            "package_name": finding.package_name,
-            "from_version": finding.package_version,
-            "to_version": finding.fixed_version,
-            "file_path": _remediation_file_path(finding, image),
-            "cve_id": finding.cve_id,
-            "severity": enum_value(finding.severity),
-            "safe_to_apply": bool(
-                finding.fix_available and finding.fixed_version and _remediation_file_path(finding, image)
-            ),
-        }
-        for finding in findings
-    ]
+def _plan(findings: list[ScanFinding]) -> Plan:
+    return plan_fixes([finding_input(finding) for finding in findings])
 
 
-def _unsafe_remediation_actions(actions: list[dict]) -> list[dict]:
-    return [action for action in actions if not action["safe_to_apply"]]
+def _plan_payload(image: Image, findings: list[ScanFinding]) -> dict:
+    plan = _plan(findings)
+    source_connected = image.source is not None
+    actionable_ids = sorted(plan.actionable_finding_ids) if source_connected else []
+    return {
+        "image": image_payload(image, findings),
+        "source_connected": source_connected,
+        "finding_ids": [finding.id for finding in findings],
+        "actions": [{**action.as_dict(), "safe_to_apply": source_connected} for action in plan.actions],
+        "manual": [{"finding_id": item.finding_id, "reason": item.reason} for item in plan.manual],
+        "actionable_finding_ids": actionable_ids,
+        "actionable_count": len(actionable_ids),
+        "requires_approval": True,
+        "mutates_state": False,
+    }
 
 
 @router.post("/remediations/preview")
 def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
+    """How the selected findings would be fixed. Changes nothing."""
     require_role(request, "remediator", "security-operator")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
+        if image is None:
+            raise HTTPException(status_code=404, detail="image_not_found")
         findings = (
             session.query(ScanFinding)
             .filter(
@@ -82,19 +80,9 @@ def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
             .order_by(ScanFinding.severity.asc(), ScanFinding.id.asc())
             .all()
         )
-    if image is None:
-        raise HTTPException(status_code=404, detail="image_not_found")
-    if len(findings) != len(set(payload.finding_ids)):
-        raise HTTPException(status_code=400, detail="findings_must_belong_to_image")
-    actions = _remediation_actions(findings, image)
-    return {
-        "image": image_payload(image, findings),
-        "finding_ids": [finding.id for finding in findings],
-        "actions": actions,
-        "actionable_count": sum(action["safe_to_apply"] for action in actions),
-        "requires_approval": True,
-        "mutates_state": False,
-    }
+        if len(findings) != len(set(payload.finding_ids)):
+            raise HTTPException(status_code=400, detail="findings_must_belong_to_image")
+        return _plan_payload(image, findings)
 
 
 @router.get("/remediations")
@@ -146,29 +134,31 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
                     "remediation_ids": sorted({value for value in already_owned.values() if value is not None}),
                 },
             )
+        if image is None:
+            raise HTTPException(status_code=404, detail="image_not_found")
+        if image.source is None:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "source_not_connected", "reason": "Connect the image's source repository first."},
+            )
         findings = (
             session.query(ScanFinding)
             .filter(
                 ScanFinding.image_id == payload.image_id,
                 ScanFinding.id.in_(requested_ids),
                 ScanFinding.resolved_at.is_(None),
-                ScanFinding.fix_available.is_(True),
             )
             .all()
         )
-        if image is None:
-            raise HTTPException(status_code=404, detail="image_not_found")
-        if len(findings) != len(set(payload.finding_ids)):
-            raise HTTPException(status_code=400, detail="all_findings_need_available_fixes")
-        actions = _remediation_actions(findings, image)
-        unsafe_actions = _unsafe_remediation_actions(actions)
-        if unsafe_actions:
+        if len(findings) != len(requested_ids):
+            raise HTTPException(status_code=400, detail="findings_must_be_open_and_belong_to_image")
+        plan = _plan(findings)
+        if plan.manual:
             raise HTTPException(
                 status_code=400,
                 detail={
                     "code": "findings_not_actionable",
-                    "finding_ids": [action["finding_id"] for action in unsafe_actions],
-                    "reason": "Each remediation action requires a fixed version and explicit source file path.",
+                    "findings": [{"finding_id": item.finding_id, "reason": item.reason} for item in plan.manual],
                 },
             )
         severities = Counter(enum_value(finding.severity) or "unknown" for finding in findings)
@@ -179,21 +169,17 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             target_severities=dict(severities),
         )
         remediation.status = RemediationStatus.REQUIRES_REVIEW
-        for finding, action in zip(findings, actions):
+        for finding in findings:
             finding.remediation_id = remediation.id
+        for action in plan.actions:
+            detail = action.as_dict()
             RemediationRepository.add_action(
                 session,
                 remediation.id,
-                RemediationActionType.DEPENDENCY_UPDATE,
-                file_path=_remediation_file_path(finding, image),
-                before_value=finding.package_version,
-                after_value=finding.fixed_version,
-                detail={
-                    "finding_id": finding.id,
-                    "package_name": finding.package_name,
-                    "cve_id": finding.cve_id,
-                    "file_path": _remediation_file_path(finding, image),
-                },
+                ACTION_TYPES[action.strategy],
+                before_value=action.from_version,
+                after_value=action.to_version,
+                detail=detail,
             )
         record_operator_event(
             session,
@@ -203,7 +189,9 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             {"action": "remediation_requested", "finding_ids": payload.finding_ids},
             entity_type="remediation",
         )
-        return remediation_payload(remediation, actions)
+        session.flush()
+        session.refresh(remediation)
+        return remediation_payload(remediation)
 
 
 @router.get("/remediations/{remediation_id}")
