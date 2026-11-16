@@ -76,6 +76,18 @@ export interface ImageDetail {
   high_count: number;
   medium_count: number;
   low_count: number;
+  source?: ImageSource | null;
+}
+
+export interface ImageSource {
+  repository: string;
+  ref: string;
+  dockerfile_path: string;
+  build_context: string;
+  build_args: Record<string, string>;
+  test_command: string[] | null;
+  updated_by: string | null;
+  updated_at: string | null;
 }
 
 export interface RegistryTag {

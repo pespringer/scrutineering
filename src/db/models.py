@@ -196,11 +196,39 @@ class Image(Base):
     # Relationships
     scans = relationship("Scan", back_populates="image", lazy="selectin")
     findings = relationship("ScanFinding", back_populates="image", lazy="selectin")
+    source = relationship("ImageSource", back_populates="image", uselist=False, lazy="selectin")
 
     @property
     def full_name(self) -> str:
         """Display reference. `repo_name` already includes any registry host."""
         return f"{self.repo_name}:{self.tag}"
+
+
+class ImageSource(Base):
+    """Where an image is built from, so a remediation can patch and rebuild it.
+
+    `repository` is an HTTPS git URL, or a path relative to the worker's sources
+    root (REMEDIATION_SOURCES_ROOT). `dockerfile_path` and `build_context` are
+    relative to the repository root.
+    """
+
+    __tablename__ = "image_sources"
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    image_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("images.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    repository: Mapped[str] = mapped_column(String(1024), nullable=False)
+    ref: Mapped[str] = mapped_column(String(256), nullable=False, default="HEAD")
+    dockerfile_path: Mapped[str] = mapped_column(String(512), nullable=False, default="Dockerfile")
+    build_context: Mapped[str] = mapped_column(String(512), nullable=False, default=".")
+    build_args: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    test_command: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    image = relationship("Image", back_populates="source", lazy="joined")
 
 
 class Scan(Base):

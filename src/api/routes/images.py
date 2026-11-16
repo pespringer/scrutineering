@@ -20,6 +20,7 @@ from src.db.models import (
 )
 from src.api.schemas import BulkIdsRequest
 from src.api.serializers import (
+    source_payload,
     enum_value,
     finding_payload,
     image_payload,
@@ -281,7 +282,7 @@ def image_detail(
             .count()
         )
     return {
-        "image": image_payload(image, all_findings, resolved_count),
+        "image": {**image_payload(image, all_findings, resolved_count), "source": source_payload(image.source)},
         "findings": [finding_payload(finding) for finding in findings],
         "findings_page": paginate([finding_payload(finding) for finding in findings], limit, offset, total),
     }
