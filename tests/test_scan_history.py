@@ -6,7 +6,9 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
-from src.analytics.dashboard_api import ScanRequest, image_detail, scan_findings
+from src.api.routes.images import image_detail
+from src.api.routes.scans import scan_findings
+from src.api.schemas import ScanRequest
 from src.db.connection import get_session
 from src.db.models import FindingObservation, Image, Scan, ScanFinding
 from src.scan.models import Severity
@@ -180,7 +182,8 @@ def test_partial_scan_records_observations_without_resolving_missing_findings():
 
 
 def test_retry_uses_the_original_target(monkeypatch):
-    from src.analytics.dashboard_api import BulkIdsRequest, bulk_retry_scans
+    from src.api.routes.scans import bulk_retry_scans
+    from src.api.schemas import BulkIdsRequest
 
     queue_scan("registry:5000/team/app:2.0", scan_id="r1", enqueue=lambda *a, **k: None)
     with get_session() as session:

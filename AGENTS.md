@@ -4,7 +4,9 @@
 
 Scrutineering is a Python backend with a Next.js dashboard:
 
-- `src/api` composes the FastAPI app; `src/analytics/dashboard_api.py` holds the dashboard routes.
+- `src/api` composes the FastAPI app. Dashboard routes live in `src/api/routes/<area>.py` (scans, images,
+  findings, remediations, audit, session, posture, webhooks), request bodies in `src/api/schemas.py`, and
+  response shapes in `src/api/serializers.py`. Keep each route module under about 400 lines.
 - `src/scan`, `src/remediation`, `src/db`, and `src/telemetry` contain the scan workers, remediation pipeline,
   models and migrations, and metrics. `src/scan/discovery` lists running containers for discovery scans.
 - `tests/` holds the Python suite; `fixtures/` holds deterministic test data.
