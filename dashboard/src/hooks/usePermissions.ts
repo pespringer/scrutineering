@@ -6,6 +6,7 @@ import { getJson } from "@/lib/http";
 export type Permissions = {
   can_manage_scans?: boolean;
   can_cancel_scans?: boolean;
+  can_remediate?: boolean;
   [key: string]: unknown;
 };
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
+import SourcePanel from "@/components/images/SourcePanel";
 import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
@@ -28,6 +29,7 @@ export default function ImageDetailPage() {
   const [findingsTotal, setFindingsTotal] = useState(0);
   const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
   const [canManage, setCanManage] = useState(false);
+  const [canRemediate, setCanRemediate] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
   const isActionable = (finding: VulnerabilityFinding) =>
@@ -59,7 +61,10 @@ export default function ImageDetailPage() {
   useEffect(() => {
     fetch("/api/permissions", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : null))
-      .then((permissions) => setCanManage(Boolean(permissions?.can_manage_scans)))
+      .then((permissions) => {
+        setCanManage(Boolean(permissions?.can_manage_scans));
+        setCanRemediate(Boolean(permissions?.can_remediate));
+      })
       .catch(() => undefined);
   }, []);
 
@@ -231,6 +236,7 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
+      <SourcePanel imageId={image.id} source={image.source} canEdit={canRemediate} onSaved={loadData} />
       {canManage && selectedFindings.length > 0 && (
         <div
           className={cx(

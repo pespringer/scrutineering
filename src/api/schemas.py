@@ -44,3 +44,14 @@ class BulkFindingAssignmentRequest(BaseModel):
 class RemediationRequest(BaseModel):
     image_id: int = Field(gt=0)
     finding_ids: list[int] = Field(min_length=1, max_length=50)
+
+
+class ImageSourceRequest(BaseModel):
+    """Where an image is built from. Paths are relative to the repository root."""
+
+    repository: str = Field(min_length=1, max_length=1024)
+    ref: str = Field(default="HEAD", max_length=256)
+    dockerfile_path: str = Field(default="Dockerfile", max_length=512)
+    build_context: str = Field(default=".", max_length=512)
+    build_args: dict[str, str] = Field(default_factory=dict)
+    test_command: list[str] | None = None

@@ -521,11 +521,11 @@ and container-image findings are never eligible. This phase makes "fix this
 image" a real operation.
 
 ### 4a. Link images to their source
-- [ ] New `image_sources` table: `image_id` (or a repo-name pattern),
+- [x] New `image_sources` table: `image_id` (or a repo-name pattern),
   `repo_url` or local path, `default_branch`, `dockerfile_path`,
   `build_context`, `build_args` (JSON), `ecosystems` (detected), and optional
   provider settings.
-- [ ] Add a dashboard form on the image detail page: "Connect source". An image
+- [x] Add a dashboard form on the image detail page: "Connect source". An image
   without a source shows findings but explains what fixing it requires.
 - [ ] Remove the global `REMEDIATION_REPOSITORY_ROOT`, `REMEDIATION_EVIDENCE_FILE`,
   `REMEDIATION_EVIDENCE_ARTIFACT_FILE`, `REMEDIATION_VALIDATION_PROVIDER`, and

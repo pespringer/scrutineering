@@ -81,6 +81,21 @@ def image_payload(image: Image, findings: list[ScanFinding], resolved_count: int
     }
 
 
+def source_payload(source) -> dict | None:
+    if source is None:
+        return None
+    return {
+        "repository": source.repository,
+        "ref": source.ref,
+        "dockerfile_path": source.dockerfile_path,
+        "build_context": source.build_context,
+        "build_args": source.build_args or {},
+        "test_command": source.test_command,
+        "updated_by": source.updated_by,
+        "updated_at": iso(source.updated_at),
+    }
+
+
 def finding_payload(finding: ScanFinding) -> dict:
     severity = enum_value(finding.severity)
     return {
