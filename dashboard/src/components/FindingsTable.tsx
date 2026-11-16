@@ -49,6 +49,8 @@ export default function FindingsTable({ findings, selectable = false, selected =
     { key: "first_seen", label: "First Seen" },
   ];
 
+  const isActionable = (finding: VulnerabilityFinding) => Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
+
   return (
     <div>
       {/* Filter */}
@@ -98,7 +100,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
               </tr>
             ) : sorted.map((f, i) => (
               <tr key={f.id || i} className="transition-colors hover:bg-cyan-400/[0.03]">
-                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} disabled={Boolean(f.remediation_id)} title={f.remediation_id ? `Already included in remediation #${f.remediation_id}` : undefined} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40" /></td>}
+                {selectable && <td className="px-3 py-4"><input aria-label={`Select finding ${f.cve_id || f.id}`} type="checkbox" checked={selected.includes(f.id)} disabled={Boolean(f.remediation_id) || !isActionable(f)} title={f.remediation_id ? `Already included in remediation #${f.remediation_id}` : isActionable(f) ? "Select for a guarded remediation" : "Not eligible: no explicit source file path is available"} onChange={(event) => onSelect?.(f.id, event.target.checked)} className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40" /></td>}
                 <td className="whitespace-nowrap px-3 py-4 font-mono text-slate-300">
                   {f.cve_id ? (
                     <a
@@ -128,7 +130,7 @@ export default function FindingsTable({ findings, selectable = false, selected =
                 </td>
                 <td className="whitespace-nowrap px-3 py-4 font-mono text-sm">
                   {f.fixed_version ? (
-                    <span className="text-emerald-400">{f.fixed_version}</span>
+                    <span className={isActionable(f) ? "text-emerald-400" : "text-amber-300"}>{isActionable(f) ? f.fixed_version : "No safe path"}</span>
                   ) : (
                     <span className="text-slate-600">-</span>
                   )}

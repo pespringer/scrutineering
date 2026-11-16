@@ -33,6 +33,7 @@ export interface VulnerabilityFinding {
   package_name: string;
   package_version: string | null;
   package_type: string | null;
+  file_path?: string | null;
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'UNKNOWN' | null;
   title: string;
   description: string | null;
