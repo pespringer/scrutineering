@@ -627,10 +627,10 @@ observation, multi-user roles.
 |---|---|---|
 | D1 | Keep `k8s/` in the repo during the reset? | Remove it; it's in the tag. Target Docker Compose on the home lab until Phase 6. |
 | D2 | Drop-table migration, or squash migrations? | **Decided: squash** (Phase 1d). |
-| D3 | How should the worker build images? | A rootless `buildkitd` sidecar. |
-| D4 | First PR provider? | GitHub only. |
+| D3 | How should the worker build images? | **Decided: a rootless `buildkitd` service** (Phase 4c). |
+| D4 | First PR provider? | **Decided: GitHub only.** Phase 4d builds publication for GitHub alone; GitLab publishing is not wired. |
 | D5 | Which severities do the scanners collect by default? | **Decided: all** (already true; see Phase 2b). |
-| D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | Pass when the targeted findings are gone; show the full before/after delta and require approval when new critical/high findings appear, instead of rejecting outright. |
+| D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | **Decided: require acceptance.** The candidate goes to `needs_acceptance`, listing the new critical/high findings; a security operator accepts (→ `ready`) or cancels (Phases 4c, 4e). |
 
 ## Mapping review findings to phases
 
