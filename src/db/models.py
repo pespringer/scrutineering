@@ -23,22 +23,17 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Column,
     DateTime,
-    Dialect,
     Enum,
     Float,
     ForeignKey,
     Index,
     Integer,
-    Interval,
     JSON,
-    Numeric,
     String,
     Text,
     UniqueConstraint,
     CheckConstraint,
-    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -103,27 +98,6 @@ class RemediationActionType(str, enum.Enum):
     CUSTOM             = "custom"
 
 
-class PolicyType(str, enum.Enum):
-    """Kinds of security policy."""
-    SEVERITY_THRESHOLD   = "severity_threshold"
-    IMAGE_ALLOWLIST      = "image_allowlist"
-    IMAGE_DENYLIST       = "image_denylist"
-    AUTO_REMEDIATE       = "auto_remediate"
-    NOTIFICATION         = "notification"
-    COMPLIANCE           = "compliance"
-    RETENTION            = "retention"
-
-
-class PolicyAction(str, enum.Enum):
-    """Action taken when a policy matches."""
-    BLOCK        = "block"
-    ALERT        = "alert"
-    AUTO_FIX     = "auto_fix"
-    SKIP         = "skip"
-    REQUIRE_APPROVAL = "require_approval"
-    ESCALATE     = "escalate"
-
-
 class AuditEventType(str, enum.Enum):
     """Types of audit events."""
     SCAN_STARTED   = "scan_started"
@@ -174,10 +148,6 @@ class Image(Base):
         Index("idx_images_tag", "tag"),
         UniqueConstraint("registry", "repo_name", "tag",
                          name="uq_image_registry_repo_tag"),
-        CheckConstraint(
-            "char_length(registry) <= 32",
-            name="chk_images_registry_length",
-        ),
         CheckConstraint(
             "char_length(repo_name) <= 512",
             name="chk_images_repo_length",
@@ -373,39 +343,6 @@ class ScanFinding(Base):
                                lazy="selectin")
 
 
-class RawScanResult(Base):
-    """Raw scan output stored for audit/forensics.
-
-    One row per scanner per scan execution. JSONB keeps the full
-    scanner output without losing fidelity.
-    """
-    __tablename__ = "raw_scan_results"
-    __table_args__ = (
-        Index("idx_raw_results_image_id", "image_id"),
-        Index("idx_raw_results_scanner", "scanner_source"),
-        Index("idx_raw_results_scan_id", "scan_id"),
-        Index("idx_raw_results_created_at", "created_at"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-
-    image_id: Mapped[int] = mapped_column(BigInteger,
-                                           ForeignKey("images.id",
-                                                       ondelete="CASCADE"),
-                                           nullable=False)
-    scan_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    scanner_source: Mapped[FindingSource] = mapped_column(
-        Enum(FindingSource, values_callable=_enum_values), nullable=False)
-    scanner_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    vulnerability_db_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    raw_output: Mapped[dict] = mapped_column(JSON, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime,
-                                                  server_default=func.now())
-    file_size_bytes: Mapped[int | None] = mapped_column(BigInteger,
-                                                         nullable=True)
-
-
 class SeveritySnapshot(Base):
     """Daily snapshot of severity counts per image for trend charts.
 
@@ -438,82 +375,6 @@ class SeveritySnapshot(Base):
 
 
 # -- Security Policies ------------------------------------------------------ #
-
-class SecurityPolicy(Base):
-    """User-defined security policy controlling Sentinel behaviour."""
-    __tablename__ = "security_policies"
-    __table_args__ = (
-        Index("idx_policies_type", "policy_type"),
-        Index("idx_policies_enabled", "enabled"),
-        Index("idx_policies_priority", "priority"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-
-    name: Mapped[str] = mapped_column(String(256), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    policy_type: Mapped[PolicyType] = mapped_column(Enum(PolicyType, values_callable=_enum_values),
-                                                     nullable=False)
-    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    priority: Mapped[int] = mapped_column(Integer, default=0)
-
-    # Rule definition stored as JSON
-    # Examples:
-    #   auto_remediate: {"severities": ["critical", "high"], "targets": ["npm", "pip"]}
-    #   severity_threshold: {"max_critical": 0, "max_high": 5, "action": "block"}
-    rules: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    action: Mapped[PolicyAction] = mapped_column(Enum(PolicyAction, values_callable=_enum_values),
-                                                  nullable=False,
-                                                  default=PolicyAction.ALERT)
-
-    # Image scope (empty list = all images)
-    image_filters: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=dict)
-
-    created_at: Mapped[datetime] = mapped_column(DateTime,
-                                                  server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime, server_default=func.now(), onupdate=func.now())
-    created_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    evaluations = relationship("PolicyEvaluation", back_populates="policy",
-                               lazy="selectin")
-
-
-class PolicyEvaluation(Base):
-    """Log of policy evaluations — what matched and what action was taken."""
-    __tablename__ = "policy_evaluations"
-    __table_args__ = (
-        Index("idx_evaluations_policy_id", "policy_id"),
-        Index("idx_evaluations_scan_id", "scan_id"),
-        Index("idx_evaluations_violated", "violated"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-
-    policy_id: Mapped[int] = mapped_column(BigInteger,
-                                            ForeignKey("security_policies.id",
-                                                        ondelete="CASCADE"),
-                                            nullable=False)
-    policy = relationship("SecurityPolicy", back_populates="evaluations",
-                          lazy="joined")
-
-    scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    finding_id: Mapped[int | None] = mapped_column(
-        BigInteger, ForeignKey("scan_findings.id", ondelete="SET NULL"),
-        nullable=True)
-
-    evaluated_at: Mapped[datetime] = mapped_column(DateTime,
-                                                    server_default=func.now())
-    violated: Mapped[bool] = mapped_column(Boolean, default=False)
-    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    action_taken: Mapped[PolicyAction | None] = mapped_column(
-        Enum(PolicyAction, values_callable=_enum_values), nullable=True)
-
-
-# -- Remediations ----------------------------------------------------------- #
 
 class Remediation(Base):
     """A remediation effort that may contain multiple actions."""
@@ -552,13 +413,8 @@ class Remediation(Base):
 
     # Verification
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    approval_token_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    verification_findings_before: Mapped[int] = mapped_column(
-        Integer, default=0)
-    verification_findings_after: Mapped[int] = mapped_column(
-        Integer, default=0)
 
     # Timing
     created_at: Mapped[datetime] = mapped_column(DateTime,
@@ -613,118 +469,6 @@ class RemediationPublication(Base):
     findings_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
     findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
     rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
-    recovery_requests = relationship("RemediationRecoveryRequest", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
-    release_evidence = relationship("RemediationReleaseEvidence", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
-    alert_evidence = relationship("RemediationAlertEvidence", back_populates="publication", lazy="selectin", cascade="all, delete-orphan")
-
-
-class RemediationReleaseEvidence(Base):
-    """Durable deployment evidence attached to a provider publication."""
-    __tablename__ = "remediation_release_evidence"
-    __table_args__ = (
-        UniqueConstraint("publication_id", "evidence_key", name="uq_remediation_release_evidence_key"),
-        Index("idx_remediation_release_evidence_publication_id", "publication_id"),
-        Index("idx_remediation_release_evidence_status", "status"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
-    publication = relationship("RemediationPublication", back_populates="release_evidence", lazy="joined")
-    evidence_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    expected_digest: Mapped[str] = mapped_column(String(71), nullable=False)
-    observed_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
-    scan_status: Mapped[str] = mapped_column(String(32), nullable=False)
-    findings_before: Mapped[int] = mapped_column(Integer, nullable=False)
-    findings_after: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    verification_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
-class RemediationRecoveryRequest(Base):
-    """Durable, idempotent operator request for a stale publication."""
-    __tablename__ = "remediation_recovery_requests"
-    __table_args__ = (
-        UniqueConstraint("publication_id", "idempotency_key", name="uq_remediation_recovery_request_key"),
-        Index("idx_remediation_recovery_requests_publication_id", "publication_id"),
-        Index("idx_remediation_recovery_requests_status", "status"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
-    publication = relationship("RemediationPublication", back_populates="recovery_requests", lazy="joined")
-    action: Mapped[str] = mapped_column(String(32), nullable=False)
-    idempotency_key: Mapped[str] = mapped_column(String(256), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="requested")
-    note: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
-    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    lease_owner: Mapped[str | None] = mapped_column(String(128), nullable=True)
-    lease_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    requested_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
-class RemediationAlertEvidence(Base):
-    """Durable receipt for an external alert delivery attempt."""
-    __tablename__ = "remediation_alert_evidence"
-    __table_args__ = (
-        UniqueConstraint("publication_id", "delivery_key", name="uq_remediation_alert_evidence_key"),
-        Index("idx_remediation_alert_evidence_publication_id", "publication_id"),
-        Index("idx_remediation_alert_evidence_status", "status"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
-    publication = relationship("RemediationPublication", back_populates="alert_evidence", lazy="joined")
-    delivery_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    receiver: Mapped[str] = mapped_column(String(128), nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    response_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
-    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class RemediationAlertDelivery(Base):
-    """Queue state for receiver-independent alert delivery attempts."""
-    __tablename__ = "remediation_alert_deliveries"
-    __table_args__ = (
-        UniqueConstraint("publication_id", "delivery_key", name="uq_remediation_alert_delivery_key"),
-        Index("idx_remediation_alert_deliveries_status", "status"),
-        Index("idx_remediation_alert_deliveries_next_attempt_at", "next_attempt_at"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    publication_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("remediation_publications.id", ondelete="CASCADE"), nullable=False)
-    publication = relationship("RemediationPublication", lazy="joined")
-    delivery_key: Mapped[str] = mapped_column(String(128), nullable=False)
-    receiver: Mapped[str] = mapped_column(String(128), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="pending")
-    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    max_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
-    next_attempt_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-
-
-class RemediationReconciliationRun(Base):
-    """Durable health record for scheduled publication reconciliation."""
-    __tablename__ = "remediation_reconciliation_runs"
-    __table_args__ = (Index("idx_remediation_reconciliation_runs_started_at", "started_at"),)
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    status: Mapped[str] = mapped_column(String(32), nullable=False)
-    discovered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    events_recorded: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class RemediationWebhookEvent(Base):
@@ -797,31 +541,6 @@ class RemediationEvent(Base):
 
 # -- Compliance Reporting --------------------------------------------------- #
 
-class ComplianceReport(Base):
-    """Metadata for a generated compliance report."""
-    __tablename__ = "compliance_reports"
-    __table_args__ = (
-        Index("idx_compliance_reports_format", "report_format"),
-        Index("idx_compliance_reports_generated_at", "generated_at"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-
-    title: Mapped[str] = mapped_column(String(512), nullable=False)
-    report_format: Mapped[str] = mapped_column(String(16), nullable=False)
-    scope: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    generated_at: Mapped[datetime] = mapped_column(DateTime,
-                                                    server_default=func.now())
-    file_path: Mapped[str | None] = mapped_column(String(2048),
-                                                   nullable=True)
-    summary: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    generated_by: Mapped[str | None] = mapped_column(String(64),
-                                                      nullable=True)
-
-
-# -- Audit Log -------------------------------------------------------------- #
-
 class AuditLog(Base):
     """Append-only audit log for security and system events."""
     __tablename__ = "audit_log"
@@ -854,112 +573,3 @@ class AuditLog(Base):
     # 'agent', 'scheduler', 'user', 'system'
     actor_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
 
-
-class AuditChainAnchor(Base):
-    """Durable receipt for an externally anchored audit-chain head."""
-    __tablename__ = "audit_chain_anchors"
-    __table_args__ = (
-        Index("idx_audit_chain_anchors_head_hash", "head_hash"),
-        UniqueConstraint("anchor_id", name="uq_audit_chain_anchors_anchor_id"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
-    anchor_id: Mapped[str] = mapped_column(String(256), nullable=False)
-    head_hash: Mapped[str] = mapped_column(String(71), nullable=False)
-    record_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    anchored_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
-
-
-# -- Forensics -------------------------------------------------------------- #
-
-class ForensicSnapshot(Base):
-    """Point-in-time forensic snapshot of a container."""
-    __tablename__ = "forensic_snapshots"
-    __table_args__ = (
-        Index("idx_forensic_snapshots_container", "container_id"),
-        Index("idx_forensic_snapshots_captured_at", "captured_at"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-    snapshot_id: Mapped[str] = mapped_column(String(128), nullable=False,
-                                              unique=True)
-    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    captured_at: Mapped[datetime] = mapped_column(DateTime,
-                                                 server_default=func.now())
-    image_name: Mapped[str | None] = mapped_column(String(512),
-                                                    nullable=True)
-    snapshot_hash: Mapped[str | None] = mapped_column(String(64),
-                                                       nullable=True)
-    # Full snapshot data as JSON
-    snapshot_data: Mapped[dict] = mapped_column(JSON, nullable=False,
-                                                 default=dict)
-    artifact_path: Mapped[str | None] = mapped_column(String(2048),
-                                                       nullable=True)
-    created_by: Mapped[str | None] = mapped_column(String(64),
-                                                    nullable=True)
-
-
-class ForensicNetworkFlow(Base):
-    """Network flow record for forensic analysis."""
-    __tablename__ = "forensic_network_flows"
-    __table_args__ = (
-        Index("idx_forensic_flows_container", "container_id"),
-        Index("idx_forensic_flows_timestamp", "timestamp"),
-        Index("idx_forensic_flows_external", "is_external"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    timestamp: Mapped[datetime] = mapped_column(DateTime,
-                                                 server_default=func.now())
-    protocol: Mapped[str] = mapped_column(String(16), nullable=False)
-    src_addr: Mapped[str] = mapped_column(String(64), nullable=False)
-    src_port: Mapped[int] = mapped_column(Integer, nullable=False)
-    dst_addr: Mapped[str] = mapped_column(String(64), nullable=False)
-    dst_port: Mapped[int] = mapped_column(Integer, nullable=False)
-    bytes_sent: Mapped[int] = mapped_column(BigInteger, default=0)
-    bytes_recv: Mapped[int] = mapped_column(BigInteger, default=0)
-    is_external: Mapped[bool] = mapped_column(Boolean, default=False)
-    state: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-
-
-# -- Container Runtime Monitoring ------------------------------------------- #
-
-class ContainerRuntime(Base):
-    """Runtime behaviour monitoring data for active containers."""
-    __tablename__ = "container_runtime"
-    __table_args__ = (
-        Index("idx_runtime_container_id", "container_id"),
-        Index("idx_runtime_image_id", "image_id"),
-        Index("idx_runtime_timestamp", "timestamp"),
-        Index("idx_runtime_event_type", "event_type"),
-    )
-
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True,
-                                     autoincrement=True)
-
-    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
-    image_id: Mapped[int] = mapped_column(BigInteger,
-                                           ForeignKey("images.id",
-                                                       ondelete="CASCADE"),
-                                           nullable=False)
-    image = relationship("Image", lazy="joined")
-
-    timestamp: Mapped[datetime] = mapped_column(DateTime,
-                                                 server_default=func.now(),
-                                                 nullable=False)
-
-    # Event classification
-    event_type: Mapped[str] = mapped_column(String(64), nullable=False)
-    # e.g. 'network_connection', 'file_write', 'process_spawn',
-    #      'privilege_escalation', 'syscall'
-    severity: Mapped[Severity | None] = mapped_column(Enum(Severity, values_callable=_enum_values),
-                                                       nullable=True)
-
-    # Details — highly variable per event type
-    detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    source: Mapped[str | None] = mapped_column(String(128),
-                                                nullable=True)  # e.g. docker events, falco

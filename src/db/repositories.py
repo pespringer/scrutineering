@@ -7,21 +7,17 @@ transactions can span multiple repositories.
 
 from __future__ import annotations
 
-from datetime import date, datetime
 from typing import Sequence
 
-from sqlalchemy import func, select, update, delete
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from src.db.models import (
     AuditLog,
-    AuditChainAnchor,
     AuditEventType,
-    ComplianceReport,
     FindingSource,
     Image,
     ImageRegistry,
-    PolicyEvaluation,
     Remediation,
     RemediationAction,
     RemediationEvent,
@@ -30,7 +26,6 @@ from src.db.models import (
     ScanFinding,
     ScanStatus,
     Severity,
-    SeveritySnapshot,
 )
 from src.remediation.state_machine import transition
 
@@ -494,18 +489,6 @@ class AuditLogRepository:
             image_id=image_id,
             actor=actor,
             actor_kind=actor_kind,
-        )
-        session.add(entry)
-        session.flush()
-        return entry
-
-    @staticmethod
-    def record_anchor(session: Session, receipt: dict) -> AuditChainAnchor:
-        """Persist an external anchor receipt without storing provider secrets."""
-        entry = AuditChainAnchor(
-            anchor_id=str(receipt["anchor_id"]),
-            head_hash=str(receipt["head_hash"]),
-            record_id=str(receipt["record_id"]),
         )
         session.add(entry)
         session.flush()

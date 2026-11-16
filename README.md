@@ -5,8 +5,9 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 ## Architecture
 
 > **Reset in progress.** Work follows [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
-> Phases 1a–1c removed the Node planner, the Python subsystems the dashboard
-> never called, and the remediation side systems; later phases trim the rest.
+> Phases 1a–1d removed the Node planner, the Python subsystems the dashboard
+> never called, and the remediation side systems, and squashed the database
+> migrations into one baseline; Phase 1e trims scripts and docs.
 
 ```
 scrutineering/
@@ -79,6 +80,8 @@ docker compose -f docker-compose.yml -f docker-compose.host-access.yml up --buil
 
 # 3. Run database migrations (the API image includes Alembic)
 make migrate
+# Databases created before reset Phase 1d must be recreated first; see
+# "Upgrading an existing installation" in docs/RESET-PLAN.md.
 
 # 4. Verify
 curl http://localhost:8000/health

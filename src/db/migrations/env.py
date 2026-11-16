@@ -11,10 +11,14 @@ from src.db.models import Base
 
 config = context.config
 
+# Callers (such as tests) may pass an open connection instead of a URL.
+supplied_connection = config.attributes.get("connection")
+
 database_url = os.environ.get("DATABASE_URL", "").strip()
-if not database_url:
-    raise RuntimeError("DATABASE_URL must be configured before running Alembic migrations")
-config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
+if supplied_connection is None:
+    if not database_url:
+        raise RuntimeError("DATABASE_URL must be configured before running Alembic migrations")
+    config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -37,6 +41,11 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     """Run migrations in 'online' mode."""
+    if supplied_connection is not None:
+        context.configure(connection=supplied_connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
