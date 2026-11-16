@@ -26,6 +26,7 @@ KEPT_ROUTES = {
     "/api/dashboard/remediations/{remediation_id}/retry",
     "/api/dashboard/remediations/{remediation_id}/events",
     "/api/dashboard/webhooks/{provider}",
+    "/api/dashboard/system-status",
 }
 
 REMOVED_ROUTE_FRAGMENTS = (

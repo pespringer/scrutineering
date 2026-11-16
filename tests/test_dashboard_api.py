@@ -243,3 +243,16 @@ def test_filesystem_remediation_actions_preserve_repository_directory():
 
     assert action["file_path"] == "source-fixture/package-lock.json"
     assert action["safe_to_apply"] is True
+
+
+def test_timestamps_are_serialized_as_utc_with_an_explicit_zone():
+    from datetime import datetime, timedelta, timezone
+
+    from src.api.serializers import iso
+
+    assert iso(None) is None
+    # Naive values come from the database and are UTC.
+    assert iso(datetime(2026, 11, 16, 4, 57, 27)) == "2026-11-16T04:57:27Z"
+    assert iso(datetime(2026, 11, 16, 4, 57, 27, 481849)) == "2026-11-16T04:57:27.481849Z"
+    eastern = timezone(timedelta(hours=-5))
+    assert iso(datetime(2026, 11, 15, 23, 57, 27, tzinfo=eastern)) == "2026-11-16T04:57:27Z"

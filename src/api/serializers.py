@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 from src.db.models import (
@@ -17,7 +17,17 @@ from src.db.models import (
 
 
 def iso(value: datetime | None) -> str | None:
-    return value.isoformat() if value else None
+    """ISO 8601 in UTC with an explicit `Z`.
+
+    The database stores naive UTC datetimes. Without a zone marker, browsers
+    parse them as local time, which shifted every timestamp in the dashboard by
+    the viewer's UTC offset.
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def enum_value(value) -> str | None:

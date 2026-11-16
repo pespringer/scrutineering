@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter
 
-from src.api.routes import audit, findings, images, posture, remediations, scans, session, webhooks
+from src.api.routes import audit, findings, images, posture, remediations, scans, session, system, webhooks
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
-for module in (posture, scans, images, findings, session, audit, remediations, webhooks):
+for module in (posture, scans, images, findings, session, system, audit, remediations, webhooks):
     router.include_router(module.router)
 
 __all__ = ["router"]
