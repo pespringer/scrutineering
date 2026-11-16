@@ -42,13 +42,7 @@ logger = logging.getLogger(__name__)
 
 app = create_celery_app()
 import src.remediation.worker  # noqa: F401  # register remediation task with the worker app
-import src.remediation.reconciliation_tasks  # noqa: F401  # register stale-publication task
-import src.remediation.recovery_tasks  # noqa: F401  # register provider recovery polling task
-import src.remediation.retention_tasks  # noqa: F401  # register evidence retention task
-import src.remediation.alert_tasks  # noqa: F401  # register deterministic alert delivery task
 import src.remediation.post_merge_tasks  # noqa: F401  # register post-merge verification task
-import src.remediation.deployment_tasks  # noqa: F401  # register deployment observation task
-import src.scan.retention_tasks  # noqa: F401  # register scan retention reporting task
 
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)

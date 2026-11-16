@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 import hashlib
-import hmac
 import json
 import uuid
 from urllib.parse import quote
@@ -14,34 +13,18 @@ import os
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
-from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, Field, field_validator
-from typing import Literal
 
 from src.db.connection import get_session
-from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationAlertDelivery, RemediationAlertEvidence, RemediationPublication, RemediationRecoveryRequest, RemediationReconciliationRun, RemediationReleaseEvidence, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
+from src.db.models import AuditEventType, AuditLog, Image, Remediation, RemediationActionType, RemediationPublication, RemediationStatus, RemediationWebhookEvent, Scan, ScanFinding, ScanStatus, Severity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository, RemediationRepository
-from src.remediation.approval import approval_token_hash, issue_approval, verify_approval
 from src.remediation.worker import execute_approved_remediation
 from src.remediation.post_merge import evaluate_post_merge
 from src.remediation.events import publication_event_exists
-from src.remediation.recovery import transition_recovery_status
-from src.remediation.publication import build_publication_plan
 from src.remediation.rollback import build_rollback_plan
-from src.remediation.provider_publishers import publish_validated_plan
 from src.remediation.provider_callbacks import normalize_callback, verify_signature
-from src.remediation.reconciliation import publication_age_seconds, publication_is_stale
-from src.remediation.evidence_retention import retention_cutoff, retention_days
-from src.remediation.evidence_export import sign_export
-from src.remediation.provider_auth import credential_diagnostics
-from src.remediation.provider_diagnostics import diagnose_capabilities, required_permissions
-from src.remediation.evidence_archive import manifest
 from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
-from src.remediation.deployment_evidence import verify_deployment_signature
-from src.remediation.deployment_collectors import DeploymentCollectorError
-from src.remediation.deployment_config import configured_deployment_target
-from src.remediation.deployment_tasks import collect_deployment_observation, probe_deployment_observation
-from src.telemetry.scan_metrics import record_provider_callback, set_stale_publications, scan_metrics
+from src.telemetry.scan_metrics import record_provider_callback
 from src.scan.health import summarize_scan_health
 from src.scan.image_identity import parse_image_reference
 from src.scan.tasks import app as celery_app, enqueue_scan
@@ -82,94 +65,6 @@ class BulkFindingAssignmentRequest(BaseModel):
 class RemediationRequest(BaseModel):
     image_id: int = Field(gt=0)
     finding_ids: list[int] = Field(min_length=1, max_length=50)
-
-
-class ApprovalTokenRequest(BaseModel):
-    ttl_seconds: int = Field(default=900, ge=60, le=3600)
-
-
-class ApprovalRequest(BaseModel):
-    token: str = Field(min_length=32, max_length=1024)
-
-
-class PublicationPlanRequest(BaseModel):
-    provider: str = Field(min_length=1, max_length=32)
-    repository: str = Field(min_length=1, max_length=256)
-    head: str = Field(min_length=1, max_length=256)
-    base: str = Field(default="main", max_length=64)
-    idempotency_key: str = Field(min_length=1, max_length=256)
-    commit: str = Field(min_length=7, max_length=64)
-    evidence_verified: bool = False
-
-
-class PostMergeVerificationRequest(BaseModel):
-    expected_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
-    observed_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
-    scan_status: Literal["completed", "failed", "partial", "pending"]
-    findings_before: int = Field(ge=0, le=100000)
-    findings_after: int = Field(ge=0, le=100000)
-    merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
-    evidence_key: str = Field(default="", max_length=128)
-
-
-class DeploymentEvidenceRequest(BaseModel):
-    expected_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
-    observed_digest: str | None = Field(default=None, pattern=r"^sha256:[a-f0-9]{64}$")
-    merge_commit: str | None = Field(default=None, pattern=r"^[a-f0-9]{40}$")
-    evidence_key: str = Field(default="", max_length=128)
-
-
-class DeploymentEvidenceCallbackRequest(DeploymentEvidenceRequest):
-    publication_id: int = Field(gt=0)
-
-
-class DeploymentObservationPreflightRequest(BaseModel):
-    repository: str = Field(min_length=1, max_length=256)
-
-    @field_validator("repository")
-    @classmethod
-    def repository_is_trimmed(cls, value: str) -> str:
-        value = value.strip()
-        if not value or any(char.isspace() for char in value):
-            raise ValueError("repository must be a single repository identifier")
-        return value
-
-
-class PublicationRecoveryRequest(BaseModel):
-    action: Literal["request_callback", "mark_manual_review"]
-    idempotency_key: str = Field(min_length=1, max_length=256)
-    note: str = Field(default="", max_length=2000)
-
-
-class RecoveryStatusRequest(BaseModel):
-    status: Literal["acknowledged", "completed", "failed"]
-    reason_code: Literal["operator_reviewed", "provider_confirmed", "manual_intervention", "validation_failed", "timeout", "other"] = "operator_reviewed"
-    note: str = Field(default="", max_length=2000)
-
-    @field_validator("note")
-    @classmethod
-    def failure_requires_context(cls, value: str, info):
-        if info.data.get("status") == "failed" and not value.strip():
-            raise ValueError("failed recovery status requires a note")
-        return value
-
-
-class AlertEvidenceRequest(BaseModel):
-    delivery_key: str = Field(min_length=1, max_length=128)
-    receiver: str = Field(min_length=1, max_length=128)
-    status: Literal["delivered", "failed", "retrying"]
-    response_code: int | None = Field(default=None, ge=100, le=599)
-    attempt: int = Field(default=1, ge=1, le=100)
-    detail: dict = Field(default_factory=dict)
-
-
-class AlertBulkRequest(BaseModel):
-    delivery_ids: list[int] = Field(min_length=1, max_length=100)
-
-
-class PublicationRequest(PublicationPlanRequest):
-    title: str = Field(min_length=1, max_length=256)
-    body: str = Field(min_length=1, max_length=10000)
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -376,7 +271,6 @@ def _unsafe_remediation_actions(actions: list[dict]) -> list[dict]:
 
 
 def _remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
-    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
     remediation_events = list(getattr(remediation, "events", []) or [])
@@ -397,7 +291,6 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
         "target_severities": remediation.target_severities,
         "approved_by": remediation.approved_by,
         "approved_at": _iso(remediation.approved_at),
-        "stale_publication_count": sum(publication_is_stale(publication, stale_after_seconds=stale_after_seconds) for publication in remediation.publications),
         "actions": actions if actions is not None else [{
             "id": action.id,
             "action_type": _value(action.action_type),
@@ -419,10 +312,6 @@ def _remediation_payload(remediation: Remediation, actions: list[dict] | None = 
             "findings_before": publication.findings_before,
             "findings_after": publication.findings_after,
             "rollback_command": publication.rollback_command,
-            "stale": publication_is_stale(publication, stale_after_seconds=min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)),
-            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "error_message": recovery.error_message, "requested_at": _iso(recovery.requested_at), "acknowledged_at": _iso(recovery.acknowledged_at), "completed_at": _iso(recovery.completed_at)} for recovery in publication.recovery_requests],
-            "release_evidence": [{"id": evidence.id, "evidence_key": evidence.evidence_key, "status": evidence.status, "expected_digest": evidence.expected_digest, "observed_digest": evidence.observed_digest, "scan_status": evidence.scan_status, "findings_before": evidence.findings_before, "findings_after": evidence.findings_after, "created_at": _iso(evidence.created_at), "verified_at": _iso(evidence.verified_at)} for evidence in publication.release_evidence],
-            "alert_evidence": [{"id": evidence.id, "delivery_key": evidence.delivery_key, "receiver": evidence.receiver, "status": evidence.status, "response_code": evidence.response_code, "attempt": evidence.attempt, "detail": evidence.detail, "created_at": _iso(evidence.created_at)} for evidence in publication.alert_evidence],
         } for publication in remediation.publications],
     }
 
@@ -435,7 +324,9 @@ def _remediation_workflow_state(remediation: Remediation, events: list | None = 
     execution_events = {"execution_queued", "execution_started", "execution_ready", "execution_blocked", "execution_retry_requested"}
     for event in reversed(events if events is not None else list(getattr(remediation, "events", []) or [])):
         if event.event_type == "execution_retry_requested":
-            return RemediationStatus.REQUIRES_REVIEW.value
+            # A retry returns the record to review; once re-approved the status
+            # column is authoritative until a new execution event arrives.
+            return status
         if event.event_type in execution_events:
             return event.event_type
     return status
@@ -877,21 +768,6 @@ def dashboard_permissions(request: Request) -> dict:
     }
 
 
-@router.get("/provider-credentials/health")
-def provider_credentials_health(request: Request) -> dict:
-    _require_role(request, "security-operator", "admin")
-    return {"providers": [credential_diagnostics("github"), credential_diagnostics("gitlab")]}
-
-
-@router.get("/provider-diagnostics")
-def provider_diagnostics(request: Request, provider: str = Query(default="github", pattern="^(github|gitlab)$")) -> dict:
-    _require_role(request, "security-operator", "admin")
-    configured = os.environ.get(f"{provider.upper()}_GRANTED_PERMISSIONS", "")
-    granted = {item.strip() for item in configured.split(",") if item.strip()}
-    capabilities = diagnose_capabilities(provider, granted)
-    return {"provider": provider, "credential": credential_diagnostics(provider), "required_permissions": required_permissions(provider), "capabilities": {"can_read": capabilities.can_read, "can_create": capabilities.can_create, "can_check_protection": capabilities.can_check_protection, "can_merge": capabilities.can_merge, "missing_permissions": capabilities.missing_permissions}}
-
-
 @router.get("/audit")
 def dashboard_audit(
     limit: int = Query(default=25, ge=1, le=100),
@@ -987,38 +863,6 @@ def list_remediations(
     return _page(items, limit, offset, total)
 
 
-@router.get("/remediations/publications/reconciliation")
-def publication_reconciliation(request: Request, status: str | None = Query(default=None), recovery_status: str | None = Query(default=None), min_attempts: int = Query(default=0, ge=0, le=100), limit: int = Query(default=100, ge=1, le=250)) -> dict:
-    _require_role(request, "security-operator")
-    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
-    with get_session() as session:
-        query = session.query(RemediationPublication).filter(RemediationPublication.status.in_(["pending", "failed", "merged"]))
-        if status:
-            if status not in {"pending", "failed", "merged", "stale"}:
-                raise HTTPException(status_code=400, detail="invalid_reconciliation_status")
-            if status != "stale":
-                query = query.filter(RemediationPublication.status == status)
-        records = query.order_by(RemediationPublication.created_at.asc()).limit(limit).all()
-    stale_records = [record for record in records if publication_is_stale(record, stale_after_seconds=stale_after_seconds)]
-    set_stale_publications(len(stale_records))
-    if status == "stale":
-        records = stale_records
-    items = [{"id": record.id, "remediation_id": record.remediation_id, "provider": record.provider, "repository": record.repository, "status": record.status, "url": record.url, "verification_status": record.verification_status, "scan_status": record.scan_status, "rollback_command": record.rollback_command, "age_seconds": publication_age_seconds(record), "stale": record in stale_records, "stale_after_seconds": stale_after_seconds, "recovery_requests": [{"id": recovery.id, "status": recovery.status, "attempts": recovery.attempts, "max_attempts": recovery.max_attempts, "next_attempt_at": _iso(recovery.next_attempt_at)} for recovery in record.recovery_requests if (not recovery_status or recovery.status == recovery_status) and recovery.attempts >= min_attempts]} for record in records]
-    if recovery_status or min_attempts:
-        items = [item for item in items if item["recovery_requests"]]
-    return {"items": items, "count": len(items), "stale_count": len(stale_records), "stale_after_seconds": stale_after_seconds, "evidence_retention_days": retention_days(), "evidence_cutoff": retention_cutoff().isoformat()}
-
-
-@router.get("/remediations/publications/reconciliation/health")
-def publication_reconciliation_health(request: Request) -> dict:
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        run = session.query(RemediationReconciliationRun).order_by(RemediationReconciliationRun.started_at.desc()).first()
-    if run is None:
-        return {"status": "never_run", "last_run": None}
-    return {"status": run.status, "last_run": {"id": run.id, "status": run.status, "discovered": run.discovered, "events_recorded": run.events_recorded, "error_message": run.error_message, "started_at": _iso(run.started_at), "completed_at": _iso(run.completed_at)}}
-
-
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
     _require_role(request, "remediator", "security-operator")
@@ -1108,32 +952,11 @@ def remediation_events(remediation_id: int, request: Request) -> dict:
     } for event in events]}
 
 
-@router.post("/remediations/{remediation_id}/approval-token")
-def remediation_approval_token(remediation_id: int, payload: ApprovalTokenRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    secret = os.environ.get("REMEDIATION_APPROVAL_SECRET", "")
-    if not secret:
-        raise HTTPException(status_code=503, detail="remediation_approval_not_configured")
-    with get_session() as session:
-        remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        if _value(remediation.status) != RemediationStatus.REQUIRES_REVIEW.value:
-            raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
-    token = issue_approval(str(remediation_id), getattr(request.state, "principal_id", "dashboard-service"), secret, ttl_seconds=payload.ttl_seconds)
-    return {"remediation_id": remediation_id, "token": token, "expires_in": payload.ttl_seconds}
-
-
 @router.post("/remediations/{remediation_id}/approve")
-def approve_remediation(remediation_id: int, payload: ApprovalRequest, request: Request) -> dict:
+def approve_remediation(remediation_id: int, request: Request) -> dict:
+    """Approve a proposed remediation for execution. Requires the security-operator role."""
     _require_role(request, "security-operator")
-    secret = os.environ.get("REMEDIATION_APPROVAL_SECRET", "")
-    if not secret:
-        raise HTTPException(status_code=503, detail="remediation_approval_not_configured")
-    try:
-        approval = verify_approval(payload.token, str(remediation_id), secret)
-    except ValueError as exc:
-        raise HTTPException(status_code=403, detail="invalid_approval_token") from exc
+    approver = getattr(request.state, "principal_id", "dashboard-service")
     with get_session() as session:
         remediation = session.get(Remediation, remediation_id)
         if remediation is None:
@@ -1142,10 +965,12 @@ def approve_remediation(remediation_id: int, payload: ApprovalRequest, request: 
             raise HTTPException(status_code=409, detail="remediation_not_awaiting_approval")
         RemediationRepository.update_status(
             session, remediation_id, RemediationStatus.ANALYZING,
-            approved_by=approval["approver"], approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
-            approval_token_hash=approval_token_hash(payload.token),
+            approved_by=approver, approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
         )
-        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_approved", "approver": approval["approver"]}, entity_type="remediation")
+        _record_operator_event(
+            session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id),
+            {"action": "remediation_approved", "approver": approver}, entity_type="remediation",
+        )
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         return _remediation_payload(remediation)
 
@@ -1197,432 +1022,6 @@ def retry_remediation(remediation_id: int, request: Request) -> dict:
             "detail": {"action": "execution_retry_requested"},
         })
         return _remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
-
-
-@router.post("/remediations/{remediation_id}/publication-plan")
-def remediation_publication_plan(remediation_id: int, payload: PublicationPlanRequest, request: Request) -> dict:
-    _require_role(request, "remediator", "security-operator")
-    with get_session() as session:
-        remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        events = RemediationRepository.list_events(session, remediation_id)
-        if not any(event.event_type == "execution_ready" for event in events):
-            raise HTTPException(status_code=409, detail="validated_execution_artifact_required")
-    allowed = {value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()}
-    try:
-        plan = build_publication_plan(
-            provider=payload.provider, repository=payload.repository, head=payload.head,
-            base=payload.base, idempotency_key=payload.idempotency_key, commit=payload.commit,
-            evidence_verified=payload.evidence_verified, allowed_repositories=allowed,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    with get_session() as session:
-        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "publication_plan_created", "provider": plan.provider, "repository": plan.repository}, entity_type="remediation")
-    return {"remediation_id": remediation_id, "provider": plan.provider, "repository": plan.repository, "head": plan.head, "base": plan.base, "idempotency_key": plan.idempotency_key, "rollback_command": list(plan.rollback_command), "publisher": "github-publisher" if plan.provider == "github" else "gitlab-publisher"}
-
-
-@router.post("/remediations/{remediation_id}/publish", status_code=201)
-def publish_remediation(remediation_id: int, payload: PublicationRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    if os.environ.get("REMEDIATION_PUBLICATION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
-        raise HTTPException(status_code=503, detail="remediation_publication_disabled")
-    allowed = {value.strip() for value in os.environ.get("REMEDIATION_ALLOWED_REPOSITORIES", "").split(",") if value.strip()}
-    try:
-        plan = build_publication_plan(provider=payload.provider, repository=payload.repository, head=payload.head, base=payload.base, idempotency_key=payload.idempotency_key, commit=payload.commit, evidence_verified=payload.evidence_verified, allowed_repositories=allowed)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    request_hash = hashlib.sha256(json.dumps(payload.model_dump(), sort_keys=True).encode()).hexdigest()
-    token = os.environ.get("GITHUB_TOKEN" if plan.provider == "github" else "GITLAB_TOKEN", "")
-    with get_session() as session:
-        remediation = session.get(Remediation, remediation_id)
-        if remediation is None:
-            raise HTTPException(status_code=404, detail="remediation_not_found")
-        if not any(event.event_type == "execution_ready" for event in RemediationRepository.list_events(session, remediation_id)):
-            raise HTTPException(status_code=409, detail="validated_execution_artifact_required")
-        existing = session.query(RemediationPublication).filter_by(provider=plan.provider, repository=plan.repository, idempotency_key=plan.idempotency_key).first()
-        if existing and existing.status == "published":
-            return {"publication_id": existing.id, "status": existing.status, "number": existing.provider_number, "url": existing.url, "idempotency_key": existing.idempotency_key}
-        publication = existing or RemediationPublication(remediation_id=remediation_id, provider=plan.provider, repository=plan.repository, idempotency_key=plan.idempotency_key, status="pending", request_hash=request_hash)
-        session.add(publication)
-        session.flush()
-        try:
-            result = publish_validated_plan(provider=plan.provider, repository=plan.repository, title=payload.title, body=payload.body, head=plan.head, base=plan.base, token=token, idempotency_key=plan.idempotency_key, transport=urlopen)
-            publication.status = "published"
-            publication.provider_number = result.number
-            publication.url = result.url
-            publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(remediation_id), {"action": "remediation_published", "provider": result.provider, "url": result.url}, entity_type="remediation")
-            return {"publication_id": publication.id, "status": publication.status, "number": publication.provider_number, "url": publication.url, "idempotency_key": publication.idempotency_key}
-        except Exception as exc:
-            publication.status = "failed"
-            publication.error_message = str(exc)[:1000]
-            publication.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
-            raise HTTPException(status_code=502, detail="provider_publication_failed") from exc
-
-
-@router.post("/remediations/post-merge/verify")
-def verify_post_merge(payload: PostMergeVerificationRequest, request: Request) -> dict:
-    _require_role(request, "remediator", "security-operator")
-    result = evaluate_post_merge(
-        expected_digest=payload.expected_digest, observed_digest=payload.observed_digest,
-        required_scan_status=payload.scan_status, findings_before=payload.findings_before,
-        findings_after=payload.findings_after,
-    )
-    if result["status"] == "rollback_required":
-        if not payload.merge_commit:
-            return {**result, "rollback": None, "rollback_required": True}
-        try:
-            rollback = build_rollback_plan(payload.merge_commit)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {**result, "rollback_required": True, "rollback": {"command": list(rollback.command), "verification_required": rollback.verification_required}}
-    return {**result, "rollback_required": False, "rollback": None}
-
-
-@router.get("/remediations/publications/{publication_id}/recovery-preview")
-def publication_recovery_preview(publication_id: int, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        stale = publication_is_stale(publication, stale_after_seconds=stale_after_seconds)
-        return {
-            "publication_id": publication.id,
-            "status": publication.status,
-            "verification_status": publication.verification_status,
-            "age_seconds": publication_age_seconds(publication),
-            "stale": stale,
-            "stale_after_seconds": stale_after_seconds,
-            "allowed_actions": ["request_callback", "mark_manual_review"] if stale else [],
-            "mutates_provider": False,
-            "recovery_requests": [{"id": recovery.id, "action": recovery.action, "status": recovery.status, "note": recovery.note, "attempts": recovery.attempts, "max_attempts": recovery.max_attempts, "next_attempt_at": _iso(recovery.next_attempt_at), "error_message": recovery.error_message} for recovery in publication.recovery_requests],
-        }
-
-
-@router.post("/remediations/publications/{publication_id}/recovery")
-def request_publication_recovery(publication_id: int, payload: PublicationRecoveryRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    stale_after_seconds = min(max(int(os.environ.get("REMEDIATION_PUBLICATION_STALE_SECONDS", "900")), 60), 604800)
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        if not publication_is_stale(publication, stale_after_seconds=stale_after_seconds):
-            raise HTTPException(status_code=409, detail="publication_not_stale")
-        recovery = session.query(RemediationRecoveryRequest).filter_by(publication_id=publication.id, idempotency_key=payload.idempotency_key).first()
-        if recovery:
-            return {"accepted": True, "replayed": True, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": recovery.action, "status": recovery.status}
-        recovery = RemediationRecoveryRequest(publication_id=publication.id, action=payload.action, idempotency_key=payload.idempotency_key, note=payload.note, status="requested")
-        session.add(recovery)
-        try:
-            session.flush()
-        except IntegrityError:
-            session.rollback()
-            recovery = session.query(RemediationRecoveryRequest).filter_by(publication_id=publication.id, idempotency_key=payload.idempotency_key).one()
-            return {"accepted": True, "replayed": True, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": recovery.action, "status": recovery.status}
-        events = RemediationRepository.list_events(session, publication.remediation_id)
-        detail = {"publication_id": publication.id, "recovery_request_id": recovery.id, "action": payload.action, "idempotency_key": payload.idempotency_key, "note": payload.note, "status": recovery.status}
-        RemediationRepository.append_event(session, {
-            "remediation_id": publication.remediation_id,
-            "event_type": "publication_recovery_requested",
-            "sequence": len(events) + 1,
-            "detail": detail,
-        })
-        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication.id), {"action": payload.action, "idempotency_key": payload.idempotency_key}, entity_type="publication")
-        return {"accepted": True, "replayed": False, "publication_id": publication.id, "recovery_request_id": recovery.id, "action": payload.action, "status": recovery.status, "event_type": "publication_recovery_requested", "mutates_provider": False}
-
-
-@router.post("/remediations/publications/{publication_id}/recovery/{recovery_id}/status")
-def update_publication_recovery_status(publication_id: int, recovery_id: int, payload: RecoveryStatusRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        recovery = session.query(RemediationRecoveryRequest).filter_by(id=recovery_id, publication_id=publication_id).first()
-        if recovery is None:
-            raise HTTPException(status_code=404, detail="recovery_request_not_found")
-        try:
-            target = transition_recovery_status(recovery.status, payload.status)
-        except ValueError as exc:
-            raise HTTPException(status_code=409, detail="invalid_recovery_transition") from exc
-        if target == recovery.status:
-            return {"accepted": True, "recovery_request_id": recovery.id, "status": recovery.status, "replayed": True}
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        recovery.status = target
-        recovery.note = payload.note or recovery.note
-        if target == "acknowledged":
-            recovery.acknowledged_at = now
-        if target in {"completed", "failed"}:
-            recovery.completed_at = now
-            if target == "failed":
-                recovery.error_message = payload.note or "operator marked recovery failed"
-        publication = session.get(RemediationPublication, publication_id)
-        events = RemediationRepository.list_events(session, publication.remediation_id)
-        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "publication_recovery_status_changed", "sequence": len(events) + 1, "detail": {"publication_id": publication_id, "recovery_request_id": recovery.id, "status": target, "reason_code": payload.reason_code, "note": payload.note}})
-        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(publication_id), {"action": "recovery_status_changed", "recovery_request_id": recovery.id, "status": target}, entity_type="publication")
-        return {"accepted": True, "recovery_request_id": recovery.id, "status": target, "replayed": False}
-
-
-def _attach_publication_evidence(
-    session, publication: RemediationPublication, *, expected_digest: str,
-    observed_digest: str | None, scan_status: str, findings_before: int,
-    findings_after: int, merge_commit: str | None, evidence_key: str,
-) -> dict:
-    evidence_key = evidence_key or hashlib.sha256(json.dumps({
-        "expected_digest": expected_digest, "observed_digest": observed_digest,
-        "scan_status": scan_status, "findings_before": findings_before,
-        "findings_after": findings_after, "merge_commit": merge_commit,
-    }, sort_keys=True).encode()).hexdigest()
-    existing_evidence = session.query(RemediationReleaseEvidence).filter_by(publication_id=publication.id, evidence_key=evidence_key).first()
-    if existing_evidence:
-        return {"accepted": True, "publication_id": publication.id, "evidence_id": existing_evidence.id, "evidence_key": evidence_key, "verification_status": existing_evidence.status, "replayed": True}
-    publication.observed_digest = observed_digest or publication.observed_digest
-    publication.scan_status = scan_status
-    publication.findings_before = findings_before
-    publication.findings_after = findings_after
-    result = evaluate_post_merge(
-        expected_digest=expected_digest, observed_digest=observed_digest,
-        required_scan_status=scan_status, findings_before=findings_before,
-        findings_after=findings_after,
-    )
-    event_type = _apply_post_merge_result(session, publication, result, merge_commit or publication.merge_commit)
-    evidence = RemediationReleaseEvidence(
-        publication_id=publication.id, evidence_key=evidence_key,
-        expected_digest=expected_digest, observed_digest=observed_digest,
-        scan_status=scan_status, findings_before=findings_before,
-        findings_after=findings_after, status=str(result["status"]),
-        verification_detail=result,
-        verified_at=datetime.now(timezone.utc).replace(tzinfo=None)
-        if result["status"] == "verified" else None,
-    )
-    session.add(evidence)
-    session.flush()
-    return {"accepted": True, "publication_id": publication.id, "evidence_id": evidence.id, "evidence_key": evidence_key, "verification_status": publication.verification_status, "event_type": event_type, "rollback_command": publication.rollback_command, "replayed": False}
-
-
-@router.post("/remediations/publications/{publication_id}/evidence")
-def attach_publication_evidence(publication_id: int, payload: PostMergeVerificationRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        if publication.status != "merged":
-            raise HTTPException(status_code=409, detail="publication_not_merged")
-        return _attach_publication_evidence(
-            session, publication, expected_digest=payload.expected_digest,
-            observed_digest=payload.observed_digest, scan_status=payload.scan_status,
-            findings_before=payload.findings_before, findings_after=payload.findings_after,
-            merge_commit=payload.merge_commit, evidence_key=payload.evidence_key,
-        )
-
-
-@router.post("/remediations/publications/{publication_id}/deployment-evidence")
-def attach_deployment_evidence(publication_id: int, payload: DeploymentEvidenceRequest, request: Request) -> dict:
-    """Close a pending publication using its persisted correlated scan."""
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        if publication.status != "merged":
-            raise HTTPException(status_code=409, detail="publication_not_merged")
-        if not publication.post_merge_scan_id:
-            raise HTTPException(status_code=409, detail="post_merge_scan_not_queued")
-        scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first()
-        if scan is None:
-            raise HTTPException(status_code=409, detail="post_merge_scan_not_found")
-        scan_status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
-        if scan_status in {ScanStatus.PENDING.value, ScanStatus.RUNNING.value}:
-            raise HTTPException(status_code=409, detail="post_merge_scan_pending")
-        findings_before = publication.findings_before if publication.findings_before is not None else publication.remediation.finding_count
-        return _attach_publication_evidence(
-            session, publication, expected_digest=payload.expected_digest,
-            observed_digest=payload.observed_digest, scan_status=scan_status,
-            findings_before=findings_before, findings_after=scan.total_findings or 0,
-            merge_commit=payload.merge_commit, evidence_key=payload.evidence_key,
-        )
-
-
-@router.post("/deployment-evidence")
-async def receive_deployment_evidence(request: Request) -> dict:
-    """Accept signed deployment output from a release workflow or deployer."""
-    event_id = request.headers.get("x-deployment-event-id", "")
-    signature = request.headers.get("x-deployment-signature", "")
-    secret = os.environ.get("DEPLOYMENT_EVIDENCE_SECRET", "")
-    body = await request.body()
-    if not event_id or not verify_deployment_signature(body=body, signature=signature, secret=secret):
-        record_provider_callback("rejected")
-        raise HTTPException(status_code=401, detail="invalid_deployment_signature")
-    try:
-        payload = DeploymentEvidenceCallbackRequest.model_validate(json.loads(body.decode()))
-    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail="invalid_deployment_payload") from exc
-    with get_session() as session:
-        existing_event = session.query(RemediationWebhookEvent).filter_by(provider="deployment", event_id=event_id).first()
-        if existing_event:
-            record_provider_callback("duplicate")
-            return {"accepted": True, "duplicate": True, "event_id": event_id}
-        publication = session.get(RemediationPublication, payload.publication_id)
-        if publication is None:
-            record_provider_callback("unmatched")
-            return {"accepted": True, "matched": False, "event_id": event_id}
-        if publication.status != "merged":
-            raise HTTPException(status_code=409, detail="publication_not_merged")
-        scan = session.query(Scan).filter_by(scan_id=publication.post_merge_scan_id).first() if publication.post_merge_scan_id else None
-        if scan is None:
-            raise HTTPException(status_code=409, detail="post_merge_scan_not_found")
-        scan_status = scan.status.value if hasattr(scan.status, "value") else str(scan.status)
-        if scan_status in {ScanStatus.PENDING.value, ScanStatus.RUNNING.value}:
-            raise HTTPException(status_code=409, detail="post_merge_scan_pending")
-        session.add(RemediationWebhookEvent(remediation_id=publication.remediation_id, provider="deployment", event_id=event_id, event_type="deployment_evidence"))
-        result = _attach_publication_evidence(
-            session, publication, expected_digest=payload.expected_digest,
-            observed_digest=payload.observed_digest, scan_status=scan_status,
-            findings_before=publication.findings_before if publication.findings_before is not None else publication.remediation.finding_count,
-            findings_after=scan.total_findings or 0, merge_commit=payload.merge_commit or publication.merge_commit,
-            evidence_key=payload.evidence_key or event_id,
-        )
-        record_provider_callback("accepted")
-        return {**result, "event_id": event_id, "source": "deployment_callback"}
-
-
-@router.post("/remediations/publications/{publication_id}/collect-deployment-observation")
-def queue_deployment_observation(publication_id: int, request: Request) -> dict:
-    """Queue runtime collection using the publication's configured target."""
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        if publication.status != "merged":
-            raise HTTPException(status_code=409, detail="publication_not_merged")
-    task = collect_deployment_observation.apply_async(args=[publication_id], queue="remediation.normal")
-    return {"accepted": True, "publication_id": publication_id, "task_id": task.id, "status": "queued"}
-
-
-@router.post("/deployment-observation/preflight", status_code=202)
-def queue_deployment_observation_preflight(payload: DeploymentObservationPreflightRequest, request: Request) -> dict:
-    """Queue a read-only runtime preflight without requiring a publication."""
-    _require_role(request, "security-operator")
-    try:
-        configured_deployment_target(payload.repository)
-    except DeploymentCollectorError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    task = probe_deployment_observation.apply_async(args=[payload.repository], queue="remediation.normal")
-    return {"accepted": True, "repository": payload.repository, "task_id": task.id, "status": "queued"}
-
-
-@router.get("/deployment-observation/preflight/{task_id}")
-def get_deployment_observation_preflight(task_id: str, request: Request) -> dict:
-    """Return the status/result of a queued runtime preflight."""
-    _require_role(request, "security-operator")
-    if not task_id or any(char.isspace() for char in task_id):
-        raise HTTPException(status_code=400, detail="invalid_task_id")
-    result = celery_app.AsyncResult(task_id)
-    if result.state in {"PENDING", "STARTED", "RETRY"}:
-        return {"task_id": task_id, "status": result.state.lower()}
-    if result.state == "FAILURE":
-        return {"task_id": task_id, "status": "error", "error": "preflight_task_failed"}
-    return {"task_id": task_id, "status": "completed", "result": result.result}
-
-
-@router.post("/remediations/publications/{publication_id}/alert-evidence")
-def attach_alert_evidence(publication_id: int, payload: AlertEvidenceRequest, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        existing = session.query(RemediationAlertEvidence).filter_by(publication_id=publication.id, delivery_key=payload.delivery_key).first()
-        if existing:
-            return {"accepted": True, "replayed": True, "publication_id": publication.id, "alert_evidence_id": existing.id, "status": existing.status}
-        evidence = RemediationAlertEvidence(publication_id=publication.id, delivery_key=payload.delivery_key, receiver=payload.receiver, status=payload.status, response_code=payload.response_code, attempt=payload.attempt, detail=payload.detail)
-        session.add(evidence)
-        session.flush()
-        events = RemediationRepository.list_events(session, publication.remediation_id)
-        RemediationRepository.append_event(session, {"remediation_id": publication.remediation_id, "event_type": "alert_delivery_recorded", "sequence": len(events) + 1, "detail": {"publication_id": publication.id, "alert_evidence_id": evidence.id, "receiver": payload.receiver, "status": payload.status, "attempt": payload.attempt}})
-        return {"accepted": True, "replayed": False, "publication_id": publication.id, "alert_evidence_id": evidence.id, "status": evidence.status}
-
-
-@router.get("/remediations/publications/{publication_id}/evidence-export")
-def export_publication_evidence(publication_id: int, request: Request) -> dict:
-    _require_role(request, "security-operator")
-    with get_session() as session:
-        publication = session.get(RemediationPublication, publication_id)
-        if publication is None:
-            raise HTTPException(status_code=404, detail="publication_not_found")
-        payload = {"publication_id": publication.id, "repository": publication.repository, "release_evidence": [{"id": item.id, "evidence_key": item.evidence_key, "status": item.status, "expected_digest": item.expected_digest, "observed_digest": item.observed_digest, "scan_status": item.scan_status, "findings_before": item.findings_before, "findings_after": item.findings_after, "created_at": _iso(item.created_at), "verified_at": _iso(item.verified_at)} for item in publication.release_evidence], "alert_evidence": [{"id": item.id, "delivery_key": item.delivery_key, "receiver": item.receiver, "status": item.status, "response_code": item.response_code, "attempt": item.attempt, "detail": item.detail, "created_at": _iso(item.created_at)} for item in publication.alert_evidence]}
-        canonical = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
-        export = {"format": "scrutineering-evidence-v1", "sha256": hashlib.sha256(canonical).hexdigest(), "evidence": payload, "archive": manifest([payload])}
-        secret = os.environ.get("EVIDENCE_EXPORT_SIGNING_SECRET", "")
-        if secret:
-            export["signature"] = sign_export(payload, secret)
-        return export
-
-
-@router.get("/remediations/alert-deliveries")
-def list_alert_deliveries(request: Request, status: str | None = Query(default=None), limit: int = Query(default=50, ge=1, le=250)) -> dict:
-    _require_role(request, "security-operator", "admin")
-    with get_session() as session:
-        query = session.query(RemediationAlertDelivery)
-        if status:
-            if status not in {"pending", "retrying", "dead_letter", "delivered", "canceled"}:
-                raise HTTPException(status_code=400, detail="invalid_alert_delivery_status")
-            query = query.filter(RemediationAlertDelivery.status == status)
-        records = query.order_by(RemediationAlertDelivery.created_at.desc()).limit(limit).all()
-    return {"items": [{"id": record.id, "publication_id": record.publication_id, "receiver": record.receiver, "status": record.status, "attempts": record.attempts, "max_attempts": record.max_attempts, "next_attempt_at": _iso(record.next_attempt_at), "last_error": record.last_error, "created_at": _iso(record.created_at)} for record in records], "count": len(records)}
-
-
-@router.post("/remediations/alert-deliveries/{delivery_id}/replay")
-def replay_alert_delivery(delivery_id: int, request: Request) -> dict:
-    _require_role(request, "security-operator", "admin")
-    with get_session() as session:
-        record = session.get(RemediationAlertDelivery, delivery_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="alert_delivery_not_found")
-        if record.status != "dead_letter":
-            raise HTTPException(status_code=409, detail="alert_delivery_not_dead_lettered")
-        record.status = "pending"
-        record.next_attempt_at = None
-        record.last_error = None
-        publication = session.get(RemediationPublication, record.publication_id)
-        _record_operator_event(session, request, AuditEventType.CONFIG_CHANGED, str(record.publication_id), {"action": "alert_delivery_replay", "delivery_id": record.id}, entity_type="publication")
-        return {"accepted": True, "delivery_id": record.id, "status": record.status, "publication_id": publication.id if publication else None}
-
-
-@router.post("/remediations/alert-deliveries/cancel")
-def cancel_alert_deliveries(payload: AlertBulkRequest, request: Request) -> dict:
-    _require_role(request, "security-operator", "admin")
-    with get_session() as session:
-        records = session.query(RemediationAlertDelivery).filter(RemediationAlertDelivery.id.in_(payload.delivery_ids), RemediationAlertDelivery.status.in_(["pending", "retrying"])).all()
-        for record in records:
-            record.status = "canceled"
-            record.next_attempt_at = None
-        return {"accepted": True, "canceled": [record.id for record in records], "skipped": sorted(set(payload.delivery_ids) - {record.id for record in records})}
-
-
-@router.post("/remediations/recovery-bulk-status")
-def bulk_recovery_status(payload: dict, request: Request) -> dict:
-    _require_role(request, "security-operator", "admin")
-    ids = payload.get("recovery_ids", [])
-    status = payload.get("status")
-    reason_code = payload.get("reason_code", "operator_reviewed")
-    note = str(payload.get("note", ""))
-    if not isinstance(ids, list) or not ids or len(ids) > 100 or status not in {"acknowledged", "failed"} or (status == "failed" and not note.strip()):
-        raise HTTPException(status_code=400, detail="invalid_bulk_recovery_request")
-    with get_session() as session:
-        records = session.query(RemediationRecoveryRequest).filter(RemediationRecoveryRequest.id.in_(ids), RemediationRecoveryRequest.status.in_(["requested", "acknowledged"])).all()
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
-        for recovery in records:
-            recovery.status = status
-            recovery.note = note or recovery.note
-            recovery.error_message = note if status == "failed" else None
-            if status == "acknowledged": recovery.acknowledged_at = now
-            else: recovery.completed_at = now
-        return {"accepted": True, "updated": [record.id for record in records], "reason_code": reason_code, "skipped": sorted(set(ids) - {record.id for record in records})}
 
 
 @router.post("/webhooks/{provider}")

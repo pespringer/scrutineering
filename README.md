@@ -5,8 +5,8 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 ## Architecture
 
 > **Reset in progress.** Work follows [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
-> Phases 1a–1b removed the Node planner and the Python subsystems the dashboard
-> never called; later phases trim the rest.
+> Phases 1a–1c removed the Node planner, the Python subsystems the dashboard
+> never called, and the remediation side systems; later phases trim the rest.
 
 ```
 scrutineering/
@@ -32,8 +32,7 @@ scrutineering/
 ```
 
 `dashboard/` is the only supported Next.js application and is packaged by
-`Dockerfile.dashboard`; the former `web/`
-frontend was removed in Batch 3. Runtime services require an explicit
+`Dockerfile.dashboard`. Runtime services require an explicit
 `DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
 
@@ -58,9 +57,8 @@ and an operational audit timeline; it is available at `http://localhost:3001/das
 Provider publication and callbacks are gated by explicit configuration. Use
 `PYTHONPATH=. python scripts/run-staging-provider-post-merge-drill.py` to exercise normalized merge callbacks,
 post-merge verification, and rollback output with deterministic fixtures.
-Provider merge callbacks that do not include deployment digest evidence now
-queue a correlated worker rescan and remain `pending` until that evidence is
-available; see [remediation execution operations](docs/operations/remediation-execution.md)
+Provider merge callbacks queue a correlated worker rescan and remain `pending`
+until it completes; see [remediation execution operations](docs/operations/remediation-execution.md)
 for the `REMEDIATION_SCAN_REPOSITORY_ROOT` setting used by filesystem scans.
 
 ## Quick Start
@@ -114,7 +112,7 @@ dashboard and repository checks), and Docker.
 ```bash
 make test         # Python tests plus repository checks
 make test-python  # Python tests only
-make check        # Doc links, deployment manifests, frontend layout, release config
+make check        # Doc links, deployment manifests, frontend layout
 make fmt-check    # Ruff and Prettier (advisory until Phase 3)
 
 # Run the composed Python API
@@ -129,9 +127,10 @@ cd dashboard && npm ci && npm run validate:build
 - Pull requests: Python tests, repository checks (`make check`), dashboard
   build and audit, and an advisory format check.
 - Merge to main: Docker image builds and a Trivy scan of the API image.
-- Tag release: GitHub release with keyless-signed image archives.
+- Manual: `remediation-evidence.yml` produces the signed evidence bundle the
+  remediation worker requires.
 
-See `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
+See `.github/workflows/ci.yml`.
 
 ## Kubernetes Deployment
 
@@ -173,66 +172,30 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
   `/ready` checks database connectivity for deployment probes.
   `/version` reports the configured service version and revision.
 
-Scans are currently keyed by image tag; enforcing immutable digest identity in
-the scan worker is tracked in Phase 2 of the reset plan. Evidence must be
-verified before remediation. The executor runs isolated validation, and the
-GitHub publisher can open allowlisted PRs only after verified evidence; neither
-component merges or bypasses branch protection.
-Scanner workers also enforce bounded output and finding counts through the
-documented `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` settings.
-Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
-`GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
-Set `REQUIRE_BRANCH_PROTECTION=true` so GitHub and GitLab publishers verify
-the target branch with the provider API immediately before publication.
-`src/scan/registry.py` parses registry credentials for Docker Hub, GHCR, GitLab,
-ECR, and GCR, but the scan worker does not use it yet, so only public and
-local-registry images can be scanned. Wiring it in is tracked in Phase 2.
-Kubernetes API and worker deployments run as non-root with restricted privilege.
-Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
-production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
-Production release archives are signed with Cosign keyless signing in
-`.github/workflows/release.yml`; promotion fails before image publication when
-the identity or issuer policy is missing.
-The workflow verifies both archive signatures before creating the GitHub
-release, and remediation execution can select the same policy with
-`release_evidence=True`.
-The dashboard CI job also runs `npm audit --audit-level=high`; the checked-in
-dashboard lockfile currently reports zero vulnerabilities.
-Batch 8 also gives the dashboard a production-style operations-console UI with
-risk-first posture summaries, severity trends, scan triage, responsive image
-inventory, and explicit loading/error/empty states. Open it at
-`http://localhost:3001/dashboard` after `docker compose up --build -d`.
-The dashboard now uses the authenticated Python data API when Compose sets
-`DASHBOARD_API_URL`; seed data remains available for standalone frontend work
-when that variable is unset.
-Scan history supports server-side search, status filters, pagination, targeted
-scan submission, and polling of queued scan status. Apply database migrations
-before using scan controls.
-The Audit Trail is available at `/audit`; local operator access defaults to the
-roles in `DASHBOARD_DEFAULT_ROLES`, while production roles come from the
-verified OIDC ingress identity.
-Remediation previews and approvals are API-gated and require
-`REMEDIATION_APPROVAL_SECRET`; they do not mutate repositories until the
-execution worker and its validation gates are explicitly enabled.
-The Remediation Queue is available at `/remediations` for users with the
-`remediator` or `security-operator` role; execution remains disabled by
-default through `REMEDIATION_EXECUTION_ENABLED=false`.
-Execution events are retained with the remediation record so blocked work is
-visible and reviewable rather than silently discarded.
-The guarded adapter also requires explicit evidence files and validation
-provider/ecosystem settings; it creates detached-worktree artifacts and never
-publishes or merges a change automatically.
-Validated artifacts can produce a provider handoff plan, but publication still
-requires the existing allowlisted GitHub/GitLab publisher boundary and
-post-merge verification.
-Live publication is disabled by default and requires explicit provider tokens,
-repository allowlists, and `REMEDIATION_PUBLICATION_ENABLED=true`.
-Set `REMEDIATION_PUBLICATION_STALE_SECONDS` (default `900`) to control when
-pending, failed, or unverified merged publications appear in the stale
-reconciliation view and trigger the stale-publication alert.
-Provider callbacks require separate HMAC webhook secrets and are replay-safe;
-merge verification and rollback-required outcomes are retained in the
-remediation timeline.
+### Current behavior and limits
+
+- **Scans** are keyed by image tag. Enforcing immutable digest identity in the
+  worker, registry credentials for private registries, and scanner retries are
+  tracked in Phase 2 of the reset plan. Scanner timeouts and output limits use
+  built-in defaults; `SCANNER_TIMEOUT`, `SCANNER_MAX_OUTPUT_BYTES`, and
+  `SCANNER_MAX_FINDINGS` are not read yet.
+- **Dashboard access** uses the roles in `DASHBOARD_DEFAULT_ROLES` for local
+  API-key sessions, or the roles forwarded by a verified OIDC ingress. The
+  dashboard always reads live data from the API; there is no demo mode.
+- **Remediation** is shown at `/remediations` to the `remediator` and
+  `security-operator` roles. A security operator approves a proposal, then
+  execution runs on the worker only when `REMEDIATION_EXECUTION_ENABLED=true`.
+  Execution requires a signed evidence envelope (`REMEDIATION_EVIDENCE_FILE`,
+  produced by `.github/workflows/remediation-evidence.yml`) and runs validation
+  in an isolated worktree. Execution events are kept with the remediation so
+  blocked work stays visible.
+- **Publication** is off by default. With `REMEDIATION_PUSH_ENABLED=true` and
+  `REMEDIATION_PUBLICATION_ENABLED=true`, the worker pushes a branch and opens a
+  PR only for repositories listed in `REMEDIATION_ALLOWED_REPOSITORIES`. It never
+  merges.
+- **Provider webhooks** (`/api/dashboard/webhooks/{github,gitlab}`) require
+  `GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`, are replay-safe, and queue a
+  follow-up scan after a merge.
 
 ## Documentation
 
@@ -244,10 +207,7 @@ remediation timeline.
 - [GitLab Publication Boundary](docs/operations/gitlab-publication.md)
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
-- [Release Evidence Gates](docs/operations/release-evidence-gates.md)
-- [Provider Integration](docs/security/provider-integration.md)
 - [Scan Queue Priorities](docs/operations/scan-queues.md)
-- [Remediation Telemetry and SLOs](docs/operations/remediation-telemetry-slos.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Reset Plan](docs/RESET-PLAN.md) (current work; supersedes the upgrade roadmap)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)

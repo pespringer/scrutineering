@@ -29,20 +29,9 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
             "src.scan.tasks.discover_runtime_scans": {"queue": "scan.low"},
-            "src.scan.retention_tasks.report_expired_scans": {"queue": "remediation.normal"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
-            "src.remediation.reconciliation_tasks.reconcile_stale_publications": {"queue": "remediation.normal"},
-            "src.remediation.recovery_tasks.poll_recovery_requests": {"queue": "remediation.normal"},
-            "src.remediation.retention_tasks.purge_expired_evidence": {"queue": "remediation.normal"},
-            "src.remediation.alert_tasks.deliver_alerts": {"queue": "remediation.normal"},
         },
         beat_schedule={
-            "report-expired-scans": {
-                "task": "src.scan.retention_tasks.report_expired_scans",
-                "schedule": 86400.0,
-                "kwargs": {"dry_run": True},
-                "options": {"queue": "remediation.normal"},
-            },
             "schedule-active-image-scans": {
                 "task": "src.scan.tasks.schedule_active_scans",
                 "schedule": crontab(minute="0", hour="*/6"),
@@ -52,27 +41,6 @@ def create_celery_app() -> Celery:
                 "task": "src.scan.tasks.discover_runtime_scans",
                 "schedule": crontab(minute="*/15"),
                 "options": {"queue": "scan.low"},
-            },
-            "reconcile-stale-publications": {
-                "task": "src.remediation.reconciliation_tasks.reconcile_stale_publications",
-                "schedule": 300.0,
-                "options": {"queue": "remediation.normal"},
-            },
-            "poll-publication-recoveries": {
-                "task": "src.remediation.recovery_tasks.poll_recovery_requests",
-                "schedule": 60.0,
-                "options": {"queue": "remediation.normal"},
-            },
-            "purge-expired-evidence-dry-run": {
-                "task": "src.remediation.retention_tasks.purge_expired_evidence",
-                "schedule": 86400.0,
-                "kwargs": {"dry_run": True},
-                "options": {"queue": "remediation.normal"},
-            },
-            "deliver-local-alerts": {
-                "task": "src.remediation.alert_tasks.deliver_alerts",
-                "schedule": 60.0,
-                "options": {"queue": "remediation.normal"},
             },
         },
         task_acks_late=True,

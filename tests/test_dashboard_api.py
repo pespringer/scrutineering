@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.analytics.dashboard_api import DeploymentEvidenceCallbackRequest, DeploymentEvidenceRequest, RemediationRequest, ScanRequest, _finding_payload, _image_payload, _local_registry_public_url, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
+from src.analytics.dashboard_api import RemediationRequest, ScanRequest, _finding_payload, _image_payload, _local_registry_public_url, _page, _remediation_actions, _remediation_payload, _remediation_workflow_state, _require_role, _scan_payload, _severity_counts
 from src.db.models import AuditEventType, ImageRegistry, ScanStatus, Severity
 
 
@@ -79,6 +79,14 @@ def test_remediation_workflow_state_tracks_execution_events(event_type, expected
     assert _remediation_workflow_state(remediation, [SimpleNamespace(event_type=event_type)]) == expected
 
 
+def test_reapproved_retry_shows_approved_state_not_awaiting_approval():
+    events = [SimpleNamespace(event_type=name) for name in (
+        "execution_queued", "execution_started", "execution_blocked", "execution_retry_requested",
+    )]
+    assert _remediation_workflow_state(SimpleNamespace(status="analyzing"), events) == "analyzing"
+    assert _remediation_workflow_state(SimpleNamespace(status="requires_review"), events) == "requires_review"
+
+
 def test_dashboard_page_and_scan_request_contracts():
     request = ScanRequest(image_name="  ghcr.io/acme/api:v2  ", priority="high")
     assert request.image_name == "ghcr.io/acme/api:v2"
@@ -96,16 +104,6 @@ def test_registry_dashboard_uses_public_host_for_browser_links(monkeypatch):
 
     monkeypatch.setenv("LOCAL_REGISTRY_PUBLIC_URL", "http://localhost:5000/")
     assert _local_registry_public_url() == "http://localhost:5000"
-
-
-def test_deployment_evidence_request_is_digest_only():
-    request = DeploymentEvidenceRequest(
-        expected_digest="sha256:" + "a" * 64,
-        observed_digest="sha256:" + "a" * 64,
-    )
-    assert request.merge_commit is None
-    callback = DeploymentEvidenceCallbackRequest(publication_id=7, **request.model_dump())
-    assert callback.publication_id == 7
 
 
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():

@@ -168,6 +168,34 @@ discovery.
 **Workflows to remove:** `.github/workflows/release.yml`,
 `remediation-evidence.yml`, `deployment-evidence.yml`.
 
+**Status: done.** Changes beyond the lists above:
+- **Kept, not removed:**
+  - `rollback.py`: the publication plan and the post-merge `rollback_required`
+    path still use it.
+  - `.github/workflows/remediation-evidence.yml`: it produces the signed
+    evidence envelope the worker requires before executing a remediation. It
+    goes in Phase 4, when the evidence gate is replaced by build-and-rescan.
+- **Approval:** `POST /approve` now takes no body. It requires the
+  `security-operator` role and records the caller as approver. The executor's
+  unused approval-token check was removed.
+- **Also removed:**
+  - `POST /remediations/{id}/publish`, which accepted `evidence_verified` from
+    the client (ground rule 4). The worker already publishes when publication
+    is enabled.
+  - scan retention reporting (`src/scan/retention*.py`) with its beat entry
+  - the release-config validator
+  - unused metric functions, with the Prometheus rules and Grafana panels
+    that used them
+  - 31 settings no code reads. Among them are `GITHUB_ALLOWED_REPOSITORIES`,
+    `GITLAB_ALLOWED_PROJECTS` and `REQUIRE_BRANCH_PROTECTION`, which the README
+    presented as publication safeguards; the real allowlist is
+    `REMEDIATION_ALLOWED_REPOSITORIES`.
+- **Renamed:** `k8s/deployment-observation-rbac.yaml` became
+  `k8s/worker-service-account.yaml`, since only the worker ServiceAccount is left.
+- **Fixed:** the remediation queue's status filter offered values that aren't
+  real statuses (`approved`, `executing`, `blocked`), which made the page show a
+  misleading role error.
+
 ### 1d. Database
 
 Tables with no remaining code after 1a–1c: `raw_scan_results`,
@@ -261,6 +289,11 @@ The bugs found in the review, each with a regression test.
   placeholder `--secret` flag whenever credentials are set. Pass credentials
   through `TRIVY_USERNAME`/`TRIVY_PASSWORD` and the `GRYPE_REGISTRY_AUTH_*`
   variables instead.
+- [ ] **Make scanner settings real or remove them.** `SCANNER_TIMEOUT` (compose
+  sets 1800) and `SCANNER_MAX_OUTPUT_BYTES`/`SCANNER_MAX_FINDINGS` are never
+  read, so the scanners use their built-in 600 s and 50 MB defaults.
+  `SCHEDULE_CRON_SCAN` is also ignored, because the beat schedule hard-codes
+  `0 */6 * * *`.
 - [ ] **Add scanner retries for transient failures** (registry timeouts, DB
   download) in `run_scanners_concurrently`. The old retry and circuit-breaker
   logic was in `ScanService` only.
