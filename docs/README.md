@@ -1,45 +1,29 @@
-# Scrutineering — Documentation Index
+# Scrutineering Documentation
 
-> **Reset in progress.** [RESET-PLAN.md](RESET-PLAN.md) is the current plan. Phases
-> 1a–1b removed the Node planner and several Python subsystems (risk, forensics,
-> runtime monitoring, platform readiness, the `/api/v1` scan API); Phase 1c removed
-> alert delivery, deployment evidence, publication recovery and reconciliation,
-> and approval tokens. Guides below
-> that mention them, port 3000, or `npm run` scripts are out of date until Phase 5.
+[RESET-PLAN.md](RESET-PLAN.md) is the current plan. Phase 5 replaces these pages
+with a README, an architecture doc, an operator guide and a configuration
+reference; until then, this is the set that describes the current system.
 
-## Product Documentation
-- **[scrutineering-guide.md](scrutineering-guide.md)** — Main application guide: what it is, architecture, quick start, all components, configuration, K8s deployment, monitoring
-- **[upgrade-roadmap.md](upgrade-roadmap.md)** — Prioritized architecture, security, remediation, and operations upgrade plan
+## Product
+- [PRD.md](PRD.md): original product requirements (April 2026)
+- [adr/0001-automatic-remediation-architecture.md](adr/0001-automatic-remediation-architecture.md): original architecture decision (superseded)
 
 ## API
-- **[testing-guide.md](testing-guide.md)** — Comprehensive testing guide: unit, integration, security, end-to-end flows
-- **[scanning-engine.md](scanning-engine.md)** — Scanning engine design doc: architecture, registries, scanners, dedup, risk scoring
-- **[scrutineering.md](scrutineering.md)** — Product overview
+- [api/application.md](api/application.md): the composed FastAPI app, health, readiness and metrics
+- [api/dashboard-v1.md](api/dashboard-v1.md): every `/api/dashboard` route, with required roles
 
-## PRD
-- **[prd/](prd/)** — Product requirements documents
+## Operating the stack
+- [operations/product-coherence.md](operations/product-coherence.md): the operator workflow from scan to verified fix
+- [operations/dashboard.md](operations/dashboard.md): building, configuring and smoke-testing the dashboard
+- [operations/local-registry.md](operations/local-registry.md): pushing and scanning images in the built-in registry
+- [operations/scan-queues.md](operations/scan-queues.md): scan priorities and the shared scanner cache
+- [operations/runtime-discovery.md](operations/runtime-discovery.md): scanning images of running containers
+- [operations/readiness.md](operations/readiness.md): health and readiness probes
 
-## Architecture Decisions
-- **[adr/0001-automatic-remediation-architecture.md](adr/0001-automatic-remediation-architecture.md)** — Initial architecture decision for automatic remediation
-
-## Operations
-- **[operations/on-call-playbook.md](operations/on-call-playbook.md)** — Incident response procedures
-- **[operations/remediation-lifecycle.md](operations/remediation-lifecycle.md)** — Allowed remediation states and transitions
-- **[operations/production-readiness-checklist.md](operations/production-readiness-checklist.md)** — Pre-production checklist
-- **[operations/cto-execution-log-2026-04-05.md](operations/cto-execution-log-2026-04-05.md)** — CTO execution log
-
-## Hiring
-- **[hiring/hiring-calibration-operating-calendar.md](hiring/hiring-calibration-operating-calendar.md)** — Hiring calendar
-- **[hiring/friday-calibration-agenda.md](hiring/friday-calibration-agenda.md)** — Calibration meeting agenda
-- **[hiring/interview-debrief-template.md](hiring/interview-debrief-template.md)** — Interview debrief format
-- **[hiring/offer-close-checklist.md](hiring/offer-close-checklist.md)** — Offer closing checklist
-- **[hiring/sourcing-review-agenda.md](hiring/sourcing-review-agenda.md)** — Sourcing review agenda
-- **[hiring/first-calibration-dispositions.md](hiring/first-calibration-dispositions.md)** — Initial dispositions
-- **[hiring/debrief-sla-policy.md](hiring/debrief-sla-policy.md)** — SLA policy
-- **[hiring/weekly-debrief-compliance-report.md](hiring/weekly-debrief-compliance-report.md)** — Weekly compliance report
-
-## Security
-
-## Database Schema
-- **[db-schema-design.md](db-schema-design.md)** — Database schema design
-- **[database-schema-design.md](database-schema-design.md)** — Alternate schema design document
+## Remediation
+- [operations/remediation-execution.md](operations/remediation-execution.md): enabling execution, evidence, and the test workspace
+- [operations/remediation-worktrees.md](operations/remediation-worktrees.md): isolated worktrees for edits
+- [operations/github-publication.md](operations/github-publication.md): GitHub PR publication
+- [operations/gitlab-publication.md](operations/gitlab-publication.md): GitLab MR publication
+- [operations/github-cloudflare-staging.md](operations/github-cloudflare-staging.md): testing GitHub webhooks against a local stack
+- [security/evidence-generation.md](security/evidence-generation.md): building and verifying evidence envelopes

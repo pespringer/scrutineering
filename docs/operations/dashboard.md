@@ -15,9 +15,8 @@ CI runs `npm audit --audit-level=high` before the build. Keep direct dependency
 versions and `dashboard/package-lock.json` synchronized when applying security
 updates; a high or critical advisory blocks the dashboard job.
 
-Run `npm run validate:frontend` from the repository root to verify that the
-canonical package and lockfile exist and that the retired frontend tree has
-not returned.
+Run `make check` from the repository root to verify, among other things, that
+the dashboard package and lockfile exist.
 
 Compose and Kubernetes keep `NEXT_PUBLIC_API_URL` empty: browser requests use
 same-origin Next.js routes, which proxy server-side to the authenticated Python
@@ -25,9 +24,8 @@ API. Configure `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the server
 environment. The dashboard should not call internal database, Redis, or scanner
 services directly.
 
-Demo fixtures are disabled by default. Set `DASHBOARD_DEMO_MODE=true` only for
-an isolated UI preview; production and connected local stacks use the
-authenticated API and show an unavailable-data error when it is missing.
+The dashboard always reads live data through the API and shows an
+unavailable-data error when the API is missing; there is no demo mode.
 
 For OIDC deployments, set `DASHBOARD_AUTH_MODE=trusted-proxy`. The ingress must
 validate the bearer token and forward `x-authenticated-sub` plus optional
@@ -61,7 +59,7 @@ The build also verifies that the generated CSS contains the dashboard utility
 bundle; this prevents an unstyled production shell when Tailwind source paths
 change.
 
-For a running local stack, use `npm run smoke:dashboard`. It checks the Next.js
+For a running local stack, use `make smoke`. It checks the Next.js
 browser shell, dashboard proxy routes, and that server-only API credentials are
 not present in responses.
 

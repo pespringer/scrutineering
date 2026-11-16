@@ -1,5 +1,9 @@
 # ADR 0001: Automated Container Remediation Architecture and Policy Contract
 
+> **Status: superseded.** This records the original April 2026 architecture
+> (Node planner, PR generator, staged rollout), which the reset removed. See
+> [RESET-PLAN.md](../RESET-PLAN.md) for the current direction.
+
 - Status: Proposed
 - Date: 2026-04-05
 - Owners: Founding Engineer (Backend), CTO (review)

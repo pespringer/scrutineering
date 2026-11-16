@@ -1,152 +1,92 @@
 # Dashboard API v1
 
-The dashboard data boundary is mounted at `/api/dashboard` on the Python API.
-All routes require `PYTHON_API_KEY`, service authentication, or a verified
-trusted OIDC ingress identity.
+The dashboard API is mounted at `/api/dashboard` on the Python API
+(`src/analytics/dashboard_api.py`). Every route except the provider webhook
+requires `PYTHON_API_KEY`, service authentication, or a verified trusted-proxy
+identity. The Next.js dashboard calls these routes server-side, so API keys and
+the proxy secret never reach the browser.
 
-## Read APIs
+**Roles.** Local API-key sessions get the roles in `DASHBOARD_DEFAULT_ROLES`. A
+trusted ingress may forward `x-authenticated-sub`, `x-authenticated-email` and
+`x-authenticated-roles`, which are accepted only alongside the matching
+`x-dashboard-proxy-secret` (`DASHBOARD_TRUSTED_PROXY_SECRET`). `admin` satisfies
+every role check.
 
-- `GET /posture/summary` — current open-finding counts and latest scan state.
-- `GET /posture/trend?days=30` — severity snapshots for the selected window.
-- `GET /scans?limit=20&offset=0&status=running&search=api` — paginated scan
-  history.
-- `GET /scans/{scan_id}` — durable scan status for polling.
-- `GET /images?limit=20&offset=0&search=nginx&severity=high` — paginated image
-  inventory.
-- `GET /images/{image_id}?limit=25&offset=0&severity=critical` — image detail
-  and paginated findings.
-- `GET /session` — the mapped operator identity context.
-- `GET /permissions` — role-derived dashboard capabilities.
-- `GET /audit?limit=25&offset=0` — paginated operator activity records.
-- `GET /remediations/{remediation_id}` — remediation preview/status.
-- `GET /remediations/{remediation_id}/events` — ordered durable execution
-  events and fail-closed reasons.
-- `GET /remediations?status=requires_review` — paginated remediation queue.
+**Pagination.** Paginated responses use `{ items, limit, offset, count, total }`.
 
-Paginated responses use `{ items, limit, offset, count, total }`. The Next.js
-dashboard proxy keeps API keys and the trusted proxy secret server-side.
+## Posture
 
-## Scan controls
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| GET | `/posture/summary` | any | Open-finding counts by severity and the latest scan state |
+| GET | `/posture/trend?days=30` | any | Daily severity snapshots for the window |
 
-- `POST /scans` with `{ "image_name": "nginx:1.27", "priority": "normal" }`
-  persists a pending scan and queues Celery work.
-- `POST /scans/{scan_id}/cancel` revokes queued work and records `cancelled`.
+## Scans
 
-Starting and cancelling scans require `operator` or `security-operator`; the
-`admin` role is also accepted. Read-only dashboard access remains available to
-the `dashboard` role.
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| GET | `/scans?limit&offset&status&search&include_archived` | any | Paginated scan history |
+| GET | `/scans/health` | any | Status counts and terminal rate over recent scans |
+| GET | `/scans/{scan_id}` | any | One scan's status, for polling |
+| GET | `/scans/{scan_id}/findings?severity&fixable_only` | any | Findings attached to a scan |
+| POST | `/scans` | operator | Queue a scan: `{ "image_name": "nginx:1.27", "priority": "normal" }` |
+| POST | `/scans/{scan_id}/cancel` | operator | Cancel a pending or running scan |
+| POST | `/scans/bulk-cancel` | operator | Cancel several scans: `{ "ids": [...] }` |
+| POST | `/scans/bulk-retry` | operator | Re-queue failed or cancelled scans |
+| POST | `/scans/bulk-archive` | operator | Hide finished scans from history |
 
-## Remediation boundary
+## Images and findings
 
-- `POST /remediations/preview` returns deterministic, read-only actions for
-  selected open findings.
-- `POST /remediations` persists a `requires_review` record for findings with
-  known fixes; it requires `remediator` or `security-operator`.
-- `POST /remediations/{id}/approval-token` issues a short-lived token to a
-  `security-operator`; `REMEDIATION_APPROVAL_SECRET` must be configured.
-- `POST /remediations/{id}/approve` verifies the token, stores approval
-  provenance, and transitions the record to `analyzing`.
-- `POST /remediations/{id}/execute` queues an approved record only when
-  `REMEDIATION_EXECUTION_ENABLED=true`; otherwise it fails closed.
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| GET | `/images?limit&offset&search&severity` | any | Image inventory with open and resolved counts |
+| GET | `/images/{image_id}?severity&limit&offset` | any | Image detail and its open findings |
+| GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
+| POST | `/images/bulk-archive` | operator | Mark images inactive |
+| POST | `/findings/bulk-acknowledge` | operator | Acknowledge open findings |
+| POST | `/findings/bulk-assign` | operator | Assign open findings: `{ "finding_ids": [...], "assignee": "alice" }` |
+| GET | `/findings/export` | dashboard, operator | Bounded JSON export of findings with a SHA-256 |
 
-Execution blocks are persisted as remediation lifecycle events so operators
-can distinguish a policy denial, missing adapter configuration, and an actual
-worker failure.
+## Session and audit
 
-The remediation detail view exposes these approval-token, approval, and queued
-execution actions. Tokens remain in browser memory only. Publication status is
-rendered with explicit `verified` and `rollback_required` states; the UI does
-not bypass the server-side role, evidence, or validation gates.
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| GET | `/session` | any | The caller's identity and roles |
+| GET | `/permissions` | any | Dashboard capabilities derived from roles |
+| GET | `/audit?limit&offset&actor&event_type&since&until` | any | Paginated audit trail |
+| GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
 
-When enabled, the worker additionally requires evidence envelope/artifact paths
-and a supported provider/ecosystem pair. It applies only exact-match edits in a
-detached worktree and runs install, test, build, SBOM, and rescan gates in order.
-Compose mounts the disposable host checkout from
-`REMEDIATION_HOST_REPOSITORY_ROOT` at `/workspace/repository` and mounts signed
-evidence from `REMEDIATION_HOST_EVIDENCE_ROOT` at `/workspace/evidence`.
+## Remediation
 
-`POST /remediations/{id}/publication-plan` creates a validated handoff envelope
-for the existing GitHub/GitLab publishers. It requires an allowlisted
-repository, protected `main`/`master` base, verified evidence, and an
-idempotency key; it does not call the provider. `POST
-/remediations/post-merge/verify` returns `rollback_required` plus a safe
-`git revert --no-edit` plan when digest, scan, or finding checks regress.
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| POST | `/remediations/preview` | remediator | Proposed actions for selected findings; changes nothing |
+| POST | `/remediations` | remediator | Create a remediation in `requires_review` |
+| GET | `/remediations?status&limit&offset` | remediator | Paginated remediation queue |
+| GET | `/remediations/{id}` | remediator | Remediation detail with actions and publications |
+| GET | `/remediations/{id}/events` | remediator | Ordered execution events |
+| POST | `/remediations/{id}/approve` | security-operator | Approve (no body); moves the record to `analyzing` |
+| POST | `/remediations/{id}/execute` | remediator | Queue execution; requires `REMEDIATION_EXECUTION_ENABLED=true` |
+| POST | `/remediations/{id}/retry` | security-operator | Return a failed remediation to review |
 
-`POST /remediations/{id}/publish` is disabled unless
-`REMEDIATION_PUBLICATION_ENABLED=true`, requires a `security-operator`, and
-persists provider URL/number, request hash, status, errors, and idempotency
-outcomes in `remediation_publications`. Provider tokens remain server-side.
+`operator` and `remediator` routes also accept `security-operator`.
 
-Providers send signed callbacks to `POST /api/dashboard/webhooks/{provider}`
-with `x-provider-event-id` and `x-provider-signature`. GitHub and GitLab
-secrets are configured separately; duplicate event IDs are accepted without
-reprocessing. Merge callbacks persist commit/digest/scan findings and append a
-verified or rollback-required timeline event.
+A remediation can be created only for open findings that have a fixed version
+and a source file path. Today that means findings from `fs:` (directory)
+scans; Phase 4 of the reset plan extends remediation to container images.
 
-Security operators can use `GET
-/remediations/publications/{publication_id}/recovery-preview` to inspect stale
-status and allowed recovery actions. `POST
-/remediations/publications/{publication_id}/recovery` records an idempotent
-`request_callback` or `mark_manual_review` request; it never mutates the
-provider. `POST /remediations/publications/{publication_id}/evidence` attaches
-deployment scan evidence to a merged publication and re-evaluates its healthy
-or rollback-required decision. When the publication has a correlated
-post-merge scan, `POST /remediations/publications/{publication_id}/deployment-evidence`
-accepts only expected/deployed digests and derives the scan status and finding
-counts from that persisted scan; repeated evidence keys are replay-safe.
-Release workflows can submit the same evidence through
-`POST /deployment-evidence` using `x-deployment-event-id` and an
-`x-deployment-signature: sha256=...` HMAC header. The server validates the
-signature and replay ID before looking up the persisted scan.
-Security operators can queue automatic runtime collection with
-`POST /remediations/publications/{publication_id}/collect-deployment-observation`.
-The worker resolves the target from `DEPLOYMENT_COLLECTOR_TARGETS_JSON`, so the
-request contains no digest or scan-count fields.
-Security operators can validate runtime access without a publication with
-`POST /deployment-observation/preflight` and body `{"repository":"acme/api"}`.
-The API queues the probe on the observation worker and returns a task ID;
-`GET /deployment-observation/preflight/{task_id}` returns pending, ready, or
-structured error state. The target and runtime credentials remain server-side.
+Execution runs on the worker. It requires a signed evidence envelope and a
+validation provider/ecosystem, applies the edits in an isolated worktree, and
+runs install, test, build, SBOM and rescan steps. When `REMEDIATION_PUSH_ENABLED`
+and `REMEDIATION_PUBLICATION_ENABLED` are set and the repository is in
+`REMEDIATION_ALLOWED_REPOSITORIES`, the worker pushes a branch and opens a PR.
+It never merges. Blocked runs are recorded as events with a reason.
 
-Recovery status updates use `POST
-/remediations/publications/{publication_id}/recovery/{recovery_id}/status` with
-`acknowledged`, `completed`, or `failed`. The reconciliation health endpoint
-reports the latest scheduled run and its discovered/event counts.
+## Provider webhooks
 
-Security operators can export a bounded, hash-addressed audit snapshot from
-`GET /audit/export`. Publication evidence can be exported from
-`GET /remediations/publications/{publication_id}/evidence-export`; both
-responses include a SHA-256 over canonical JSON for release-record attachment.
-Evidence retention defaults to 365 days. Purging is disabled unless
-`REMEDIATION_EVIDENCE_PURGE_ENABLED=true` is explicitly configured.
-
-Audit exports accept actor, event type, and time-window filters. The export is
-bounded by `limit` and includes the chain hashes needed for downstream
-verification. Provider credential health reports only presence and rotation
-metadata; token values are never returned.
-
-The local delivery worker is disabled by default with
-`REMEDIATION_ALERT_DELIVERY_ENABLED=false`; enabling it is separate from live
-receiver validation and should initially use only the deterministic `fake`
-receiver.
-
-Alert deliveries have a durable, receiver-independent queue. Operators can
-inspect it at `/remediations/alert-deliveries` and replay only terminal
-dead-letter records. Delivery keys are deterministic, so retries do not create
-duplicate notifications. Recovery polling leases requests for five minutes to
-prevent concurrent workers from issuing duplicate provider calls.
-
-Callback recovery polling uses the provider token on the server, retries with
-bounded exponential backoff (15, 30, 60, 120, then 300 seconds), and moves to
-terminal `failed` after the configured attempt limit. Set
-`REMEDIATION_PUBLICATION_ESCALATION_CYCLES` to control when prolonged stale
-records receive an audit-visible escalation.
-
-These endpoints stop before repository mutation. A future execution worker must
-consume only approved records and enforce evidence, worktree, validation, and
-rollback gates.
-
-For OIDC, an ingress must verify the token before forwarding
-`x-authenticated-sub` and optional email/roles headers. The API accepts those
-headers only when `x-dashboard-proxy-secret` matches the server-side
-`DASHBOARD_TRUSTED_PROXY_SECRET`.
+`POST /webhooks/{github|gitlab}` authenticates with the provider's HMAC
+signature (`GITHUB_WEBHOOK_SECRET` / `GITLAB_WEBHOOK_SECRET`), not the API key.
+Delivery IDs are recorded, so replays are accepted without reprocessing. A merge
+callback updates the matching publication. If the callback carries digest and
+scan evidence it is evaluated immediately; otherwise a follow-up scan is queued
+and the publication stays `pending` until it completes.

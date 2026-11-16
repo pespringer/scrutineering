@@ -1,10 +1,9 @@
-# Developer entry points. Replaces the root npm scripts removed with the Node
-# planner (docs/RESET-PLAN.md, Phase 1a). Phase 1e trims the remaining scripts.
+# Developer entry points.
 
 PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt \
 	--with pytest --with httpx python -m pytest
 
-.PHONY: up down migrate test test-python check fmt-check smoke
+.PHONY: up down migrate backup test test-python check fmt-check smoke
 
 up:
 	docker compose up --build -d
@@ -14,6 +13,13 @@ down:
 
 migrate:
 	docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade head
+
+# Writes a compressed logical backup of the running database to ./backups/.
+backup:
+	mkdir -p backups
+	docker compose exec -T postgres sh -c 'pg_dump -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" --no-owner' \
+		| gzip > backups/scrutineering-$$(date +%Y%m%d-%H%M%S).sql.gz
+	@ls -1t backups/*.sql.gz | head -1
 
 test: test-python check
 
