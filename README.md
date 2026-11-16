@@ -302,6 +302,7 @@ remediation timeline.
 - [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Remediation Telemetry and SLOs](docs/operations/remediation-telemetry-slos.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
+- [Reset Plan](docs/RESET-PLAN.md) (current work; supersedes the upgrade roadmap)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
 - [Dashboard Operations](docs/operations/dashboard.md)
 - Deployment manifests can be checked with `npm run validate:deployment`.
