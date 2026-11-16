@@ -124,21 +124,23 @@ class TestRunScan:
 
     @patch('src.scan.tasks.run_scanner_sync')
     @patch('src.scan.tasks.persist_findings')
-    def test_database_persist_fails(self, mock_persist, mock_scan):
-        """Scanners succeed but database persist fails — should still return partial results."""
+    def test_database_persist_fails_marks_the_scan_failed(self, mock_persist, mock_scan):
+        """Scanners succeed but saving findings fails: the scan must not claim completion."""
+        from src.db.connection import get_session
+        from src.db.models import Scan
         from src.scan.tasks import run_scan
 
-        finding = _make_finding(cve="CVE-2024-0001")
-        mock_scan.return_value = [(finding, "trivy")]
+        mock_scan.return_value = [(_make_finding(cve="CVE-2024-0001"), "trivy")]
         mock_persist.side_effect = Exception("DB connection refused")
 
-        mock_self = MagicMock()
-        result = run_scan.run.__func__(mock_self, "nginx:1.25", scan_id="test-005")
+        result = run_scan.run.__func__(MagicMock(), "nginx:1.25", scan_id="test-005")
 
-        assert result["status"] == "completed"  # Scanners succeeded
-        assert result["findings"] == 1
-        assert len(result["errors"]) == 1
-        assert result["errors"][0]["component"] == "database"
+        assert result["status"] == "failed"
+        assert result["errors"][-1] == {"component": "database", "error": "DB connection refused"}
+        with get_session() as session:
+            scan = session.query(Scan).filter_by(scan_id="test-005").one()
+            assert (scan.status, scan.phase) == ("failed", "persistence_failed")
+            assert "could not save findings" in scan.error_message
 
     @patch('src.scan.tasks.run_scanner_sync')
     @patch('src.scan.tasks.persist_findings')
@@ -216,57 +218,6 @@ class TestRunScan:
         ]
 
 
-# ---------------------------------------------------------------------------
-# Tests for run_batch_scan task
-# ---------------------------------------------------------------------------
-
-class TestRunBatchScan:
-    """Tests for the run_batch_scan Celery task."""
-
-    def test_batch_scan_multiple_images(self):
-        """Batch scan processes all images and aggregates results."""
-        from src.scan.tasks import run_batch_scan
-
-        images = ["nginx:1.25", "redis:latest", "postgres:14"]
-
-        mock_self = MagicMock()
-        with patch('src.scan.tasks.run_scan') as mock_run_scan:
-            mock_run_scan.side_effect = [
-                {"scan_id": "batch-1", "status": "completed", "findings": 5, "findings_by_source": {"trivy": 5}, "persisted": 5, "scanners_completed": ["trivy", "grype"], "scanners_failed": [], "errors": []},
-                {"scan_id": "batch-2", "status": "completed", "findings": 3, "findings_by_source": {"grype": 3}, "persisted": 3, "scanners_completed": ["trivy", "grype"], "scanners_failed": [], "errors": []},
-                {"scan_id": "batch-3", "status": "partial", "findings": 1, "findings_by_source": {"trivy": 1}, "persisted": 1, "scanners_completed": ["trivy"], "scanners_failed": ["grype"], "errors": [{"scanner": "grype", "error": "timeout"}]},
-            ]
-
-            result = run_batch_scan.run.__func__(mock_self, images, scan_id_prefix="batch")
-
-            assert result["total_images"] == 3
-            assert result["total_findings"] == 9  # 5 + 3 + 1
-            assert result["total_errors"] == 1  # one partial
-            assert len(result["per_image_results"]) == 3
-
-    def test_batch_scan_handles_individual_failures(self):
-        """One image failing shouldn't stop the batch."""
-        from src.scan.tasks import run_batch_scan
-
-        images = ["good:latest", "bad:latest", "also-good:latest"]
-
-        mock_self = MagicMock()
-        with patch('src.scan.tasks.run_scan') as mock_run_scan:
-            mock_run_scan.side_effect = [
-                {"scan_id": "x-1", "status": "completed", "findings": 2, "findings_by_source": {"trivy": 2}, "persisted": 2, "scanners_completed": ["trivy"], "scanners_failed": [], "errors": []},
-                {"scan_id": "x-2", "status": "failed", "findings": 0, "findings_by_source": {}, "persisted": 0, "scanners_completed": [], "scanners_failed": ["trivy", "grype"], "errors": [{"scanner": "trivy", "error": "fail"}]},
-                {"scan_id": "x-3", "status": "completed", "findings": 4, "findings_by_source": {"grype": 4}, "persisted": 4, "scanners_completed": ["grype"], "scanners_failed": [], "errors": []},
-            ]
-
-            result = run_batch_scan.run.__func__(mock_self, images)
-
-            assert result["total_findings"] == 6
-            assert result["total_errors"] == 1
-            assert result["per_image_results"][1]["status"] == "failed"
-
-
-# ---------------------------------------------------------------------------
-# Tests for run_scanner_sync helper
 # ---------------------------------------------------------------------------
 
 class TestRunScannerSync:

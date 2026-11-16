@@ -26,7 +26,6 @@ def create_celery_app() -> Celery:
         task_default_queue="scan.normal",
         task_routes={
             "src.scan.tasks.run_scan": {"queue": "scan.normal"},
-            "src.scan.tasks.run_image_scan": {"queue": "scan.normal"},
             "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
             "src.scan.tasks.discover_runtime_scans": {"queue": "scan.low"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},

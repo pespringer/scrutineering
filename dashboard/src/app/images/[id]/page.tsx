@@ -110,7 +110,7 @@ export default function ImageDetailPage() {
           </div>
           <div>
             <h2 className="break-all font-mono text-xl font-semibold tracking-tight text-white sm:text-2xl">
-              {image.registry}/{image.repo_name}:{image.tag}
+              {image.name}
             </h2>
             {image.last_scan_at && (
               <p className="mt-1 text-xs text-slate-500">

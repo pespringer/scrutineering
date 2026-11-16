@@ -27,9 +27,9 @@ def queue_post_merge_scan(session, publication: RemediationPublication) -> str:
     """Queue one idempotent follow-up scan and persist its correlation ID."""
     if publication.post_merge_scan_id:
         return publication.post_merge_scan_id
-    scan_id = f"postmerge-{publication.id}"
-    from src.scan.tasks import enqueue_scan
-    enqueue_scan(post_merge_scan_target(publication), priority="high", scan_id=scan_id)
+    from src.scan.records import queue_scan
+    scan_id = queue_scan(post_merge_scan_target(publication), priority="high",
+                         scan_id=f"postmerge-{publication.id}", trigger="post_merge")
     publication.post_merge_scan_id = scan_id
     publication.scan_status = "pending"
     return scan_id

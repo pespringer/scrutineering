@@ -1,55 +1,55 @@
-"""Celery tasks for the scrutineering scan orchestrator.
+"""Celery tasks for the scan pipeline.
 
-This module defines the Celery task run_scan that orchestrates the full scan pipeline:
-- Runs Trivy and Grype in parallel against a container image
-- Parses JSON output from each scanner
-- Deduplicates findings across scanners
-- Persists results to PostgreSQL
-- Handles partial failures gracefully
+`run_scan` runs Trivy and Grype in parallel against one target, deduplicates
+their findings, records what the scan observed, and leaves the scan in a
+terminal state (`completed`, `partial`, `failed`, or `cancelled`) on every path.
+Scans are created by `src.scan.records` before they are queued.
 """
 
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
 import time
-import uuid
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Optional
 
 from celery import shared_task
 
+from src.db.connection import get_session as get_db_session
+from src.db.models import AuditEventType, Scan, ScanFinding, ScanStatus, Severity as DbSeverity, SeveritySnapshot
+from src.db.repositories import AuditLogRepository
 from src.scan.celery_app import create_celery_app
+from src.scan.models import Severity
+from src.scan.queue import scan_task_options
+from src.scan.records import create_pending_scan, mark_scan_failed, queue_scan
+from src.scan.redis_cache import SyncRedisScanCache
+from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
 from src.scan.scanners.base import ScannerError, ScannerFinding
-from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scanners.grype import GrypeScanner
+from src.scan.scanners.trivy import TrivyScanner
+from src.scan.scheduled import schedule_active_scans
 from src.scan.utils.dedup import deduplicate_findings_with_report
 from src.scan.utils.db import persist_findings
-from src.scan.queue import scan_task_options
-from src.scan.redis_cache import SyncRedisScanCache
-from src.scan.models import Severity
-from src.db.connection import get_session as get_db_session
-from src.db.models import AuditEventType, Image, Scan, ScanFinding, ScanStatus, Severity as DbSeverity, SeveritySnapshot
-from src.db.repositories import AuditLogRepository
-from src.scan.image_identity import parse_image_reference
-from src.scan.source_target import storage_reference
-from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
-from src.scan.scheduled import schedule_active_scans
 from src.telemetry.scan_metrics import record_scan, record_scan_latency
 
 logger = logging.getLogger(__name__)
 
 app = create_celery_app()
-import src.remediation.worker  # noqa: F401  # register remediation task with the worker app
-import src.remediation.post_merge_tasks  # noqa: F401  # register post-merge verification task
+import src.remediation.worker  # noqa: E402,F401  # register remediation task with the worker app
+import src.remediation.post_merge_tasks  # noqa: E402,F401  # register post-merge verification task
+
+TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 
 
 @shared_task(name="src.scan.tasks.schedule_active_scans", acks_late=True)
 def schedule_inventory_scans() -> dict[str, int]:
     from src.scan.reliability import ScanCooldown
     cooldown = ScanCooldown(int(os.environ.get("SCAN_COOLDOWN_SECONDS", "3600")))
-    return schedule_active_scans(lambda image_name, priority: enqueue_scan(image_name, priority=priority), cooldown=cooldown)
+    return schedule_active_scans(
+        lambda target, priority: queue_scan(target, priority=priority, trigger="scheduled"), cooldown=cooldown,
+    )
 
 
 @shared_task(name="src.scan.tasks.discover_runtime_scans", acks_late=True)
@@ -65,55 +65,65 @@ def discover_runtime_scans() -> dict[str, int | str]:
         containerd_namespace=os.environ.get("SCAN_RUNTIME_CONTAINERD_NAMESPACE", "default"),
     ))
     images = select_runtime_images(containers, limit=int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100")))
+    queued = 0
     for image in images:
-        enqueue_scan(image, priority="low")
-    return {"status": "queued", "discovered": len(containers), "queued": len(images)}
+        try:
+            queue_scan(image, priority="low", trigger="discovery")
+            queued += 1
+        except Exception:
+            logger.exception("Unable to queue discovered image %s", image)
+    return {"status": "queued", "discovered": len(containers), "queued": queued}
 
 
-def _update_scan_record(scan_id: str, image_name: str, status: ScanStatus, *,
-                        total_findings: int = 0, counts: dict[str, int] | None = None,
-                        error_message: str | None = None, phase: str | None = None,
-                        task_id: str | None = None) -> None:
-    """Keep durable scan status aligned with Celery progress."""
-    identity = parse_image_reference(image_name)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
+def _now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def _scan_status(scan_id: str) -> ScanStatus | None:
     with get_db_session() as session:
-        image = session.query(Image).filter_by(
-            registry_name=identity.registry, repo_name=identity.repo_name, tag=identity.tag,
-        ).first()
-        if image is None:
-            image = Image(registry_name=identity.registry, repo_name=identity.repo_name,
-                          tag=identity.tag, digest=identity.digest)
-            session.add(image)
-            session.flush()
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
-        if scan is None:
-            scan = Scan(scan_id=scan_id, image_id=image.id, started_at=now)
-            session.add(scan)
-        elif scan.status == ScanStatus.CANCELLED and status not in {ScanStatus.FAILED, ScanStatus.PARTIAL}:
+        return ScanStatus(scan.status) if scan else None
+
+
+def _set_running(scan_id: str, phase: str, task_id: str | None) -> None:
+    with get_db_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).one()
+        if scan.status in TERMINAL_STATUSES:
             return
-        scan.status = status.value
-        scan.phase = phase or status.value
+        scan.status = ScanStatus.RUNNING.value
+        scan.phase = phase
         if task_id:
             scan.task_id = task_id
-        scan.total_findings = total_findings
-        scan.critical_count = (counts or {}).get("critical", 0)
-        scan.high_count = (counts or {}).get("high", 0)
-        scan.medium_count = (counts or {}).get("medium", 0)
-        scan.low_count = (counts or {}).get("low", 0)
+
+
+def _finish_scan(scan_id: str, status: ScanStatus, *, total: int, counts: dict[str, int],
+                 error_message: str | None) -> None:
+    """Record a completed or partial result; never overwrite a cancellation."""
+    now = _now()
+    with get_db_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).one()
+        if scan.status == ScanStatus.CANCELLED:
+            return
+        scan.status = status.value
+        scan.phase = status.value
+        scan.total_findings = total
+        scan.critical_count = counts.get("critical", 0)
+        scan.high_count = counts.get("high", 0)
+        scan.medium_count = counts.get("medium", 0)
+        scan.low_count = counts.get("low", 0)
         scan.error_message = error_message
-        if status in {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED}:
-            scan.completed_at = now
-            image.last_scan_at = now
-        image.last_scan_id = scan_id
+        scan.completed_at = now
+        scan.image.last_scan_at = now
+        scan.image.last_scan_id = scan_id
 
 
-def _safe_update_scan_record(*args, **kwargs) -> None:
-    """Do not turn a scanner result into a task failure when persistence is down."""
+def _fail_scan(scan_id: str, reason: str, *, phase: str = "failed") -> None:
+    """Best effort: if the database itself is down there is nothing more to record."""
     try:
-        _update_scan_record(*args, **kwargs)
+        with get_db_session() as session:
+            mark_scan_failed(session, scan_id, reason, phase=phase)
     except Exception:
-        logger.exception("Unable to update durable scan state")
+        logger.exception("Unable to record failure for scan %s", scan_id)
 
 
 def _record_scan_event(scan_id: str, event_type: AuditEventType, detail: dict) -> None:
@@ -128,44 +138,25 @@ def _record_scan_event(scan_id: str, event_type: AuditEventType, detail: dict) -
         logger.exception("Unable to record scan audit event %s", scan_id)
 
 
-def _scan_was_cancelled(scan_id: str) -> bool:
-    try:
-        with get_db_session() as session:
-            scan = session.query(Scan).filter_by(scan_id=scan_id).first()
-            return bool(scan and scan.status == ScanStatus.CANCELLED)
-    except Exception:
-        # Unit tests and scanner-only harnesses may intentionally omit a DB.
-        return False
-
-
-def _write_severity_snapshot(image_name: str, scan_id: str) -> None:
-    """Persist today's current posture so the dashboard trend has real data."""
-    identity = parse_image_reference(image_name)
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    snapshot_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+def _write_severity_snapshot(image_id: int) -> None:
+    """Persist today's open-finding posture so the dashboard trend has real data."""
+    snapshot_date = _now().replace(hour=0, minute=0, second=0, microsecond=0)
     with get_db_session() as session:
-        image = session.query(Image).filter_by(
-            registry_name=identity.registry, repo_name=identity.repo_name, tag=identity.tag,
-        ).first()
-        if image is None:
-            return
         findings = session.query(ScanFinding).filter(
-            ScanFinding.image_id == image.id, ScanFinding.remediated.is_(False), ScanFinding.resolved_at.is_(None)
+            ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_(None),
         ).all()
         counts = {severity.value: 0 for severity in DbSeverity}
         for finding in findings:
             if finding.severity:
-                counts[finding.severity.value] = counts.get(finding.severity.value, 0) + 1
-        snapshot = session.query(SeveritySnapshot).filter_by(
-            image_id=image.id, snapshot_date=snapshot_date
-        ).first()
+                counts[finding.severity.value] += 1
+        snapshot = session.query(SeveritySnapshot).filter_by(image_id=image_id, snapshot_date=snapshot_date).first()
         if snapshot is None:
-            snapshot = SeveritySnapshot(image_id=image.id, snapshot_date=snapshot_date)
+            snapshot = SeveritySnapshot(image_id=image_id, snapshot_date=snapshot_date)
             session.add(snapshot)
-        snapshot.critical_count = counts.get("critical", 0)
-        snapshot.high_count = counts.get("high", 0)
-        snapshot.medium_count = counts.get("medium", 0)
-        snapshot.low_count = counts.get("low", 0)
+        snapshot.critical_count = counts["critical"]
+        snapshot.high_count = counts["high"]
+        snapshot.medium_count = counts["medium"]
+        snapshot.low_count = counts["low"]
         snapshot.total_open = len(findings)
 
 
@@ -179,11 +170,16 @@ def create_shared_scan_cache():
 
 
 def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):
-    """Submit a scan with explicit broker queue and priority options."""
+    """Submit a scan with explicit broker queue and priority options.
+
+    Callers should normally use `src.scan.records.queue_scan`, which creates the
+    pending scan record first.
+    """
     options = scan_task_options(priority)
     if kwargs.get("scan_id"):
         task_id = str(kwargs["scan_id"])
-        if len(task_id) > 64 or any(char.isspace() for char in task_id): raise ValueError("invalid scan_id")
+        if len(task_id) > 64 or any(char.isspace() for char in task_id):
+            raise ValueError("invalid scan_id")
         options["task_id"] = task_id
     return run_scan.apply_async(args=[image_name], kwargs=kwargs, **options)
 
@@ -295,12 +291,16 @@ def run_scanners_concurrently(
     return results
 
 
-@shared_task(
-    bind=True,
-    name="src.scan.tasks.run_scan",
-    acks_late=True,
-    task_time_limit=3600,
-)
+
+
+def _result(scan_id: str, image_name: str, status: str, **extra) -> dict:
+    return {
+        "scan_id": scan_id, "image_name": image_name, "status": status, "findings": 0,
+        "scanners_completed": [], "scanners_failed": [], "persisted": 0, "errors": [], **extra,
+    }
+
+
+@shared_task(bind=True, name="src.scan.tasks.run_scan", acks_late=True, task_time_limit=3600)
 def run_scan(
     self,
     image_name: str,
@@ -308,293 +308,127 @@ def run_scan(
     scanners: Optional[list[str]] = None,
     save_results: bool = True,
 ) -> dict:
-    """Orchestrate a full container image scan pipeline.
-
-    Runs Trivy and Grype in parallel, deduplicates findings,
-    and persists results to PostgreSQL.
+    """Scan one target and leave its scan record in a terminal state.
 
     Args:
-        image_name: Container image to scan (e.g., 'nginx:1.25')
-        scan_id: Optional scan ID for tracking (generated if not provided)
-        scanners: Optional list of scanners to run. Defaults to ['trivy', 'grype']
-        save_results: Whether to persist findings to the database. Defaults to True.
-
-    Returns:
-        dict with scan results including:
-        - scan_id: The scan tracking ID
-        - image_name: The scanned image
-        - status: 'completed', 'partial', or 'failed'
-        - findings: Total unique findings after dedup
-        - findings_by_source: Count per scanner
-        - persisted: Number of findings saved to DB
-        - errors: List of scanner errors encountered
+        image_name: The target: an image reference, or `fs:<path>` for an internal filesystem scan.
+        scan_id: The pending scan created by `queue_scan`. A missing record is created here.
+        scanners: Scanners to run. Defaults to ['trivy', 'grype'].
+        save_results: Persist findings and observations. Defaults to True.
     """
-    scan_id = scan_id or str(uuid.uuid4())
     scanners = scanners or ["trivy", "grype"]
+    try:
+        with get_db_session() as session:
+            scan = create_pending_scan(session, image_name, scan_id=scan_id, trigger="worker")
+            scan_id, image_id = scan.scan_id, scan.image_id
+    except Exception as exc:
+        logger.exception("Unable to load or create the scan record for %s", image_name)
+        return _result(scan_id or "", image_name, "failed", errors=[{"component": "database", "error": str(exc)}])
 
-    storage_name = storage_reference(image_name)
-    logger.info(
-        "Starting scan %s for image '%s' (scanners: %s)",
-        scan_id,
-        image_name,
-        scanners,
-    )
+    try:
+        return _execute_scan(self, image_name, scan_id, image_id, scanners, save_results)
+    except Exception as exc:
+        logger.exception("Scan %s failed unexpectedly", scan_id)
+        _fail_scan(scan_id, f"worker error: {exc}")
+        _record_scan_event(scan_id, AuditEventType.SCAN_FAILED, {
+            "action": "worker_failed", "phase": "worker_error", "error": str(exc)[:500], "image_name": image_name,
+        })
+        return _result(scan_id, image_name, "failed", errors=[{"component": "worker", "error": str(exc)}])
 
-    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING, phase="starting", task_id=self.request.id)
+
+def _execute_scan(task, image_name: str, scan_id: str, image_id: int, scanners: list[str], save_results: bool) -> dict:
+    task_id = getattr(task.request, "id", None)
+    task_id = task_id if isinstance(task_id, str) else None
+    if _scan_status(scan_id) == ScanStatus.CANCELLED:
+        return _result(scan_id, image_name, "cancelled", errors=[{"component": "worker", "error": "scan_cancelled"}])
+
+    logger.info("Starting scan %s for '%s' (scanners: %s)", scan_id, image_name, scanners)
+    _set_running(scan_id, "scanning", task_id)
     _record_scan_event(scan_id, AuditEventType.SCAN_STARTED, {
-        "action": "worker_started", "phase": "starting", "task_id": self.request.id,
+        "action": "worker_started", "phase": "scanning", "task_id": task_id,
         "image_name": image_name, "scanners": scanners,
     })
+    task.update_state(state="SCANNING", meta={"scan_id": scan_id, "image_name": image_name, "phase": "running"})
 
-    # Task state tracking
-    self.update_state(
-        state="SCANNING",
-        meta={"scan_id": scan_id, "image_name": image_name, "phase": "running"},
-    )
+    scanner_results = run_scanners_concurrently(scanners, image_name, cache=create_shared_scan_cache())
+    if _scan_status(scan_id) == ScanStatus.CANCELLED:
+        _record_scan_event(scan_id, AuditEventType.SCAN_CANCELLED, {
+            "action": "worker_stopped_after_cancel", "phase": "scanning", "task_id": task_id, "image_name": image_name,
+        })
+        return _result(scan_id, image_name, "cancelled", errors=[{"component": "worker", "error": "scan_cancelled"}])
 
     all_findings: list[tuple[ScannerFinding, str]] = []
     errors: list[dict] = []
-    scanners_completed: list[str] = []
-    scanners_failed: list[str] = []
-
-    _safe_update_scan_record(scan_id, storage_name, ScanStatus.RUNNING,
-                             phase="scanning", task_id=self.request.id)
-
-    # Run all scanners concurrently with isolated error handling. The helper
-    # preserves configured order even when completion order differs.
-    scanner_results = run_scanners_concurrently(scanners, image_name, cache=create_shared_scan_cache())
-    if _scan_was_cancelled(scan_id):
-        _record_scan_event(scan_id, AuditEventType.SCAN_CANCELLED, {
-            "action": "worker_stopped_after_cancel", "phase": "scanning",
-            "task_id": self.request.id, "image_name": image_name,
-        })
-        return {
-            "scan_id": scan_id, "image_name": image_name, "status": "cancelled",
-            "findings": 0, "scanners_completed": [], "scanners_failed": [],
-            "persisted": 0, "errors": [{"component": "worker", "error": "scan_cancelled"}],
-        }
-    for scanner_name, status, data in scanner_results:
-        if status == "ok":
+    completed: list[str] = []
+    failed: list[str] = []
+    for scanner_name, outcome, data in scanner_results:
+        if outcome == "ok":
             all_findings.extend(data)
-            scanners_completed.append(scanner_name)
+            completed.append(scanner_name)
         else:
-            scanners_failed.append(scanner_name)
+            failed.append(scanner_name)
             errors.append({"scanner": scanner_name, "error": data})
 
-    # Determine overall status
-    if not scanners_completed:
-        status = "failed"
-        logger.error(
-            "Scan %s failed completely for '%s'. All scanners failed.",
-            scan_id,
-            image_name,
-        )
-        # Keep the Celery result serializable: a dict in FAILURE state is
-        # interpreted as exception metadata by the Redis backend. The durable
-        # Scan row remains the source of truth for the operator-facing status.
-        self.update_state(
-            state="SCAN_FAILED",
-            meta={
-                "scan_id": scan_id,
-                "image_name": image_name,
-                "status": status,
-                "errors": errors,
-            },
-        )
-        _safe_update_scan_record(scan_id, storage_name, ScanStatus.FAILED,
-                                 error_message="all configured scanners failed", phase="failed",
-                                 task_id=self.request.id)
+    if not completed:
+        # A dict in Celery's FAILURE state is read as exception metadata, so use a custom state.
+        task.update_state(state="SCAN_FAILED", meta={"scan_id": scan_id, "image_name": image_name, "errors": errors})
+        _fail_scan(scan_id, "all configured scanners failed: " + "; ".join(e["error"] for e in errors))
         _record_scan_event(scan_id, AuditEventType.SCAN_FAILED, {
-            "action": "worker_failed", "phase": "scanning", "task_id": self.request.id,
-            "errors": errors, "image_name": image_name,
+            "action": "worker_failed", "phase": "scanning", "task_id": task_id, "errors": errors, "image_name": image_name,
         })
-        return {
-            "scan_id": scan_id,
-            "image_name": image_name,
-            "status": status,
-            "findings": 0,
-            "scanners_completed": scanners_completed,
-            "scanners_failed": scanners_failed,
-            "persisted": 0,
-            "errors": errors,
-        }
+        return _result(scan_id, image_name, "failed", scanners_failed=failed, errors=errors)
 
-    if scanners_failed:
-        status = "partial"
-    else:
-        status = "completed"
+    status = ScanStatus.PARTIAL if failed else ScanStatus.COMPLETED
+    deduped, dedup_report = deduplicate_findings_with_report(all_findings) if all_findings else ([], None)
 
-    # Deduplicate findings across scanners
-    dedup_report = None
-    if all_findings:
-        deduped, dedup_report = deduplicate_findings_with_report(all_findings)
-    else:
-        deduped = []
-
-    # Persist to database
     persisted = 0
-    if save_results and (deduped or status == "completed"):
+    if save_results:
         try:
             persisted = persist_findings(
-                scan_id=scan_id,
-                image_name=storage_name,
-                deduped_findings=deduped,
-                source_name=",".join(scanners_completed),
-                reconcile_missing=status == "completed",
+                scan_id=scan_id, image_id=image_id, deduped_findings=deduped,
+                source_name=",".join(completed), reconcile_missing=status == ScanStatus.COMPLETED,
             )
-            logger.info(
-                "Persisted %d findings for scan %s on '%s'",
-                persisted,
-                scan_id,
-                image_name,
-            )
-        except Exception as e:
-            logger.exception("Failed to persist findings for scan %s: %s", scan_id, e)
-            errors.append({"component": "database", "error": str(e)})
-
-    # Build dedup summary for the result
-    dedup_summary = dedup_report.summary() if dedup_report else {"total_raw_findings": 0, "unique_findings_after_dedup": 0, "merged_duplicates": 0, "dedup_ratio": 0.0, "findings_by_source": {}}
+        except Exception as exc:
+            logger.exception("Failed to persist findings for scan %s", scan_id)
+            reason = f"could not save findings: {exc}"
+            _fail_scan(scan_id, reason, phase="persistence_failed")
+            _record_scan_event(scan_id, AuditEventType.SCAN_FAILED, {
+                "action": "worker_failed", "phase": "persistence", "task_id": task_id,
+                "error": str(exc)[:500], "image_name": image_name,
+            })
+            errors.append({"component": "database", "error": str(exc)})
+            return _result(scan_id, image_name, "failed", findings=len(deduped), scanners_completed=completed,
+                           scanners_failed=failed, errors=errors)
 
     counts = {"critical": 0, "high": 0, "medium": 0, "low": 0}
     for finding in deduped:
         severity = str(finding.get("severity", "")).lower()
         if severity in counts:
             counts[severity] += 1
-    _safe_update_scan_record(
-        scan_id, storage_name, ScanStatus.PARTIAL if status == "partial" else ScanStatus.COMPLETED,
-        total_findings=len(deduped), counts=counts,
-        error_message="; ".join(error.get("error", "") for error in errors) or None,
-        phase="completed" if status == "completed" else "partial", task_id=self.request.id,
-    )
-    if status == "completed":
+    _finish_scan(scan_id, status, total=len(deduped), counts=counts,
+                 error_message="; ".join(error.get("error", "") for error in errors) or None)
+    if status == ScanStatus.COMPLETED and save_results:
         try:
-            _write_severity_snapshot(storage_name, scan_id)
+            _write_severity_snapshot(image_id)
         except Exception:
             logger.exception("Unable to write severity snapshot for scan %s", scan_id)
-    _record_scan_event(
-        scan_id,
-        AuditEventType.SCAN_COMPLETED if status == "completed" else AuditEventType.SCAN_FAILED,
-        {"action": "worker_finished", "phase": status, "task_id": self.request.id,
-         "status": status, "findings": len(deduped), "persisted": persisted,
-         "scanners_completed": scanners_completed, "scanners_failed": scanners_failed,
-         "errors": errors, "image_name": image_name},
-    )
+    _record_scan_event(scan_id, AuditEventType.SCAN_COMPLETED if status == ScanStatus.COMPLETED else AuditEventType.SCAN_FAILED, {
+        "action": "worker_finished", "phase": status.value, "task_id": task_id, "status": status.value,
+        "findings": len(deduped), "persisted": persisted, "scanners_completed": completed,
+        "scanners_failed": failed, "errors": errors, "image_name": image_name,
+    })
 
-    # Build result summary
-    # Count findings by source
     findings_by_source: dict[str, int] = {}
-    for finding, source in all_findings:
+    for _, source in all_findings:
         findings_by_source[source] = findings_by_source.get(source, 0) + 1
-
-    # Update task state
-    meta = {
-        "scan_id": scan_id,
-        "image_name": image_name,
-        "status": status,
-        "findings": len(deduped),
-        "dedup_summary": dedup_summary,
-        "findings_by_source": findings_by_source,
-        "scanners_completed": scanners_completed,
-        "scanners_failed": scanners_failed,
-        "persisted": persisted,
-        "errors": errors,
-        "completed_at": datetime.now(timezone.utc).isoformat(),
+    dedup_summary = dedup_report.summary() if dedup_report else {
+        "total_raw_findings": 0, "unique_findings_after_dedup": 0, "merged_duplicates": 0,
+        "dedup_ratio": 0.0, "findings_by_source": {},
     }
-
-    self.update_state(state="COMPLETED", meta=meta)
-
-    logger.info(
-        "Scan %s %s for '%s': %d findings (%d new sources, %d persisting)",
-        scan_id,
-        status,
-        image_name,
-        len(deduped),
-        len(scanners_completed),
-        persisted,
+    task.update_state(state="COMPLETED", meta={"scan_id": scan_id, "status": status.value, "findings": len(deduped)})
+    logger.info("Scan %s %s for '%s': %d findings", scan_id, status.value, image_name, len(deduped))
+    return _result(
+        scan_id, image_name, status.value, findings=len(deduped), dedup_summary=dedup_summary,
+        findings_by_source=findings_by_source, scanners_completed=completed, scanners_failed=failed,
+        persisted=persisted, errors=errors,
     )
-
-    return {
-        "scan_id": scan_id,
-        "image_name": image_name,
-        "status": status,
-        "findings": len(deduped),
-        "dedup_summary": dedup_summary,
-        "findings_by_source": findings_by_source,
-        "scanners_completed": scanners_completed,
-        "scanners_failed": scanners_failed,
-        "persisted": persisted,
-        "errors": errors,
-    }
-
-
-@shared_task(
-    bind=True,
-    name="src.scan.tasks.run_batch_scan",
-    acks_late=True,
-)
-def run_batch_scan(
-    self,
-    image_names: list[str],
-    scan_id_prefix: Optional[str] = None,
-    scanners: Optional[list[str]] = None,
-    save_results: bool = True,
-) -> dict:
-    """Run scans on multiple container images sequentially.
-
-    Each image gets its own scan_id and runs through the full pipeline
-    independently. Failures on one image don't affect others.
-
-    Args:
-        image_names: List of container images to scan
-        scan_id_prefix: Optional prefix for scan IDs (default: random UUID prefix)
-        scanners: Optional list of scanners (default: ['trivy', 'grype'])
-        save_results: Whether to persist findings (default: True)
-
-    Returns:
-        dict with overall batch results and per-image status.
-    """
-    prefix = scan_id_prefix or str(uuid.uuid4())[:8]
-    results = []
-    total_findings = 0
-    total_errors = 0
-
-    logger.info("Starting batch scan of %d images (prefix: %s)", len(image_names), prefix)
-
-    for idx, image_name in enumerate(image_names):
-        current_scan_id = f"{prefix}-{idx + 1}"
-
-        self.update_state(
-            state="BATCH_SCANNING",
-            meta={
-                "batch_size": len(image_names),
-                "current_index": idx,
-                "current_image": image_name,
-                "total_findings": total_findings,
-                "total_errors": total_errors,
-            },
-        )
-
-        try:
-            result = run_scan(
-                self,
-                image_name=image_name,
-                scan_id=current_scan_id,
-                scanners=scanners,
-                save_results=save_results,
-            )
-            results.append({"image_name": image_name, "scan_id": current_scan_id, **result})
-            total_findings += result.get("findings", 0)
-            if result.get("status") != "completed":
-                total_errors += 1
-        except Exception as e:
-            logger.exception("Batch scan failed for image '%s': %s", image_name, e)
-            results.append({"image_name": image_name, "scan_id": current_scan_id, "status": "failed", "error": str(e)})
-            total_errors += 1
-
-    return {
-        "prefix": prefix,
-        "total_images": len(image_names),
-        "total_findings": total_findings,
-        "total_errors": total_errors,
-        "per_image_results": results,
-    }
