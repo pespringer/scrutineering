@@ -29,12 +29,30 @@ class GrypeScanner(ScannerAdapter):
     def source(self) -> FindingSource:
         return FindingSource.GRYPE
 
-    def __init__(self, timeout: int = 600, grype_cmd: str = "grype", max_output_bytes: int = 50_000_000):
+    def __init__(
+        self,
+        timeout: int = 600,
+        grype_cmd: str = "grype",
+        max_output_bytes: int = 50_000_000,
+        max_findings: int = 100_000,
+        registry_username: Optional[str] = None,
+        registry_password: Optional[str] = None,
+        registry_authority: Optional[str] = None,
+        insecure: bool = False,
+        local_registry_host: str = "registry:5000",
+    ):
         if timeout < 1: raise ValueError("timeout must be positive")
         if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
+        if max_findings < 1: raise ValueError("max_findings must be positive")
         self.timeout = timeout
         self.grype_cmd = grype_cmd
         self.max_output_bytes = max_output_bytes
+        self.max_findings = max_findings
+        self.registry_username = registry_username
+        self.registry_password = registry_password
+        self.registry_authority = registry_authority
+        self.insecure = insecure
+        self.local_registry_host = local_registry_host
 
     async def scan(self, image_name: str) -> list[ScannerFinding]:
         """Run Grype scan on a container image.
@@ -59,6 +77,7 @@ class GrypeScanner(ScannerAdapter):
             *command,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=self._environment() if root is None else None,
         )
 
         try:
@@ -80,12 +99,32 @@ class GrypeScanner(ScannerAdapter):
             )
 
         if len(stdout) > self.max_output_bytes: raise ScannerError("grype", "scan output exceeds size limit")
-        return self._parse_grype_output(stdout.decode(errors="replace"), root_path=root)
+        findings = self._parse_grype_output(stdout.decode(errors="replace"), root_path=root)
+        if len(findings) > self.max_findings:
+            raise ScannerError("grype", "scan finding count exceeds limit")
+        return findings
 
-    @staticmethod
-    def _registry_scan_target(image_name: str) -> str:
-        local_registry = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
-        if local_registry and image_name.startswith(f"{local_registry}/"):
+    def _environment(self) -> dict[str, str]:
+        """Per-scan registry auth and transport settings, using Grype's own variables.
+
+        Inherited GRYPE_REGISTRY_* settings are dropped so a global `.env` value
+        cannot make every registry use plain HTTP; only this scan's settings apply.
+        """
+        base = {key: value for key, value in os.environ.items() if not key.startswith("GRYPE_REGISTRY_")}
+        extra: dict[str, str] = {}
+        if self.registry_username and self.registry_password:
+            extra.update({
+                "GRYPE_REGISTRY_AUTH_AUTHORITY": self.registry_authority or "",
+                "GRYPE_REGISTRY_AUTH_USERNAME": self.registry_username,
+                "GRYPE_REGISTRY_AUTH_PASSWORD": self.registry_password,
+            })
+        if self.insecure:
+            extra.update({"GRYPE_REGISTRY_INSECURE_USE_HTTP": "true", "GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY": "true"})
+        return {**base, **extra}
+
+    def _registry_scan_target(self, image_name: str) -> str:
+        """Read local-registry images straight from the registry (there is no Docker daemon)."""
+        if self.local_registry_host and image_name.startswith(f"{self.local_registry_host}/"):
             return f"registry:{image_name}"
         return image_name
 

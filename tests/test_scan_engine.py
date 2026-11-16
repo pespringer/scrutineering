@@ -4,16 +4,13 @@ Tests cover:
 - Trivy scanner parsing
 - Grype scanner parsing
 - Deduplication across scanners
-- registry detection
 """
 
-import asyncio
 import pytest
 from src.scan.scanners.base import ScannerFinding, ScannerError
-from src.scan.scanners.trivy import TrivyScanner, SEVERITY_MAP
+from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scanners.grype import GrypeScanner
-from src.scan.registry import detect_registry, login_ecr, resolve_image_digest
-from src.db.models import Severity, FindingSource
+from src.db.models import Severity
 
 
 # -- Trivy parser tests ---------------------------------------------------- #
@@ -186,73 +183,6 @@ class TestGrypeParser:
 
 
 # -- Registry detection tests --------------------------------------------- #
-
-class TestRegistryDetection:
-    def test_dockerhub_simple(self):
-        assert detect_registry("nginx:latest") == "dockerhub"
-
-    def test_dockerhub_with_library(self):
-        assert detect_registry("library/nginx:latest") == "dockerhub"
-
-    def test_ecr(self):
-        assert detect_registry("123456789.dkr.ecr.us-east-1.amazonaws.com/my/app:v1") == "ecr"
-
-    def test_ghcr(self):
-        assert detect_registry("ghcr.io/user/app:v1") == "ghcr.io"
-
-    def test_gcr(self):
-        assert detect_registry("gcr.io/project/img:v1") == "gcr.io"
-
-    def test_harbor(self):
-        assert detect_registry("harbor.example.com/proj/img:tag") == "harbor"
-
-    def test_private_registry(self):
-        assert detect_registry("registry.mycompany.com:5000/app:v1") == "registry.mycompany.com:5000"
-
-    def test_ecr_login_uses_argument_vector(self, monkeypatch):
-        calls = []
-
-        class FakeProcess:
-            returncode = 0
-
-            async def communicate(self):
-                return b"token\n", b""
-
-        async def fake_exec(*args, **kwargs):
-            calls.append(args)
-            return FakeProcess()
-
-        monkeypatch.setattr("src.scan.registry.asyncio.create_subprocess_exec", fake_exec)
-        assert asyncio.run(login_ecr("us-east-1")) == ("AWS", "token")
-        assert calls == [("aws", "ecr", "get-login-password", "--region", "us-east-1")]
-
-    def test_ecr_login_rejects_shell_metacharacters(self):
-        with pytest.raises(ValueError, match="invalid characters"):
-            asyncio.run(login_ecr("us-east-1; touch /tmp/pwned"))
-
-
-class TestDigestResolution:
-    def test_existing_digest_is_validated_without_docker(self):
-        digest = "sha256:" + "a" * 64
-        assert asyncio.run(resolve_image_digest(f"alpine@{digest}")) == digest
-
-    def test_docker_digest_is_extracted_from_repo_digest(self, monkeypatch):
-        calls = []
-
-        class FakeProcess:
-            returncode = 0
-
-            async def communicate(self):
-                return (b"alpine@sha256:" + b"b" * 64 + b"\n", b"")
-
-        async def fake_exec(*args, **kwargs):
-            calls.append(args)
-            return FakeProcess()
-
-        monkeypatch.setattr("src.scan.registry.asyncio.create_subprocess_exec", fake_exec)
-        assert asyncio.run(resolve_image_digest("alpine:3.20")) == "sha256:" + "b" * 64
-        assert calls[0][:4] == ("docker", "image", "inspect", "alpine:3.20")
-
 
 class TestFingerprint:
     def test_deterministic(self):

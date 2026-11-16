@@ -24,10 +24,12 @@ docker push localhost:5000/scrutineering-test:latest
 ```
 
 Submit `registry:5000/scrutineering-test:latest` in the dashboard scan form.
-The worker is configured with `REGISTRY_INSECURE=true` by default so Trivy and
-Grype can read the development registry over HTTP. The image is still pulled
-through the registry; it is not required to be present in the worker's local
-Docker daemon.
+The worker is configured with `REGISTRY_INSECURE=true` by default, which lets
+Trivy and Grype read **this registry** (`LOCAL_REGISTRY_HOST`, and `localhost`)
+over HTTP. Every other registry still uses TLS. Before scanning, the worker
+resolves the tag to its digest and scans `registry:5000/repo@sha256:...`, so a
+rescan after pushing a new image under the same tag scans the new content. The
+image is read from the registry; it does not need to be in a local Docker daemon.
 
 ## Manage images in the dashboard
 
@@ -48,9 +50,11 @@ LOCAL_REGISTRY_HOST=registry:5000
 LOCAL_REGISTRY_PUBLIC_HOST=localhost:5000
 LOCAL_REGISTRY_PUBLIC_URL=http://localhost:5000
 REGISTRY_INSECURE=true
-GRYPE_REGISTRY_INSECURE_USE_HTTP=true
-GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY=true
 ```
+
+Older `.env` files may also set `GRYPE_REGISTRY_INSECURE_USE_HTTP` and
+`GRYPE_REGISTRY_INSECURE_SKIP_TLS_VERIFY`. They are now ignored: the worker sets
+them per scan, only for the local registry.
 
 Registry content persists in the `registrydata` volume. To intentionally
 remove local test images, stop the stack and remove only that volume:

@@ -5,8 +5,6 @@ kind: ConfigMap
 metadata:
   name: scrutineering-config
 data:
-  TRIVY_SEVERITY: "CRITICAL,HIGH"
-  GRYPE_SEVERITY_THRESHOLD: "High"
   SCANNER_TIMEOUT: "1800"
   SCHEDULE_CRON_SCAN: "0 */6 * * *"
   CELERY_QUEUES: "scan.low,scan.normal,scan.high,remediation.normal"

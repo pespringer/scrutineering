@@ -38,3 +38,20 @@ def database():
     finally:
         connection.session_factory.configure(bind=previous)
         engine.dispose()
+
+
+@pytest.fixture(autouse=True)
+def offline_scanning(monkeypatch):
+    """Keep worker tests off the network and out of retry sleeps.
+
+    Digest resolution behaves as if the registry were unreachable, so scans run
+    by tag unless a test patches `src.scan.tasks.resolve_digest` itself.
+    """
+    def unreachable(*_args, **_kwargs):
+        raise ConnectionError("registry unreachable in tests")
+
+    monkeypatch.setattr("src.scan.tasks.resolve_digest", unreachable)
+    monkeypatch.setenv("SCANNER_RETRY_BACKOFF_SECONDS", "0")
+    for name in ("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "SCANNER_RETRY_ATTEMPTS", "SCANNER_TIMEOUT"):
+        monkeypatch.delenv(name, raising=False)
+

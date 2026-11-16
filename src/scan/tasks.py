@@ -23,13 +23,16 @@ from src.db.repositories import AuditLogRepository
 from src.scan.celery_app import create_celery_app
 from src.scan.models import Severity
 from src.scan.queue import scan_task_options
+from src.scan.image_identity import parse_image_reference
 from src.scan.records import create_pending_scan, mark_scan_failed, queue_scan
+from src.scan.registry import credentials_for_host, resolve_digest
 from src.scan.redis_cache import SyncRedisScanCache
 from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
 from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scheduled import schedule_active_scans
+from src.scan.settings import ScannerSettings
 from src.scan.utils.dedup import deduplicate_findings_with_report
 from src.scan.utils.db import persist_findings
 from src.telemetry.scan_metrics import record_scan, record_scan_latency
@@ -230,25 +233,57 @@ def run_scanner_sync(scanner, image_name: str, source_name: str, cache=None) -> 
     return findings
 
 
+def build_scanner(scanner_name: str, settings: ScannerSettings, *, credentials=None, registry_host: str = "",
+                  insecure: bool = False):
+    """Construct a scanner from settings, with this scan's registry credentials."""
+    username, password = credentials if credentials else (None, None)
+    if scanner_name == "trivy":
+        return TrivyScanner(
+            timeout=settings.timeout_seconds, cache_dir=settings.trivy_cache_dir,
+            max_output_bytes=settings.max_output_bytes, max_findings=settings.max_findings,
+            registry_username=username, registry_password=password, insecure=insecure,
+        )
+    if scanner_name == "grype":
+        return GrypeScanner(
+            timeout=settings.timeout_seconds, max_output_bytes=settings.max_output_bytes,
+            max_findings=settings.max_findings, registry_username=username, registry_password=password,
+            registry_authority=registry_host or None, insecure=insecure,
+            local_registry_host=settings.local_registry_host,
+        )
+    raise ValueError(f"Unknown scanner: {scanner_name}")
+
+
 def run_scanners_concurrently(
-    scanner_names: list[str], image_name: str, max_workers: int | None = None, cache=None
+    scanner_names: list[str], image_name: str, max_workers: int | None = None, cache=None, *,
+    settings: ScannerSettings | None = None, credentials=None, registry_host: str = "", insecure: bool = False,
 ) -> list[tuple[str, str, list[tuple[ScannerFinding, str]] | str]]:
     """Run scanners concurrently while preserving configured result order."""
+    settings = settings or ScannerSettings()
+
     def scan_one(scanner_name: str) -> list[tuple[ScannerFinding, str]]:
-        if scanner_name == "trivy":
-            scanner = TrivyScanner()
-            source_name = "trivy"
-        elif scanner_name == "grype":
-            scanner = GrypeScanner()
-            source_name = "grype"
-        else:
-            raise ValueError(f"Unknown scanner: {scanner_name}")
+        scanner = build_scanner(scanner_name, settings, credentials=credentials,
+                                registry_host=registry_host, insecure=insecure)
+        source_name = scanner_name
 
         logger.info("Running %s scan on '%s'...", source_name, image_name)
-        if cache is None:
-            findings = run_scanner_sync(scanner, image_name, source_name)
-        else:
-            findings = run_scanner_sync(scanner, image_name, source_name, cache)
+        attempt = 0
+        while True:
+            try:
+                if cache is None:
+                    findings = run_scanner_sync(scanner, image_name, source_name)
+                else:
+                    findings = run_scanner_sync(scanner, image_name, source_name, cache)
+                break
+            except ScannerError as error:
+                # Registry timeouts and vulnerability-DB downloads fail transiently; retry with backoff.
+                if attempt >= settings.retry_attempts:
+                    raise
+                attempt += 1
+                delay = settings.retry_backoff_seconds * (2 ** (attempt - 1))
+                logger.warning("%s failed on '%s' (attempt %d of %d), retrying in %.1fs: %s", source_name,
+                               image_name, attempt, settings.retry_attempts + 1, delay, error)
+                if delay:
+                    time.sleep(delay)
         logger.info(
             "%s found %d findings on '%s'",
             source_name,
@@ -291,6 +326,44 @@ def run_scanners_concurrently(
     return results
 
 
+
+
+class ImmutableIdentityError(RuntimeError):
+    """The tag could not be pinned to a digest and REQUIRE_IMMUTABLE_SCAN_IDENTITY is set."""
+
+
+def _resolve_scan_target(image_name: str, settings: ScannerSettings) -> dict:
+    """Pin an image tag to its digest and pick this scan's registry credentials.
+
+    Returns the reference to hand to the scanners (`repo@sha256:...` when
+    resolved), the digest, and per-scan auth/transport settings.
+    """
+    if filesystem_path_target(image_name):
+        return {"target": image_name, "digest": None, "credentials": None, "host": "", "insecure": False,
+                "identity": "filesystem"}
+    identity = parse_image_reference(image_name)
+    credentials = credentials_for_host(identity.host)
+    insecure = settings.insecure_host(identity.host)
+    base = {"credentials": credentials, "host": identity.host, "insecure": insecure}
+    try:
+        digest = resolve_digest(identity, credentials=credentials, scheme="http" if insecure else "https")
+    except Exception as exc:
+        if settings.require_immutable_identity:
+            raise ImmutableIdentityError(f"could not resolve {image_name} to a digest: {exc}") from exc
+        logger.warning("Scanning %s by tag; digest resolution failed: %s", image_name, exc)
+        return {**base, "target": image_name, "digest": None, "identity": "tag", "resolution_error": str(exc)[:300]}
+    return {**base, "target": f"{identity.repo_name}@{digest}", "digest": digest, "identity": "digest"}
+
+
+def filesystem_path_target(target: str) -> bool:
+    return str(target or "").startswith("fs:")
+
+
+def _record_digest(scan_id: str, digest: str) -> None:
+    with get_db_session() as session:
+        scan = session.query(Scan).filter_by(scan_id=scan_id).one()
+        scan.image_digest = digest
+        scan.image.digest = digest
 
 
 def _result(scan_id: str, image_name: str, status: str, **extra) -> dict:
@@ -343,14 +416,31 @@ def _execute_scan(task, image_name: str, scan_id: str, image_id: int, scanners: 
         return _result(scan_id, image_name, "cancelled", errors=[{"component": "worker", "error": "scan_cancelled"}])
 
     logger.info("Starting scan %s for '%s' (scanners: %s)", scan_id, image_name, scanners)
+    settings = ScannerSettings.from_env()
+    _set_running(scan_id, "resolving", task_id)
+    try:
+        resolved = _resolve_scan_target(image_name, settings)
+    except ImmutableIdentityError as exc:
+        _fail_scan(scan_id, str(exc), phase="identity_unresolved")
+        _record_scan_event(scan_id, AuditEventType.SCAN_FAILED, {
+            "action": "worker_failed", "phase": "identity", "task_id": task_id,
+            "error": str(exc)[:500], "image_name": image_name,
+        })
+        return _result(scan_id, image_name, "failed", errors=[{"component": "identity", "error": str(exc)}])
+    if resolved["digest"]:
+        _record_digest(scan_id, resolved["digest"])
     _set_running(scan_id, "scanning", task_id)
     _record_scan_event(scan_id, AuditEventType.SCAN_STARTED, {
         "action": "worker_started", "phase": "scanning", "task_id": task_id,
-        "image_name": image_name, "scanners": scanners,
+        "image_name": image_name, "scanned_reference": resolved["target"], "identity": resolved["identity"],
+        "resolution_error": resolved.get("resolution_error"), "scanners": scanners,
     })
     task.update_state(state="SCANNING", meta={"scan_id": scan_id, "image_name": image_name, "phase": "running"})
 
-    scanner_results = run_scanners_concurrently(scanners, image_name, cache=create_shared_scan_cache())
+    scanner_results = run_scanners_concurrently(
+        scanners, resolved["target"], cache=create_shared_scan_cache(), settings=settings,
+        credentials=resolved["credentials"], registry_host=resolved["host"], insecure=resolved["insecure"],
+    )
     if _scan_status(scan_id) == ScanStatus.CANCELLED:
         _record_scan_event(scan_id, AuditEventType.SCAN_CANCELLED, {
             "action": "worker_stopped_after_cancel", "phase": "scanning", "task_id": task_id, "image_name": image_name,

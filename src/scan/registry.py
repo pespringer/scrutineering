@@ -1,46 +1,69 @@
-"""Container registry authentication and image pulling utilities.
+"""Registry credentials and tag-to-digest resolution for the scan worker.
 
-Supports: Docker Hub, AWS ECR, GCP GCR/A, GitHub GHCR, GitLab, Harbor, Quay.
+Credentials come from explicit environment settings; a partial pair is an
+error rather than a silent fall back to anonymous access. Digest resolution
+uses the OCI distribution API and answers the standard `WWW-Authenticate`
+challenge, so public Docker Hub and GHCR images resolve without credentials.
 """
 
-import asyncio
+from __future__ import annotations
+
 import base64
 import json
-import logging
 import os
 import re
+from typing import Callable, Mapping
+from urllib.error import HTTPError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from typing import Optional
 
-logger = logging.getLogger(__name__)
+from src.scan.image_identity import ImageIdentity
+
+_MANIFEST_TYPES = ", ".join([
+    "application/vnd.oci.image.index.v1+json",
+    "application/vnd.oci.image.manifest.v1+json",
+    "application/vnd.docker.distribution.manifest.list.v2+json",
+    "application/vnd.docker.distribution.manifest.v2+json",
+])
+_DOCKER_HUB_HOSTS = {"registry-1.docker.io", "docker.io", "index.docker.io"}
+_DIGEST = re.compile(r"sha256:[a-f0-9]{64}")
+
+Credentials = tuple[str, str]
 
 
-def registry_credentials_from_env(env: dict[str, str] | None = None) -> dict[str, tuple[str, str]]:
-    """Return explicitly configured registry credentials without exposing secrets.
+def registry_credentials_from_env(env: Mapping[str, str] | None = None) -> dict[str, Credentials]:
+    """Return explicitly configured registry credentials, keyed by registry.
 
     Partial credential pairs are rejected so a deployment cannot silently fall
     back to anonymous access after a configuration typo.
     """
-    values = env or os.environ
-    credentials: dict[str, tuple[str, str]] = {}
+    values = os.environ if env is None else env
+    credentials: dict[str, Credentials] = {}
     docker_user, docker_password = values.get("DOCKERHUB_USERNAME", ""), values.get("DOCKERHUB_PASSWORD", "")
     if bool(docker_user) != bool(docker_password):
         raise ValueError("DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD must be configured together")
-    if docker_user and docker_password:
+    if docker_user:
         credentials["dockerhub"] = (docker_user, docker_password)
+    if bool(values.get("AWS_ACCESS_KEY_ID", "")) != bool(values.get("AWS_SECRET_ACCESS_KEY", "")):
+        # Not used here (the scanners read AWS credentials directly), but a half-configured pair is an error.
+        raise ValueError("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be configured together")
     if values.get("GITHUB_TOKEN"):
-        credentials["ghcr.io"] = ("gh_token", values["GITHUB_TOKEN"])
+        credentials["ghcr.io"] = (values.get("GITHUB_USERNAME", "gh_token"), values["GITHUB_TOKEN"])
     gitlab_token = values.get("GITLAB_TOKEN") or values.get("CI_JOB_TOKEN")
     if gitlab_token:
         credentials["gitlab"] = (values.get("GITLAB_USERNAME", "gitlab-ci-token"), gitlab_token)
-    aws_key, aws_secret = values.get("AWS_ACCESS_KEY_ID", ""), values.get("AWS_SECRET_ACCESS_KEY", "")
-    if bool(aws_key) != bool(aws_secret):
-        raise ValueError("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be configured together")
-    if aws_key and aws_secret:
-        credentials["ecr"] = (aws_key, aws_secret)
-    gcp_path = values.get("GOOGLE_APPLICATION_CREDENTIALS", "")
-    if gcp_path:
-        credentials["gcr.io"] = ("_json_key_file", gcp_path)
+    raw = str(values.get("REGISTRY_CREDENTIALS_JSON", "")).strip()
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError("REGISTRY_CREDENTIALS_JSON must be valid JSON") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("REGISTRY_CREDENTIALS_JSON must map registry hosts to credentials")
+        for host, entry in parsed.items():
+            if not isinstance(entry, dict) or not entry.get("username") or not entry.get("password"):
+                raise ValueError(f"REGISTRY_CREDENTIALS_JSON[{host!r}] needs a username and password")
+            credentials[str(host)] = (str(entry["username"]), str(entry["password"]))
     return credentials
 
 
@@ -49,273 +72,83 @@ def registry_env_keys(registry: str) -> tuple[str, ...]:
         "dockerhub": ("DOCKERHUB_USERNAME", "DOCKERHUB_PASSWORD"),
         "ghcr.io": ("GITHUB_TOKEN",),
         "gitlab": ("GITLAB_TOKEN", "CI_JOB_TOKEN"),
-        "ecr": ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"),
-        "gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
-        "us.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
-        "eu.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
-        "asia.gcr.io": ("GOOGLE_APPLICATION_CREDENTIALS",),
-    }.get(registry, ())
+    }.get(registry, ("REGISTRY_CREDENTIALS_JSON",))
 
 
-def resolve_registry_digest(
-    registry: str,
-    repository: str,
-    reference: str,
-    *,
-    token: str | None = None,
-    scheme: str = "https",
-    opener=urlopen,
-) -> str:
-    """Resolve a tag through the OCI Registry v2 manifest API."""
-    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,255}", registry) or not repository or not reference:
-        raise ValueError("invalid registry image coordinates")
-    if any(part in {".", ".."} for part in repository.split("/")):
-        raise ValueError("invalid repository path")
-    if scheme not in {"http", "https"}:
-        raise ValueError("registry scheme must be http or https")
-    url = f"{scheme}://{registry}/v2/{repository}/manifests/{reference}"
-    headers = {"Accept": ", ".join([
-        "application/vnd.oci.image.manifest.v1+json",
-        "application/vnd.docker.distribution.manifest.v2+json",
-        "application/vnd.docker.distribution.manifest.list.v2+json",
-    ])}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    response = opener(Request(url, headers=headers, method="HEAD"))
-    digest = response.headers.get("Docker-Content-Digest")
-    if not digest or not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
-        raise RuntimeError("registry did not return an immutable sha256 digest")
-    return digest
+def credentials_for_host(host: str, env: Mapping[str, str] | None = None) -> Credentials | None:
+    """Credentials for one registry host. Explicit `REGISTRY_CREDENTIALS_JSON` entries win.
 
-
-def detect_registry(image_name: str) -> str:
-    """Detect the registry from an image reference string.
-
-    Examples:
-        'nginx:latest'                  -> 'dockerhub'
-        'ghcr.io/user/app:v1'           -> 'ghcr.io'
-        '123456789.dkr.ecr.us-east-1.amazonaws.com/my/app:v1' -> 'ecr'
-        'gcr.io/project/img:v1'         -> 'gcr.io'
-        'harbor.company.com/proj/img:v1' -> 'harbor.company.com'
+    ECR and GCR are not listed: Trivy and Grype authenticate to them directly
+    from the standard AWS and Google credentials in the worker environment.
     """
-    # Docker Hub (no host prefix, or library/ prefix)
-    if "/" not in image_name or image_name.startswith("library/"):
-        return "dockerhub"
-
-    first_part = image_name.split("/")[0]
-
-    # ECR
-    if re.match(r"\d+\.dkr\.ecr\.[a-z0-9-]+\.amazonaws\.com", first_part):
-        return "ecr"
-
-    # GitHub Container Registry
-    if first_part == "ghcr.io":
-        return "ghcr.io"
-
-    # GCR
-    if first_part in ("gcr.io", "us.gcr.io", "eu.gcr.io", "asia.gcr.io"):
-        return first_part
-
-    # GitLab
-    if "gitlab" in first_part.lower() or first_part == "registry.gitlab.com":
-        return "gitlab"
-
-    # Harbor / private registry (contains a dot but not a known public one)
-    if "." in first_part or ":" in first_part or first_part == "registry":
-        if first_part.endswith("harbor") or "harbor" in first_part.lower():
-            return "harbor"
-        return first_part  # Treat as private registry host
-
-    # Default: Docker Hub
-    return "dockerhub"
-
-
-async def login_ecr(region: Optional[str] = None, timeout_seconds: int = 60) -> tuple[str, str]:
-    """Get ECR login credentials via AWS CLI.
-
-    Returns (username, password) where password is the auth token.
-    """
-    if timeout_seconds < 1: raise ValueError("timeout_seconds must be positive")
-    if region is not None and not re.fullmatch(r"[a-z0-9-]{1,32}", region):
-        raise ValueError("AWS region contains invalid characters")
-    args = ["aws", "ecr", "get-login-password"]
-    if region:
-        args.extend(["--region", region])
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *args,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-        if proc.returncode != 0:
-            raise RuntimeError(f"AWS ECR login failed: {stderr.decode()}")
-        return "AWS", stdout.decode().strip()
-    except asyncio.TimeoutError as exc:
-        proc.kill(); await proc.communicate()
-        raise RuntimeError("AWS ECR login timed out") from exc
-    except FileNotFoundError:
-        raise RuntimeError("AWS CLI not installed. Install awscli to use ECR registries.")
-
-
-async def login_gcr(service_account_key_path: Optional[str] = None) -> tuple[str, str]:
-    """Authenticate to GCR using a service account key.
-
-    Returns (username, password) for docker login.
-    """
-    key_path = service_account_key_path or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
-    if not key_path or not os.path.exists(key_path):
-        raise RuntimeError(
-            "GCR authentication requires GOOGLE_APPLICATION_CREDENTIALS "
-            "or a service_account_key_path to be set."
-        )
-
-    # Use the _json_key_base64 auth method
-    try:
-        with open(key_path) as f:
-            key_json = json.load(f)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise RuntimeError("GCR credentials are not valid JSON") from exc
-
-    username = "_json_key_base64"
-    password = base64.b64encode(json.dumps(key_json).encode()).decode()
-    return username, password
-
-
-async def login_ghcr(token: Optional[str] = None) -> tuple[str, str]:
-    """Authenticate to GitHub Container Registry.
-
-    Returns (username, password) for docker login.
-    """
-    gh_token = token or os.environ.get("GITHUB_TOKEN", "")
-    if not gh_token:
-        raise RuntimeError("GITHUB_TOKEN environment variable required for GHCR access.")
-    return "gh_token", gh_token
-
-
-async def login_harbor(harbor_url: str, username: str, password: str) -> tuple[str, str]:
-    """Authenticate to Harbor registry."""
-    return username, password
-
-
-async def authenticate_to_registry(registry: str, *, env: dict[str, str] | None = None, **kwargs) -> Optional[tuple[str, str]]:
-    """Get credentials for a given registry type.
-
-    Returns (username, password) tuple or None if no auth needed.
-
-    Supported registries: dockerhub, ecr, gcr.io, ghcr.io, harbor, gitlab
-    """
-    dispatch = {
-        "ecr": login_ecr,
-        "gcr.io": login_gcr,
-        "ghcr.io": login_ghcr,
-        "harbor": lambda **k: login_harbor(
-            kwargs.get("harbor_url", ""),
-            kwargs.get("username", ""),
-            kwargs.get("password", ""),
-        ),
-    }
-
     configured = registry_credentials_from_env(env)
-    if registry == "dockerhub":
-        # Docker Hub uses DOCKERHUB_USERNAME / DOCKERHUB_PASSWORD env vars
+    if host in configured:
+        return configured[host]
+    if host in _DOCKER_HUB_HOSTS:
         return configured.get("dockerhub")
-    elif registry == "gitlab":
+    if host == "registry.gitlab.com":
         return configured.get("gitlab")
-    elif registry == "ecr" and "ecr" in configured:
-        return configured["ecr"]
-    elif registry in {"gcr.io", "us.gcr.io", "eu.gcr.io", "asia.gcr.io"}:
-        path = (env or os.environ).get("GOOGLE_APPLICATION_CREDENTIALS")
-        return await login_gcr(path)
-    elif registry == "ghcr.io" and "ghcr.io" in configured:
-        return configured["ghcr.io"]
-    else:
-        auth_fn = dispatch.get(registry)
-        if auth_fn:
-            return await auth_fn(**kwargs)
-
     return None
 
 
-async def docker_pull(image_name: str, timeout_seconds: int = 1800) -> str:
-    """Pull a container image using Docker.
+def _basic(credentials: Credentials) -> str:
+    return "Basic " + base64.b64encode(f"{credentials[0]}:{credentials[1]}".encode()).decode()
 
-    Returns stdout from docker pull.
-    Raises RuntimeError if the pull fails.
-    """
-    if timeout_seconds < 1: raise ValueError("timeout_seconds must be positive")
+
+def _challenge_params(header: str) -> tuple[str, dict[str, str]]:
+    scheme, _, rest = header.partition(" ")
+    return scheme.lower(), dict(re.findall(r'(\w+)="([^"]*)"', rest))
+
+
+def _authorization(challenge: str, credentials: Credentials | None, opener: Callable) -> str:
+    """Answer a registry `WWW-Authenticate` challenge with a Basic or Bearer header."""
+    scheme, params = _challenge_params(challenge)
+    if scheme == "basic":
+        if credentials is None:
+            raise PermissionError("registry requires credentials")
+        return _basic(credentials)
+    if scheme != "bearer" or not params.get("realm", "").startswith(("https://", "http://")):
+        raise PermissionError(f"unsupported registry auth challenge: {challenge[:120]}")
+    query = {key: params[key] for key in ("service", "scope") if key in params}
+    headers = {"Authorization": _basic(credentials)} if credentials else {}
+    with opener(Request(f"{params['realm']}?{urlencode(query)}", headers=headers), timeout=15) as response:
+        body = json.loads(response.read().decode())
+    token = body.get("token") or body.get("access_token")
+    if not token:
+        raise PermissionError("registry token endpoint returned no token")
+    return f"Bearer {token}"
+
+
+def resolve_digest(
+    identity: ImageIdentity,
+    *,
+    credentials: Credentials | None = None,
+    scheme: str = "https",
+    opener: Callable = urlopen,
+) -> str:
+    """Resolve an image tag to its immutable `sha256:` digest through the registry API."""
+    if identity.digest:
+        return identity.digest
+    if scheme not in {"http", "https"}:
+        raise ValueError("registry scheme must be http or https")
+    if any(part in {".", ".."} for part in identity.repository.split("/")):
+        raise ValueError("invalid repository path")
+    url = f"{scheme}://{identity.host}/v2/{identity.repository}/manifests/{identity.tag}"
+
+    def head(authorization: str | None):
+        headers = {"Accept": _MANIFEST_TYPES}
+        if authorization:
+            headers["Authorization"] = authorization
+        return opener(Request(url, headers=headers, method="HEAD"), timeout=15)
+
     try:
-        proc = await asyncio.create_subprocess_exec(
-            "docker", "pull", image_name,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
-        if proc.returncode != 0:
-            raise RuntimeError(
-                f"docker pull failed for '{image_name}': "
-                f"{stderr.decode(errors='replace')[:500]}"
-            )
-        return stdout.decode(errors="replace")
-    except asyncio.TimeoutError as exc:
-        proc.kill(); await proc.communicate()
-        raise RuntimeError("docker pull timed out") from exc
-    except FileNotFoundError:
-        raise RuntimeError("Docker is not installed or not in PATH.")
-
-
-async def resolve_image_digest(image_name: str, docker_bin: str = "docker") -> str:
-    """Resolve a local image reference to its immutable ``sha256`` digest."""
-    if "@sha256:" in image_name:
-        digest = image_name.rsplit("@", 1)[1]
-        if re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
-            return digest
-        raise ValueError("image digest must use a 64-character sha256 value")
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            docker_bin, "image", "inspect", image_name,
-            "--format", "{{index .RepoDigests 0}}",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout, stderr = await proc.communicate()
-    except FileNotFoundError as exc:
-        raise RuntimeError("Docker is not installed or not in PATH.") from exc
-    if proc.returncode != 0:
-        raise RuntimeError(f"could not resolve image digest: {stderr.decode(errors='replace')[:500]}")
-
-    resolved = stdout.decode(errors="replace").strip()
-    digest = resolved.rsplit("@", 1)[-1]
-    if not re.fullmatch(r"sha256:[a-f0-9]{64}", digest):
-        raise RuntimeError(f"docker returned no immutable digest for '{image_name}'")
+        response = head(None)
+    except HTTPError as error:
+        if error.code != 401:
+            raise
+        response = head(_authorization(error.headers.get("WWW-Authenticate", ""), credentials, opener))
+    with response:
+        digest = response.headers.get("Docker-Content-Digest", "")
+    if not _DIGEST.fullmatch(digest):
+        raise RuntimeError("registry did not return an immutable sha256 digest")
     return digest
-
-
-async def resolve_image_digest_with_fallback(image_name: str, token: str | None = None) -> str:
-    """Try the local daemon, then resolve through the OCI Registry API."""
-    try:
-        return await resolve_image_digest(image_name)
-    except Exception as local_error:
-        from src.scan.image_identity import parse_image_reference
-        identity = parse_image_reference(image_name)
-        host = "registry-1.docker.io" if identity.registry.value == "dockerhub" else identity.registry.value
-        repository = identity.repo_name
-        if "/" in image_name:
-            candidate_host, remainder = image_name.split("/", 1)
-            if "." in candidate_host or ":" in candidate_host or candidate_host == "registry":
-                host = candidate_host
-                repository = remainder
-        reference = identity.tag
-        if "@" in repository:
-            repository, reference = repository.rsplit("@", 1)
-        elif ":" in repository.rsplit("/", 1)[-1]:
-            repository, reference = repository.rsplit(":", 1)
-        if host == "registry-1.docker.io" and "/" not in repository:
-            repository = f"library/{repository}"
-        try:
-            scheme = "http" if os.environ.get("REGISTRY_INSECURE", "false").lower() in {"1", "true", "yes"} else "https"
-            return await asyncio.to_thread(resolve_registry_digest, host, repository, reference, token=token, scheme=scheme)
-        except Exception as remote_error:
-            raise RuntimeError(f"local and remote digest resolution failed: {local_error}; {remote_error}") from remote_error
