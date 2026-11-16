@@ -60,8 +60,7 @@ export default function FindingsTable({
     { key: "first_seen", label: "First Seen" },
   ];
 
-  const isActionable = (finding: VulnerabilityFinding) =>
-    Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
+  const isActionable = (finding: VulnerabilityFinding) => Boolean(finding.fix_available && finding.fixed_version);
 
   return (
     <div>
@@ -133,8 +132,8 @@ export default function FindingsTable({
                           f.remediation_id
                             ? `Already included in remediation #${f.remediation_id}`
                             : isActionable(f)
-                              ? "Select for a guarded remediation"
-                              : "Not eligible: no explicit source file path is available"
+                              ? "Select to propose a fix"
+                              : "Not eligible: no fixed version is published yet"
                         }
                         onChange={(event) => onSelect?.(f.id, event.target.checked)}
                         className="h-4 w-4 accent-cyan-400 disabled:cursor-not-allowed disabled:opacity-40"
@@ -181,7 +180,7 @@ export default function FindingsTable({
                   <td className="whitespace-nowrap px-3 py-4 font-mono text-sm">
                     {f.fixed_version ? (
                       <span className={isActionable(f) ? "text-emerald-400" : "text-amber-300"}>
-                        {isActionable(f) ? f.fixed_version : "No safe path"}
+                        {isActionable(f) ? f.fixed_version : "No fix yet"}
                       </span>
                     ) : (
                       <span className="text-slate-600">-</span>

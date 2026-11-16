@@ -104,6 +104,7 @@ class RemediationActionType(str, enum.Enum):
 
     BASE_IMAGE_BUMP = "base_image_bump"
     DEPENDENCY_UPDATE = "dependency_update"
+    OS_PACKAGE_UPGRADE = "os_package_upgrade"
     CONFIG_CHANGE = "config_change"
     PACKAGE_REMOVAL = "package_removal"
     CUSTOM = "custom"

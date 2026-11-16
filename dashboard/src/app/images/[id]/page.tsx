@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
 import SourcePanel from "@/components/images/SourcePanel";
+import { proposeFixes } from "@/lib/remediation";
 import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
@@ -32,8 +33,6 @@ export default function ImageDetailPage() {
   const [canRemediate, setCanRemediate] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
-  const isActionable = (finding: VulnerabilityFinding) =>
-    Boolean(finding.fix_available && finding.fixed_version && finding.file_path);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -84,40 +83,9 @@ export default function ImageDetailPage() {
 
   async function proposeRemediation() {
     if (!selectedFindings.length) return;
-    const actionableIds = selectedFindings.filter((id) =>
-      findings.some((finding) => finding.id === id && isActionable(finding)),
-    );
-    if (!actionableIds.length) {
-      setNotice(
-        "No selected findings have an explicit source file path. Select only findings marked with a safe path.",
-      );
-      setSelectedFindings([]);
-      return;
-    }
-    setNotice("Creating remediation proposal…");
-    const response = await fetch("/api/remediations", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ image_id: Number(imageId), finding_ids: actionableIds }),
-    });
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      const detail =
-        typeof body.detail === "string"
-          ? body.detail
-          : body.detail?.code === "finding_already_in_remediation"
-            ? "Those findings are already reserved by remediation " +
-              `#${body.detail.remediation_ids?.join(", #") || "another"}.`
-            : "Unable to create a remediation proposal.";
-      setNotice(detail);
-      setSelectedFindings([]);
-      loadData();
-      return;
-    }
-    const remediation = await response.json();
+    setNotice("Planning fixes…");
+    setNotice(await proposeFixes(Number(imageId), selectedFindings));
     setSelectedFindings([]);
-    const plural = actionableIds.length === 1 ? "" : "s";
-    setNotice(`Remediation #${remediation.id} created for ${actionableIds.length} safe finding${plural}.`);
     loadData();
   }
 

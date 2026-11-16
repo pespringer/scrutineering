@@ -532,18 +532,20 @@ image" a real operation.
   `REMEDIATION_VALIDATION_ECOSYSTEM` env vars.
 
 ### 4b. Decide which fix applies to each finding
-Classify using Trivy's `Result.Class` and `Type`, the image's layer history,
-and the Dockerfile:
+Done. `src/remediation/planner.py` classifies each finding from the scanner's
+package type (scan records do not keep layer history, so the API decides from
+finding data alone and the worker resolves files and lines against the checkout):
 
 | Strategy | When | Change |
 |---|---|---|
-| `base_image_bump` | OS package (`Class=os-pkgs`) introduced in a base layer | Rewrite `FROM` to the newest tag in the same line (for example `node:18.12-alpine` → `node:18.20-alpine`), found by querying the registry. |
-| `os_package_upgrade` | OS package installed by a `RUN apk/apt` line in this Dockerfile | Pin or upgrade the package in that `RUN` line. |
-| `dependency_update` | Language package (`Class=lang-pkgs`) whose lockfile is in the source repo | Run the package manager (`npm install pkg@ver`, `pip-compile --upgrade-package`, `go get`) instead of editing text. |
-| `manual` | No fixed version, or no strategy matches | Show the guidance only. The finding stays eligible for "accept risk". |
+| `dependency_update` | npm or pip package with a fixed version | Run the package manager (`npm install pkg@ver --package-lock-only`, pip pin) instead of editing text. |
+| `os_package_upgrade` | apk/deb/rpm package with a fixed version, whichever layer added it | Upgrade those packages in the final build stage. Narrower than a base-image bump, so it rarely brings new findings. |
+| `base_image_bump` | Runtime binary shipped by the base image (Grype `binary`, e.g. `node`) | Rewrite `FROM` to the newest tag in the same line, found through the registry tags API. |
+| `manual` | No fixed version, or an ecosystem without an updater | Shown with the reason; never proposed. |
 
-- [ ] The preview endpoint returns one plan per remediation: its strategy, the
-  exact file and line, and which findings it is expected to close.
+- [x] The preview returns one action per fix (Trivy and Grype findings for the
+  same package merge), the findings and `vuln_key`s each is expected to close,
+  and the findings left for manual work. Proposing requires a connected source.
 
 ### 4c. Apply, build, verify
 - [ ] Apply the change in an isolated worktree (`worktree.py` already exists).

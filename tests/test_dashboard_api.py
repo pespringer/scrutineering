@@ -7,7 +7,6 @@ from fastapi import HTTPException
 
 from src.api.routes._access import require_role
 from src.api.routes.images import _local_registry_public_url
-from src.api.routes.remediations import _remediation_actions
 from src.api.schemas import RemediationRequest, ScanRequest
 from src.api.serializers import (
     finding_payload,
@@ -179,70 +178,9 @@ def test_cancelled_scan_event_is_part_of_the_audit_contract():
     assert AuditEventType.SCAN_CANCELLED.value == "scan_cancelled"
 
 
-def test_remediation_request_is_bounded_and_preview_actions_fail_closed():
+def test_remediation_request_is_bounded():
     request = RemediationRequest(image_id=4, finding_ids=[11])
-    finding = SimpleNamespace(
-        id=11,
-        package_name="openssl",
-        package_version="3.0.0",
-        fixed_version=None,
-        cve_id="CVE-2026-1",
-        severity=Severity.HIGH,
-        fix_available=False,
-    )
-    action = _remediation_actions([finding])[0]
     assert request.finding_ids == [11]
-    assert action["safe_to_apply"] is False
-
-
-def test_remediation_preview_requires_scanner_source_coordinate():
-    finding = SimpleNamespace(
-        id=12,
-        package_name="requests",
-        package_version="2.0.0",
-        fixed_version="2.0.1",
-        cve_id="CVE-2026-2",
-        severity=Severity.HIGH,
-        fix_available=True,
-        file_path="requirements.txt",
-    )
-    action = _remediation_actions([finding])[0]
-    assert action["file_path"] == "requirements.txt"
-    assert action["safe_to_apply"] is True
-
-
-def test_remediation_actions_reject_fix_without_explicit_source_path():
-    finding = SimpleNamespace(
-        id=14,
-        package_name="openssl",
-        package_version="3.0.0",
-        fixed_version="3.0.1",
-        cve_id="CVE-2026-3",
-        severity=Severity.HIGH,
-        fix_available=True,
-        file_path=None,
-    )
-    action = _remediation_actions([finding])[0]
-    assert action["safe_to_apply"] is False
-
-
-def test_filesystem_remediation_actions_preserve_repository_directory():
-    image = SimpleNamespace(registry_name=ImageRegistry.DOCKER_HUB, repo_name="local/source-fixture", tag="filesystem")
-    finding = SimpleNamespace(
-        id=13,
-        package_name="lodash",
-        package_version="4.17.20",
-        fixed_version="4.18.1",
-        cve_id="CVE-2021-23337",
-        severity=Severity.HIGH,
-        fix_available=True,
-        file_path="package-lock.json",
-    )
-
-    action = _remediation_actions([finding], image)[0]
-
-    assert action["file_path"] == "source-fixture/package-lock.json"
-    assert action["safe_to_apply"] is True
 
 
 def test_timestamps_are_serialized_as_utc_with_an_explicit_zone():
