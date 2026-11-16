@@ -70,6 +70,25 @@ Node planner.
 **Also update:** `.github/workflows/ci.yml` (drop the `test-node` job and the
 planner image builds), `README.md`, `.dockerignore`.
 
+**Status: done.** Changes beyond the table above:
+- **Makefile now, not in 1e.** A minimal `Makefile` arrived early, because
+  removing the root `package.json` removed the npm scripts that CI called. 1e
+  only has to trim it.
+- **Repository checks kept.** The doc-link, deployment, frontend and release
+  validators stayed, and their tests moved from `src/verification/` to
+  `scripts/tests/`.
+- **Removed alongside the planner:**
+  - its k8s Service and PodDisruptionBudget, and its keys in the ConfigMap
+  - the planner image in `release.yml`
+  - `OIDC_ISSUER`, `OIDC_AUDIENCE` and the `PLANNER_*` settings in `.env.example`
+  - Node-only fixtures (`fixtures/hiring`, `telemetry`, `verification`)
+  - the 7 docs that only described removed code (planner API, Node auth,
+    dry-run harness, evidence contract, rollback drill)
+- **Retargeted:** Prometheus now scrapes the API's `/metrics`, and the CI Trivy
+  job scans the API image.
+- **Compatibility:** Compose still accepts `PLANNER_API_KEY` as a fallback for
+  `PYTHON_API_KEY`, so existing `.env` files keep working.
+
 ### 1b. Python subsystems the UI never calls
 
 | Remove | Notes |

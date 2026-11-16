@@ -14,30 +14,16 @@ env:
 
 jobs:
   # ------------------------------------------------
-  # Node.js Services — lint, test, build
+  # Repository checks — docs links, deployment and frontend config
   # ------------------------------------------------
-  test-node:
+  repo-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      - name: Install uv
-        uses: astral-sh/setup-uv@v10.3.3      
-      - run: npm ci
-      - run: npx ajv compile -s "schemas/policy-contract/*.json" 2>/dev/null || echo "No JSON schemas to validate"
-      - run: npm run validate:evidence-contract
-      - run: npm test
-      - run: node scripts/run-remediation-dry-run-harness.mjs
-      - run: node scripts/run-verification-harness.mjs
-      - run: npm run drill:staging-rollback
-      - run: npm run drill:staging-evidence
-      - run: npm run drill:staging-readiness
-      - run: npm run validate:deployment
-      - run: npm run validate:docs
-      - run: npm run validate:frontend
+      - run: make check
 
   # ------------------------------------------------
   build-dashboard:
@@ -91,15 +77,14 @@ jobs:
       - run: PYTHONPATH=. python -m pytest tests/ -v
 
   # ------------------------------------------------
-  # Docker build (planner + API + worker + dashboard images)
+  # Docker build (API + worker + dashboard images)
   # ------------------------------------------------
   docker-build:
-    needs: [test-node, test-python]
+    needs: [repo-checks, test-python]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-      - run: docker build -f Dockerfile -t scrutineering-planner:ci .
       - run: docker build -f Dockerfile.api -t scrutineering-api:ci .
       - run: docker build -f Dockerfile.worker -t scrutineering-worker:ci .
       - run: docker build -f Dockerfile.dashboard -t scrutineering-dashboard:ci .
@@ -112,12 +97,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build planner image
-        run: docker build -f Dockerfile -t scrutineering-planner:scan .
+      - name: Build API image
+        run: docker build -f Dockerfile.api -t scrutineering-api:scan .
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: scrutineering-planner:scan
+          image-ref: scrutineering-api:scan
           format: table
           severity: CRITICAL,HIGH
           exit-code: '1'

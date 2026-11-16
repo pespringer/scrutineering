@@ -1,11 +1,14 @@
 # Scrutineering — Documentation Index
 
+> **Reset in progress.** [RESET-PLAN.md](RESET-PLAN.md) is the current plan. The
+> Node planner service was removed in Phase 1a; guides below that mention it,
+> port 3000, or `npm run` scripts are out of date until Phase 5 rewrites them.
+
 ## Product Documentation
 - **[scrutineering-guide.md](scrutineering-guide.md)** — Main application guide: what it is, architecture, quick start, all components, configuration, K8s deployment, monitoring
 - **[upgrade-roadmap.md](upgrade-roadmap.md)** — Prioritized architecture, security, remediation, and operations upgrade plan
 
 ## API
-- **[Planner API v1](api/planner-v1.md)** — Versioned planner routes, authentication, request IDs, and error contracts
 - **[testing-guide.md](testing-guide.md)** — Comprehensive testing guide: unit, integration, security, end-to-end flows
 - **[scanning-engine.md](scanning-engine.md)** — Scanning engine design doc: architecture, registries, scanners, dedup, risk scoring
 - **[scrutineering.md](scrutineering.md)** — Product overview
@@ -36,10 +39,6 @@
 - **[hiring/weekly-debrief-compliance-report.md](hiring/weekly-debrief-compliance-report.md)** — Weekly compliance report
 
 ## Security
-- **[security/remediation-dry-run-harness.md](security/remediation-dry-run-harness.md)** — Dry-run harness documentation
-- **[security/evidence-contract.md](security/evidence-contract.md)** — Signed SBOM and provenance evidence contract
-- **[security/verification-baseline-report.md](security/verification-baseline-report.md)** — Verification baseline report
-- **[security/remediation-dry-run-qa-validation-plan.md](security/remediation-dry-run-qa-validation-plan.md)** — QA validation plan
 
 ## Database Schema
 - **[db-schema-design.md](db-schema-design.md)** — Database schema design

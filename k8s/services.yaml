@@ -1,21 +1,4 @@
 ---
-# Service — Planner API
-apiVersion: v1
-kind: Service
-metadata:
-  name: scrutineering-planner
-  labels:
-    app: scrutineering-planner
-spec:
-  type: ClusterIP
-  ports:
-    - port: 3000
-      targetPort: 3000
-      protocol: TCP
-      name: http
-  selector:
-    app: scrutineering-planner
----
 # Service — Python dashboard/data API
 apiVersion: v1
 kind: Service

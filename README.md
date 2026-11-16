@@ -4,35 +4,30 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 
 ## Architecture
 
+> **Reset in progress.** Work follows [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
+> Phase 1a removed the Node planner service; later phases trim the rest.
+
 ```
 scrutineering/
 ├── src/
-│   ├── planner/          # Node.js remediation planner API
-│   ├── ci/               # CI provider integration (GitHub/GitLab)
-│   ├── pr-generator/     # Automated PR generation for fixes
-│   ├── harness/          # Remediation dry-run test harness
-│   ├── verification/     # Policy verification harness
-│   ├── rollout/          # Staged rollout controller
-│   ├── telemetry/        # SLO/SLI and outcome reporting
-│   ├── auth/              # API-key and OIDC claim policy boundaries
-│   ├── api/               # Composed FastAPI application
-│   ├── remediation/       # Worktrees, edits, validation, lifecycle, rollback
-│   ├── scan/             # Python Celery workers (Trivy/Grype scans)
-│   └── db/               # SQLAlchemy models + Alembic migrations
+│   ├── api/              # Composed FastAPI application
+│   ├── analytics/        # Dashboard API routes
+│   ├── scan/             # Celery workers (Trivy/Grype scans)
+│   ├── remediation/      # Worktrees, edits, validation, publication
+│   ├── db/               # SQLAlchemy models + Alembic migrations
+│   └── telemetry/        # Prometheus metrics and tracing
+├── dashboard/            # Next.js dashboard
 ├── k8s/                  # Kubernetes manifests
 ├── monitoring/           # Prometheus/Grafana/Fluentbit configs
-├── schemas/              # Policy and signed-evidence JSON schemas
-├── scripts/              # CLI utility scripts
+├── scripts/              # Repository checks, smoke tests, operational scripts
 ├── tests/                # Python test suite
 ├── fixtures/             # Test fixtures
-├── docs/                 # Full documentation
-│   ├── adr/              # Architecture decision records
-│   ├── hiring/           # Hiring pipeline docs
-│   ├── operations/       # Runbooks, SLAs, playbooks
-│   └── security/         # Security validation docs
-├── Dockerfile.api         # Production FastAPI data API image
-├── Dockerfile.dashboard   # Production Next.js dashboard image
-└── docker-compose.yml     # Full local stack, including dashboard
+├── docs/                 # Documentation
+├── Dockerfile.api        # FastAPI data API image
+├── Dockerfile.worker     # Celery worker image (Trivy, Grype)
+├── Dockerfile.dashboard  # Next.js dashboard image
+├── Makefile              # Developer entry points
+└── docker-compose.yml    # Full local stack
 ```
 
 `dashboard/` is the only supported Next.js application and is packaged by
@@ -41,8 +36,8 @@ frontend was removed in Batch 3. Runtime services require an explicit
 `DATABASE_URL`; tests opt into an in-memory SQLite database through
 `SCRUTINEERING_TEST_MODE=1`.
 
-Docker Compose services are the Node planner (`app`), authenticated Python data
-API (`api`), Next.js dashboard, PostgreSQL, Redis, the Celery scanner worker,
+Docker Compose services are the authenticated Python data API (`api`), the
+Next.js dashboard, the local registry, PostgreSQL, Redis, the Celery scanner worker,
 and Celery Beat. The dashboard is available at `http://localhost:3001/dashboard`;
 its server-side routes read live data through `http://api:8000` and keep the API
 key out of browser JavaScript. The API is also exposed at `http://localhost:8000`
@@ -60,7 +55,7 @@ The dashboard shows live scan phases, durable worker outcomes, severity trends,
 and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
 
 Provider publication and callbacks are gated by explicit configuration. Use
-`npm run drill:staging-provider` to exercise normalized merge callbacks,
+`PYTHONPATH=. python scripts/run-staging-provider-post-merge-drill.py` to exercise normalized merge callbacks,
 post-merge verification, and rollback output with deterministic fixtures.
 Provider merge callbacks that do not include deployment digest evidence now
 queue a correlated worker rescan and remain `pending` until that evidence is
@@ -73,25 +68,23 @@ for the `REMEDIATION_SCAN_REPOSITORY_ROOT` setting used by filesystem scans.
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
-# Set POSTGRES_PASSWORD, DATABASE_URL, PLANNER_API_KEY, service-auth settings,
+# Set POSTGRES_PASSWORD, DATABASE_URL, PYTHON_API_KEY, service-auth settings,
 # and provider allowlists in .env before starting.
 
 # 2. Start all services
-docker compose up --build -d
+make up   # docker compose up --build -d
 
 # Optional: expose PostgreSQL and Redis to the host for local tooling only.
 # Do not use this override on shared or production hosts.
 docker compose -f docker-compose.yml -f docker-compose.host-access.yml up --build -d
 
 # 3. Run database migrations (the API image includes Alembic)
-docker compose exec api alembic -c src/db/migrations/alembic.ini upgrade head
+make migrate
 
 # 4. Verify
-curl http://localhost:3000/health
 curl http://localhost:8000/health
 curl -I http://localhost:3001/dashboard
-docker compose exec app node scripts/run-remediation-dry-run-harness.mjs
-docker compose exec app node scripts/run-verification-harness.mjs
+make smoke
 ```
 
 The default Compose stack also starts a persistent local OCI registry at
@@ -114,47 +107,28 @@ for the complete workflow.
 
 ## Development Setup
 
+Requires Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 20 (for the
+dashboard and repository checks), and Docker.
+
 ```bash
-# Node.js
-npm install
-
-# Python
-pip install -r requirements.txt
-
-# Run tests
-npm test          # Node.js tests
-PYTHONPATH=. pytest tests/ -q  # Python tests
-
-# Validate security contracts
-npm run validate:policy-contract
-npm run validate:evidence-contract
-npm run verify:local  # Node, Python, and security-contract checks
-npm run validate:deployment  # Checked-in Compose/Kubernetes manifest checks
-npm run validate:docs        # README documentation-link checks
-npm run validate:frontend    # Enforce the single supported dashboard tree
-npm run smoke:dashboard      # Smoke-test a running dashboard/API proxy
-npm run drill:staging-evidence # Release-blocking keyless evidence scenarios
-npm run drill:staging-readiness # Deterministic staging/production boundary checks
-npm run validate:release       # Release policy configuration check
-
-# Run individual scripts
-node src/planner/server.mjs
-node scripts/run-remediation-dry-run-harness.mjs
-node scripts/run-staging-rollback-drill.mjs
+make test         # Python tests plus repository checks
+make test-python  # Python tests only
+make check        # Doc links, deployment manifests, frontend layout, release config
+make fmt-check    # Ruff and Prettier (advisory until Phase 3)
 
 # Run the composed Python API
 uvicorn src.api.app:app --host 127.0.0.1 --port 8000
 
-# Build the supported dashboard
+# Build the dashboard
 cd dashboard && npm ci && npm run validate:build
 ```
 
 ## CI/CD
 
-- PR triggers: lint, unit tests (Node.js + Python)
-- PRs also validate deployment manifests and README documentation links.
-- Merge to main: Docker image builds, Trivy security scan
-- Tag release: Automated GitHub release with keyless-signed image archives
+- Pull requests: Python tests, repository checks (`make check`), dashboard
+  build and audit, and an advisory format check.
+- Merge to main: Docker image builds and a Trivy scan of the API image.
+- Tag release: GitHub release with keyless-signed image archives.
 
 See `.github/workflows/ci.yml` and `.github/workflows/release.yml`.
 
@@ -166,7 +140,6 @@ kubectl apply -f k8s/infrastructure.yaml     # ConfigMap, Secret, postgres, redi
 kubectl apply -f k8s/resource-quota.yaml
 kubectl apply -f k8s/pod-disruption-budgets.yaml
 kubectl apply -f k8s/infrastructure.yaml     # postgres, redis, PVCs
-kubectl apply -f k8s/planner-deployment.yaml
 kubectl apply -f k8s/api-deployment.yaml
 kubectl apply -f k8s/dashboard-deployment.yaml
 kubectl apply -f k8s/worker-deployment.yaml
@@ -174,7 +147,7 @@ kubectl apply -f k8s/celery-beat-deployment.yaml
 kubectl apply -f k8s/services.yaml
 ```
 
-Production promotion should also confirm the planner and worker health checks
+Production promotion should also confirm the API and worker health checks
 are passing before increasing scan concurrency.
 The API and dashboard deployments use separate ClusterIP services; the
 dashboard calls the API server-side with `PYTHON_API_KEY`, which must remain in
@@ -191,27 +164,11 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 - Batch 4 adds shared Redis scan-cache support, checkpointed managed runtime
   delivery, Prometheus SLO alerts, and a starter Grafana operations dashboard.
 
-## Policy Contract
-
-JSON schemas in `schemas/policy-contract/`. Validate with:
-```bash
-node scripts/validate-policy-contract.mjs
-```
-
 ## Control-Plane APIs
 
-- Planner actions: see [Planner API v1](docs/api/planner-v1.md).
 - Scan data reads: `/api/v1/scans`, `/api/v1/findings`, `/api/v1/alerts`, and
   `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
 - Dashboard data and controls: see [Dashboard API v1](docs/api/dashboard-v1.md).
-- Scoped planner API keys use `PLANNER_API_KEYS_JSON`; see
-  [Authorization Foundation](docs/security/authorization.md).
-- OIDC deployments must validate signatures before passing claims to the OIDC
-  policy boundary. The distributed limiter can use the Redis adapter described
-  in [Planner API v1](docs/api/planner-v1.md).
-  Discovery metadata and rotating JWKS keys are fetched from the configured HTTPS issuer with bounded timeouts and cache lifetimes.
-- `startConfiguredPlannerServer()` wires HTTPS OIDC discovery, rotating JWKS
-  verification, and claim-to-principal mapping into the planner request boundary.
 - Internal Python requests can use body-bound HMAC headers signed with
   `SERVICE_AUTH_SECRET`; set `SERVICE_AUTH_REQUIRED=true` when every protected
   API request must come from an authenticated service identity. Replays are
@@ -236,8 +193,7 @@ the target branch with the provider API immediately before publication.
 Registry authentication uses one validated environment mapping for Docker Hub,
 GHCR, GitLab, ECR, and GCR. Partial static credential pairs fail closed; see
 `src/scan/registry.py` and `docs/setup-guide.md`.
-OIDC verification uses HTTPS discovery and rotating JWKS keys. Kubernetes
-planner and worker deployments run as non-root with restricted privilege.
+Kubernetes API and worker deployments run as non-root with restricted privilege.
 Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
 production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
 Production release archives are signed with Cosign keyless signing in
@@ -288,7 +244,6 @@ remediation timeline.
 
 - [Architecture Decision Records](docs/adr/)
 - [Database Schema Design](docs/db-schema-design.md)
-- [Remediation Dry-Run Harness](docs/security/remediation-dry-run-harness.md)
 - [Operations Playbook](docs/operations/on-call-playbook.md)
 - [GitHub and Cloudflare staging callback setup](docs/operations/github-cloudflare-staging.md)
 - [GitHub Publication Boundary](docs/operations/github-publication.md)
@@ -305,7 +260,6 @@ remediation timeline.
 - [Reset Plan](docs/RESET-PLAN.md) (current work; supersedes the upgrade roadmap)
 - [Upgrade Roadmap](docs/upgrade-roadmap.md)
 - [Dashboard Operations](docs/operations/dashboard.md)
-- Deployment manifests can be checked with `npm run validate:deployment`.
-- [Staging Rollback Drill](docs/operations/staging-rollback-drill.md)
+- Deployment manifests can be checked with `make check`.
 - [Staging Readiness Validation](docs/operations/staging-readiness.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
