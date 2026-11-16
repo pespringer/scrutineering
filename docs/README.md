@@ -1,8 +1,9 @@
 # Scrutineering — Documentation Index
 
-> **Reset in progress.** [RESET-PLAN.md](RESET-PLAN.md) is the current plan. The
-> Node planner service was removed in Phase 1a; guides below that mention it,
-> port 3000, or `npm run` scripts are out of date until Phase 5 rewrites them.
+> **Reset in progress.** [RESET-PLAN.md](RESET-PLAN.md) is the current plan. Phases
+> 1a–1b removed the Node planner and several Python subsystems (risk, forensics,
+> runtime monitoring, platform readiness, the `/api/v1` scan API). Guides below
+> that mention them, port 3000, or `npm run` scripts are out of date until Phase 5.
 
 ## Product Documentation
 - **[scrutineering-guide.md](scrutineering-guide.md)** — Main application guide: what it is, architecture, quick start, all components, configuration, K8s deployment, monitoring
@@ -23,7 +24,6 @@
 - **[operations/on-call-playbook.md](operations/on-call-playbook.md)** — Incident response procedures
 - **[operations/remediation-lifecycle.md](operations/remediation-lifecycle.md)** — Allowed remediation states and transitions
 - **[operations/production-readiness-checklist.md](operations/production-readiness-checklist.md)** — Pre-production checklist
-- **[operations/platform-hardening.md](operations/platform-hardening.md)** — Lifecycle, execution, provider, recovery, and Kubernetes hardening controls
 - **[operations/weekly-security-outcome-report.md](operations/weekly-security-outcome-report.md)** — Weekly report template
 - **[operations/remediation-telemetry-slos.md](operations/remediation-telemetry-slos.md)** — SLO definitions and dashboards
 - **[operations/cto-execution-log-2026-04-05.md](operations/cto-execution-log-2026-04-05.md)** — CTO execution log

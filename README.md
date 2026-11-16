@@ -5,7 +5,8 @@ Automated container vulnerability scanning, remediation planning, and policy enf
 ## Architecture
 
 > **Reset in progress.** Work follows [docs/RESET-PLAN.md](docs/RESET-PLAN.md).
-> Phase 1a removed the Node planner service; later phases trim the rest.
+> Phases 1a–1b removed the Node planner and the Python subsystems the dashboard
+> never called; later phases trim the rest.
 
 ```
 scrutineering/
@@ -157,42 +158,35 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 
 ## Monitoring
 
-- Runtime monitoring APIs are documented in `docs/operations/` and exposed by
-  the Python monitoring router. The canonical FastAPI app exposes Prometheus
-  text metrics at `/metrics`.
+- The FastAPI app exposes Prometheus text metrics at `/metrics`.
 - Grafana/Prometheus configuration lives in `monitoring/`.
-- Batch 4 adds shared Redis scan-cache support, checkpointed managed runtime
-  delivery, Prometheus SLO alerts, and a starter Grafana operations dashboard.
 
 ## Control-Plane APIs
 
-- Scan data reads: `/api/v1/scans`, `/api/v1/findings`, `/api/v1/alerts`, and
-  `/api/v1/audit`; see [Scan Data API v1](docs/api/scan-data-v1.md).
 - Dashboard data and controls: see [Dashboard API v1](docs/api/dashboard-v1.md).
 - Internal Python requests can use body-bound HMAC headers signed with
   `SERVICE_AUTH_SECRET`; set `SERVICE_AUTH_REQUIRED=true` when every protected
   API request must come from an authenticated service identity. Replays are
   rejected and `SERVICE_AUTH_MAX_SKEW_SECONDS` is bounded.
-- The composed Python API is `src.api.app:app`; it mounts scan-data, runtime,
-  analytics, dashboard, and forensics routers and exposes `/health`.
+- The composed Python API is `src.api.app:app`; it mounts the dashboard router
+  (`/api/dashboard/*`) and exposes `/health`.
   `/ready` checks database connectivity for deployment probes.
   `/version` reports the configured service version and revision.
 
-Production scan policy should set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` so
-tag-only images fail closed when a digest cannot be resolved. Evidence must be
+Scans are currently keyed by image tag; enforcing immutable digest identity in
+the scan worker is tracked in Phase 2 of the reset plan. Evidence must be
 verified before remediation. The executor runs isolated validation, and the
 GitHub publisher can open allowlisted PRs only after verified evidence; neither
 component merges or bypasses branch protection.
-The scanner also defaults this policy on when `NODE_ENV=production`.
 Scanner workers also enforce bounded output and finding counts through the
 documented `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` settings.
 Production publication also requires `GITHUB_ALLOWED_REPOSITORIES` and
 `GITLAB_ALLOWED_PROJECTS` to constrain provider writes.
 Set `REQUIRE_BRANCH_PROTECTION=true` so GitHub and GitLab publishers verify
 the target branch with the provider API immediately before publication.
-Registry authentication uses one validated environment mapping for Docker Hub,
-GHCR, GitLab, ECR, and GCR. Partial static credential pairs fail closed; see
-`src/scan/registry.py` and `docs/setup-guide.md`.
+`src/scan/registry.py` parses registry credentials for Docker Hub, GHCR, GitLab,
+ECR, and GCR, but the scan worker does not use it yet, so only public and
+local-registry images can be scanned. Wiring it in is tracked in Phase 2.
 Kubernetes API and worker deployments run as non-root with restricted privilege.
 Set `COSIGN_CERTIFICATE_IDENTITY`, `COSIGN_OIDC_ISSUER`, and evidence limits in
 production; set `OTEL_EXPORTER_OTLP_ENDPOINT` only when an exporter is ready.
@@ -251,10 +245,8 @@ remediation timeline.
 - [Remediation Execution](docs/operations/remediation-execution.md)
 - [Evidence Generation and Verification](docs/security/evidence-generation.md)
 - [Release Evidence Gates](docs/operations/release-evidence-gates.md)
-- [Audit Integrity](docs/security/audit-integrity.md)
 - [Provider Integration](docs/security/provider-integration.md)
 - [Scan Queue Priorities](docs/operations/scan-queues.md)
-- [Runtime Backpressure](docs/operations/runtime-backpressure.md)
 - [Remediation Telemetry and SLOs](docs/operations/remediation-telemetry-slos.md)
 - [Production Readiness Checklist](docs/operations/production-readiness-checklist.md)
 - [Reset Plan](docs/RESET-PLAN.md) (current work; supersedes the upgrade roadmap)

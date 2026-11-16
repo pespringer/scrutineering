@@ -103,6 +103,28 @@ planner image builds), `README.md`, `.dockerignore`.
 | `src/scan/utils/db.py` → module-level `engine`, `init_db`, `get_session` | Creates a second database engine at import. Keep `persist_findings`; it already uses `src.db.connection`. |
 | `/release-health`, `/production-operations` routes in `dashboard_api.py` | They depend on `src/platform`. |
 
+**Status: done.** Changes beyond the table above:
+- **New discovery package.** The container-listing methods moved into
+  `src/scan/discovery/` (`docker.py`, `containerd.py`), not whole monitor files,
+  because the monitors depended on the eBPF event model. The listing code now
+  has tests (`tests/test_scan_discovery.py`); before, it had none.
+- **Moved earlier from 1c:**
+  - the dashboard Operations page, its proxy route and nav links (they called
+    the removed `/production-operations` route)
+  - `src/remediation/backup.py` (unused, and depended on `src/platform`)
+  - the backup-freshness beat task
+- **Removed with `scan_service.py`:** `src/scan/circuit_breaker.py` and
+  `src/scan/cache.py`. Only `ScanService` used them; the worker uses
+  `redis_cache.py`.
+- **Removed from `scripts/`:** the 14 Python scripts that imported removed
+  modules, earlier than 1e.
+- **Removed docs:** the 5 docs about removed code (scan data API v1, image
+  identity, audit integrity, runtime backpressure, platform hardening).
+- **Findings that moved to Phase 2.** The retry, circuit-breaker and
+  immutable-identity code only ever ran in the unused `ScanService`, never in
+  the Celery worker. The README claims about `REQUIRE_IMMUTABLE_SCAN_IDENTITY`
+  and registry credentials were therefore false and have been corrected.
+
 ### 1c. Remediation side systems
 
 These exist to support deployment evidence, alert delivery and provider
@@ -227,6 +249,21 @@ The bugs found in the review, each with a regression test.
   own session before raising.
 - [ ] **Remove the dead `remediated` flag** from `scan_findings`. Resolution
   comes only from `resolved_at`, set by a later complete scan.
+- [ ] **Enforce immutable image identity in the worker.**
+  - Resolve each tag to a digest before scanning (`src/scan/registry.py`
+    already has `resolve_registry_digest`).
+  - Store that digest on the scan.
+  - When `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true`, fail scans that can't be
+    resolved.
+  - This only ever existed in the removed `ScanService`.
+- [ ] **Wire registry credentials into the scanners.** `registry_credentials_from_env`
+  is never called on the scan path. Separately, `trivy.py:105` inserts a
+  placeholder `--secret` flag whenever credentials are set. Pass credentials
+  through `TRIVY_USERNAME`/`TRIVY_PASSWORD` and the `GRYPE_REGISTRY_AUTH_*`
+  variables instead.
+- [ ] **Add scanner retries for transient failures** (registry timeouts, DB
+  download) in `run_scanners_concurrently`. The old retry and circuit-breaker
+  logic was in `ScanService` only.
 - [ ] **Remove `fs:` targets from the public scan form.** Filesystem scans
   become an internal remediation tool (Phase 4), limited to paths under the
   configured workspace.
