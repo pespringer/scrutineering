@@ -37,3 +37,23 @@ Recent commits use short, imperative descriptions (for example, `Add full projec
 ## Security & Configuration
 
 Copy `.env.example` to `.env` for local settings and never commit credentials, generated reports, or real vulnerability data. Validate policy changes with `node scripts/validate-policy-contract.mjs`. For production-impacting changes, review the Docker, Kubernetes, migration, and security-scan paths in `.github/workflows/ci.yml`.
+
+## Reset Rules (in force until docs/RESET-PLAN.md is complete)
+
+The project is being cut back to its core loop: push or discover an image →
+scan → track findings → propose a fix → build a patched image → rescan → open
+a PR → mark resolved. Work only on the current phase of
+[docs/RESET-PLAN.md](docs/RESET-PLAN.md).
+
+1. The golden-path test (Phase 3) defines "working". A change that breaks it
+   does not merge, even if every other test passes.
+2. Do not add a top-level module, service, environment variable, or npm/Make
+   target unless the current phase calls for it.
+3. Keep one status field per entity. Event tables record history; never derive
+   current state from them.
+4. The server verifies facts itself. Never accept client-asserted verification
+   such as `evidence_verified`, finding counts, or digests posted from the browser.
+5. No line over 120 characters. Use Prettier for `dashboard/` (`dashboard/.prettierrc.json`)
+   and Ruff for Python (`ruff.toml`). Never write a component or function on one line.
+6. Docs describe the current system only. Put history in commit messages, not
+   in the README or guides.

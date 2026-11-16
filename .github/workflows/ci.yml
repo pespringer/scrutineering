@@ -57,6 +57,25 @@ jobs:
         run: npm run validate:build
 
   # ------------------------------------------------
+  # Formatting (advisory until Phase 3 of docs/RESET-PLAN.md reformats the code)
+  # ------------------------------------------------
+  format-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.3.3
+      - name: Ruff format check
+        run: uvx ruff@0.6.9 format --check src tests
+      - name: Prettier check
+        working-directory: dashboard
+        run: npx --yes prettier@3.3.3 --check "src/**/*.{ts,tsx,css}"
+
+  # ------------------------------------------------
   # Python Services — lint, test
   # ------------------------------------------------
   test-python:
