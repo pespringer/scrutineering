@@ -175,11 +175,16 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 
 ### Current behavior and limits
 
-- **Scans** are keyed by image tag. Enforcing immutable digest identity in the
-  worker, registry credentials for private registries, and scanner retries are
-  tracked in Phase 2 of the reset plan. Scanner timeouts and output limits use
-  built-in defaults; `SCANNER_TIMEOUT`, `SCANNER_MAX_OUTPUT_BYTES`, and
-  `SCANNER_MAX_FINDINGS` are not read yet.
+- **Scans** resolve each tag to its digest and scan the pinned digest, recording
+  it on the scan and image. Set `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` to fail a
+  scan whose tag cannot be resolved instead of scanning by tag. Scanners collect
+  every severity; transient failures are retried (`SCANNER_RETRY_ATTEMPTS`), and
+  `SCANNER_TIMEOUT`, `SCANNER_MAX_OUTPUT_BYTES` and `SCANNER_MAX_FINDINGS` apply
+  to both scanners. `SCHEDULE_CRON_SCAN` sets the inventory rescan schedule.
+- **Private registries**: `DOCKERHUB_USERNAME`/`DOCKERHUB_PASSWORD`,
+  `GITHUB_TOKEN` (ghcr.io), `GITLAB_TOKEN` (registry.gitlab.com), or
+  `REGISTRY_CREDENTIALS_JSON` for any other host. A partial pair fails the scan
+  with a clear reason. ECR and GCR use the standard AWS and Google credentials.
 - **Dashboard access** uses the roles in `DASHBOARD_DEFAULT_ROLES` for local
   API-key sessions, or the roles forwarded by a verified OIDC ingress. The
   dashboard always reads live data from the API; there is no demo mode.

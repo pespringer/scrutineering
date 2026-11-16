@@ -9,8 +9,6 @@ on:
 env:
   NODE_VERSION: '20'
   PYTHON_VERSION: '3.12'
-  TRIVY_SEVERITY: CRITICAL,HIGH
-  GRYPE_SEVERITY_THRESHOLD: High
 
 jobs:
   # ------------------------------------------------

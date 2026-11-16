@@ -37,9 +37,9 @@ class TrivyScanner(ScannerAdapter):
         severity: Comma-separated severity levels to include (default: all)
         timeout: Max seconds to allow the scan to run (default: 600)
         cache_dir: Directory for Trivy's vulnerability cache
-        registry_server: Optional private registry URL for authentication
-        registry_username: Optional username for registry auth
-        registry_password: Optional password/token for registry auth
+        registry_username: Optional username for registry auth (passed as TRIVY_USERNAME)
+        registry_password: Optional password/token for registry auth (passed as TRIVY_PASSWORD)
+        insecure: Allow plain HTTP / unverified TLS for this scan's registry
     """
 
     @property
@@ -52,11 +52,11 @@ class TrivyScanner(ScannerAdapter):
         timeout: int = 600,
         trivy_cmd: str = "trivy",
         cache_dir: str = "/tmp/trivy-cache",
-        registry_server: Optional[str] = None,
         registry_username: Optional[str] = None,
         registry_password: Optional[str] = None,
         max_output_bytes: int = 50_000_000,
         max_findings: int = 100_000,
+        insecure: bool = False,
     ):
         if timeout < 1: raise ValueError("timeout must be positive")
         if max_output_bytes < 1: raise ValueError("max_output_bytes must be positive")
@@ -65,7 +65,7 @@ class TrivyScanner(ScannerAdapter):
         self.timeout = timeout
         self.trivy_cmd = trivy_cmd
         self.cache_dir = cache_dir
-        self.registry_server = registry_server
+        self.insecure = insecure
         self.registry_username = registry_username
         self.registry_password = registry_password
         self.max_output_bytes = max_output_bytes
@@ -97,19 +97,15 @@ class TrivyScanner(ScannerAdapter):
         ]
         if root is not None and (ignore_file := root / ".trivyignore").is_file():
             cmd[1:1] = ["--ignorefile", str(ignore_file)]
-        if root is None and os.environ.get("REGISTRY_INSECURE", "false").lower() in {"1", "true", "yes"}:
-            cmd.insert(1, "--insecure")
+        if root is None and self.insecure:
+            cmd.insert(2, "--insecure")
 
-        # Add registry auth if provided
-        if self.registry_server and self.registry_username and self.registry_password:
-            cmd.insert(1, "--secret")  # placeholder — real auth via TRIVY_* env vars
-
-        env = None
-        # Set Trivy env vars for private registry auth
-        if self.registry_server and self.registry_username and self.registry_password:
-            env = {**__import__("os").environ}
-            env["TRIVY_USERNAME"] = self.registry_username
-            env["TRIVY_PASSWORD"] = self.registry_password
+        # Only this scan's credentials and transport apply; inherited TRIVY_* auth or
+        # insecure settings from a global .env are dropped.
+        env = {key: value for key, value in os.environ.items()
+               if key not in {"TRIVY_USERNAME", "TRIVY_PASSWORD", "TRIVY_INSECURE"}}
+        if root is None and self.registry_username and self.registry_password:
+            env.update({"TRIVY_USERNAME": self.registry_username, "TRIVY_PASSWORD": self.registry_password})
 
         try:
             proc = await asyncio.create_subprocess_exec(

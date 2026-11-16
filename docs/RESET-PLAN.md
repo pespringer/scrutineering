@@ -295,7 +295,7 @@ Expected size: roughly 324 → 157 non-test source files and about 26k → 10k l
 
 The bugs found in the review, each with a regression test.
 
-**Status: 2a done; 2b open.** 2a (the data model) checked off the items above:
+**Status: done.** 2a (the data model) checked off these items:
 - **Observations:** findings stay one row per image, each scan records what it
   saw in `finding_observations`, and the old scan detail pages keep their lists.
   Migration `0002` carries each finding's old `scan_id` over as an
@@ -320,8 +320,35 @@ The bugs found in the review, each with a regression test.
   in `tests/conftest.py`). Before, every worker test ran with no tables and
   status updates failed silently.
 
-2b (scanner configuration) covers the remaining items: severities, immutable
-identity, registry credentials, scanner settings, and retries.
+**2b done (scanner configuration):**
+- **Digest pinning:** each scan resolves its tag to a digest through the
+  registry API, answering the auth challenge so public Docker Hub and GHCR
+  images resolve anonymously. It then scans `repo@sha256:...` and records the
+  digest on the scan and image. Because the scanner cache is keyed on that
+  reference, a moved tag can no longer return stale cached results.
+  `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true` fails a scan that can't be resolved.
+- **Credentials:** they are chosen by registry host: Docker Hub, `GITHUB_TOKEN`
+  for ghcr.io, `GITLAB_TOKEN`, or `REGISTRY_CREDENTIALS_JSON` for any other
+  host. They reach Trivy as `TRIVY_USERNAME`/`TRIVY_PASSWORD` and Grype as
+  `GRYPE_REGISTRY_AUTH_*`. The placeholder `--secret` flag is gone.
+- **Plain HTTP:** allowed only for the local registry. Inherited
+  `TRIVY_INSECURE`/`GRYPE_REGISTRY_*` values no longer apply to every registry.
+- **Settings:** `src/scan/settings.py` reads the scanner settings (timeout,
+  output and finding limits, cache directory, retries) and rejects invalid
+  values. Both scanners are built from them. `SCHEDULE_CRON_SCAN` drives the
+  beat schedule.
+- **Retries:** transient scanner failures are retried with exponential
+  backoff, up to `SCANNER_RETRY_ATTEMPTS`.
+- **Correction to the review:** severities were never limited. The Trivy
+  wrapper always passed an explicit `--severity` listing every level, which
+  overrides `TRIVY_SEVERITY`, and `GRYPE_SEVERITY_THRESHOLD` isn't a Grype
+  setting. Both were no-ops and were removed; D5 (collect everything) already
+  held.
+- **`src/scan/registry.py`:** reduced to the credential and digest code the
+  worker uses. No production code called the rest (login helpers,
+  `docker pull`, `docker inspect`).
+
+**Phase 2 is done.**
 
 
 - [x] **Split findings from observations.**
@@ -349,7 +376,7 @@ identity, registry credentials, scanner settings, and retries.
     task body so every exit writes a terminal status.
 - [x] **Show scheduled scans.** Scheduled and discovery scans should create a
   `pending` scan record before they are queued, like manual scans already do.
-- [ ] **Line severity settings up with the UI.** Default `TRIVY_SEVERITY` and
+- [x] **Line severity settings up with the UI.** Default `TRIVY_SEVERITY` and
   `GRYPE_SEVERITY_THRESHOLD` to include MEDIUM and LOW, or drop medium and low
   from the charts. Pick one.
 - [x] **Fix the fingerprint semantics.**
@@ -361,24 +388,24 @@ identity, registry credentials, scanner settings, and retries.
   own session before raising.
 - [x] **Remove the dead `remediated` flag** from `scan_findings`. Resolution
   comes only from `resolved_at`, set by a later complete scan.
-- [ ] **Enforce immutable image identity in the worker.**
+- [x] **Enforce immutable image identity in the worker.**
   - Resolve each tag to a digest before scanning (`src/scan/registry.py`
     already has `resolve_registry_digest`).
   - Store that digest on the scan.
   - When `REQUIRE_IMMUTABLE_SCAN_IDENTITY=true`, fail scans that can't be
     resolved.
   - This only ever existed in the removed `ScanService`.
-- [ ] **Wire registry credentials into the scanners.** `registry_credentials_from_env`
+- [x] **Wire registry credentials into the scanners.** `registry_credentials_from_env`
   is never called on the scan path. Separately, `trivy.py:105` inserts a
   placeholder `--secret` flag whenever credentials are set. Pass credentials
   through `TRIVY_USERNAME`/`TRIVY_PASSWORD` and the `GRYPE_REGISTRY_AUTH_*`
   variables instead.
-- [ ] **Make scanner settings real or remove them.** `SCANNER_TIMEOUT` (compose
+- [x] **Make scanner settings real or remove them.** `SCANNER_TIMEOUT` (compose
   sets 1800) and `SCANNER_MAX_OUTPUT_BYTES`/`SCANNER_MAX_FINDINGS` are never
   read, so the scanners use their built-in 600 s and 50 MB defaults.
   `SCHEDULE_CRON_SCAN` is also ignored, because the beat schedule hard-codes
   `0 */6 * * *`.
-- [ ] **Add scanner retries for transient failures** (registry timeouts, DB
+- [x] **Add scanner retries for transient failures** (registry timeouts, DB
   download) in `run_scanners_concurrently`. The old retry and circuit-breaker
   logic was in `ScanService` only.
 - [x] **Remove `fs:` targets from the public scan form.** Filesystem scans
@@ -522,7 +549,7 @@ observation, multi-user roles.
 | D2 | Drop-table migration, or squash migrations? | **Decided: squash** (Phase 1d). |
 | D3 | How should the worker build images? | A rootless `buildkitd` sidecar. |
 | D4 | First PR provider? | GitHub only. |
-| D5 | Which severities do the scanners collect by default? | All of them. Filter in the UI. |
+| D5 | Which severities do the scanners collect by default? | **Decided: all** (already true; see Phase 2b). |
 
 ## Mapping review findings to phases
 

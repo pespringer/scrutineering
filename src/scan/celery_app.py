@@ -6,6 +6,20 @@ from celery import Celery
 from celery.schedules import crontab
 
 
+DEFAULT_SCAN_SCHEDULE = "0 */6 * * *"
+
+
+def scan_schedule(expression: str | None = None) -> crontab:
+    """Parse SCHEDULE_CRON_SCAN (five cron fields) into the beat schedule for inventory rescans."""
+    value = (expression if expression is not None else os.environ.get("SCHEDULE_CRON_SCAN", "")).strip()
+    fields = (value or DEFAULT_SCAN_SCHEDULE).split()
+    if len(fields) != 5:
+        raise ValueError(f"SCHEDULE_CRON_SCAN must have five cron fields, got {value!r}")
+    minute, hour, day_of_month, month_of_year, day_of_week = fields
+    return crontab(minute=minute, hour=hour, day_of_month=day_of_month,
+                   month_of_year=month_of_year, day_of_week=day_of_week)
+
+
 def create_celery_app() -> Celery:
     """Build and return a configured Celery application."""
     broker_url = os.environ.get(
@@ -33,7 +47,7 @@ def create_celery_app() -> Celery:
         beat_schedule={
             "schedule-active-image-scans": {
                 "task": "src.scan.tasks.schedule_active_scans",
-                "schedule": crontab(minute="0", hour="*/6"),
+                "schedule": scan_schedule(),
                 "options": {"queue": "scan.low"},
             },
             "discover-runtime-image-scans": {
