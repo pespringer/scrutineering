@@ -20,12 +20,11 @@ test: test-python check
 test-python:
 	$(PYTEST) tests/ -q
 
-# Repository checks: doc links, deployment manifests, frontend layout, release config.
+# Repository checks: doc links, deployment manifests, frontend layout.
 check:
 	node scripts/validate-doc-links.mjs
 	node scripts/validate-deployment-config.mjs
 	node scripts/validate-frontend-config.mjs
-	node scripts/validate-release-config.mjs
 	node --test scripts/tests/*.test.mjs
 
 # Advisory until Phase 3 reformats the codebase.

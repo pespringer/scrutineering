@@ -2,7 +2,9 @@
 
 > **Reset in progress.** [RESET-PLAN.md](RESET-PLAN.md) is the current plan. Phases
 > 1a–1b removed the Node planner and several Python subsystems (risk, forensics,
-> runtime monitoring, platform readiness, the `/api/v1` scan API). Guides below
+> runtime monitoring, platform readiness, the `/api/v1` scan API); Phase 1c removed
+> alert delivery, deployment evidence, publication recovery and reconciliation,
+> and approval tokens. Guides below
 > that mention them, port 3000, or `npm run` scripts are out of date until Phase 5.
 
 ## Product Documentation
@@ -24,8 +26,6 @@
 - **[operations/on-call-playbook.md](operations/on-call-playbook.md)** — Incident response procedures
 - **[operations/remediation-lifecycle.md](operations/remediation-lifecycle.md)** — Allowed remediation states and transitions
 - **[operations/production-readiness-checklist.md](operations/production-readiness-checklist.md)** — Pre-production checklist
-- **[operations/weekly-security-outcome-report.md](operations/weekly-security-outcome-report.md)** — Weekly report template
-- **[operations/remediation-telemetry-slos.md](operations/remediation-telemetry-slos.md)** — SLO definitions and dashboards
 - **[operations/cto-execution-log-2026-04-05.md](operations/cto-execution-log-2026-04-05.md)** — CTO execution log
 
 ## Hiring

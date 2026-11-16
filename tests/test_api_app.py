@@ -1,51 +1,30 @@
 from src.api.app import app
 
 
+KEPT_ROUTES = {
+    "/health", "/ready", "/metrics", "/version",
+    "/api/dashboard/posture/summary", "/api/dashboard/posture/trend",
+    "/api/dashboard/scans", "/api/dashboard/scans/{scan_id}", "/api/dashboard/scans/{scan_id}/cancel",
+    "/api/dashboard/scans/{scan_id}/findings", "/api/dashboard/images", "/api/dashboard/images/{image_id}",
+    "/api/dashboard/registry/inventory", "/api/dashboard/session", "/api/dashboard/permissions",
+    "/api/dashboard/audit", "/api/dashboard/remediations/preview", "/api/dashboard/remediations",
+    "/api/dashboard/remediations/{remediation_id}", "/api/dashboard/remediations/{remediation_id}/approve",
+    "/api/dashboard/remediations/{remediation_id}/execute", "/api/dashboard/remediations/{remediation_id}/retry",
+    "/api/dashboard/remediations/{remediation_id}/events", "/api/dashboard/webhooks/{provider}",
+}
+
+REMOVED_ROUTE_FRAGMENTS = (
+    "approval-token", "publication-plan", "/publish", "post-merge/verify", "recovery", "reconciliation",
+    "deployment-evidence", "deployment-observation", "alert-", "evidence-export", "/evidence",
+    "provider-credentials", "provider-diagnostics", "release-health", "production-operations",
+)
+
+
 def test_canonical_api_composes_health_and_dashboard_routes():
     paths = set(app.openapi()["paths"])
-    assert "/health" in paths
-    assert "/ready" in paths
-    assert "/metrics" in paths
+    assert KEPT_ROUTES <= paths
     assert not any(path.startswith(("/api/v1", "/api/runtime", "/api/forensics", "/api/analytics")) for path in paths)
-    assert "/api/dashboard/posture/summary" in paths
-    assert "/api/dashboard/posture/trend" in paths
-    assert "/api/dashboard/images/{image_id}" in paths
-    assert "/api/dashboard/scans" in paths
-    assert "/api/dashboard/scans/{scan_id}" in paths
-    assert "/api/dashboard/scans/{scan_id}/cancel" in paths
-    assert "/api/dashboard/session" in paths
-    assert "/api/dashboard/permissions" in paths
-    assert "/api/dashboard/audit" in paths
-    assert "/api/dashboard/remediations/preview" in paths
-    assert "/api/dashboard/remediations" in paths
-    assert "/api/dashboard/remediations/{remediation_id}" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/approval-token" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/approve" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/execute" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/events" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/publication-plan" in paths
-    assert "/api/dashboard/remediations/post-merge/verify" in paths
-    assert "/api/dashboard/remediations/{remediation_id}/publish" in paths
-    assert "/api/dashboard/webhooks/{provider}" in paths
-    assert "/api/dashboard/remediations/publications/reconciliation" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/recovery-preview" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/recovery" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/evidence" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/deployment-evidence" in paths
-    assert "/api/dashboard/deployment-evidence" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/collect-deployment-observation" in paths
-    assert "/api/dashboard/deployment-observation/preflight" in paths
-    assert "/api/dashboard/deployment-observation/preflight/{task_id}" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/alert-evidence" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/evidence-export" in paths
-    assert "/api/dashboard/remediations/alert-deliveries" in paths
-    assert "/api/dashboard/remediations/alert-deliveries/{delivery_id}/replay" in paths
-    assert "/api/dashboard/provider-credentials/health" in paths
-    assert "/api/dashboard/provider-diagnostics" in paths
-    assert "/api/dashboard/remediations/alert-deliveries/cancel" in paths
-    assert "/api/dashboard/remediations/recovery-bulk-status" in paths
-    assert "/api/dashboard/remediations/publications/reconciliation/health" in paths
-    assert "/api/dashboard/remediations/publications/{publication_id}/recovery/{recovery_id}/status" in paths
+    assert not [path for path in paths if any(fragment in path for fragment in REMOVED_ROUTE_FRAGMENTS)]
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):

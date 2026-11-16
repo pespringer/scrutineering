@@ -1,92 +1,75 @@
 {
   "title": "Scrutineering Operations",
   "schemaVersion": 39,
-  "tags": ["scrutineering", "security"],
+  "tags": [
+    "scrutineering",
+    "security"
+  ],
   "refresh": "30s",
   "panels": [
     {
       "id": 1,
       "type": "timeseries",
       "title": "Scan rate by outcome",
-      "targets": [{"expr": "sum by (status) (rate(scrutineering_scans_total[5m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0}
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(scrutineering_scans_total[5m]))"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      }
     },
     {
       "id": 2,
       "type": "timeseries",
       "title": "Scan latency P95",
-      "targets": [{"expr": "max(scrutineering_scan_latency_seconds{quantile=\"0.95\"})"}],
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0}
-    },
-    {
-      "id": 3,
-      "type": "stat",
-      "title": "Runtime events dead-lettered",
-      "targets": [{"expr": "increase(scrutineering_runtime_events_dead_lettered_total[1h])"}],
-      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8}
+      "targets": [
+        {
+          "expr": "max(scrutineering_scan_latency_seconds{quantile=\"0.95\"})"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      }
     },
     {
       "id": 4,
       "type": "timeseries",
       "title": "Provider callback outcomes",
-      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_provider_callbacks_total[10m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 8, "y": 8}
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(scrutineering_provider_callbacks_total[10m]))"
+        }
+      ],
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 8,
+        "y": 8
+      }
     },
     {
       "id": 5,
       "type": "stat",
       "title": "Rollback-required callbacks",
-      "targets": [{"expr": "increase(scrutineering_provider_callbacks_total{outcome=\"rollback_required\"}[1h])"}],
-      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 14}
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "Stale publications",
-      "targets": [{"expr": "scrutineering_stale_publications"}],
-      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 14}
-    }
-    ,{
-      "id": 7,
-      "type": "stat",
-      "title": "Recovery escalations",
-      "targets": [{"expr": "increase(scrutineering_recovery_escalations_total[1h])"}],
-      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 14}
-    },
-    {
-      "id": 8,
-      "type": "timeseries",
-      "title": "Recovery poll outcomes",
-      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_polls_total[10m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20}
-    },
-    {
-      "id": 9,
-      "type": "timeseries",
-      "title": "Alert delivery outcomes",
-      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_alert_deliveries_total[10m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 20}
-    },
-    {
-      "id": 10,
-      "type": "timeseries",
-      "title": "Recovery lease outcomes",
-      "targets": [{"expr": "sum by (outcome) (rate(scrutineering_recovery_leases_total[10m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 28}
-    },
-    {
-      "id": 11,
-      "type": "timeseries",
-      "title": "Provider request outcomes",
-      "targets": [{"expr": "sum by (provider, outcome) (rate(scrutineering_provider_requests_total[10m]))"}],
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 28}
-    },
-    {
-      "id": 12,
-      "type": "timeseries",
-      "title": "Receiver-independent SLO status",
-      "targets": [{"expr": "scrutineering_slo_pass"}, {"expr": "scrutineering_slo_observed"}, {"expr": "scrutineering_slo_target"}],
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 36}
+      "targets": [
+        {
+          "expr": "increase(scrutineering_provider_callbacks_total{outcome=\"rollback_required\"}[1h])"
+        }
+      ],
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      }
     }
   ]
 }
