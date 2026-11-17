@@ -665,6 +665,25 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
 
 **Phase 5 is done.**
 
+### After Phase 5
+- `test_command` runs inside the candidate image (decision D7).
+- The dashboard is linted with ESLint 9 in CI.
+- **Kubernetes manifests: BuildKit, plus the problems found on the way.**
+  - Added: rootless `buildkitd` in its own `privileged` namespace
+    (`k8s/buildkit/`), and an in-cluster candidate registry (`k8s/registry.yaml`).
+  - Fixed, because these would have stopped the manifests from deploying or
+    working:
+    - no container dropped all capabilities, so the namespace's `restricted` Pod
+      Security level rejected every pod;
+    - beat, Postgres and Redis had no security context, and Postgres had no
+      `POSTGRES_PASSWORD` and no resource limits;
+    - the ResourceQuota was smaller than the replicas' limits;
+    - the worker and beat ran a Celery app that doesn't register the tasks, and
+      the worker had no queues;
+    - default-deny NetworkPolicies blocked dashboard→API, API→Redis, beat, and
+      all traffic into Postgres and Redis.
+  - Checked offline by `tests/test_k8s_manifests.py`; not yet applied to a cluster.
+
 ---
 
 ## Phase 6 — Bring back, one at a time (later)

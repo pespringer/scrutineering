@@ -3,8 +3,10 @@ kind: ResourceQuota
 metadata:
   name: scrutineering-quota
 spec:
+  # Every replica's limits (about 17.5 CPU and 14Gi), plus room for the extra pod a rolling
+  # update starts. tests/test_k8s_manifests.py checks the totals fit.
   hard:
     requests.cpu: "4"
     requests.memory: 8Gi
-    limits.cpu: "12"
-    limits.memory: 16Gi
+    limits.cpu: "24"
+    limits.memory: 24Gi

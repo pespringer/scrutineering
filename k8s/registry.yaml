@@ -1,0 +1,85 @@
+# The registry remediation candidates are pushed to and scanned from (`LOCAL_REGISTRY_HOST`).
+# It is plain HTTP inside the cluster, reachable only by the worker, the API and buildkitd
+# (see network-policies.yaml). Other images are scanned from their own registries.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scrutineering-registry
+  labels:
+    app: scrutineering-registry
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: scrutineering-registry
+  template:
+    metadata:
+      labels:
+        app: scrutineering-registry
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10003
+        runAsGroup: 10003
+        fsGroup: 10003
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: registry
+          image: registry:2
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          env:
+            - name: REGISTRY_STORAGE_DELETE_ENABLED
+              value: "true"
+          ports:
+            - containerPort: 5000
+              name: registry
+          readinessProbe:
+            httpGet:
+              path: /v2/
+              port: 5000
+          resources:
+            requests:
+              cpu: "50m"
+              memory: 64Mi
+            limits:
+              cpu: "500m"
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/registry
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: registry-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: registry-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: scrutineering-registry
+spec:
+  selector:
+    app: scrutineering-registry
+  ports:
+    - port: 5000
+      targetPort: 5000
+      name: registry

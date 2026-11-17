@@ -19,15 +19,44 @@ spec:
       labels:
         app: scrutineering-celery-beat
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: celery-beat
           image: scrutineering-worker:latest
           command:
             - "celery"
-            - "--app=src.scan.celery_app:create_celery_app"
+            - "--app=src.scan.tasks:app"
             - "beat"
             - "--loglevel=info"
             - "--scheduler=celery.beat:PersistentScheduler"
+            - "--pidfile=/tmp/celerybeat.pid"
+            - "--schedule=/tmp/celerybeat-schedule"
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           envFrom:
             - secretRef:
                 name: scrutineering-secrets
+            - configMapRef:
+                name: scrutineering-config
+          resources:
+            requests:
+              cpu: "50m"
+              memory: 128Mi
+            limits:
+              cpu: "500m"
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

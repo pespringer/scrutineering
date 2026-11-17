@@ -29,12 +29,13 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-          command:
-            - "celery"
-            - "--app=src.scan.celery_app:create_celery_app"
-            - "worker"
-            - "--loglevel=info"
-            - "--concurrency=4"
+            capabilities:
+              drop: ["ALL"]
+          # The image's command runs `celery --app=src.scan.tasks:app worker` on CELERY_QUEUES.
+          env:
+            # The root filesystem is read-only; git and npm need a writable home.
+            - name: HOME
+              value: /tmp
           envFrom:
             - secretRef:
                 name: scrutineering-secrets
@@ -52,5 +53,6 @@ spec:
               mountPath: /tmp
       volumes:
         - name: tmp
+          # Source checkouts, npm caches and scanner caches.
           emptyDir:
-            sizeLimit: 1Gi
+            sizeLimit: 8Gi
