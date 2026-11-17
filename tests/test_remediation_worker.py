@@ -31,9 +31,16 @@ def tools(tmp_path, monkeypatch):
     scripts = {
         "npm": "import json\nm=json.load(open('package.json'))\nm['dependencies']['lodash']='4.17.21'\n"
         "json.dump(m, open('package.json','w'))\n",
-        "buildctl": "import json, os, sys\nif os.environ.get('BUILD_EXIT'):\n"
+        "buildctl": "import json, os, sys\na=sys.argv\n"
+        "if 'target=scrutineering-test' in a:\n"
+        "    d=[x.split('=',1)[1] for x in a if x.startswith('dockerfile=')][0]\n"
+        "    open(os.environ['TEST_LOG'],'w').write(open(os.path.join(d,'Dockerfile')).read())\n"
+        "    if os.environ.get('TEST_EXIT'):\n"
+        "        sys.stderr.write('#9 RUN npm test\\n1 failing: lodash.template'); sys.exit(1)\n"
+        "    sys.exit(0)\n"
+        "if os.environ.get('BUILD_EXIT'):\n"
         "    sys.stderr.write('step 3/5 failed: npm ci'); sys.exit(1)\n"
-        "a=sys.argv\nout=open(a[a.index('--metadata-file')+1],'w')\n"
+        "out=open(a[a.index('--metadata-file')+1],'w')\n"
         "json.dump({'containerimage.digest': 'sha256:'+'d'*64}, out)\n",
     }
     for name, body in scripts.items():
@@ -41,7 +48,9 @@ def tools(tmp_path, monkeypatch):
         path.write_text(f"#!{sys.executable}\n{body}")
         path.chmod(path.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("TEST_LOG", str(tmp_path / "test-dockerfile"))
     monkeypatch.delenv("BUILD_EXIT", raising=False)
+    monkeypatch.delenv("TEST_EXIT", raising=False)
 
 
 @pytest.fixture
@@ -171,3 +180,39 @@ def test_only_building_remediations_run(remediation_id):
         "status": "cancelled",
         "reason": "not_running",
     }
+
+
+def _set_test_command(remediation_id, command):
+    from src.db.models import ImageSource
+
+    with get_session() as session:
+        image_id = session.get(Remediation, remediation_id).image_id
+        session.query(ImageSource).filter_by(image_id=image_id).one().test_command = command
+
+
+def test_the_test_command_runs_in_the_candidate_before_it_is_scanned(remediation_id, monkeypatch, tmp_path):
+    _set_test_command(remediation_id, ["npm", "test"])
+    scanned = _candidate_scan(monkeypatch, EXISTING)
+
+    assert worker.run_remediation(remediation_id)["status"] == "ready"
+    dockerfile = (tmp_path / "test-dockerfile").read_text()
+    assert "FROM node:18.12-alpine AS scrutineering-candidate" in dockerfile
+    assert dockerfile.rstrip().endswith('FROM scrutineering-candidate AS scrutineering-test\nRUN ["npm", "test"]')
+    assert len(scanned) == 1
+    with get_session() as session:
+        events = [event.event_type for event in RemediationRepository.list_events(session, remediation_id)]
+    assert events[-4:] == ["patched", "built", "tested", "verified"]
+
+
+def test_failing_tests_fail_the_remediation_with_their_output(remediation_id, monkeypatch):
+    _set_test_command(remediation_id, ["npm", "test"])
+    monkeypatch.setenv("TEST_EXIT", "1")
+    scanned = _candidate_scan(monkeypatch, EXISTING)
+
+    assert worker.run_remediation(remediation_id)["status"] == "failed"
+    record = _record(remediation_id)
+    assert record.status == RemediationStatus.FAILED
+    assert "the candidate's tests failed (npm test)" in record.error_message
+    assert "1 failing: lodash.template" in record.error_message
+    assert record.candidate_digest  # the candidate was built; it is the tests that failed
+    assert scanned == []  # a candidate that fails its tests is not scanned

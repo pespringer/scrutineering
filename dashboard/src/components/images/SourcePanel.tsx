@@ -25,10 +25,31 @@ async function saveSource(imageId: number, body: Record<string, unknown> | null)
   }
 }
 
+/** `["npm", "test"]` from the field's text; empty means no test command. Throws on anything else. */
+function parseTestCommand(text: string): string[] | null {
+  if (!text.trim()) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new Error('Test command must be a JSON list of arguments, e.g. ["npm", "test"]');
+  }
+  if (!Array.isArray(parsed) || !parsed.length || !parsed.every((part) => typeof part === "string" && part)) {
+    throw new Error('Test command must be a JSON list of arguments, e.g. ["npm", "test"]');
+  }
+  return parsed;
+}
+
 /** Where this image is built from. Remediation needs it to patch and rebuild the image. */
 export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ repository: "", ref: "HEAD", dockerfile_path: "Dockerfile", build_context: "." });
+  const [form, setForm] = useState({
+    repository: "",
+    ref: "HEAD",
+    dockerfile_path: "Dockerfile",
+    build_context: ".",
+    test_command: "",
+  });
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -39,6 +60,7 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
         ref: source.ref,
         dockerfile_path: source.dockerfile_path,
         build_context: source.build_context,
+        test_command: source.test_command ? JSON.stringify(source.test_command) : "",
       });
     }
   }, [source]);
@@ -48,7 +70,12 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
     setSaving(true);
     setNotice(null);
     try {
-      await saveSource(imageId, form);
+      // Build arguments are not edited here; send them back so saving keeps them.
+      await saveSource(imageId, {
+        ...form,
+        test_command: parseTestCommand(form.test_command),
+        build_args: source?.build_args || {},
+      });
       setEditing(false);
       onSaved();
     } catch (error) {
@@ -93,6 +120,10 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
             <dd className="font-mono text-slate-300">{source.dockerfile_path}</dd>
             <dt className="text-slate-500">Build context</dt>
             <dd className="font-mono text-slate-300">{source.build_context}</dd>
+            <dt className="text-slate-500">Test command</dt>
+            <dd className="break-all font-mono text-slate-300">
+              {source.test_command ? source.test_command.join(" ") : "none"}
+            </dd>
           </dl>
         ) : (
           <p className="text-sm leading-6 text-slate-400">
@@ -138,6 +169,16 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
               value={form.build_context}
               onChange={(e) => setForm({ ...form, build_context: e.target.value })}
               className={cx(FIELD, "mt-1")}
+            />
+          </label>
+          <label className="text-xs text-slate-500 sm:col-span-2">
+            Test command (optional): runs inside the patched image before it is scanned; a failure fails the fix
+            <input
+              id="source-test-command"
+              value={form.test_command}
+              onChange={(e) => setForm({ ...form, test_command: e.target.value })}
+              placeholder='["npm", "test"]'
+              className={cx(FIELD, "mt-1 font-mono")}
             />
           </label>
           <div className="flex items-end gap-3">

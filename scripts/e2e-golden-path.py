@@ -6,8 +6,8 @@ scan it through the dashboard API, and check the targeted lodash finding.
 
 Remediation half: connect the image to a git copy of its source under
 .local/remediation-sources, propose the lodash fix, approve and execute it (the
-worker patches the source with npm, builds the candidate on buildkitd, and scans
-it), then publish the candidate as the image's tag, rescan, and expect the
+worker patches the source with npm, builds the candidate on buildkitd, runs the
+source's test command inside it, and scans it), then publish the candidate as the image's tag, rescan, and expect the
 remediation to complete. Needs REMEDIATION_EXECUTION_ENABLED=true.
 
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
@@ -33,6 +33,8 @@ SCAN_HOST = os.environ.get("E2E_SCAN_HOST", "registry:5000")
 TIMEOUT = int(os.environ.get("E2E_TIMEOUT_SECONDS", "900"))
 REPO = "fixtures/vulnerable-node:e2e"
 TARGET_CVE, TARGET_PACKAGE, FIXED = "CVE-2021-23337", "lodash", "4.17.21"
+# Runs inside the candidate image: the patched lodash is the one installed.
+TEST_COMMAND = ["node", "-e", f"process.exit(require('lodash/package.json').version === '{FIXED}' ? 0 : 1)"]
 
 
 def step(message: str) -> None:
@@ -97,7 +99,7 @@ def remediation_half(scan: dict, target: dict) -> None:
             request("POST", f"/api/remediations/{previous['id']}/cancel")
 
     step("connect the image to its source")
-    request("PUT", f"/api/images/{image_id}/source", {"repository": prepare_source()})
+    request("PUT", f"/api/images/{image_id}/source", {"repository": prepare_source(), "test_command": TEST_COMMAND})
 
     step(f"propose, approve and execute the {TARGET_PACKAGE} fix")
     body = {"image_id": image_id, "finding_ids": [target["id"]]}
@@ -119,6 +121,10 @@ def remediation_half(scan: dict, target: dict) -> None:
         fail(f"remediation {remediation_id} ended {remediation['status']}: {remediation.get('error_message')}")
     verification = remediation["verification"]
     print(f"    ready: {remediation['candidate_image']}@{remediation['candidate_digest'][:19]}…")
+    events = [event["event_type"] for event in request("GET", f"/api/remediations/{remediation_id}/events")["events"]]
+    if "tested" not in events:
+        fail(f"the test command did not run: events {events}")
+    print("    the source's test command passed inside the candidate")
     print(f"    candidate has {verification['candidate_findings']} findings, none of the targeted ones")
 
     step("publish the candidate as the image's tag and rescan it")

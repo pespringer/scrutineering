@@ -687,6 +687,7 @@ observation, multi-user roles.
 | D4 | First PR provider? | **Decided: GitHub only.** The GitLab merge-request publisher, callback parsing and webhook route are removed (Phase 4c); Phase 4d builds publication on GitHub alone. |
 | D5 | Which severities do the scanners collect by default? | **Decided: all** (already true; see Phase 2b). |
 | D6 | How should verification treat a base-image bump that fixes some findings but introduces new critical/high ones? | **Decided: require acceptance.** The candidate goes to `needs_acceptance`, listing the new critical/high findings; a security operator accepts (→ `ready`) or cancels (Phases 4c, 4e). |
+| D7 | Where does a source's `test_command` run? | **Decided: in the candidate image.** A last build stage `FROM <final stage>` runs it through the same BuildKit cache, so it tests exactly what ships, as the image's user. Failing tests fail the remediation before the candidate scan. A named per-source test stage can come later if needed. |
 
 ## Mapping review findings to phases
 
