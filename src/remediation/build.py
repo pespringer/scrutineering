@@ -10,13 +10,14 @@ from __future__ import annotations
 
 import json
 import os
+import stat
 import subprocess
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 from src.remediation.apply import Checkout
-from src.remediation.sources import SourceError, SourceSettings, clone_url
+from src.remediation.sources import SourceError, SourceSettings, clone_url, github_repository
 
 BUILD_TIMEOUT_SECONDS = 1800
 CLONE_TIMEOUT_SECONDS = 300
@@ -54,6 +55,16 @@ def git(
     return result.stdout.strip() if strip else result.stdout
 
 
+def askpass_env(workdir: Path, access_token: str) -> dict[str, str]:
+    """Environment that lets git authenticate over https without the token in any URL or argument."""
+    script = workdir / "askpass.sh"
+    script.write_text(
+        '#!/bin/sh\ncase "$1" in\n  *sername*) echo x-access-token ;;\n  *) echo "$SCRUTINEERING_GIT_TOKEN" ;;\nesac\n'
+    )
+    script.chmod(stat.S_IRWXU)
+    return {"GIT_ASKPASS": str(script), "SCRUTINEERING_GIT_TOKEN": access_token}
+
+
 def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     """Clone the source at its ref into `workdir/source`. Returns the checkout and the commit it is on."""
     try:
@@ -67,7 +78,10 @@ def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     # safe.directory only from protected (global or system) config, so give the clone its own.
     config = workdir / "gitconfig"
     config.write_text(f"[safe]\n\tdirectory = {origin}\n\tdirectory = {origin}/.git\n")
-    git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config)
+    # A github.com source may be private: clone it with GITHUB_TOKEN, the token publication uses.
+    token = os.environ.get("GITHUB_TOKEN", "") if github_repository(settings.repository) else ""
+    auth = askpass_env(workdir, token) if token else None
+    git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config, env=auth)
     if settings.ref != "HEAD":
         git(["checkout", "--quiet", "--detach", settings.ref], cwd=root)
     commit = git(["rev-parse", "HEAD"], cwd=root)

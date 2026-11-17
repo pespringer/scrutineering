@@ -17,7 +17,6 @@ import json
 import logging
 import os
 import re
-import stat
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -31,8 +30,9 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import Remediation, RemediationPublication, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
-from src.remediation.build import BuildError, git
+from src.remediation.build import BuildError, askpass_env, git
 from src.remediation.sources import clone_url, github_repository
+from src.scan.image_identity import parse_image_reference
 
 logger = logging.getLogger(__name__)
 
@@ -146,6 +146,11 @@ def _finding_rows(findings: list[ScanFinding]) -> list[str]:
     return rows
 
 
+def pull_request_title(remediation_id: int, count: int, repository: str) -> str:
+    noun = "vulnerability" if count == 1 else "vulnerabilities"
+    return f"Fix {count} {noun} in {repository} (Scrutineering #{remediation_id})"
+
+
 def pull_request_body(remediation: Remediation, open_findings: int) -> str:
     """The plan and the before/after comparison, from what the server built and scanned."""
     image = remediation.image
@@ -220,8 +225,9 @@ def _load(remediation_id: int) -> Job:
             base=None if ref == "HEAD" or _COMMIT.fullmatch(ref) else ref,
             commit=remediation.source_commit,
             patch=remediation.patch,
-            title=f"Fix {len(remediation.findings)} vulnerabilities in {image.repo_name} "
-            f"(Scrutineering #{remediation_id})",
+            title=pull_request_title(
+                remediation_id, len(remediation.findings), parse_image_reference(image.full_name).repository
+            ),
             body=pull_request_body(remediation, open_findings),
             image_digest=image.digest,
             # A fixed date makes the commit reproducible, so a retried push of the same patch is a no-op.
@@ -239,21 +245,11 @@ def _publication(session, remediation_id: int) -> RemediationPublication | None:
     )
 
 
-def _askpass(workdir: Path, access_token: str) -> dict[str, str]:
-    """Environment that lets git authenticate over https without the token in any URL or argument."""
-    script = workdir / "askpass.sh"
-    script.write_text(
-        '#!/bin/sh\ncase "$1" in\n  *sername*) echo x-access-token ;;\n  *) echo "$SCRUTINEERING_GIT_TOKEN" ;;\nesac\n'
-    )
-    script.chmod(stat.S_IRWXU)
-    return {"GIT_ASKPASS": str(script), "SCRUTINEERING_GIT_TOKEN": access_token}
-
-
 def push_branch(job: Job, workdir: Path, access_token: str) -> str:
     """Commit the patch on top of `job.commit` and push it to the remediation branch. Returns the new commit."""
     remote = clone_url(f"https://github.com/{job.repository}")
     root = workdir / "source"
-    auth = _askpass(workdir, access_token)
+    auth = askpass_env(workdir, access_token)
     git(["clone", "--quiet", "--no-checkout", "--", remote, str(root)], env=auth)
     git(["checkout", "--quiet", "--detach", job.commit], cwd=root)
     patch = workdir / "remediation.patch"
