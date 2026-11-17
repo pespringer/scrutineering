@@ -15,7 +15,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import os
 import re
 import tempfile
 from dataclasses import dataclass
@@ -27,6 +26,7 @@ from urllib.request import Request, urlopen
 
 from celery import shared_task
 
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import Remediation, RemediationPublication, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
@@ -53,7 +53,7 @@ class PublishStopped(Exception):
 
 
 def token() -> str:
-    return os.environ.get("GITHUB_TOKEN", "")
+    return get_settings().github_token.get_secret_value()
 
 
 def branch_for(remediation_id: int) -> str:

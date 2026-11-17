@@ -18,8 +18,7 @@ updates; a high or critical advisory blocks the dashboard job.
 Run `make check` from the repository root to verify, among other things, that
 the dashboard package and lockfile exist.
 
-Compose and Kubernetes keep `NEXT_PUBLIC_API_URL` empty: browser requests use
-same-origin Next.js routes, which proxy server-side to the authenticated Python
+Browser requests use same-origin Next.js routes, which proxy server-side to the authenticated Python
 API. Configure `DASHBOARD_API_URL` and `DASHBOARD_API_KEY` only in the server
 environment. The dashboard should not call internal database, Redis, or scanner
 services directly.

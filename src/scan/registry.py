@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 from typing import Callable, Mapping
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from src.config import get_settings
 from src.scan.image_identity import ImageIdentity
 
 _MANIFEST_TYPES = ", ".join(
@@ -39,33 +39,26 @@ def registry_credentials_from_env(env: Mapping[str, str] | None = None) -> dict[
     Partial credential pairs are rejected so a deployment cannot silently fall
     back to anonymous access after a configuration typo.
     """
-    values = os.environ if env is None else env
+    settings = get_settings(env)
     credentials: dict[str, Credentials] = {}
-    docker_user, docker_password = values.get("DOCKERHUB_USERNAME", ""), values.get("DOCKERHUB_PASSWORD", "")
+    docker_user, docker_password = settings.dockerhub_username, settings.dockerhub_password.get_secret_value()
     if bool(docker_user) != bool(docker_password):
         raise ValueError("DOCKERHUB_USERNAME and DOCKERHUB_PASSWORD must be configured together")
     if docker_user:
         credentials["dockerhub"] = (docker_user, docker_password)
-    if bool(values.get("AWS_ACCESS_KEY_ID", "")) != bool(values.get("AWS_SECRET_ACCESS_KEY", "")):
+    if bool(settings.aws_access_key_id) != bool(settings.aws_secret_access_key.get_secret_value()):
         # Not used here (the scanners read AWS credentials directly), but a half-configured pair is an error.
         raise ValueError("AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be configured together")
-    if values.get("GITHUB_TOKEN"):
-        credentials["ghcr.io"] = (values.get("GITHUB_USERNAME", "gh_token"), values["GITHUB_TOKEN"])
-    gitlab_token = values.get("GITLAB_TOKEN") or values.get("CI_JOB_TOKEN")
+    if settings.github_token.get_secret_value():
+        credentials["ghcr.io"] = (settings.github_username, settings.github_token.get_secret_value())
+    gitlab_token = settings.gitlab_token.get_secret_value() or settings.ci_job_token.get_secret_value()
     if gitlab_token:
-        credentials["gitlab"] = (values.get("GITLAB_USERNAME", "gitlab-ci-token"), gitlab_token)
-    raw = str(values.get("REGISTRY_CREDENTIALS_JSON", "")).strip()
-    if raw:
-        try:
-            parsed = json.loads(raw)
-        except json.JSONDecodeError as exc:
-            raise ValueError("REGISTRY_CREDENTIALS_JSON must be valid JSON") from exc
-        if not isinstance(parsed, dict):
-            raise ValueError("REGISTRY_CREDENTIALS_JSON must map registry hosts to credentials")
-        for host, entry in parsed.items():
-            if not isinstance(entry, dict) or not entry.get("username") or not entry.get("password"):
-                raise ValueError(f"REGISTRY_CREDENTIALS_JSON[{host!r}] needs a username and password")
-            credentials[str(host)] = (str(entry["username"]), str(entry["password"]))
+        credentials["gitlab"] = (settings.gitlab_username, gitlab_token)
+    raw = settings.registry_credentials_json.get_secret_value().strip()
+    for host, entry in (json.loads(raw) if raw else {}).items():
+        if not isinstance(entry, dict) or not entry.get("username") or not entry.get("password"):
+            raise ValueError(f"REGISTRY_CREDENTIALS_JSON[{host!r}] needs a username and password")
+        credentials[str(host)] = (str(entry["username"]), str(entry["password"]))
     return credentials
 
 

@@ -8,10 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.db.models import Base
-from src.db.config import get_async_database_url, get_database_url
-from src.db.pool_config import load_pool_config
+from src.db.config import get_async_database_url, get_database_url, pool_options
 
-DATABASE_URL = get_database_url("DATABASE_URL")
+DATABASE_URL = get_database_url()
 
 # Async variant for FastAPI
 ASYNC_DATABASE_URL = get_async_database_url(DATABASE_URL)
@@ -20,7 +19,7 @@ ASYNC_DATABASE_URL = get_async_database_url(DATABASE_URL)
 
 engine_options = {"pool_pre_ping": True, "pool_recycle": 3600}
 if not DATABASE_URL.startswith("sqlite"):
-    engine_options.update(load_pool_config())
+    engine_options.update(pool_options())
 
 engine = create_engine(DATABASE_URL, **engine_options)
 
@@ -40,7 +39,7 @@ if not DATABASE_URL.startswith("sqlite"):
 
 async_engine_options = {"pool_pre_ping": True, "pool_recycle": 3600, "echo": False}
 if not ASYNC_DATABASE_URL.startswith("sqlite"):
-    async_engine_options.update(load_pool_config())
+    async_engine_options.update(pool_options())
 
 async_engine = create_async_engine(ASYNC_DATABASE_URL, **async_engine_options)
 

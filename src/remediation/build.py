@@ -16,12 +16,12 @@ import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
+from src.config import get_settings
 from src.remediation.apply import Checkout
 from src.remediation.sources import SourceError, SourceSettings, clone_url, github_repository
 
 BUILD_TIMEOUT_SECONDS = 1800
 CLONE_TIMEOUT_SECONDS = 300
-DEFAULT_BUILDKIT_HOST = "tcp://buildkitd:1234"
 
 
 class BuildError(RuntimeError):
@@ -79,7 +79,7 @@ def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     config = workdir / "gitconfig"
     config.write_text(f"[safe]\n\tdirectory = {origin}\n\tdirectory = {origin}/.git\n")
     # A github.com source may be private: clone it with GITHUB_TOKEN, the token publication uses.
-    token = os.environ.get("GITHUB_TOKEN", "") if github_repository(settings.repository) else ""
+    token = get_settings().github_token.get_secret_value() if github_repository(settings.repository) else ""
     auth = askpass_env(workdir, token) if token else None
     git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config, env=auth)
     if settings.ref != "HEAD":
@@ -116,7 +116,7 @@ def build_and_push(source: Checkout, build_args: dict[str, str], reference: str)
         command = [
             "buildctl",
             "--addr",
-            os.environ.get("BUILDKIT_HOST", DEFAULT_BUILDKIT_HOST),
+            get_settings().buildkit_host,
             "build",
             "--frontend",
             "dockerfile.v0",

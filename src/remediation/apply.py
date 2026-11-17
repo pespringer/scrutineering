@@ -50,7 +50,8 @@ def _safe(value: str, pattern: re.Pattern, what: str) -> str:
 
 def _run(command: list[str], cwd: Path) -> None:
     """Run a package-manager command with no credentials from the worker's environment."""
-    env = {key: os.environ[key] for key in ("PATH", "HOME", "LANG", "HTTPS_PROXY", "NO_PROXY") if key in os.environ}
+    passed_on = {"PATH", "HOME", "LANG", "HTTPS_PROXY", "NO_PROXY"}
+    env = {key: value for key, value in os.environ.items() if key in passed_on}
     try:
         result = subprocess.run(
             command, cwd=cwd, env=env, capture_output=True, text=True, timeout=COMMAND_TIMEOUT_SECONDS, check=False
