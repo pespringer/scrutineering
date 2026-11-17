@@ -348,3 +348,32 @@ def test_github_repository_is_read_only_from_github_urls():
     assert github_repository("app") is None
     with get_session() as session:
         assert session.query(Image).count() == 0
+
+
+def test_github_sources_are_cloned_with_the_token_and_others_without(tmp_path, monkeypatch, remote):
+    """Execution must reach private GitHub sources; no other source ever sees the token."""
+    from src.remediation import build
+    from src.remediation.sources import SourceSettings
+
+    seen = []
+    real_git = build.git
+
+    def recording_git(args, *rest, **kwargs):
+        if args[0] == "clone":
+            seen.append((args[-2], (kwargs.get("env") or {}).get("SCRUTINEERING_GIT_TOKEN")))
+        return real_git(args, *rest, **kwargs)
+
+    monkeypatch.setattr(build, "git", recording_git)
+    monkeypatch.setenv("GITHUB_TOKEN", "token-value")
+    for name in ("one", "two"):
+        (tmp_path / name).mkdir()
+    github = SourceSettings.validated(repository="https://github.com/acme/app")
+    _, commit = build.checkout(github, tmp_path / "one")
+    assert commit == remote["commit"] and seen[-1] == (str(remote["bare"]), "token-value")
+    assert "token-value" not in (tmp_path / "one" / "source" / ".git" / "config").read_text()
+
+    local = tmp_path / "sources" / "app"
+    _git(tmp_path, "clone", "-q", str(remote["bare"]), str(local))
+    monkeypatch.setenv("REMEDIATION_SOURCES_ROOT", str(tmp_path / "sources"))
+    build.checkout(SourceSettings.validated(repository="app"), tmp_path / "two")
+    assert seen[-1][1] is None

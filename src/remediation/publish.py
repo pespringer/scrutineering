@@ -17,7 +17,6 @@ import json
 import logging
 import os
 import re
-import stat
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -31,7 +30,7 @@ from celery import shared_task
 from src.db.connection import get_session
 from src.db.models import Remediation, RemediationPublication, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
-from src.remediation.build import BuildError, git
+from src.remediation.build import BuildError, askpass_env, git
 from src.remediation.sources import clone_url, github_repository
 
 logger = logging.getLogger(__name__)
@@ -239,21 +238,11 @@ def _publication(session, remediation_id: int) -> RemediationPublication | None:
     )
 
 
-def _askpass(workdir: Path, access_token: str) -> dict[str, str]:
-    """Environment that lets git authenticate over https without the token in any URL or argument."""
-    script = workdir / "askpass.sh"
-    script.write_text(
-        '#!/bin/sh\ncase "$1" in\n  *sername*) echo x-access-token ;;\n  *) echo "$SCRUTINEERING_GIT_TOKEN" ;;\nesac\n'
-    )
-    script.chmod(stat.S_IRWXU)
-    return {"GIT_ASKPASS": str(script), "SCRUTINEERING_GIT_TOKEN": access_token}
-
-
 def push_branch(job: Job, workdir: Path, access_token: str) -> str:
     """Commit the patch on top of `job.commit` and push it to the remediation branch. Returns the new commit."""
     remote = clone_url(f"https://github.com/{job.repository}")
     root = workdir / "source"
-    auth = _askpass(workdir, access_token)
+    auth = askpass_env(workdir, access_token)
     git(["clone", "--quiet", "--no-checkout", "--", remote, str(root)], env=auth)
     git(["checkout", "--quiet", "--detach", job.commit], cwd=root)
     patch = workdir / "remediation.patch"

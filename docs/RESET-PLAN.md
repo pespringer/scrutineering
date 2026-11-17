@@ -588,8 +588,8 @@ Conservative choices:
   branch is never overwritten.
 - A merged PR whose image has not been rebuilt (same digest) stays `published`.
   It is not failed, because merging alone does not change the image.
-- Execution still clones sources without credentials (public or local
-  repositories). Only publication uses the token.
+- github.com sources are cloned with `GITHUB_TOKEN` for execution as well, so
+  private repositories work. No other source ever receives the token.
 - The old publisher, branch-protection check, rollback plan and post-merge
   evidence modules were removed, along with their columns.
 

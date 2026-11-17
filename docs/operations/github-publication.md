@@ -13,7 +13,8 @@ happens when a security operator asks for it.
    GitHub App installation token) limited to the source repositories, with
    **Contents: read and write** and **Pull requests: read and write**. The token's
    repository selection is the allowlist: publication cannot reach a repository the
-   token cannot. The same variable also authenticates scans of `ghcr.io` images;
+   token cannot. Execution also clones github.com sources with it, so private
+   repositories work; no other source is given the token. The same variable also authenticates scans of `ghcr.io` images;
    setting it does not publish anything by itself.
 3. **The webhook**, so merges are noticed. In the repository's **Settings →
    Webhooks**, add `https://<api host>/api/dashboard/webhooks/github` with content

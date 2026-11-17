@@ -9,7 +9,8 @@ built and scanned itself.
 
 1. **A connected source.** On the image page, use **Source → Connect source** (or
    `PUT /api/dashboard/images/{id}/source`). The repository is either an
-   `https://` git URL, or a folder (a git repository) under the worker's sources
+   `https://` git URL (a private github.com repository is cloned with
+   `GITHUB_TOKEN`), or a folder (a git repository) under the worker's sources
    directory. Locally that is `./.local/remediation-sources`
    (`REMEDIATION_HOST_SOURCES`), mounted read-only at `/workspace/sources`.
    Also set the ref, the Dockerfile path and the build context.
