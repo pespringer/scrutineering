@@ -617,8 +617,12 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
   Under 150 lines.
 - [x] `docs/ARCHITECTURE.md`: one diagram of the services and the loop, the data
   model, and the state machines.
-- [ ] `docs/OPERATOR_GUIDE.md`: scan an image, triage findings, connect a source,
+- [x] `docs/OPERATOR_GUIDE.md`: scan an image, triage findings, connect a source,
   run a remediation, and read the results.
+  It absorbed `product-coherence.md`, `local-registry.md`, `runtime-discovery.md`,
+  `readiness.md` and the outdated `scan-queues.md`. `remediation-execution.md` and
+  `github-publication.md` stay as reference pages, and `dashboard.md` as the
+  frontend deployment guide.
 - [x] `docs/CONFIGURATION.md`: generated from one settings module
   (`src/config.py`, pydantic-settings) that becomes the only place env vars are read.
   - `tests/test_config.py` enforces it. Nothing else in `src/` reads a setting
