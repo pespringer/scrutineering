@@ -146,6 +146,7 @@ def test_publishing_pushes_the_verified_patch_and_opens_a_pull_request(client, r
     assert _git(remote["bare"], "log", "-1", "--format=%an", branch) == "Scrutineering"
     [pull] = github.pulls
     assert pull["head"] == branch and pull["base"] == "main" and pull["repository"] == "acme/app"
+    assert pull["title"] == f"Fix 1 vulnerability in team/app (Scrutineering #{rid})"
     assert "CVE-2021-23337" in pull["body"] and "| Open findings | 2 | 1 |" in pull["body"]
     assert f"scrutineering-candidate-{rid}" in pull["body"]
 
