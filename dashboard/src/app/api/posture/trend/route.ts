@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { dashboardResponse } from "../../_lib/backend";
 
 export async function GET(req: Request) {

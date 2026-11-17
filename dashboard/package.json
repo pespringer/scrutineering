@@ -7,7 +7,7 @@
     "build": "next build",
     "validate:build": "npm run build && node ../scripts/validate-dashboard-build.mjs",
     "start": "next start -p 3001",
-    "lint": "next lint"
+    "lint": "eslint ."
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",
@@ -25,6 +25,8 @@
     "@types/node": "^22.19.17",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.6",
     "typescript": "^5.9.3"
   },
   "description": "",
