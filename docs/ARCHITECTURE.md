@@ -164,7 +164,7 @@ stateDiagram-v2
     completed --> [*]
 ```
 
-Any status except `completed` can also be **cancelled**, which releases the
+Every status except `completed` and `cancelled` can also be **cancelled**, which releases the
 remediation's findings so they can be proposed again.
 
 The transitions live in `src/remediation/state_machine.py`. The server decides every
