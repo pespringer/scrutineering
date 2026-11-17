@@ -6,13 +6,13 @@ from uuid import uuid4
 import re
 
 from src.api.routes import router as dashboard_router
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import Scan
 from src.api.readiness import check_database
 from src.telemetry.scan_metrics import scan_metrics as metrics
 from src.api.auth import is_api_key_authorized
 from src.api.service_auth import create_replay_guard, verify_service_request
-import os
 import time
 import hmac
 from fastapi.responses import JSONResponse
@@ -50,19 +50,20 @@ def create_app() -> FastAPI:
 
     @application.middleware("http")
     async def api_auth_middleware(request, call_next):
-        expected = os.environ.get("PYTHON_API_KEY", "")
+        try:
+            settings = get_settings()
+        except ValueError as exc:
+            return JSONResponse({"error": "invalid_configuration", "detail": str(exc)}, status_code=500)
+        expected = settings.python_api_key.get_secret_value()
         public_paths = {"/health", "/ready", "/metrics", "/version"}
         provider_webhook = is_provider_webhook_path(request.url.path)
         if request.url.path not in public_paths and not provider_webhook:
             body = await request.body()
-            service_secret = os.environ.get("SERVICE_AUTH_SECRET", "")
+            service_secret = settings.service_auth_secret.get_secret_value()
             service_headers = {key: value for key, value in request.headers.items() if key.startswith("x-service-")}
             service_authenticated = False
             if service_secret and service_headers:
-                try:
-                    max_skew = int(os.environ.get("SERVICE_AUTH_MAX_SKEW_SECONDS", "300"))
-                except ValueError:
-                    return JSONResponse({"error": "invalid_service_auth_config"}, status_code=500)
+                max_skew = settings.service_auth_max_skew_seconds
                 service_authenticated = is_service_request_authorized(
                     service_headers,
                     body,
@@ -71,14 +72,14 @@ def create_app() -> FastAPI:
                     max_skew_seconds=max_skew,
                 )
             api_authenticated = bool(expected and is_api_key_authorized(request, expected))
-            proxy_secret = os.environ.get("DASHBOARD_TRUSTED_PROXY_SECRET", "")
+            proxy_secret = settings.dashboard_trusted_proxy_secret.get_secret_value()
             proxy_authenticated = bool(
                 request.url.path.startswith("/api/dashboard")
                 and proxy_secret
                 and hmac.compare_digest(request.headers.get("x-dashboard-proxy-secret", ""), proxy_secret)
                 and request.headers.get("x-authenticated-sub", "")
             )
-            required_service_auth = os.environ.get("SERVICE_AUTH_REQUIRED", "").lower() in {"1", "true", "yes"}
+            required_service_auth = settings.service_auth_required
             dashboard_api_key_allowed = request.url.path.startswith("/api/dashboard") and api_authenticated
             if (
                 required_service_auth
@@ -103,11 +104,7 @@ def create_app() -> FastAPI:
             request.state.principal_email = (
                 request.headers.get("x-authenticated-email") if proxy_authenticated else None
             )
-            default_roles = [
-                role.strip()
-                for role in os.environ.get("DASHBOARD_DEFAULT_ROLES", "dashboard,operator").split(",")
-                if role.strip()
-            ]
+            default_roles = list(settings.dashboard_default_roles)
             request.state.principal_roles = (
                 [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()]
                 if proxy_authenticated
@@ -125,12 +122,13 @@ def create_app() -> FastAPI:
 
     @application.get("/version", tags=["health"])
     def version() -> dict[str, str]:
-        revision = os.environ.get("SCRUTINEERING_REVISION", "unknown")
+        settings = get_settings()
+        revision = settings.scrutineering_revision
         if not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", revision):
             revision = "unknown"
         return {
             "service": "scrutineering",
-            "version": os.environ.get("SCRUTINEERING_VERSION", "1.0"),
+            "version": settings.scrutineering_version,
             "revision": revision,
         }
 

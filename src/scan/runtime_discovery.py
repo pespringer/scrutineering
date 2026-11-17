@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 import fnmatch
-import os
 from typing import Any
-
-
-def _patterns(name: str) -> list[str]:
-    return [item.strip() for item in os.environ.get(name, "").split(",") if item.strip()]
 
 
 def _labels_match(labels: Any, expression: str | None) -> bool:
@@ -34,12 +29,7 @@ def select_runtime_images(
     """Return stable, unique image references selected from running containers."""
     if limit < 1:
         raise ValueError("runtime discovery limit must be positive")
-    include = include if include is not None else _patterns("SCAN_RUNTIME_INCLUDE_IMAGES")
-    exclude = exclude if exclude is not None else _patterns("SCAN_RUNTIME_EXCLUDE_IMAGES")
-    exclude_containers = (
-        exclude_containers if exclude_containers is not None else _patterns("SCAN_RUNTIME_EXCLUDE_CONTAINERS")
-    )
-    include_label = include_label if include_label is not None else os.environ.get("SCAN_RUNTIME_INCLUDE_LABEL")
+    include, exclude, exclude_containers = include or [], exclude or [], exclude_containers or []
     selected: list[str] = []
     seen: set[str] = set()
     for container in containers:

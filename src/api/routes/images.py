@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from collections import Counter, defaultdict
 from urllib.parse import quote
 from urllib.request import Request as UrlRequest, urlopen
@@ -11,6 +10,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import (
     AuditEventType,
@@ -32,22 +32,21 @@ from src.api.routes._access import record_operator_event, require_role, severity
 router = APIRouter()
 
 
+def _registry_url(configured: str, host: str) -> str:
+    """An explicit URL, or the host over HTTP when REGISTRY_INSECURE is set (HTTPS otherwise)."""
+    if configured.strip():
+        return configured.strip().rstrip("/")
+    return f"{'http' if get_settings().registry_insecure else 'https'}://{host.strip()}"
+
+
 def _local_registry_base_url() -> str:
-    configured = os.environ.get("LOCAL_REGISTRY_URL", "").strip()
-    if configured:
-        return configured.rstrip("/")
-    host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
-    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
-    return f"{scheme}://{host}"
+    settings = get_settings()
+    return _registry_url(settings.local_registry_url, settings.local_registry_host)
 
 
 def _local_registry_public_url() -> str:
-    configured = os.environ.get("LOCAL_REGISTRY_PUBLIC_URL", "").strip()
-    if configured:
-        return configured.rstrip("/")
-    host = os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000").strip()
-    scheme = "http" if os.environ.get("REGISTRY_INSECURE", "true").lower() in {"1", "true", "yes"} else "https"
-    return f"{scheme}://{host}"
+    settings = get_settings()
+    return _registry_url(settings.local_registry_public_url, settings.local_registry_public_host)
 
 
 def _registry_json(path: str) -> dict:
@@ -154,7 +153,7 @@ def registry_inventory(request: Request) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=503, detail="local_registry_unavailable") from exc
 
-    registry_host = os.environ.get("LOCAL_REGISTRY_HOST", "registry:5000").strip()
+    registry_host = get_settings().local_registry_host.strip()
     with get_session() as session:
         images = session.query(Image).filter(Image.active.is_(True)).all()
         image_ids = [image.id for image in images]
@@ -217,7 +216,7 @@ def registry_inventory(request: Request) -> dict:
     counts = Counter(item["security_status"] for item in tags)
     return {
         "registry": {
-            "host": os.environ.get("LOCAL_REGISTRY_PUBLIC_HOST", "localhost:5000"),
+            "host": get_settings().local_registry_public_host,
             "url": _local_registry_public_url(),
             "internal_host": registry_host,
             "reachable": True,

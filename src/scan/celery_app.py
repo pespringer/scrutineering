@@ -1,18 +1,15 @@
 """Celery app configuration for the scrutineering scan orchestrator."""
 
-import os
-
 from celery import Celery
 from celery.schedules import crontab
 
-
-DEFAULT_SCAN_SCHEDULE = "0 */6 * * *"
+from src.config import get_settings
 
 
 def scan_schedule(expression: str | None = None) -> crontab:
     """Parse SCHEDULE_CRON_SCAN (five cron fields) into the beat schedule for inventory rescans."""
-    value = (expression if expression is not None else os.environ.get("SCHEDULE_CRON_SCAN", "")).strip()
-    fields = (value or DEFAULT_SCAN_SCHEDULE).split()
+    value = (expression or get_settings().schedule_cron_scan).strip()
+    fields = value.split()
     if len(fields) != 5:
         raise ValueError(f"SCHEDULE_CRON_SCAN must have five cron fields, got {value!r}")
     minute, hour, day_of_month, month_of_year, day_of_week = fields
@@ -23,10 +20,8 @@ def scan_schedule(expression: str | None = None) -> crontab:
 
 def create_celery_app() -> Celery:
     """Build and return a configured Celery application."""
-    broker_url = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
-    backend_url = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
-
-    app = Celery("scrutineering", broker=broker_url, backend=backend_url)
+    settings = get_settings()
+    app = Celery("scrutineering", broker=settings.celery_broker_url, backend=settings.celery_result_backend)
 
     app.conf.update(
         worker_prefetch_multiplier=1,

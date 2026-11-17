@@ -6,12 +6,12 @@ the settings it is given; the worker (which holds the checkouts) resolves them.
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
-DEFAULT_SOURCES_ROOT = "/workspace/sources"
+from src.config import get_settings
+
 GITHUB_WEB = "https://github.com"
 _URL = re.compile(r"^https://[A-Za-z0-9.-]+(:\d+)?/[A-Za-z0-9._~/-]+$")
 _REF = re.compile(r"^[A-Za-z0-9._/-]{1,256}$")
@@ -96,7 +96,7 @@ class SourceSettings:
         """Absolute path of a local repository, which must stay inside the sources root."""
         if self.is_remote:
             raise SourceError("remote repositories have no local path")
-        root = Path(sources_root or os.environ.get("REMEDIATION_SOURCES_ROOT", DEFAULT_SOURCES_ROOT)).resolve()
+        root = Path(sources_root or get_settings().remediation_sources_root).resolve()
         path = (root / self.repository).resolve()
         if path != root and root not in path.parents:
             raise SourceError("repository path escapes the sources root")

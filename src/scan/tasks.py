@@ -8,7 +8,6 @@ Scans are created by `src.scan.records` before they are queued.
 
 import asyncio
 import logging
-import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
@@ -32,6 +31,7 @@ from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.scanners.trivy import TrivyScanner
 from src.scan.scheduled import schedule_active_scans
+from src.config import get_settings
 from src.scan.settings import ScannerSettings
 from src.scan.utils.dedup import deduplicate_findings_with_report
 from src.scan.utils.db import persist_findings
@@ -50,7 +50,7 @@ TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED
 def schedule_inventory_scans() -> dict[str, int]:
     from src.scan.reliability import ScanCooldown
 
-    cooldown = ScanCooldown(int(os.environ.get("SCAN_COOLDOWN_SECONDS", "3600")))
+    cooldown = ScanCooldown(get_settings().scan_cooldown_seconds)
     return schedule_active_scans(
         lambda target, priority: queue_scan(target, priority=priority, trigger="scheduled"),
         cooldown=cooldown,
@@ -60,18 +60,25 @@ def schedule_inventory_scans() -> dict[str, int]:
 @shared_task(name="src.scan.tasks.discover_runtime_scans", acks_late=True)
 def discover_runtime_scans() -> dict[str, int | str]:
     """Discover running runtime images and queue bounded low-priority scans."""
-    if os.environ.get("SCAN_RUNTIME_DISCOVERY_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+    settings = get_settings()
+    if not settings.scan_runtime_discovery_enabled:
         return {"status": "disabled", "discovered": 0, "queued": 0}
-    use_containerd = os.environ.get("SCAN_RUNTIME_USE_CONTAINERD", "false").lower() in {"1", "true", "yes"}
     containers = asyncio.run(
         discover_runtime_containers(
-            use_containerd=use_containerd,
-            docker_bin=os.environ.get("SCAN_RUNTIME_DOCKER_BIN", "docker"),
-            ctr_bin=os.environ.get("SCAN_RUNTIME_CTR_BIN", "ctr"),
-            containerd_namespace=os.environ.get("SCAN_RUNTIME_CONTAINERD_NAMESPACE", "default"),
+            use_containerd=settings.scan_runtime_use_containerd,
+            docker_bin=settings.scan_runtime_docker_bin,
+            ctr_bin=settings.scan_runtime_ctr_bin,
+            containerd_namespace=settings.scan_runtime_containerd_namespace,
         )
     )
-    images = select_runtime_images(containers, limit=int(os.environ.get("SCAN_RUNTIME_MAX_IMAGES", "100")))
+    images = select_runtime_images(
+        containers,
+        include=settings.scan_runtime_include_images,
+        exclude=settings.scan_runtime_exclude_images,
+        exclude_containers=settings.scan_runtime_exclude_containers,
+        include_label=settings.scan_runtime_include_label,
+        limit=settings.scan_runtime_max_images,
+    )
     queued = 0
     for image in images:
         try:
@@ -180,12 +187,13 @@ def _write_severity_snapshot(image_id: int) -> None:
 
 def create_shared_scan_cache():
     """Build the optional cross-worker Redis cache from explicit settings."""
-    if os.environ.get("SCANNER_CACHE_BACKEND", "local").lower() != "redis":
+    settings = get_settings()
+    if settings.scanner_cache_backend != "redis":
         return None
     import redis
 
-    client = redis.Redis.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"), decode_responses=True)
-    return SyncRedisScanCache(client, ttl_seconds=int(os.environ.get("SCANNER_CACHE_TTL_SECONDS", "3600")))
+    client = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+    return SyncRedisScanCache(client, ttl_seconds=settings.scanner_cache_ttl_seconds)
 
 
 def enqueue_scan(image_name: str, *, priority: str = "normal", **kwargs):

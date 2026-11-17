@@ -10,12 +10,12 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
-import os
 import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import RemediationPublication, RemediationStatus, RemediationWebhookEvent
 from src.db.repositories import RemediationRepository
@@ -69,7 +69,7 @@ async def provider_webhook(provider: str, request: Request) -> dict:
     delivery = request.headers.get("x-github-delivery", "")
     body = await request.body()
     signature = request.headers.get("x-hub-signature-256", "")
-    if not delivery or not verify_signature(body, signature, os.environ.get("GITHUB_WEBHOOK_SECRET", "")):
+    if not delivery or not verify_signature(body, signature, get_settings().github_webhook_secret.get_secret_value()):
         record_provider_callback("rejected")
         raise HTTPException(status_code=401, detail="invalid_provider_signature")
     try:

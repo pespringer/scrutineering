@@ -64,8 +64,8 @@ until it completes; see [remediation execution](docs/operations/remediation-exec
 # 1. Clone and configure
 git clone <repo> scrutineering && cd scrutineering
 cp .env.example .env
-# Set POSTGRES_PASSWORD, DATABASE_URL, PYTHON_API_KEY, service-auth settings,
-# and provider allowlists in .env before starting.
+# Set POSTGRES_PASSWORD, DATABASE_URL and PYTHON_API_KEY in .env before starting.
+# Every setting is described in docs/CONFIGURATION.md.
 
 # 2. Start all services
 make up   # docker compose up --build -d

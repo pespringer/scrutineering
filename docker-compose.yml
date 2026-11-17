@@ -68,8 +68,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dashboard
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
     container_name: scrutineering-dashboard
     user: "dashboard"
     security_opt:
@@ -203,8 +201,6 @@ services:
       - REMEDIATION_EXECUTION_ENABLED=${REMEDIATION_EXECUTION_ENABLED:-false}
       - REMEDIATION_SOURCES_ROOT=/workspace/sources
       - BUILDKIT_HOST=tcp://buildkitd:1234
-      - COSIGN_CERTIFICATE_IDENTITY=${COSIGN_CERTIFICATE_IDENTITY:-}
-      - COSIGN_OIDC_ISSUER=${COSIGN_OIDC_ISSUER:-}
     volumes:
       # Image sources that remediations patch: one git repository per folder, read-only.
       - ${REMEDIATION_HOST_SOURCES:-./.local/remediation-sources}:/workspace/sources:ro

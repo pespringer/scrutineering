@@ -20,11 +20,6 @@ ARG GRYPE_VERSION=0.121.0
 RUN curl -sSfL "https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/grype_${GRYPE_VERSION}_linux_amd64.tar.gz" \
     | tar -xz -C /usr/local/bin grype
 
-# Install a pinned Cosign release for image signature verification.
-ARG COSIGN_VERSION=3.1.4
-RUN curl -sSfL "https://github.com/sigstore/cosign/releases/download/v${COSIGN_VERSION}/cosign-linux-amd64" \
-    -o /usr/local/bin/cosign && chmod 0755 /usr/local/bin/cosign
-
 # buildctl talks to the rootless buildkitd service to build remediation candidates.
 COPY --from=moby/buildkit:v0.16.0-rootless /usr/bin/buildctl /usr/local/bin/buildctl
 

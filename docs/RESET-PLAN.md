@@ -619,8 +619,24 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
   model, and the state machines.
 - [ ] `docs/OPERATOR_GUIDE.md`: scan an image, triage findings, connect a source,
   run a remediation, and read the results.
-- [ ] `docs/CONFIGURATION.md`: generated from one settings module
+- [x] `docs/CONFIGURATION.md`: generated from one settings module
   (`src/config.py`, pydantic-settings) that becomes the only place env vars are read.
+  - `tests/test_config.py` enforces it. Nothing else in `src/` reads a setting
+    from the environment; only `PATH`/`HOME`-style pass-through to subprocesses
+    remains. The doc must match `python -m src.config`, and every variable in
+    `.env.example`, Compose and the k8s manifests must be documented.
+  - Fixed on the way:
+    - `DB_POOL_SIZE` and `DB_MAX_OVERFLOW` were never read.
+    - `REGISTRY_INSECURE` defaulted to `true` in the API and `false` in the
+      worker. It is now `false` everywhere; `.env.example` sets `true` for the
+      bundled HTTP registry.
+  - Removed as unused:
+    - cosign signature verification (`signatures.py`, `cosign_policy.py`,
+      `COSIGN_*`, the cosign binary in the worker image)
+    - the OpenTelemetry stubs (`tracing.py`, `otel_config.py`, `OTEL_*`; the SDK
+      was never installed)
+    - `load_queue_config`, `scan_priority`, `OIDC_ISSUER`/`OIDC_AUDIENCE`, and
+      `NEXT_PUBLIC_API_URL`
 - [ ] Trim the dashboard navigation to Overview · Images · Scans · Remediations ·
   Audit. Each page links forward to the next step in the loop.
 - [ ] Add a CI check that every Markdown link resolves.

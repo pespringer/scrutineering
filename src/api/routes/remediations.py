@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import os
 from collections import Counter
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import (
     AuditEventType,
@@ -298,7 +298,7 @@ def approve_remediation(remediation_id: int, request: Request) -> dict:
 def execute_remediation(remediation_id: int, request: Request) -> dict:
     """Start building and verifying the patched image. The status moves to `building` before the task is queued."""
     require_role(request, "remediator", "security-operator")
-    if os.environ.get("REMEDIATION_EXECUTION_ENABLED", "false").lower() not in {"1", "true", "yes"}:
+    if not get_settings().remediation_execution_enabled:
         raise HTTPException(status_code=503, detail="remediation_execution_disabled")
     with get_session() as session:
         _require_status(_load(session, remediation_id), RemediationStatus.APPROVED)

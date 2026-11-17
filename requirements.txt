@@ -6,6 +6,7 @@ asyncpg
 aiosqlite
 alembic
 pydantic
+pydantic-settings
 rich
 fastapi
 uvicorn
