@@ -657,7 +657,13 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
     - the image page goes back to Images.
   - The UI is now named Scrutineering instead of Container Sentinel, and the
     header shows the session's strongest role.
-- [ ] Add a CI check that every Markdown link resolves.
+- [x] Add a CI check that every Markdown link resolves.
+  `scripts/validate-doc-links.mjs` (in `make check`, so the `repo-checks` CI job)
+  checks every git-tracked Markdown file. Relative links must point at a file
+  that exists, and `#anchor`s must match a heading in the target, using
+  GitHub's slugs. Code blocks and external links are skipped.
+
+**Phase 5 is done.**
 
 ---
 
