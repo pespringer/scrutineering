@@ -612,9 +612,13 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
 
 ## Phase 5 — Docs and dashboard flow (size: S–M)
 
-- [ ] `README.md`: what it is, a 5-minute quick start (`cp .env.example .env &&
+- [x] `README.md`: what it is, a 5-minute quick start (`cp .env.example .env &&
   make up && make migrate`), push a test image, and a link to the operator guide.
   Under 150 lines.
+  The quick start was run from a fresh clone: up, migrate and smoke took about 3.5
+  minutes, and scanning the fixture image found 315 findings, including the lodash
+  CVE. That run found the sources folder being created as root by the bind mount, so
+  `make up` now creates it first.
 - [x] `docs/ARCHITECTURE.md`: one diagram of the services and the loop, the data
   model, and the state machines.
 - [x] `docs/OPERATOR_GUIDE.md`: scan an image, triage findings, connect a source,

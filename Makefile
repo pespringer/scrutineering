@@ -5,6 +5,9 @@ PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements re
 .PHONY: up down migrate backup test test-python check fmt fmt-check smoke e2e record-fixtures
 
 up:
+	@# Create the sources folder as you, before Docker creates it as root for the bind mount.
+	@dir=$$(sed -n 's/^REMEDIATION_HOST_SOURCES=//p' .env 2>/dev/null | tail -1); \
+		mkdir -p "$${dir:-./.local/remediation-sources}"
 	docker compose up --build -d
 
 down:
