@@ -65,17 +65,22 @@ candidate scan. **Retry** returns it to `proposed`, so it is approved again.
 
 A `ready` remediation becomes `completed` when a complete rescan of the image no
 longer shows any targeted finding. That happens once the image is rebuilt from
-the patched source and scanned again.
+the patched source and scanned again. To get the patch into the source, apply it
+yourself or, for a github.com source, open a pull request with it (see
+[GitHub publication](github-publication.md)), which makes it `published`.
 
 ## Remediation statuses
 
 A remediation has one `status`, changed only through the transitions in
 `src/remediation/state_machine.py`:
 
-`proposed` → `approved` → `building` → `verifying` → `ready` → `completed`
+`proposed` → `approved` → `building` → `verifying` → `ready` → (`published`) → `completed`
 
 - `needs_acceptance` follows `verifying` when the candidate adds new critical or
   high findings.
+- `published` means a GitHub pull request with the patch is open. It fails if the
+  pull request is closed unmerged, or if the image is rebuilt (a new digest) and
+  still has a targeted finding.
 - `failed` records the reason in `error_message`; retry returns it to `proposed`.
 - `cancelled` releases the remediation's findings so they can be proposed again.
 - `completed` is set by the server when a complete rescan of the image no longer
@@ -91,8 +96,3 @@ are never read to decide current state.
 `fixtures/images/vulnerable-node` under `.local/remediation-sources`), fixes
 lodash, and checks that the candidate is verified and the remediation completes
 after a rescan.
-
-## Post-merge rescans
-
-Provider merge callbacks queue a follow-up rescan. Filesystem rescans read from
-`REMEDIATION_SCAN_REPOSITORY_ROOT`.

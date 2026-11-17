@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 app = create_celery_app()
 import src.remediation.worker  # noqa: E402,F401  # register remediation task with the worker app
-import src.remediation.post_merge_tasks  # noqa: E402,F401  # register post-merge verification task
+import src.remediation.publish  # noqa: E402,F401  # register the publication task
 
 TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 

@@ -1,160 +1,111 @@
-"""Signed GitHub callbacks for published remediations (decision D4: GitHub is the only provider)."""
+"""Signed GitHub pull-request callbacks for published remediations (decision D4: GitHub only).
+
+The callback only says what happened to the pull request. Whether the fix worked is decided by
+the server's own rescan of the image (see `src/remediation/lifecycle.py`), never by anything in
+the payload.
+"""
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
 from src.db.connection import get_session
-from src.db.models import (
-    RemediationPublication,
-    RemediationWebhookEvent,
-)
+from src.db.models import RemediationPublication, RemediationStatus, RemediationWebhookEvent
 from src.db.repositories import RemediationRepository
-from src.remediation.events import publication_event_exists
-from src.remediation.post_merge import evaluate_post_merge
-from src.remediation.post_merge_tasks import queue_post_merge_scan, verify_post_merge_scan
-from src.remediation.provider_callbacks import normalize_callback, verify_signature
-from src.remediation.rollback import build_rollback_plan
 from src.telemetry.scan_metrics import record_provider_callback
 
 router = APIRouter()
 
 
-def _apply_post_merge_result(
-    session, publication: RemediationPublication, result: dict, merge_commit: str | None
-) -> str:
-    """Persist verification and append its lifecycle event exactly once."""
-    publication.verification_status = str(result["status"])
-    publication.verification_detail = result
-    event_type = "rollback_required" if result["status"] == "rollback_required" else "post_merge_verified"
-    if result["status"] == "rollback_required":
-        if merge_commit:
-            try:
-                publication.rollback_command = list(build_rollback_plan(merge_commit).command)
-            except ValueError:
-                publication.rollback_command = []
-    else:
-        publication.rollback_command = []
-    events = RemediationRepository.list_events(session, publication.remediation_id)
-    event_detail = {**result, "publication_id": publication.id}
-    if not publication_event_exists(events, event_type=event_type, publication_id=publication.id, detail=result):
-        RemediationRepository.append_event(
+def verify_signature(body: bytes, signature: str, secret: str) -> bool:
+    """Check GitHub's `X-Hub-Signature-256` (HMAC-SHA256 of the raw body)."""
+    candidate = signature.removeprefix("sha256=")
+    if not secret or not re.fullmatch(r"[a-f0-9]{64}", candidate):
+        return False
+    return hmac.compare_digest(candidate, hmac.new(secret.encode(), body, hashlib.sha256).hexdigest())
+
+
+def queue_rescan(image_full_name: str) -> str:
+    """Rescan the real image after a merge. It completes the remediation once it shows the fix."""
+    from src.scan.records import queue_scan
+
+    return queue_scan(image_full_name, priority="high", trigger="post_merge")
+
+
+def _closed(session, publication: RemediationPublication, pull: dict) -> dict:
+    remediation_id = publication.remediation_id
+    if pull.get("merged"):
+        publication.status = "merged"
+        publication.merged_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        publication.merge_commit = str(pull.get("merge_commit_sha") or "")[:64] or None
+        session.flush()
+        scan_id = queue_rescan(publication.remediation.image.full_name)
+        RemediationRepository.record_event(
             session,
-            {
-                "remediation_id": publication.remediation_id,
-                "event_type": event_type,
-                "sequence": len(events) + 1,
-                "detail": event_detail,
-            },
+            remediation_id,
+            "merged",
+            {"number": publication.provider_number, "merge_commit": publication.merge_commit, "scan_id": scan_id},
         )
-    return event_type
+        return {"publication": "merged", "scan_id": scan_id}
+    publication.status = "closed"
+    reason = f"pull request #{publication.provider_number} was closed without merging"
+    if publication.remediation.status == RemediationStatus.PUBLISHED:
+        RemediationRepository.update_status(session, remediation_id, RemediationStatus.FAILED, error_message=reason)
+    RemediationRepository.record_event(session, remediation_id, "pull_request_closed", {"reason": reason})
+    return {"publication": "closed"}
 
 
 @router.post("/webhooks/{provider}")
 async def provider_webhook(provider: str, request: Request) -> dict:
-    provider = provider.lower()
-    if provider != "github":
+    if provider.lower() != "github":
         raise HTTPException(status_code=404, detail="provider_not_supported")
-    event_id = request.headers.get("x-provider-event-id", "") or request.headers.get("x-github-delivery", "")
-    signature = request.headers.get("x-provider-signature", "") or request.headers.get("x-hub-signature-256", "")
-    secret = os.environ.get(f"{provider.upper()}_WEBHOOK_SECRET", "")
+    delivery = request.headers.get("x-github-delivery", "")
     body = await request.body()
-    if not event_id or not verify_signature(provider=provider, body=body, signature=signature, secret=secret):
+    signature = request.headers.get("x-hub-signature-256", "")
+    if not delivery or not verify_signature(body, signature, os.environ.get("GITHUB_WEBHOOK_SECRET", "")):
         record_provider_callback("rejected")
         raise HTTPException(status_code=401, detail="invalid_provider_signature")
     try:
         payload = json.loads(body.decode())
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        event = request.headers.get("x-github-event", "")
+        action = str(payload.get("action") or "")
+        pull = payload.get("pull_request") or {}
+        repository = str((payload.get("repository") or {}).get("full_name") or "")
+        number = int(pull.get("number") or payload.get("number") or 0)
+    except (UnicodeDecodeError, ValueError, TypeError, AttributeError) as exc:
         raise HTTPException(status_code=400, detail="invalid_provider_payload") from exc
-    try:
-        callback = normalize_callback(
-            provider=provider,
-            payload=payload,
-            event_id=event_id,
-            event_type=request.headers.get("x-github-event"),
-        )
-    except (TypeError, ValueError, KeyError) as exc:
-        raise HTTPException(status_code=400, detail="invalid_provider_payload") from exc
-    verification_task_id = None
+
     with get_session() as session:
-        if session.query(RemediationWebhookEvent).filter_by(provider=provider, event_id=event_id).first():
+        if session.query(RemediationWebhookEvent).filter_by(provider="github", event_id=delivery).first():
             record_provider_callback("duplicate")
             return {"accepted": True, "duplicate": True}
         publication = (
             session.query(RemediationPublication)
-            .filter_by(provider=provider, repository=callback.repository, provider_number=callback.number)
+            .filter_by(provider="github", repository=repository, provider_number=number)
             .first()
+            if event == "pull_request" and number
+            else None
         )
-        webhook = RemediationWebhookEvent(
-            remediation_id=publication.remediation_id if publication else None,
-            provider=provider,
-            event_id=event_id,
-            event_type=callback.event_type,
+        session.add(
+            RemediationWebhookEvent(
+                remediation_id=publication.remediation_id if publication else None,
+                provider="github",
+                event_id=delivery[:256],
+                event_type=f"{event}.{action}"[:64],
+            )
         )
-        session.add(webhook)
         if publication is None:
             record_provider_callback("unmatched")
             return {"accepted": True, "matched": False}
-        publication.status = "merged" if callback.merged else callback.state
-        publication.merged_at = (
-            datetime.now(timezone.utc).replace(tzinfo=None) if callback.merged else publication.merged_at
-        )
-        publication.merge_commit = callback.merge_commit or publication.merge_commit
-        publication.observed_digest = callback.observed_digest or publication.observed_digest
-        publication.scan_status = callback.scan_status
-        publication.findings_before = callback.findings_before
-        publication.findings_after = callback.findings_after
-        if callback.merged:
-            if callback.expected_digest and callback.scan_status == "completed":
-                result = evaluate_post_merge(
-                    expected_digest=callback.expected_digest,
-                    observed_digest=callback.observed_digest,
-                    required_scan_status=callback.scan_status,
-                    findings_before=callback.findings_before,
-                    findings_after=callback.findings_after,
-                )
-                _apply_post_merge_result(session, publication, result, callback.merge_commit)
-                if result["status"] == "rollback_required":
-                    record_provider_callback("rollback_required")
-            else:
-                scan_id = queue_post_merge_scan(session, publication)
-                publication.verification_status = "pending"
-                publication.verification_detail = {
-                    "status": "pending",
-                    "reason": "deployment_evidence_not_in_provider_callback",
-                    "scan_id": scan_id,
-                }
-                events = RemediationRepository.list_events(session, publication.remediation_id)
-                if not any(
-                    event.event_type == "post_merge_verification_queued"
-                    and event.detail.get("publication_id") == publication.id
-                    for event in events
-                ):
-                    RemediationRepository.append_event(
-                        session,
-                        {
-                            "remediation_id": publication.remediation_id,
-                            "event_type": "post_merge_verification_queued",
-                            "sequence": len(events) + 1,
-                            "detail": {
-                                "publication_id": publication.id,
-                                "scan_id": scan_id,
-                                "reason": "deployment_evidence_not_in_provider_callback",
-                            },
-                        },
-                    )
-                verification_task_id = verify_post_merge_scan.apply_async(
-                    args=[publication.id, scan_id], countdown=10
-                ).id
+        result = {}
+        if action == "closed" and publication.status == "open":
+            result = _closed(session, publication, pull)
         record_provider_callback("accepted")
-        return {
-            "accepted": True,
-            "matched": True,
-            "publication_id": publication.id,
-            "verification_status": publication.verification_status,
-            "verification_task_id": verification_task_id,
-        }
+        return {"accepted": True, "matched": True, "publication_id": publication.id, **result}

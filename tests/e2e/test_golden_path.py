@@ -6,10 +6,12 @@ the fixture source, and a real schema. The stand-ins are external binaries on
 PATH: `trivy` and `grype` replay output recorded from the fixture images
 (fixtures/images/vulnerable-node, re-recorded by scripts/record-golden-fixtures.sh),
 `npm` rewrites the manifest and lockfile as `npm install --package-lock-only`
-would, and `buildctl` reports a digest instead of building.
+would, and `buildctl` reports a digest instead of building. GitHub is a bare git
+repository plus a fake REST client.
 
   scan the fixture -> findings -> connect its source -> propose a fix -> approve
   -> execute: patch, build the candidate, scan it -> ready
+  -> open a pull request with the patch -> published -> merge webhook queues a rescan
   -> rescan the rebuilt image -> the targeted finding resolves -> remediation completed
 """
 
@@ -204,10 +206,11 @@ def test_rescan_of_the_patched_image_resolves_the_targeted_finding(api, stage):
     assert TARGET_CVE not in {item["cve_id"] for item in after_items["items"]}
 
 
-def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage, source):
+def _fix_to_ready(api: TestClient, stage, repository: str) -> tuple[int, dict]:
+    """Scan, connect the source, propose and approve the lodash fix, and execute it to `ready`."""
     scan = _scan(api)
     lodash = _target_finding(api, scan["scan_id"])
-    connected = api.put(f"/api/dashboard/images/{scan['image_id']}/source", json={"repository": source})
+    connected = api.put(f"/api/dashboard/images/{scan['image_id']}/source", json={"repository": repository})
     assert connected.status_code == 200, connected.text
 
     preview = api.post(
@@ -235,8 +238,100 @@ def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage
     assert remediation["verification"]["still_present"] == []
     assert remediation["verification"]["new_critical_or_high"] == []
     assert remediation["resolved_finding_count"] == 0  # the running image is unchanged until it is rebuilt
+    return remediation_id, remediation
+
+
+def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage, source):
+    remediation_id, _ = _fix_to_ready(api, stage, source)
 
     _scan(api)  # the image is rebuilt from the patched source and scanned again
+    remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
+    assert remediation["status"] == "completed", remediation
+    assert remediation["resolved_finding_count"] == 1
+
+
+class FakeGitHub:
+    """Stand-in for the GitHub REST API; the git side is a real bare repository."""
+
+    pulls: list[dict] = []
+
+    def __init__(self, token, transport=None):
+        assert token == "golden-path-token"
+
+    def default_branch(self, repository):
+        return "main"
+
+    def open_pull_request(self, repository, *, head, base, title, body):
+        self.pulls.append({"repository": repository, "head": head, "base": base, "body": body})
+        return {"number": 1, "html_url": f"https://github.com/{repository}/pull/1"}
+
+
+@pytest.fixture
+def github(tmp_path, monkeypatch, source):
+    """The fixture source hosted on a stand-in github.com, with publication running synchronously."""
+    from src.api.routes import remediations, webhooks
+    from src.remediation import publish, sources
+
+    hosted = tmp_path / "github" / "fixtures" / "vulnerable-node.git"
+    hosted.parent.mkdir(parents=True)
+    subprocess.run(["git", "clone", "-q", "--bare", str(tmp_path / "sources" / source), str(hosted)], check=True)
+    monkeypatch.setattr(sources, "GITHUB_WEB", str(tmp_path / "github"))
+    monkeypatch.setattr(publish, "GitHub", FakeGitHub)
+    monkeypatch.setenv("GITHUB_TOKEN", "golden-path-token")
+    monkeypatch.setenv("GITHUB_WEBHOOK_SECRET", "golden-path-secret")
+    FakeGitHub.pulls = []
+
+    class PublishNow:
+        @staticmethod
+        def apply_async(args, queue):
+            publish.publish(*args)
+            return MagicMock(id="publish-task")
+
+    monkeypatch.setattr(remediations, "publish_remediation", PublishNow)
+    rescans = []
+    monkeypatch.setattr(webhooks, "queue_rescan", rescans.append)
+    return {"hosted": hosted, "rescans": rescans}
+
+
+def _merge_webhook(api: TestClient, number: int) -> dict:
+    import hashlib
+    import hmac
+
+    body = json.dumps(
+        {
+            "action": "closed",
+            "repository": {"full_name": "fixtures/vulnerable-node"},
+            "pull_request": {"number": number, "merged": True, "merge_commit_sha": "e" * 40},
+        }
+    ).encode()
+    signature = "sha256=" + hmac.new(b"golden-path-secret", body, hashlib.sha256).hexdigest()
+    headers = {"x-github-delivery": "merge-1", "x-github-event": "pull_request", "x-hub-signature-256": signature}
+    response = api.post("/api/dashboard/webhooks/github", content=body, headers=headers)
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(api, stage, github):
+    remediation_id, _ = _fix_to_ready(api, stage, "https://github.com/fixtures/vulnerable-node")
+
+    published = api.post(f"/api/dashboard/remediations/{remediation_id}/publish")
+    assert published.status_code == 202, published.text
+    remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
+    assert remediation["status"] == "published", remediation
+    [pull] = FakeGitHub.pulls
+    branch = f"scrutineering/remediation-{remediation_id}"
+    assert pull["head"] == branch and pull["base"] == "main"
+    assert TARGET_CVE in pull["body"]
+    package = subprocess.run(
+        ["git", "show", f"{branch}:package.json"], cwd=github["hosted"], check=True, capture_output=True, text=True
+    ).stdout
+    assert '"lodash": "4.17.21"' in package  # the pushed branch carries the verified patch
+
+    merged = _merge_webhook(api, remediation["publications"][0]["number"])
+    assert merged["publication"] == "merged" and github["rescans"] == [IMAGE], merged
+    assert api.get(f"/api/dashboard/remediations/{remediation_id}").json()["status"] == "published"
+
+    _scan(api)  # the queued rescan, once the merged source is rebuilt into the image
     remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
     assert remediation["status"] == "completed", remediation
     assert remediation["resolved_finding_count"] == 1

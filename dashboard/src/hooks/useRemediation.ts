@@ -40,11 +40,13 @@ export function useRemediation(id: string | null, pollMs = 3000) {
   }, [load]);
 
   const status = remediation?.status;
+  // A requested publication runs on the worker; the status stays `ready` until it reports back.
+  const publishing = status === "ready" && latestEvent?.event_type === "publication_queued";
   useEffect(() => {
-    if (!status || !IN_FLIGHT_STATES.includes(status)) return;
+    if (!status || !(IN_FLIGHT_STATES.includes(status) || publishing)) return;
     const timer = window.setInterval(load, pollMs);
     return () => window.clearInterval(timer);
-  }, [status, load, pollMs]);
+  }, [status, publishing, load, pollMs]);
 
   /** POST a lifecycle action and reload the record. */
   const act = useCallback(
@@ -64,5 +66,5 @@ export function useRemediation(id: string | null, pollMs = 3000) {
     [id, load],
   );
 
-  return { remediation, events, latestEvent, loadError, notice, busy, act };
+  return { remediation, events, latestEvent, loadError, notice, busy, publishing, act };
 }

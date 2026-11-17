@@ -14,7 +14,7 @@ def test_scan_metrics_record_outcomes():
 def test_provider_callback_metrics_record_outcomes():
     scan_metrics.clear()
     record_provider_callback("accepted")
-    record_provider_callback("rollback_required")
+    record_provider_callback("unmatched")
     output = scan_metrics.render()
     assert 'scrutineering_provider_callbacks_total{outcome="accepted"} 1' in output
-    assert 'scrutineering_provider_callbacks_total{outcome="rollback_required"} 1' in output
+    assert 'scrutineering_provider_callbacks_total{outcome="unmatched"} 1' in output

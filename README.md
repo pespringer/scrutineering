@@ -15,7 +15,7 @@ scrutineering/
 ├── src/
 │   ├── api/              # FastAPI app; routes/, schemas.py, serializers.py
 │   ├── scan/             # Celery workers (Trivy/Grype scans)
-│   ├── remediation/      # Worktrees, edits, validation, publication
+│   ├── remediation/      # Fix planning, patching, BuildKit builds, publication
 │   ├── db/               # SQLAlchemy models + Alembic migrations
 │   └── telemetry/        # Prometheus metrics and tracing
 ├── dashboard/            # Next.js dashboard
@@ -193,11 +193,11 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
   candidate image on the rootless `buildkitd` service, and scans it; the
   remediation completes when a rescan of the image no longer shows the targeted
   findings. See [remediation execution](docs/operations/remediation-execution.md).
-- **Publication** (opening a pull request with the patch) is not connected to
-  execution yet.
-- **GitHub webhooks** (`/api/dashboard/webhooks/github`) require
-  `GITHUB_WEBHOOK_SECRET`, are replay-safe, and queue a follow-up scan after a
-  merge. GitHub is the only pull-request provider.
+- **Publication**: a security operator can open a GitHub pull request with a
+  verified patch (`GITHUB_TOKEN`; GitHub is the only provider). The signed
+  webhook (`/api/dashboard/webhooks/github`, `GITHUB_WEBHOOK_SECRET`) reports the
+  merge, and the server's own rescan of the rebuilt image completes or fails the
+  remediation. See [GitHub publication](docs/operations/github-publication.md).
 
 ## Documentation
 

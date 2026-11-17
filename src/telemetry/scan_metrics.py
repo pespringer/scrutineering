@@ -19,7 +19,7 @@ def record_scan_latency(seconds: float, scanner: str | None = None) -> None:
 
 
 def record_provider_callback(outcome: str) -> None:
-    if outcome not in {"accepted", "rejected", "duplicate", "unmatched", "rollback_required"}:
+    if outcome not in {"accepted", "rejected", "duplicate", "unmatched"}:
         raise ValueError("unknown provider callback outcome")
     scan_metrics.increment("scrutineering_provider_callbacks_total", labels={"outcome": outcome})
 

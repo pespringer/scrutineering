@@ -97,6 +97,7 @@ export default function RemediationsPage() {
               <option value="verifying">Verifying</option>
               <option value="needs_acceptance">Needs acceptance</option>
               <option value="ready">Ready</option>
+              <option value="published">Pull request open</option>
               <option value="completed">Completed</option>
               <option value="failed">Failed</option>
               <option value="cancelled">Cancelled</option>

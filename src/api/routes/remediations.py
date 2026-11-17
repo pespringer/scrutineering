@@ -1,4 +1,4 @@
-"""Remediation proposals, approval, execution, and retry."""
+"""Remediation proposals, approval, execution, publication, and retry."""
 
 from __future__ import annotations
 
@@ -21,6 +21,8 @@ from src.db.repositories import RemediationRepository
 from src.remediation.planner import Plan, finding_input
 from src.remediation.state_machine import TRANSITIONS
 from src.remediation.planner import plan as plan_fixes
+from src.remediation.publish import publish_remediation, token as github_token
+from src.remediation.sources import github_repository
 from src.remediation.worker import execute_approved_remediation
 from src.api.schemas import RemediationRequest
 from src.api.serializers import (
@@ -319,6 +321,25 @@ def accept_remediation(remediation_id: int, request: Request) -> dict:
         RemediationRepository.record_event(session, remediation_id, "accepted", {"by": _actor(request)})
         _audit(session, request, remediation_id, "remediation_new_findings_accepted")
         return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
+
+
+@router.post("/remediations/{remediation_id}/publish", status_code=202)
+def publish_remediation_route(remediation_id: int, request: Request) -> dict:
+    """Open a GitHub pull request with the verified patch (decision D4). Only ever on an operator's request."""
+    require_role(request, "security-operator")
+    if not github_token():
+        raise HTTPException(status_code=503, detail="publication_not_configured")
+    with get_session() as session:
+        remediation = _load(session, remediation_id)
+        _require_status(remediation, RemediationStatus.READY)
+        source = remediation.image.source
+        if github_repository(source.repository if source else None) is None:
+            raise HTTPException(status_code=422, detail="source_not_on_github")
+        RemediationRepository.record_event(session, remediation_id, "publication_queued", {"by": _actor(request)})
+    task = publish_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
+    with get_session() as session:
+        _audit(session, request, remediation_id, "remediation_publication_requested", task_id=task.id)
+    return {"remediation_id": remediation_id, "task_id": task.id, "status": RemediationStatus.READY.value}
 
 
 @router.post("/remediations/{remediation_id}/retry")

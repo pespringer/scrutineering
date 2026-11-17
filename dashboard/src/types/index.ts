@@ -144,19 +144,20 @@ export interface RemediationEvent {
   created_at: string;
 }
 
+/** The GitHub pull request a remediation was published as. */
 export interface RemediationPublication {
   id: number;
   provider: string;
   repository: string;
-  status: string;
+  status: "open" | "merged" | "closed" | "failed";
   url: string | null;
-  verification_status: string | null;
-  scan_status: string | null;
-  post_merge_scan_id: string | null;
-  verification_detail?: Record<string, unknown>;
-  findings_before: number | null;
-  findings_after: number | null;
-  rollback_command: string[] | null;
+  number: number | null;
+  branch: string | null;
+  base_branch: string | null;
+  head_commit: string | null;
+  error_message: string | null;
+  merged_at: string | null;
+  merge_commit: string | null;
 }
 
 export interface RemediationAction {
@@ -187,6 +188,7 @@ export type RemediationStatus =
   | "verifying"
   | "needs_acceptance"
   | "ready"
+  | "published"
   | "completed"
   | "failed"
   | "cancelled";
@@ -208,5 +210,7 @@ export interface RemediationRecord {
   resolved_finding_count?: number;
   resolution_status?: string;
   actions: RemediationAction[];
+  /** `owner/name` when the image's source is on GitHub, so it can be published as a pull request. */
+  publication_target?: string | null;
   publications: RemediationPublication[];
 }

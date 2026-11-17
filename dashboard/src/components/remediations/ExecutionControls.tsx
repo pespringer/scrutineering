@@ -1,8 +1,8 @@
-import { Ban, Check, Play, RotateCcw, ShieldCheck } from "lucide-react";
+import { Ban, Check, GitPullRequest, Play, RotateCcw, ShieldCheck } from "lucide-react";
 import { cx } from "@/lib/cx";
 import type { RemediationRecord, RemediationStatus } from "@/types";
 
-export type RemediationAction = "approve" | "execute" | "accept" | "retry" | "cancel";
+export type RemediationAction = "approve" | "execute" | "accept" | "publish" | "retry" | "cancel";
 
 const BUTTON =
   "inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-40";
@@ -13,13 +13,19 @@ const CANCELLABLE: RemediationStatus[] = [
   "verifying",
   "needs_acceptance",
   "ready",
+  "published",
   "failed",
 ];
 
-type Props = { remediation: RemediationRecord; busy: boolean; onAction: (action: RemediationAction) => void };
+type Props = {
+  remediation: RemediationRecord;
+  busy: boolean;
+  publishing: boolean;
+  onAction: (action: RemediationAction) => void;
+};
 
 /** Only the actions the current status allows are shown. */
-export default function ExecutionControls({ remediation, busy, onAction }: Props) {
+export default function ExecutionControls({ remediation, busy, publishing, onAction }: Props) {
   const status = remediation.status;
   if (status === "completed" || status === "cancelled") return null;
   return (
@@ -55,6 +61,15 @@ export default function ExecutionControls({ remediation, busy, onAction }: Props
             <Check className="h-4 w-4" /> Accept new findings
           </button>
         )}
+        {status === "ready" && remediation.publication_target && (
+          <button
+            disabled={busy || publishing}
+            onClick={() => onAction("publish")}
+            className={cx(BUTTON, "bg-emerald-400 font-semibold text-slate-950")}
+          >
+            <GitPullRequest className="h-4 w-4" /> Open pull request on {remediation.publication_target}
+          </button>
+        )}
         {status === "failed" && (
           <button
             disabled={busy}
@@ -73,7 +88,12 @@ export default function ExecutionControls({ remediation, busy, onAction }: Props
             <Ban className="h-4 w-4" /> Cancel
           </button>
         )}
-        {(status === "building" || status === "verifying") && (
+        {status === "ready" && !remediation.publication_target && (
+          <span className="self-center text-sm text-slate-400">
+            Connect a github.com source to publish this fix as a pull request; or apply the patch below by hand.
+          </span>
+        )}
+        {(status === "building" || status === "verifying" || publishing) && (
           <span className="self-center text-sm text-slate-400">Working… this page refreshes itself.</span>
         )}
       </div>

@@ -93,6 +93,7 @@ class RemediationStatus(str, enum.Enum):
     VERIFYING = "verifying"
     NEEDS_ACCEPTANCE = "needs_acceptance"
     READY = "ready"
+    PUBLISHED = "published"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -439,11 +440,6 @@ class Remediation(Base):
     finding_count: Mapped[int] = mapped_column(Integer, default=0)
     target_severities: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
 
-    # Result
-    pr_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    pr_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    branch_name: Mapped[str | None] = mapped_column(String(512), nullable=True)
-
     # Verification
     verified: Mapped[bool] = mapped_column(Boolean, default=False)
     # What execution produced: the source commit it patched, the patch, the candidate image, and the
@@ -477,7 +473,12 @@ class Remediation(Base):
 
 
 class RemediationPublication(Base):
-    """Durable provider publication attempt and idempotency record."""
+    """The GitHub pull request a remediation was published as (decision D4).
+
+    `status` is `open`, `merged`, `closed` (without merging) or `failed` (it could not be opened;
+    `error_message` says why). `image_digest` is the image's digest when the pull request was
+    opened: a later scan with a different digest is a rebuilt image.
+    """
 
     __tablename__ = "remediation_publications"
     __table_args__ = (
@@ -498,19 +499,15 @@ class RemediationPublication(Base):
     url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     provider_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     request_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    branch: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    base_branch: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    head_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    image_digest: Mapped[str | None] = mapped_column(String(128), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     merged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     merge_commit: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    observed_digest: Mapped[str | None] = mapped_column(String(71), nullable=True)
-    verification_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    verification_detail: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
-    scan_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    post_merge_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    findings_before: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    findings_after: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    rollback_command: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
 
 
 class RemediationWebhookEvent(Base):

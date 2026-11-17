@@ -12,9 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 DEFAULT_SOURCES_ROOT = "/workspace/sources"
+GITHUB_WEB = "https://github.com"
 _URL = re.compile(r"^https://[A-Za-z0-9.-]+(:\d+)?/[A-Za-z0-9._~/-]+$")
 _REF = re.compile(r"^[A-Za-z0-9._/-]{1,256}$")
 _ARG_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,127}$")
+_GITHUB_REPOSITORY = re.compile(
+    r"^https://github\.com/(?P<owner>[A-Za-z0-9][A-Za-z0-9-]{0,38})/(?P<name>[A-Za-z0-9._-]{1,100}?)(?:\.git)?$"
+)
 
 
 class SourceError(ValueError):
@@ -109,3 +113,15 @@ def settings_from_record(record) -> SourceSettings:
         build_args=record.build_args or {},
         test_command=record.test_command,
     )
+
+
+def github_repository(source_url: str | None) -> str | None:
+    """`owner/name` when a source is an https://github.com repository (the one publication target), else None."""
+    match = _GITHUB_REPOSITORY.fullmatch(str(source_url or "").rstrip("/"))
+    return f"{match['owner']}/{match['name']}" if match else None
+
+
+def clone_url(repository: str) -> str:
+    """What git clones for a remote source: github.com sources as `<GITHUB_WEB>/<owner>/<name>.git`."""
+    name = github_repository(repository)
+    return f"{GITHUB_WEB}/{name}.git" if name else repository
