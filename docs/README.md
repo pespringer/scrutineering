@@ -13,6 +13,7 @@ reference; until then, this is the set that describes the current system.
 - [api/dashboard-v1.md](api/dashboard-v1.md): every `/api/dashboard` route, with required roles
 
 ## Operating the stack
+- [ARCHITECTURE.md](ARCHITECTURE.md): the services, the loop, the data model and the state machines
 - [CONFIGURATION.md](CONFIGURATION.md): every environment variable, generated from `src/config.py`
 - [operations/product-coherence.md](operations/product-coherence.md): the operator workflow from scan to verified fix
 - [operations/dashboard.md](operations/dashboard.md): building, configuring and smoke-testing the dashboard

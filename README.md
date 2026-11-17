@@ -201,6 +201,8 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 
 ## Documentation
 
+- [Architecture](docs/ARCHITECTURE.md): services, the loop, data model and state machines
+- [Configuration](docs/CONFIGURATION.md): every setting
 - [Reset Plan](docs/RESET-PLAN.md): current work
 - [Documentation index](docs/README.md)
 - [Dashboard API v1](docs/api/dashboard-v1.md)
