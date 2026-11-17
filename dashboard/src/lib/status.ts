@@ -10,12 +10,15 @@ export function isActiveScan(status: string): boolean {
   return status === "pending" || status === "running";
 }
 
-/** Badge colors for remediation, publication, and verification states. */
+/** Badge colors for remediation and pull-request states. */
 export function statusTone(status: string | null | undefined): string {
-  if (status === "verified" || status === "completed" || status === "ready") {
+  if (status === "completed" || status === "ready" || status === "merged") {
     return "bg-emerald-400/10 text-emerald-200";
   }
-  if (status === "rollback_required" || status === "failed" || status === "blocked") {
+  if (status === "published" || status === "open") {
+    return "bg-cyan-400/10 text-cyan-200";
+  }
+  if (status === "failed" || status === "closed") {
     return "bg-rose-400/10 text-rose-200";
   }
   return "bg-amber-400/10 text-amber-200";

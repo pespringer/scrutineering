@@ -565,15 +565,33 @@ Done (D3: rootless `buildkitd`; D6: `needs_acceptance`). See
   the worker is not isolated enough. It belongs in a BuildKit stage, as a follow-up.
 
 ### 4d. Publish and close
-- [ ] Without a provider configured, the remediation ends at `ready`. The
-  operator gets the branch, the diff, and the candidate image.
-- [ ] With GitHub configured (GitLab later), push the branch and open a PR. The
-  PR body holds the plan and the before/after scan diff.
-- [ ] When the merge webhook arrives (or on the next scheduled scan of the real
-  tag), rescan. (Today post-merge verification stops at `pending` with
-  `deployment_digest_evidence_required`, because 1c removed the routes that
-  supplied that evidence. This step replaces it.) Set `completed` when the targeted findings resolve on the real
-  image, and `failed` with a reason if they don't.
+Done. `published` sits between `ready` and `completed` (migration 0007).
+- [x] Without a provider configured, the remediation ends at `ready`. The
+  operator gets the diff (`patch`, against `source_commit`) and the candidate image.
+- [x] With GitHub configured, push the branch and open a PR
+  (`src/remediation/publish.py`). The PR body holds the plan and the before/after
+  scan comparison.
+- [x] When the merge webhook arrives, rescan; scheduled scans also count. The
+  webhook trusts only the pull request's state, no digests or counts.
+  `completed` when the targeted findings are gone from the image. `failed` with a
+  reason if the PR is closed unmerged, or if a rebuilt image (new digest) still has
+  them.
+
+Conservative choices:
+- Publishing is an explicit security-operator action (`POST /publish`), never
+  automatic. `GITHUB_TOKEN` also authenticates ghcr.io scans, so setting it must
+  not open pull requests.
+- No separate repository allowlist: the target is the image's connected source,
+  and the token's repository selection bounds what can be reached.
+- The branch is `scrutineering/remediation-<id>`. The commit timestamp is fixed,
+  so a retry pushes the same commit. Pushes use a lease, so another author's
+  branch is never overwritten.
+- A merged PR whose image has not been rebuilt (same digest) stays `published`.
+  It is not failed, because merging alone does not change the image.
+- Execution still clones sources without credentials (public or local
+  repositories). Only publication uses the token.
+- The old publisher, branch-protection check, rollback plan and post-merge
+  evidence modules were removed, along with their columns.
 
 ### 4e. One state machine
 Done. `remediations.status` is the only current state (migration 0005 maps the
@@ -586,8 +604,6 @@ with `needs_acceptance` between `verifying` and `ready` (D6), plus `failed` and
   than from `approved`.
 - The server sets `completed` when a complete rescan of the image no longer
   shows any targeted `vuln_key`.
-- `published` is not added yet; 4d inserts it between `ready` and `completed`
-  when it opens the pull request.
 
 **Done when:** the golden-path test passes with no `xfail`s, and `make e2e`
 fixes the fixture image's base-image CVE and one npm CVE, both verified by rescan.

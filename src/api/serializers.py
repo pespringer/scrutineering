@@ -14,6 +14,7 @@ from src.db.models import (
     Scan,
     ScanFinding,
 )
+from src.remediation.sources import github_repository
 from src.remediation.state_machine import LABELS
 
 
@@ -144,6 +145,7 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
     status = RemediationStatus(enum_value(remediation.status))
+    source = getattr(getattr(remediation, "image", None), "source", None)
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
@@ -180,6 +182,7 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
             }
             for action in remediation.actions
         ],
+        "publication_target": github_repository(getattr(source, "repository", None)),
         "publications": [
             {
                 "id": publication.id,
@@ -188,14 +191,12 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
                 "status": publication.status,
                 "url": publication.url,
                 "number": publication.provider_number,
+                "branch": publication.branch,
+                "base_branch": publication.base_branch,
+                "head_commit": publication.head_commit,
+                "error_message": publication.error_message,
                 "merged_at": iso(publication.merged_at),
-                "verification_status": publication.verification_status,
-                "scan_status": publication.scan_status,
-                "post_merge_scan_id": publication.post_merge_scan_id,
-                "verification_detail": publication.verification_detail,
-                "findings_before": publication.findings_before,
-                "findings_after": publication.findings_after,
-                "rollback_command": publication.rollback_command,
+                "merge_commit": publication.merge_commit,
             }
             for publication in remediation.publications
         ],

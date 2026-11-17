@@ -17,7 +17,7 @@ import { statusTone } from "@/lib/status";
 
 export default function RemediationDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { remediation, events, loadError, notice, busy, act } = useRemediation(id);
+  const { remediation, events, loadError, notice, busy, publishing, act } = useRemediation(id);
 
   if (loadError && !remediation) {
     return (
@@ -73,7 +73,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
       <WorkflowStatus remediation={remediation} />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <section className="space-y-6">
-          <ExecutionControls remediation={remediation} busy={busy} onAction={act} />
+          <ExecutionControls remediation={remediation} busy={busy} publishing={publishing} onAction={act} />
           <ProposedChanges actions={remediation.actions} />
           <CandidatePanel remediation={remediation} />
           <EventTimeline events={events} />

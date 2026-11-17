@@ -23,9 +23,9 @@ completed scan history until new snapshots exist.
 
 Open a scan’s findings and choose **Propose fixes** for findings with a known
 fixed version. The remediation queue then shows the proposal, approval state,
-execution state, publication status, and verification evidence. After a fix is
-verified, the follow-up scan is the source of truth for the remaining finding
-count.
+execution state, the verification of the candidate image, and the pull request.
+The server's own rescan of the image is the source of truth for whether a fix
+landed.
 
 Finding lifecycle is based on the latest complete scan: a finding that is no
 longer observed receives `resolved_at` and is excluded from open-risk totals,
@@ -36,6 +36,6 @@ tell the difference between “nothing has been scanned” and “the risk is go
 
 ## External gates
 
-Provider publication is an optional gate. It stays off until a provider token,
-`REMEDIATION_ALLOWED_REPOSITORIES`, and the push and publication flags are set. Local scanning, finding triage,
-remediation planning, and verification remain usable without those integrations.
+Publication is optional. Without `GITHUB_TOKEN` and a github.com source, a verified
+remediation stays `ready` with its patch and candidate image for the operator to
+apply. Scanning, triage, planning, and verification work without it.

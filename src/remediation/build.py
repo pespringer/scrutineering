@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.remediation.apply import Checkout
-from src.remediation.sources import SourceError, SourceSettings
+from src.remediation.sources import SourceError, SourceSettings, clone_url
 
 BUILD_TIMEOUT_SECONDS = 1800
 CLONE_TIMEOUT_SECONDS = 300
@@ -27,29 +27,37 @@ class BuildError(RuntimeError):
     """The source could not be checked out or the candidate could not be built."""
 
 
-def _git(args: list[str], cwd: Path | None = None, global_config: Path | None = None) -> str:
-    env = {
+def git(
+    args: list[str],
+    cwd: Path | None = None,
+    global_config: Path | None = None,
+    env: dict[str, str] | None = None,
+    strip: bool = True,
+) -> str:
+    """Run git with no system or user config and no prompts. `env` adds variables (for example GIT_ASKPASS)."""
+    base = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "HOME": os.environ.get("HOME", "/tmp"),
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_CONFIG_NOSYSTEM": "1",
         "GIT_CONFIG_GLOBAL": str(global_config or os.devnull),
+        **(env or {}),
     }
     try:
         result = subprocess.run(
-            ["git", *args], cwd=cwd, env=env, capture_output=True, text=True, timeout=CLONE_TIMEOUT_SECONDS
+            ["git", *args], cwd=cwd, env=base, capture_output=True, text=True, timeout=CLONE_TIMEOUT_SECONDS
         )
     except subprocess.TimeoutExpired as exc:
         raise BuildError(f"git {args[0]} timed out") from exc
     if result.returncode != 0:
         raise BuildError(f"git {args[0]} failed: {result.stderr.strip()[-800:]}")
-    return result.stdout.strip()
+    return result.stdout.strip() if strip else result.stdout
 
 
 def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     """Clone the source at its ref into `workdir/source`. Returns the checkout and the commit it is on."""
     try:
-        origin = settings.repository if settings.is_remote else str(settings.local_path())
+        origin = clone_url(settings.repository) if settings.is_remote else str(settings.local_path())
     except SourceError as exc:
         raise BuildError(str(exc)) from exc
     if not settings.is_remote and not Path(origin, ".git").exists():
@@ -59,10 +67,10 @@ def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     # safe.directory only from protected (global or system) config, so give the clone its own.
     config = workdir / "gitconfig"
     config.write_text(f"[safe]\n\tdirectory = {origin}\n\tdirectory = {origin}/.git\n")
-    _git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config)
+    git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config)
     if settings.ref != "HEAD":
-        _git(["checkout", "--quiet", "--detach", settings.ref], cwd=root)
-    commit = _git(["rev-parse", "HEAD"], cwd=root)
+        git(["checkout", "--quiet", "--detach", settings.ref], cwd=root)
+    commit = git(["rev-parse", "HEAD"], cwd=root)
     dockerfile = (root / settings.dockerfile_path).resolve()
     context = (root / settings.build_context).resolve()
     for path, what in ((dockerfile, "Dockerfile"), (context, "build context")):
@@ -77,8 +85,8 @@ def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
 
 def diff(source: Checkout) -> str:
     """The patch the actions produced, as `git diff` text (new files included)."""
-    _git(["add", "--intent-to-add", "--all"], cwd=source.root)
-    return _git(["diff", "--no-color", "--no-ext-diff"], cwd=source.root)
+    git(["add", "--intent-to-add", "--all"], cwd=source.root)
+    return git(["diff", "--no-color", "--no-ext-diff"], cwd=source.root, strip=False)
 
 
 @dataclass

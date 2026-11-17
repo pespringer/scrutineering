@@ -14,6 +14,7 @@ KEPT_ROUTES = {
     "/api/dashboard/scans/{scan_id}/findings",
     "/api/dashboard/images",
     "/api/dashboard/images/{image_id}",
+    "/api/dashboard/remediations/{remediation_id}/publish",
     "/api/dashboard/registry/inventory",
     "/api/dashboard/session",
     "/api/dashboard/permissions",
@@ -32,7 +33,8 @@ KEPT_ROUTES = {
 REMOVED_ROUTE_FRAGMENTS = (
     "approval-token",
     "publication-plan",
-    "/publish",
+    "/publish-",
+    "publications/",
     "post-merge/verify",
     "recovery",
     "reconciliation",

@@ -76,6 +76,7 @@ show what they found at the time.
 | POST | `/remediations/{id}/approve` | security-operator | `proposed` → `approved` |
 | POST | `/remediations/{id}/execute` | remediator | `approved` → `building`; requires `REMEDIATION_EXECUTION_ENABLED=true` |
 | POST | `/remediations/{id}/accept` | security-operator | `needs_acceptance` → `ready`: accept new critical/high findings |
+| POST | `/remediations/{id}/publish` | security-operator | Queue a GitHub pull request for a `ready` remediation (→ `published`); 503 without `GITHUB_TOKEN`, 422 if the source is not on github.com |
 | POST | `/remediations/{id}/retry` | security-operator | `failed` → `proposed` (approval is required again) |
 | POST | `/remediations/{id}/cancel` | remediator | Any open status → `cancelled`; releases the findings |
 | GET/PUT/DELETE | `/images/{id}/source` | remediator to change | The repository, ref, Dockerfile and build context the image is built from |
@@ -101,7 +102,8 @@ payload includes the `patch`, `candidate_image`, `candidate_digest` and
 
 `POST /webhooks/github` authenticates with GitHub's HMAC signature
 (`GITHUB_WEBHOOK_SECRET`), not the API key. GitHub is the only provider (decision D4).
-Delivery IDs are recorded, so replays are accepted without reprocessing. A merge
-callback updates the matching publication. If the callback carries digest and
-scan evidence it is evaluated immediately; otherwise a follow-up scan is queued
-and the publication stays `pending` until it completes.
+Delivery IDs are recorded, so replays are accepted without reprocessing. Only
+`pull_request` `closed` events for a published remediation's pull request change
+anything: a merge marks the publication merged and queues a rescan of the image; a
+close without merging fails the remediation. Nothing else in the payload is
+trusted; the server's own scans decide whether the fix landed.

@@ -10,8 +10,11 @@ const NEXT_STEP: Record<RemediationStatus, string> = {
     "The patched image fixes the targeted findings but adds new critical or high findings. " +
     "A security operator must accept it, or cancel the remediation.",
   ready:
-    "The patched image is verified. The remediation completes when a full rescan of this image " +
-    "no longer shows the targeted findings.",
+    "The patched image is verified. Open a pull request with the patch, or apply it yourself. The remediation " +
+    "completes when a full rescan of this image no longer shows the targeted findings.",
+  published:
+    "The pull request is open. Once it is merged and the image is rebuilt, the next full scan of the image " +
+    "completes the remediation, or fails it if the targeted findings are still there.",
   completed: "Completed: a full rescan of the image no longer shows the targeted findings.",
   failed: "Stopped. Read the reason below, fix the cause, then restart the workflow.",
   cancelled: "Cancelled. Its findings are free to be proposed again.",
@@ -21,6 +24,7 @@ const TONE: Partial<Record<RemediationStatus, string>> = {
   failed: "border-rose-400/20 bg-rose-400/5",
   needs_acceptance: "border-amber-400/20 bg-amber-400/5",
   ready: "border-emerald-400/20 bg-emerald-400/5",
+  published: "border-cyan-400/20 bg-cyan-400/5",
   completed: "border-emerald-400/20 bg-emerald-400/5",
   cancelled: "border-slate-700 bg-slate-900/40",
 };

@@ -46,8 +46,8 @@ The dashboard is organized as a security operations console:
 - Image detail pages provide severity filtering, sortable findings, CVE links,
   fix availability, and responsive layouts.
 - The Audit Trail page records scan start/cancel activity with actor context.
-- Remediation detail pages show ordered lifecycle events, publication status,
-  merge outcomes, and rollback-required decisions.
+- Remediation detail pages show ordered lifecycle events, the patch and
+  candidate image, and the GitHub pull request with its merge outcome.
 - Read-only `dashboard` users can inspect data; `operator`,
   `security-operator`, and `admin` roles can start or cancel scans.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
