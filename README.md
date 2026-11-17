@@ -51,7 +51,7 @@ The Images workspace at `http://localhost:3001/images` also reads the local
 registry catalog, showing repositories, tags, immutable digests, scan state,
 open findings, and scan/rescan actions in one view.
 
-The operator workflow is documented in [Product coherence guide](docs/operations/product-coherence.md).
+The operator workflow is documented in the [operator guide](docs/OPERATOR_GUIDE.md).
 The dashboard shows live scan phases, durable worker outcomes, severity trends,
 and an operational audit timeline; it is available at `http://localhost:3001/dashboard`.
 
@@ -100,8 +100,7 @@ curl http://localhost:5000/v2/
 Registry data is stored in the `registrydata` Compose volume. The development
 registry uses HTTP and is intentionally enabled only for local testing; use a
 TLS-protected registry and set `REGISTRY_INSECURE=false` outside local
-development. See [local registry operations](docs/operations/local-registry.md)
-for the complete workflow.
+development. See the [operator guide](docs/OPERATOR_GUIDE.md) for the complete workflow.
 
 ## Development Setup
 
@@ -206,7 +205,6 @@ and `x-authenticated-roles` with the server-only `DASHBOARD_TRUSTED_PROXY_SECRET
 - [Reset Plan](docs/RESET-PLAN.md): current work
 - [Documentation index](docs/README.md)
 - [Dashboard API v1](docs/api/dashboard-v1.md)
-- [Product coherence guide](docs/operations/product-coherence.md)
-- [Local registry](docs/operations/local-registry.md)
+- [Operator guide](docs/OPERATOR_GUIDE.md): scan, triage, fix, verify
 - [Remediation execution](docs/operations/remediation-execution.md)
 - [Product requirements](docs/PRD.md)

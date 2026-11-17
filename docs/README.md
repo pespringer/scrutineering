@@ -15,12 +15,8 @@ reference; until then, this is the set that describes the current system.
 ## Operating the stack
 - [ARCHITECTURE.md](ARCHITECTURE.md): the services, the loop, the data model and the state machines
 - [CONFIGURATION.md](CONFIGURATION.md): every environment variable, generated from `src/config.py`
-- [operations/product-coherence.md](operations/product-coherence.md): the operator workflow from scan to verified fix
+- [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md): the workflow from pushing an image to a verified fix, and troubleshooting
 - [operations/dashboard.md](operations/dashboard.md): building, configuring and smoke-testing the dashboard
-- [operations/local-registry.md](operations/local-registry.md): pushing and scanning images in the built-in registry
-- [operations/scan-queues.md](operations/scan-queues.md): scan priorities and the shared scanner cache
-- [operations/runtime-discovery.md](operations/runtime-discovery.md): scanning images of running containers
-- [operations/readiness.md](operations/readiness.md): health and readiness probes
 
 ## Remediation
 - [operations/remediation-execution.md](operations/remediation-execution.md): sources, fix strategies, building and verifying candidates

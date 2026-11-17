@@ -13,7 +13,7 @@ groups:
           owner: platform-security
         annotations:
           summary: "Scrutineering scan failure rate is elevated"
-          runbook: "docs/operations/scan-queues.md"
+          runbook: "docs/OPERATOR_GUIDE.md#troubleshooting"
       - alert: ScrutineeringScanLatencyP95High
         expr: >-
           max(scrutineering_scan_latency_seconds{quantile="0.95"}) > 300
@@ -23,7 +23,7 @@ groups:
           owner: platform-security
         annotations:
           summary: "Scrutineering scan latency P95 exceeds five minutes"
-          runbook: "docs/operations/scan-queues.md"
+          runbook: "docs/OPERATOR_GUIDE.md#troubleshooting"
       - alert: ScrutineeringProviderCallbackRejected
         expr: increase(scrutineering_provider_callbacks_total{outcome="rejected"}[10m]) > 0
         for: 2m
@@ -51,4 +51,4 @@ groups:
           owner: platform-security
         annotations:
           summary: "Scrutineering work is waiting too long in a queue"
-          runbook: "docs/operations/scan-queues.md"
+          runbook: "docs/OPERATOR_GUIDE.md#troubleshooting"
