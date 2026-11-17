@@ -615,7 +615,7 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
 - [ ] `README.md`: what it is, a 5-minute quick start (`cp .env.example .env &&
   make up && make migrate`), push a test image, and a link to the operator guide.
   Under 150 lines.
-- [ ] `docs/ARCHITECTURE.md`: one diagram of the services and the loop, the data
+- [x] `docs/ARCHITECTURE.md`: one diagram of the services and the loop, the data
   model, and the state machines.
 - [ ] `docs/OPERATOR_GUIDE.md`: scan an image, triage findings, connect a source,
   run a remediation, and read the results.
