@@ -645,8 +645,18 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
       was never installed)
     - `load_queue_config`, `scan_priority`, `OIDC_ISSUER`/`OIDC_AUDIENCE`, and
       `NEXT_PUBLIC_API_URL`
-- [ ] Trim the dashboard navigation to Overview · Images · Scans · Remediations ·
+- [x] Trim the dashboard navigation to Overview · Images · Scans · Remediations ·
   Audit. Each page links forward to the next step in the loop.
+  - The menu is one list in loop order, shared by desktop and mobile, with the
+    same labels. Remediations is shown only to roles that can open it.
+  - Forward links:
+    - the overview's loop steps open their pages;
+    - a scan links to its image's findings;
+    - proposing a fix links to the new remediation;
+    - audit entries link to their scan, image or remediation;
+    - the image page goes back to Images.
+  - The UI is now named Scrutineering instead of Container Sentinel, and the
+    header shows the session's strongest role.
 - [ ] Add a CI check that every Markdown link resolves.
 
 ---

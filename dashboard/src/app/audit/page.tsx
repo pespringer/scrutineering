@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import Layout from "@/components/Layout";
@@ -7,6 +8,20 @@ import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import type { Page } from "@/types";
 import { cx } from "@/lib/cx";
+
+const ENTITY_PAGES: Record<string, string> = { scan: "/scans", remediation: "/remediations", image: "/images" };
+
+/** "scan · <id>", linked to that scan, remediation or image when there is a page for it. */
+function EntityLink({ type, id }: { type?: string | null; id: string | null }) {
+  const label = `${type || "system"} · ${id || "no target"}`;
+  const base = type ? ENTITY_PAGES[type] : undefined;
+  if (!base || !id) return <>{label}</>;
+  return (
+    <Link className="underline hover:text-cyan-300" href={`${base}/${encodeURIComponent(id)}`}>
+      {label}
+    </Link>
+  );
+}
 
 type AuditRecord = {
   id: number;
@@ -105,8 +120,7 @@ export default function AuditPage() {
                   <div>
                     <div className="text-sm font-medium capitalize text-slate-200">{describe(record)}</div>
                     <div className="text-xs text-slate-600">
-                      {record.entity_type || "system"} · {record.entity_id || "no target"} ·{" "}
-                      {record.actor || "unknown actor"}
+                      <EntityLink type={record.entity_type} id={record.entity_id} /> · {record.actor || "unknown actor"}
                     </div>
                   </div>
                 </div>

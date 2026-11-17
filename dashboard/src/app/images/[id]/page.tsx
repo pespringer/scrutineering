@@ -32,6 +32,7 @@ export default function ImageDetailPage() {
   const [canManage, setCanManage] = useState(false);
   const [canRemediate, setCanRemediate] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [proposedId, setProposedId] = useState<number | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
 
   const loadData = useCallback(async () => {
@@ -84,7 +85,10 @@ export default function ImageDetailPage() {
   async function proposeRemediation() {
     if (!selectedFindings.length) return;
     setNotice("Planning fixes…");
-    setNotice(await proposeFixes(Number(imageId), selectedFindings));
+    setProposedId(null);
+    const proposal = await proposeFixes(Number(imageId), selectedFindings);
+    setNotice(proposal.message);
+    setProposedId(proposal.remediationId ?? null);
     setSelectedFindings([]);
     loadData();
   }
@@ -111,11 +115,11 @@ export default function ImageDetailPage() {
     <Layout>
       {/* Breadcrumb */}
       <Link
-        href="/dashboard"
+        href="/images"
         className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-blue-400 transition-colors mb-4"
       >
         <ArrowLeft className="w-4 h-4" />
-        Back to dashboard
+        Back to images
       </Link>
 
       {/* Image header */}
@@ -231,7 +235,16 @@ export default function ImageDetailPage() {
           </button>
         </div>
       )}
-      {notice && <p className="mb-3 text-sm text-cyan-200">{notice}</p>}
+      {notice && (
+        <p className="mb-3 text-sm text-cyan-200">
+          {notice}
+          {proposedId && (
+            <Link className="ml-2 underline" href={`/remediations/${proposedId}`}>
+              Review and approve it
+            </Link>
+          )}
+        </p>
+      )}
       <div className="panel rounded-2xl p-4 sm:p-6">
         <FindingsTable
           findings={findings}

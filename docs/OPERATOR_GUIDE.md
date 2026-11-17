@@ -36,7 +36,7 @@ allows HTTP for it alone). Use it for local work only; shared or production
 installations should scan from an authenticated TLS registry and set
 `REGISTRY_INSECURE=false`.
 
-**From any other registry.** In **Scan history**, use **Run a targeted scan** with a
+**From any other registry.** In **Scans**, use **Run a targeted scan** with a
 full reference such as `ghcr.io/acme/api:2.3` and a priority. For private images, set
 the registry's credentials (see [Registry credentials](CONFIGURATION.md#registry-credentials));
 ECR and GCR use the standard AWS and Google credentials.
