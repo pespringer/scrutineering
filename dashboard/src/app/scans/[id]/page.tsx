@@ -26,6 +26,7 @@ export default function ScanDetailPage() {
   const [scan, setScan] = useState<ScanResult | null>(null);
   const [findings, setFindings] = useState<Finding[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const [proposedId, setProposedId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let timer: number | undefined;
@@ -59,7 +60,9 @@ export default function ScanDetailPage() {
       setNotice("No fixable findings are available in this scan.");
       return;
     }
-    setNotice(await planAndPropose(scan.image_id, fixable));
+    const proposal = await planAndPropose(scan.image_id, fixable);
+    setNotice(proposal.message);
+    setProposedId(proposal.remediationId ?? null);
   }
   if (loading)
     return (
@@ -88,6 +91,14 @@ export default function ScanDetailPage() {
               {scan.scan_id}
               {scan.task_id ? ` · task ${scan.task_id}` : ""}
             </p>
+            {scan.image_id && (
+              <Link
+                href={`/images/${scan.image_id}`}
+                className="mt-2 inline-block text-xs text-cyan-300 underline hover:text-cyan-200"
+              >
+                Triage this image&apos;s findings
+              </Link>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <span
@@ -143,10 +154,12 @@ export default function ScanDetailPage() {
         </div>
         {notice && (
           <div className="mt-5 rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-4 text-sm text-cyan-200">
-            {notice}{" "}
-            <Link className="ml-2 underline" href="/remediations">
-              Open remediations
-            </Link>
+            {notice}
+            {proposedId && (
+              <Link className="ml-2 underline" href={`/remediations/${proposedId}`}>
+                Review and approve it
+              </Link>
+            )}
           </div>
         )}
         {scan.error_message && (

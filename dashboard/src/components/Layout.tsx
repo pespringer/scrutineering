@@ -8,6 +8,42 @@ import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusP
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { cx } from "@/lib/cx";
 
+type NavItem = { href: string; label: string; icon: React.ReactNode; roles?: string[]; exact?: boolean };
+
+/** The loop, in order. `roles`: only shown to sessions holding one of them (the API enforces it too). */
+const NAV: NavItem[] = [
+  { href: "/dashboard", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" />, exact: true },
+  { href: "/images", label: "Images", icon: <Package className="h-4 w-4" /> },
+  { href: "/scans", label: "Scans", icon: <Radar className="h-4 w-4" /> },
+  {
+    href: "/remediations",
+    label: "Remediations",
+    icon: <ShieldCheck className="h-4 w-4" />,
+    roles: ["remediator", "security-operator", "admin"],
+  },
+  { href: "/audit", label: "Audit", icon: <ClipboardList className="h-4 w-4" /> },
+];
+
+/** Most capable first: the header shows the strongest role the session holds. */
+const ROLE_ORDER = ["admin", "security-operator", "remediator", "operator", "dashboard"];
+
+function NavLinks({ pathname, roles }: { pathname: string; roles: string[] }) {
+  return (
+    <>
+      {NAV.filter((item) => !item.roles || item.roles.some((role) => roles.includes(role))).map((item) => (
+        <NavLink
+          key={item.href}
+          href={item.href}
+          icon={item.icon}
+          active={item.exact ? pathname === item.href : pathname.startsWith(item.href)}
+        >
+          {item.label}
+        </NavLink>
+      ))}
+    </>
+  );
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const system = useSystemStatus();
@@ -19,7 +55,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       .catch(() => setSession(null));
   }, []);
   const identity = session?.email || session?.subject || "Local operator";
-  const role = session?.roles?.[0] || "dashboard";
+  const role = ROLE_ORDER.find((name) => session?.roles?.includes(name)) || "dashboard";
   return (
     <div className="min-h-screen bg-transparent text-slate-100">
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
@@ -36,39 +72,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 "from-blue-400 to-cyan-500 text-sm font-black text-slate-950 shadow-lg shadow-cyan-500/20",
               )}
             >
-              CS
+              S
             </div>
             <div>
-              <div className="font-semibold tracking-tight">Container</div>
-              <div className="text-xs text-slate-500">Sentinel / Control room</div>
+              <div className="font-semibold tracking-tight">Scrutineering</div>
+              <div className="text-xs text-slate-500">Scan · fix · verify</div>
             </div>
           </Link>
           <div className="eyebrow mb-3 px-3">Workspace</div>
           <nav className="space-y-1">
-            <NavLink
-              href="/dashboard"
-              active={pathname === "/dashboard"}
-              icon={<LayoutDashboard className="h-4 w-4" />}
-            >
-              Overview
-            </NavLink>
-            <NavLink href="/images" active={pathname.startsWith("/images")} icon={<Package className="h-4 w-4" />}>
-              Images
-            </NavLink>
-            <NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>
-              Scan history
-            </NavLink>
-            <NavLink href="/audit" active={pathname.startsWith("/audit")} icon={<ClipboardList className="h-4 w-4" />}>
-              Audit trail
-            </NavLink>
-
-            <NavLink
-              href="/remediations"
-              active={pathname.startsWith("/remediations")}
-              icon={<ShieldCheck className="h-4 w-4" />}
-            >
-              Remediations
-            </NavLink>
+            <NavLinks pathname={pathname} roles={session?.roles || []} />
           </nav>
           <SystemStatusPanel system={system} />
         </aside>
@@ -82,9 +95,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     "rounded-lg bg-cyan-400 text-xs font-black text-slate-950",
                   )}
                 >
-                  CS
+                  S
                 </div>
-                <span className="font-semibold">Container Sentinel</span>
+                <span className="font-semibold">Scrutineering</span>
               </div>
               <SystemStatusBadge system={system} />
               <div className="ml-auto flex items-center gap-3">
@@ -109,39 +122,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             <nav className="flex gap-1 overflow-x-auto border-t border-slate-800/50 px-5 py-2 lg:hidden">
-              <NavLink
-                href="/dashboard"
-                active={pathname === "/dashboard"}
-                icon={<LayoutDashboard className="h-4 w-4" />}
-              >
-                Overview
-              </NavLink>
-              <NavLink href="/images" active={pathname.startsWith("/images")} icon={<Package className="h-4 w-4" />}>
-                Images
-              </NavLink>
-              <NavLink href="/scans" active={pathname.startsWith("/scans")} icon={<Radar className="h-4 w-4" />}>
-                Scans
-              </NavLink>
-              <NavLink
-                href="/audit"
-                active={pathname.startsWith("/audit")}
-                icon={<ClipboardList className="h-4 w-4" />}
-              >
-                Audit
-              </NavLink>
-              <NavLink
-                href="/remediations"
-                active={pathname.startsWith("/remediations")}
-                icon={<ShieldCheck className="h-4 w-4" />}
-              >
-                Fixes
-              </NavLink>
+              <NavLinks pathname={pathname} roles={session?.roles || []} />
             </nav>
           </header>
           <main className="mx-auto w-full max-w-[1360px] flex-1 px-5 py-8 sm:px-8 lg:px-10">{children}</main>
           <footer className="border-t border-slate-800/70 px-5 py-5 text-xs text-slate-600 sm:px-8 lg:px-10">
             <div className="mx-auto flex max-w-[1360px] items-center justify-between">
-              <span>Container Sentinel · Security posture control plane</span>
+              <span>Scrutineering · container vulnerability scanning and remediation</span>
             </div>
           </footer>
         </div>

@@ -20,33 +20,40 @@ async function readDetail(response: Response): Promise<string> {
   return "Unable to create a remediation proposal.";
 }
 
+/** What proposing produced: a notice for the operator, and the new remediation when there is one. */
+export type Proposal = { message: string; remediationId?: number };
+
 /**
  * Ask the server how the findings would be fixed, then propose the ones it can fix.
- * Returns a notice for the operator; the server decides what is actionable.
+ * The server decides what is actionable.
  */
-export async function proposeFixes(imageId: number, findingIds: number[]): Promise<string> {
+export async function proposeFixes(imageId: number, findingIds: number[]): Promise<Proposal> {
   const request = { image_id: imageId, finding_ids: findingIds };
   const previewResponse = await fetch("/api/remediations/preview", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(request),
   });
-  if (!previewResponse.ok) return readDetail(previewResponse);
+  if (!previewResponse.ok) return { message: await readDetail(previewResponse) };
   const preview: Preview = await previewResponse.json();
   if (!preview.source_connected) {
-    return "Connect this image's source repository (on the image page) before proposing fixes.";
+    return { message: "Connect this image's source repository (on the image page) before proposing fixes." };
   }
   if (!preview.actionable_finding_ids.length) {
-    return `None of the selected findings can be fixed automatically (${plural(preview.manual.length, "finding")}).`;
+    const manual = plural(preview.manual.length, "finding");
+    return { message: `None of the selected findings can be fixed automatically (${manual}).` };
   }
   const response = await fetch("/api/remediations", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ image_id: imageId, finding_ids: preview.actionable_finding_ids }),
   });
-  if (!response.ok) return readDetail(response);
+  if (!response.ok) return { message: await readDetail(response) };
   const remediation = await response.json();
   const skipped = preview.manual.length ? `; ${plural(preview.manual.length, "finding")} need a manual fix` : "";
   const proposed = plural(preview.actionable_finding_ids.length, "finding");
-  return `Remediation #${remediation.id} proposed for ${proposed}${skipped}.`;
+  return {
+    message: `Remediation #${remediation.id} proposed for ${proposed}${skipped}.`,
+    remediationId: remediation.id,
+  };
 }

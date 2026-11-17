@@ -39,12 +39,13 @@ The dashboard is organized as a security operations console:
 
 - Overview leads with active exposure, severity trend, risk distribution,
   recent scans, and tracked-image inventory.
-- Scan history supports repository search, status filters, outcome counts, and
+- Scans supports repository search, status filters, outcome counts, and
   runtime details, server-side pagination, targeted scan submission, and
   queued-scan polling.
 - Image detail pages provide severity filtering, sortable findings, CVE links,
   fix availability, and responsive layouts.
-- The Audit Trail page records scan start/cancel activity with actor context.
+- Audit records operator actions and scan lifecycle events with actor context, and
+  links each entry to its scan, image or remediation.
 - Remediation detail pages show ordered lifecycle events, the patch and
   candidate image, and the GitHub pull request with its merge outcome.
 - Read-only `dashboard` users can inspect data; `operator`,

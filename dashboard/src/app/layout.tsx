@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Container Sentinel — Dashboard",
+  title: "Scrutineering",
   description: "Container vulnerability scanning and remediation dashboard",
 };
 
