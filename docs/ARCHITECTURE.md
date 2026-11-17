@@ -161,16 +161,11 @@ stateDiagram-v2
     building --> failed
     verifying --> failed
     failed --> proposed: retry (approval needed again)
-    proposed --> cancelled
-    approved --> cancelled
-    building --> cancelled
-    verifying --> cancelled
-    needs_acceptance --> cancelled
-    ready --> cancelled
-    published --> cancelled
     completed --> [*]
-    cancelled --> [*]
 ```
+
+Any status except `completed` can also be **cancelled**, which releases the
+remediation's findings so they can be proposed again.
 
 The transitions live in `src/remediation/state_machine.py`. The server decides every
 step from what it cloned, built and scanned itself:
