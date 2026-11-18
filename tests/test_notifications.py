@@ -410,3 +410,55 @@ def test_slack_messages_stay_within_block_kit_limits_at_the_longest_values(statu
         stored = json.loads((SLACK_FIXTURES / f"{name}.json").read_text())
         assert _block_kit_problems(stored["message"]) == []
     assert _block_kit_problems(slack.message({"event": "test"})) == []
+
+
+def _api(monkeypatch, roles: str):
+    from fastapi.testclient import TestClient
+
+    from src.api.app import create_app
+
+    monkeypatch.setenv("PYTHON_API_KEY", "notify-key")
+    monkeypatch.setenv("DASHBOARD_DEFAULT_ROLES", roles)
+    api = TestClient(create_app())
+    api.headers["x-api-key"] = "notify-key"
+    return api
+
+
+def test_the_notifications_routes_need_the_security_operator_role(monkeypatch):
+    api = _api(monkeypatch, "dashboard,operator,remediator")
+    assert api.get("/api/dashboard/notifications").status_code == 403
+    assert api.post("/api/dashboard/notifications/test").status_code == 403
+
+
+def test_with_no_channel_the_page_says_so_and_a_test_is_refused(monkeypatch):
+    api = _api(monkeypatch, "security-operator")
+    page = api.get("/api/dashboard/notifications").json()
+    assert page["channels"] == [{"name": "slack", "configured": False}, {"name": "webhook", "configured": False}]
+    assert page["deliveries"] == [] and page["links"] is False
+    response = api.post("/api/dashboard/notifications/test")
+    assert response.status_code == 409 and response.json()["detail"] == "no_notification_channel_configured"
+
+
+def test_a_test_send_goes_through_the_outbox_and_shows_up_without_the_urls(configured, receiver, monkeypatch):
+    monkeypatch.setenv("NOTIFICATION_SLACK_WEBHOOK_URL", SLACK_URL)
+    api = _api(monkeypatch, "security-operator")
+
+    queued = api.post("/api/dashboard/notifications/test")
+    assert queued.status_code == 202, queued.text
+    assert [(item["channel"], item["status"]) for item in queued.json()["queued"]] == [
+        ("slack", "pending"),
+        ("webhook", "pending"),
+    ]
+    assert configured == [1]  # delivery was queued after the commit
+    delivery.deliver()
+
+    response = api.get("/api/dashboard/notifications")
+    page = response.json()
+    assert page["channels"] == [{"name": "slack", "configured": True}, {"name": "webhook", "configured": True}]
+    assert page["links"] is True
+    assert [(item["event"], item["status"], item["next_attempt_at"]) for item in page["deliveries"]] == [
+        ("test", "sent", None),
+        ("test", "sent", None),
+    ]
+    for secret in (URL, SLACK_URL, SECRET):
+        assert secret not in response.text

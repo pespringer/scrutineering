@@ -64,6 +64,13 @@ show what they found at the time.
 | GET | `/audit?limit&offset&actor&event_type&since&until` | any | Paginated audit trail |
 | GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
 
+## Notifications
+
+| Method | Path | Role | Purpose |
+|---|---|---|---|
+| GET | `/notifications` | security-operator | Whether Slack and the webhook are configured (never their URLs), `NOTIFICATION_EVENTS`, whether messages carry links, and the last 20 deliveries |
+| POST | `/notifications/test` | security-operator | Queue a sample message (event `test`) to each configured channel through the normal outbox; 202 with the queued deliveries, 409 when no channel is configured |
+
 ## Remediation
 
 | Method | Path | Role | Purpose |

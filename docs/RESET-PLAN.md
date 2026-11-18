@@ -693,7 +693,7 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
 Each of these needs its own short design note in [design/](design/), merged
 before the code, and has to keep the golden-path test green:
 
-- notifications (Slack or webhook)
+- notifications (Slack or webhook): done, see [design/notifications.md](design/notifications.md)
 - OIDC and forward-auth
 - runtime discovery on by default
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster

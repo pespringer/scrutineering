@@ -213,6 +213,13 @@ DASHBOARD_PUBLIC_URL=https://scrutineering.home.lan
 Each channel's messages are retried and recorded separately. The worker must
 consume the `notify` queue, which the default `CELERY_QUEUES` includes.
 
+Then open **Notifications** in the menu (security operators). It shows which
+channels are configured, which statuses send messages, and the last 20 deliveries
+with any error. **Send test** sends a sample message to each configured channel
+through the normal delivery path and shows, within a few seconds, whether it was
+sent. A refused test is marked "retrying" with the error, and it keeps retrying
+in the background like any other message.
+
 **Slack.** Each message names the image, status, action and number of targeted
 findings. It also lists any new critical/high CVEs (the first five) and the reason
 for a failure. Buttons link to the remediation (when `DASHBOARD_PUBLIC_URL` is set)
@@ -293,8 +300,10 @@ only the environment can set them.
   publish again.
 - **A merged remediation stays `published`.** The image has not been rebuilt and
   pushed under the scanned tag yet. A scan of the new digest settles it.
-- **No notifications arrive.** Check that `CELERY_QUEUES` includes `notify`, then look
-  at the outbox. `last_error` is the receiver's status code or the connection error.
+- **No notifications arrive.** Check that `CELERY_QUEUES` includes `notify`, then open
+  **Notifications** and choose **Send test**. Each delivery's error is the receiver's
+  status code (with Slack's code, such as `no_service`) or the connection error. The
+  same rows are in the database:
 
   ```bash
   docker compose exec postgres psql -U scrutineering -c \

@@ -51,6 +51,8 @@ The dashboard is organized as a security operations console:
   links each entry to its scan, image or remediation.
 - Remediation detail pages show ordered lifecycle events, the patch and
   candidate image, and the GitHub pull request with its merge outcome.
+- Notifications (`security-operator`) shows which channels are configured, the
+  recent deliveries with their errors, and **Send test**.
 - Read-only `dashboard` users can inspect data; `operator`,
   `security-operator`, and `admin` roles can start or cancel scans.
 - Loading, error, empty, and unavailable-data states are intentional UI states,
