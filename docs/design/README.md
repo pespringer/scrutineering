@@ -18,4 +18,4 @@ A note answers:
 
 ## Notes
 
-None yet.
+- [notifications.md](notifications.md): Slack and webhook notifications (proposed)
