@@ -21,7 +21,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 |---|---|---|---|
 | `CELERY_BROKER_URL` | `redis://localhost:6379/0` | Celery broker. | api, worker, beat |
 | `CELERY_RESULT_BACKEND` | `redis://localhost:6379/1` | Celery result backend. | api, worker, beat |
-| `REDIS_URL` | `redis://localhost:6379/0` | Redis for the shared scan cache (`SCANNER_CACHE_BACKEND=redis`). | worker |
+| `REDIS_URL` | `redis://localhost:6379/0` | Redis for the shared scan cache (`SCANNER_CACHE_BACKEND=redis`) and the runtime discovery status. | api, worker |
 
 ## API and access
 
@@ -69,7 +69,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 
 | Variable | Default | Meaning | Read by |
 |---|---|---|---|
-| `SCAN_RUNTIME_DISCOVERY_ENABLED` | `false` | Scan the images of running containers on a schedule. | worker |
+| `SCAN_RUNTIME_DISCOVERY_ENABLED` | `false` | Every 15 minutes, record the images of running containers and scan new ones (docs/design/runtime-discovery.md). | worker |
 | `SCAN_RUNTIME_USE_CONTAINERD` | `false` | List containers with `ctr` instead of `docker`. | worker |
 | `SCAN_RUNTIME_DOCKER_BIN` | `docker` | Docker CLI to list containers with. | worker |
 | `SCAN_RUNTIME_CTR_BIN` | `ctr` | containerd CLI to list containers with. | worker |
@@ -78,7 +78,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `SCAN_RUNTIME_EXCLUDE_IMAGES` |  | Skip images matching these glob patterns. | worker |
 | `SCAN_RUNTIME_EXCLUDE_CONTAINERS` |  | Skip containers whose names match these glob patterns. | worker |
 | `SCAN_RUNTIME_INCLUDE_LABEL` |  | Only containers with this `key=value` label. | worker |
-| `SCAN_RUNTIME_MAX_IMAGES` | `100` | Most images scanned per discovery run. | worker |
+| `SCAN_RUNTIME_MAX_IMAGES` | `100` | Most scans queued per discovery run; every running image is still recorded. | worker |
 
 ## Registry credentials
 

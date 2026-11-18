@@ -93,7 +93,8 @@ erDiagram
     remediations ||--o{ notifications : "announced by"
 ```
 
-- **`images`**: one row per repository and tag, with the last digest seen. An
+- **`images`**: one row per repository and tag, with the last digest seen, and
+  when runtime discovery last saw it running (`last_seen_running_at`). An
   `image_sources` row says which repository, ref, Dockerfile and build context the
   image is built from.
 - **`scans`**: one row per scan run. It records the target, the digest it scanned, the

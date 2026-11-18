@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from src.scan.discovery._process import run_cli
+from src.scan.discovery._process import RuntimeUnavailable, failure, run_cli
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,10 @@ class ContainerdCollector:
     async def list_running_containers(self) -> list[dict[str, Any]]:
         """Return container IDs in the namespace; image names come from get_container_info."""
         result = await run_cli(self._ctr("containers", "list", "-q"))
-        if result is None:
-            return []
-        returncode, stdout, stderr = result
-        if returncode != 0:
-            logger.warning("ctr containers list failed: %s", stderr.strip())
-            return []
+        problem = failure(result, self.ctr_bin)
+        if problem:
+            raise RuntimeUnavailable(problem)
+        _, stdout, _ = result
         return [{"id": line.strip(), "namespace": self.namespace} for line in stdout.splitlines() if line.strip()]
 
     async def get_container_info(self, container_id: str) -> dict[str, Any] | None:

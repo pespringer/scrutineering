@@ -161,6 +161,7 @@ class Image(Base):
         Index("idx_images_registry", "registry"),
         Index("idx_images_name", "repo_name"),
         Index("idx_images_tag", "tag"),
+        Index("idx_images_last_seen_running_at", "last_seen_running_at"),
         UniqueConstraint("registry", "repo_name", "tag", name="uq_image_registry_repo_tag"),
         CheckConstraint(
             "char_length(repo_name) <= 512",
@@ -189,6 +190,8 @@ class Image(Base):
     discovered_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     last_scan_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # When runtime discovery last saw a container running this image (docs/design/runtime-discovery.md).
+    last_seen_running_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Labels (user-assigned)

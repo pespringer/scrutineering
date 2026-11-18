@@ -24,13 +24,24 @@ function relativeTime(value: string | null | undefined): string {
   return hours < 48 ? `${hours} h ago` : new Date(value).toLocaleDateString();
 }
 
+/** "Discovery: 7 running images, 1 local-only skipped, 3 min ago." Errors are listed in `problems`. */
+export function discoveryLine(discovery: SystemStatus["discovery"]): string {
+  if (!discovery || discovery.status === "disabled" || discovery.status === "error") return "";
+  const running = discovery.running_images ?? 0;
+  const skipped = (discovery.local_only ?? 0) + (discovery.id_only ?? 0);
+  const parts = [`${running} running image${running === 1 ? "" : "s"}`];
+  if (skipped) parts.push(`${skipped} not scannable`);
+  return ` Discovery: ${parts.join(", ")}, ${relativeTime(discovery.checked_at)}.`;
+}
+
 function detail(system: SystemStatus): string {
   if (system.status === "checking") return "Contacting the API.";
   if (system.problems.length) return system.problems.join(" · ") + ".";
   const workers = `${system.workers} scan worker${system.workers === 1 ? "" : "s"} responding`;
   const scan = system.last_scan;
-  if (!scan) return `${workers}. No scans yet.`;
-  return `${workers}. Last scan ${scan.status} ${relativeTime(scan.completed_at || scan.started_at)}.`;
+  const discovery = discoveryLine(system.discovery);
+  if (!scan) return `${workers}. No scans yet.${discovery}`;
+  return `${workers}. Last scan ${scan.status} ${relativeTime(scan.completed_at || scan.started_at)}.${discovery}`;
 }
 
 /** Sidebar panel: the API's own report of database, queue, and worker status. */

@@ -10,6 +10,16 @@ export type SystemStatus = {
   workers: number;
   last_scan?: { scan_id: string; status: string; started_at: string | null; completed_at: string | null } | null;
   problems: string[];
+  /** The last runtime discovery run within the hour, or null. */
+  discovery?: {
+    status: "ok" | "error" | "disabled";
+    checked_at: string;
+    error: string | null;
+    running_images?: number;
+    local_only?: number;
+    id_only?: number;
+    queued?: number;
+  } | null;
 };
 
 const CHECKING: SystemStatus = { status: "checking", workers: 0, problems: [] };

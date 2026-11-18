@@ -6,8 +6,10 @@ from fastapi import APIRouter
 from sqlalchemy import text
 
 from src.api.serializers import enum_value, iso
+from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import Scan
+from src.scan.runtime_discovery import load_status
 from src.scan.tasks import app as celery_app
 
 router = APIRouter()
@@ -56,6 +58,9 @@ def system_status() -> dict:
         problems.append("Scan queue unreachable")
     elif workers == 0:
         problems.append("No scan workers responding")
+    discovery = load_status(get_settings().redis_url)
+    if discovery and discovery.get("status") == "error":
+        problems.append(f"Runtime discovery can't list containers: {discovery.get('error')}")
     status = "unavailable" if not database else "degraded" if problems else "operational"
     return {
         "status": status,
@@ -63,5 +68,7 @@ def system_status() -> dict:
         "queue": "ok" if workers is not None else "unavailable",
         "workers": workers or 0,
         "last_scan": last_scan,
+        # The last discovery run within the hour (docs/design/runtime-discovery.md), or None.
+        "discovery": discovery,
         "problems": problems,
     }
