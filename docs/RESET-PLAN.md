@@ -1,9 +1,11 @@
 # Scrutineering Reset Plan
 
-Status: proposed · Written 2026-11-15 · Owner: Patrick Springer
+Status: complete (2026-11-17) · Written 2026-11-15 · Owner: Patrick Springer
 
 This plan replaces `docs/meaningful-milestone-plan.md` and `docs/upgrade-roadmap.md`.
-Until it is complete, **no work outside this plan gets merged**.
+It is complete: Phases 0–5 are done. Phase 6 brings features back one at a time,
+each starting from a design note in [design/](design/). The ground rules below
+now live in [AGENTS.md](../AGENTS.md#project-rules).
 
 ## The product, in one loop
 
@@ -16,7 +18,7 @@ Everything in the repo either serves this loop or gets removed. Things removed
 here can return later (Phase 6), but only after the loop works end to end and
 has a test that proves it.
 
-## Ground rules (add these to AGENTS.md in Phase 0)
+## Ground rules (now in AGENTS.md)
 
 1. The **golden-path test** (Phase 3) is the definition of "working". A change
    that breaks it does not merge, even if every other test passes.
@@ -686,13 +688,20 @@ fixes the fixture image's base-image CVE and one npm CVE, both verified by resca
 
 ---
 
-## Phase 6 — Bring back, one at a time (later)
+## Phase 6 — Bring back, one at a time
 
-Each of these needs its own short design note, and has to keep the golden-path
-test green: OIDC and forward-auth, Kubernetes manifests, GitLab publishing,
-notifications (Slack or webhook), scheduled reports and compliance export,
-runtime discovery on by default, signed SBOM and evidence, deployment
-observation, multi-user roles.
+Each of these needs its own short design note in [design/](design/), merged
+before the code, and has to keep the golden-path test green:
+
+- notifications (Slack or webhook)
+- OIDC and forward-auth
+- runtime discovery on by default
+- Kubernetes manifests: written after Phase 5; still to be applied to a cluster
+- signed SBOM and evidence
+- deployment observation
+- scheduled reports and compliance export
+- GitLab publishing
+- multi-user roles
 
 ---
 
@@ -700,7 +709,7 @@ observation, multi-user roles.
 
 | ID | Question | Recommendation |
 |---|---|---|
-| D1 | Keep `k8s/` in the repo during the reset? | Remove it; it's in the tag. Target Docker Compose on the home lab until Phase 6. |
+| D1 | Keep `k8s/` in the repo during the reset? | **Decided: keep it.** Docker Compose is the primary target; the manifests were made deployable after Phase 5, with BuildKit, and are checked offline by `tests/test_k8s_manifests.py`. |
 | D2 | Drop-table migration, or squash migrations? | **Decided: squash** (Phase 1d). |
 | D3 | How should the worker build images? | **Decided: a rootless `buildkitd` service** (Phase 4c). |
 | D4 | First PR provider? | **Decided: GitHub only.** The GitLab merge-request publisher, callback parsing and webhook route are removed (Phase 4c); Phase 4d builds publication on GitHub alone. |

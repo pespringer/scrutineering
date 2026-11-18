@@ -78,8 +78,8 @@ state machines.
 - [Dashboard API](docs/api/dashboard-v1.md): every route and the role it needs.
 - [Remediation execution](docs/operations/remediation-execution.md) and
   [GitHub publication](docs/operations/github-publication.md): fixes in detail.
-- [Documentation index](docs/README.md), and the [reset plan](docs/RESET-PLAN.md)
-  for current work.
+- [Documentation index](docs/README.md), the [reset plan](docs/RESET-PLAN.md), and
+  [design notes](docs/design/) for planned work.
 
 ## Development
 

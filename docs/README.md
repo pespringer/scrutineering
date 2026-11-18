@@ -1,10 +1,11 @@
 # Scrutineering Documentation
 
-[RESET-PLAN.md](RESET-PLAN.md) is the current plan. Phase 5 replaces these pages
-with a README, an architecture doc, an operator guide and a configuration
-reference; until then, this is the set that describes the current system.
+These pages describe the current system. [RESET-PLAN.md](RESET-PLAN.md) records
+the completed reset; features come back under its Phase 6, each starting from a
+design note in [design/](design/).
 
 ## Product
+- [design/](design/README.md): design notes for Phase 6 features, written before the code
 - [PRD.md](PRD.md): original product requirements (April 2026)
 - [adr/0001-automatic-remediation-architecture.md](adr/0001-automatic-remediation-architecture.md): original architecture decision (superseded)
 
