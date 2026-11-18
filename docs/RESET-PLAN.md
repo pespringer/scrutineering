@@ -697,7 +697,7 @@ before the code, and has to keep the golden-path test green:
 - OIDC and forward-auth: done, see [design/forward-auth.md](design/forward-auth.md)
 - runtime discovery on by default: done, see [design/runtime-discovery.md](design/runtime-discovery.md)
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster
-- signed SBOM and evidence
+- signed SBOM and evidence: proposed in [design/sbom-evidence.md](design/sbom-evidence.md)
 - deployment observation
 - scheduled reports and compliance export
 - GitLab publishing
