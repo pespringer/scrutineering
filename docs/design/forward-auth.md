@@ -1,6 +1,6 @@
 # Sign-in through a forward-auth proxy (OIDC)
 
-Status: in progress, steps 1 and 2 of 3 built (API, dashboard) · 2026-11-17 · Phase 6
+Status: built (API, dashboard, Traefik and Authelia example) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -178,10 +178,15 @@ only.
   remediation API calls with a mapped `trusted-proxy` identity, to show the roles
   carry the loop.
 - **Live:** `examples/forward-auth/` (Traefik with Authelia and a file-backed
-  user list) is brought up next to the stack. The check covers:
-  - signing in in Chrome, and the audit actor;
-  - refusals: no role, a forged header, a missing secret, direct port access;
+  user list) was brought up next to the stack and checked with curl through
+  Traefik:
+  - signing in, and the audit actor;
+  - refusals: no role, forged headers, a forged secret, direct port access;
   - sign-out.
+
+  The browser views ("No access yet", **Sign out** in the header) were not
+  automated: the browser tools stop at the self-signed certificate's warning.
+  The example's README lists them as a manual check.
 
 ## Rollout
 
@@ -194,25 +199,22 @@ only.
    - tests and docs.
 2. **Dashboard** (built): header presets, the matcher covering every page, sign-out, the
    no-role page, and tests.
-3. **Example and guide:**
+3. **Example and guide** (built):
    - `examples/forward-auth/`: Traefik with Authelia, tested live;
-   - an OPERATOR_GUIDE section, with ingress settings for Traefik, Caddy and
-     nginx. Only the Traefik one is tested.
+   - an OPERATOR_GUIDE section. It covers Traefik only, the tested setup. Caddy
+     and nginx recipes were left out rather than shipped untested.
 
 Each step keeps `local` mode and the golden path unchanged.
 
-## Open questions
+## Decisions
 
-1. **Native OIDC as well?**
-   *Recommendation:* not now. Revisit if someone needs Scrutineering without a
+These were open questions on the proposal.
+
+1. **Native OIDC:** not now. Revisit if someone needs Scrutineering without a
    proxy in front of it.
-2. **Which presets?**
-   *Recommendation:* Authelia, Authentik and oauth2-proxy, plus the current
-   names. Pomerium and Cloudflare Access send signed JWT assertions; trusting
-   those means verifying the JWT, which would be a separate step.
-3. **A signed-in user with no mapped role:** refuse, or allow read-only access?
-   *Recommendation:* refuse. Read access shows every vulnerability in your
-   images.
-4. **What do you run, or plan to run, in front of it?** The example and the one
-   live-tested recipe should match.
-   *Recommendation:* Traefik with Authelia, unless you already use something else.
+2. **Presets:** Authelia, Authentik and oauth2-proxy, plus the original
+   `x-authenticated-*` names.
+3. **A signed-in user with no mapped role:** refused.
+4. **The proxy:** Traefik with Authelia. Nothing was in use yet, Traefik was
+   familiar, and Authelia is a single small container with a file-backed user
+   list and built-in two-factor.

@@ -273,6 +273,34 @@ Messages name images, CVEs and pull requests, so send them only to a private
 channel. The URL and secret are credentials: they're never logged or shown, and
 only the environment can set them.
 
+## 11. Sign-in
+
+Out of the box (`DASHBOARD_AUTH_MODE=local`) there is no sign-in: anyone who can
+reach the dashboard gets `DASHBOARD_DEFAULT_ROLES`. That's fine on a trusted home
+network. Before the dashboard is reachable from anywhere else, put it behind a
+sign-in proxy.
+
+[examples/forward-auth/](../examples/forward-auth/README.md) does this with Traefik
+and Authelia, and runs on top of the stack with one command. It has two test users
+to try it with. To adapt it:
+
+1. **Generate your own secrets** (`example.env`), and replace the users file or
+   connect Authelia to your directory. Use `two_factor` for anything internet-facing.
+2. **Map groups to roles** with `DASHBOARD_GROUP_ROLES`, for example
+   `ops=operator,security=security-operator`. A signed-in user whose groups map to
+   no role sees "No access yet" and can't read anything.
+3. **Set** `DASHBOARD_AUTH_MODE=trusted-proxy` and `DASHBOARD_TRUSTED_PROXY_SECRET`
+   on the dashboard and the API, and `DASHBOARD_AUTH_HEADERS=authelia` on the
+   dashboard. Set `DASHBOARD_LOGOUT_URL` to show **Sign out**.
+4. **Reach the dashboard only through the proxy:** don't publish its port or the
+   API's on a network others can reach.
+
+Other proxies work the same way: `DASHBOARD_AUTH_HEADERS` also accepts `authentik`
+and `oauth2-proxy`. Whatever you use, the proxy in front must replace any identity
+headers a client sends, and add `x-dashboard-proxy-secret`
+([dashboard operations](operations/dashboard.md) lists the headers). Audit entries
+then name the signed-in user and record their email.
+
 ## Troubleshooting
 
 - **The dashboard shows an API error, or the header shows a degraded service.**

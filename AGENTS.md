@@ -11,7 +11,8 @@ Scrutineering is a Python backend with a Next.js dashboard:
   models and migrations, and metrics. `src/scan/discovery` lists running containers for discovery scans.
 - `tests/` holds the Python suite; `fixtures/` holds deterministic test data.
 - `dashboard/` is the Next.js frontend. Deployment manifests live in `k8s/` and observability
-  configuration in `monitoring/`. `scripts/` holds repository checks (with tests in `scripts/tests/`),
+  configuration in `monitoring/`. `examples/` holds tested setups to copy, such as sign-in with Traefik and
+  Authelia (`examples/forward-auth/`). `scripts/` holds repository checks (with tests in `scripts/tests/`),
   smoke tests, and operational scripts.
 
 ## Build, Test, and Development Commands

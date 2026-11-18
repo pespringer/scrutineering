@@ -19,4 +19,4 @@ A note answers:
 ## Notes
 
 - [notifications.md](notifications.md): Slack and webhook notifications (built)
-- [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (in progress: API and dashboard built)
+- [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
