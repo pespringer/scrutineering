@@ -78,9 +78,9 @@ class Settings(BaseSettings):
     celery_result_backend: str = setting("redis://localhost:6379/1", "Celery result backend.", "Queue", ALL)
     redis_url: str = setting(
         "redis://localhost:6379/0",
-        "Redis for the shared scan cache (`SCANNER_CACHE_BACKEND=redis`).",
+        "Redis for the shared scan cache (`SCANNER_CACHE_BACKEND=redis`) and the runtime discovery status.",
         "Queue",
-        (WORKER,),
+        (API, WORKER),
     )
 
     # -- API and access ---------------------------------------------------------
@@ -176,7 +176,11 @@ class Settings(BaseSettings):
 
     # -- Runtime discovery ------------------------------------------------------
     scan_runtime_discovery_enabled: bool = setting(
-        False, "Scan the images of running containers on a schedule.", "Runtime discovery", (WORKER,)
+        False,
+        "Every 15 minutes, record the images of running containers and scan new ones "
+        "(docs/design/runtime-discovery.md).",
+        "Runtime discovery",
+        (WORKER,),
     )
     scan_runtime_use_containerd: bool = setting(
         False, "List containers with `ctr` instead of `docker`.", "Runtime discovery", (WORKER,)
@@ -203,7 +207,11 @@ class Settings(BaseSettings):
         "", "Only containers with this `key=value` label.", "Runtime discovery", (WORKER,)
     )
     scan_runtime_max_images: int = setting(
-        100, "Most images scanned per discovery run.", "Runtime discovery", (WORKER,), ge=1
+        100,
+        "Most scans queued per discovery run; every running image is still recorded.",
+        "Runtime discovery",
+        (WORKER,),
+        ge=1,
     )
 
     # -- Registry credentials ---------------------------------------------------

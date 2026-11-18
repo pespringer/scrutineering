@@ -55,3 +55,19 @@ def offline_scanning(monkeypatch):
     monkeypatch.setenv("SCANNER_RETRY_BACKOFF_SECONDS", "0")
     for name in ("REQUIRE_IMMUTABLE_SCAN_IDENTITY", "SCANNER_RETRY_ATTEMPTS", "SCANNER_TIMEOUT"):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def discovery_status_store(monkeypatch):
+    """An in-memory stand-in for the Redis key that holds the last runtime discovery result."""
+    store: dict[str, str] = {}
+
+    class FakeRedis:
+        def set(self, key, value, ex=None):
+            store[key] = value
+
+        def get(self, key):
+            return store.get(key)
+
+    monkeypatch.setattr("src.scan.runtime_discovery._redis", lambda url: FakeRedis())
+    return store

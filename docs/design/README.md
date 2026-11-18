@@ -20,4 +20,4 @@ A note answers:
 
 - [notifications.md](notifications.md): Slack and webhook notifications (built)
 - [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
-- [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (accepted)
+- [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (in progress: step 1 built)

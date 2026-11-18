@@ -44,11 +44,23 @@ ECR and GCR use the standard AWS and Google credentials.
 **Automatically.**
 - Every known image is rescanned on `SCHEDULE_CRON_SCAN` (every 6 hours by default),
   skipping images scanned within `SCAN_COOLDOWN_SECONDS`.
-- Runtime discovery can also scan the images of running containers every 15
-  minutes. It is off by default because it needs access to the host's Docker socket
-  or containerd. To turn it on, set `SCAN_RUNTIME_DISCOVERY_ENABLED=true` (plus the
+- Runtime discovery can also find the images of running containers every 15
+  minutes. Each run records which images are running (`last_seen_running_at`) and
+  queues a scan only of an image never scanned, or last scanned before
+  `SCAN_COOLDOWN_SECONDS`, with no scan already pending or running. It skips
+  images it can't scan, counting them instead: those built on the host (no
+  registry digest), and containers that show only an image ID. A container
+  labelled `scrutineering.scan=false` is never scanned. The system status panel
+  shows the last run ("Discovery: 7 running images, …"). If Docker can't be
+  reached, the status shows that error rather than "nothing running".
+
+  It is off by default because it needs access to the host's Docker socket or
+  containerd. To turn it on, set `SCAN_RUNTIME_DISCOVERY_ENABLED=true` (plus the
   include and exclude filters in [Runtime discovery](CONFIGURATION.md#runtime-discovery)),
-  then start the worker with the Docker overlay:
+  then start the worker with the Docker overlay. **The overlay gives the worker the
+  Docker socket, which is root on the host**; use it only on a dedicated host. A
+  read-only proxy replaces it in the next step of
+  [the design](design/runtime-discovery.md).
 
   ```bash
   export DOCKER_SOCKET_GID="$(stat -c '%g' /var/run/docker.sock)"

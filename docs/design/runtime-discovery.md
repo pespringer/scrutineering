@@ -1,6 +1,6 @@
 # Runtime discovery on by default
 
-Status: accepted, not yet built · 2026-11-18 · Phase 6
+Status: in progress, step 1 of 2 built · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -50,7 +50,7 @@ if it did:
 
 **Out:**
 
-- Kubernetes discovery (see Open questions). The existing containerd collector
+- Kubernetes discovery (see Decisions). The existing containerd collector
   stays as it is, off by default.
 - Which containers run an image, and where. That is the "deployment observation"
   Phase 6 item. This note only records that an image was running.
@@ -87,10 +87,13 @@ discovery reports the error. Everything else in the stack keeps working.
    always skipped.
 2. **Inspect each distinct image** (`docker image inspect`) and sort it:
    - **scannable**: it has a `RepoDigests` entry, so it was pulled from a
-     registry. Discovery records the name it runs under, together with that
-     digest;
+     registry. Discovery records the name it runs under; each scan resolves
+     the digest itself, as every scan does;
    - **local-only**: no registry digest. It's counted and skipped;
    - **ID only**: the container shows only an image ID. It's counted and skipped.
+
+   With containerd there is no registry-digest check: named images are kept, and
+   only bare IDs are skipped.
 3. **Record what's running.** Each scannable image gets an `images` row if it has
    none, and `last_seen_running_at = now`.
 4. **Queue only what needs it.** Discovery uses the same rule as scheduled rescans
@@ -174,7 +177,7 @@ images recorded as running.
 
 ## Rollout
 
-1. **Discovery that's safe to leave on** (default still off):
+1. **Discovery that's safe to leave on** (built; default still off):
    - classification and the skips;
    - cooldown and active-scan checks;
    - `last_seen_running_at` and migration 0009;

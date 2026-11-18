@@ -1,9 +1,34 @@
-"""Runtime container discovery helpers for scan scheduling."""
+"""Runtime discovery: find the images of running containers, record them, and scan the ones that need it.
+
+See docs/design/runtime-discovery.md. A run lists running containers, keeps the images it can scan
+(pulled from a registry), marks them as seen running, and queues only those never scanned or
+scanned before the cooldown, with no scan already pending or running. Its result goes to Redis for
+the system status panel; a runtime that can't be reached is reported as an error, not as "nothing
+running".
+"""
 
 from __future__ import annotations
 
 import fnmatch
-from typing import Any
+import json
+import logging
+import re
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable
+
+logger = logging.getLogger(__name__)
+
+OPT_OUT_LABEL = "scrutineering.scan"
+IMAGE_ID = re.compile(r"(sha256:)?[0-9a-f]{12,64}")
+STATUS_KEY = "scrutineering:runtime-discovery"
+STATUS_TTL_SECONDS = 3600
+
+
+def _labels(labels: Any) -> dict[str, str]:
+    if isinstance(labels, str):
+        return dict(item.split("=", 1) for item in labels.split(",") if "=" in item)
+    return labels if isinstance(labels, dict) else {}
 
 
 def _labels_match(labels: Any, expression: str | None) -> bool:
@@ -12,9 +37,7 @@ def _labels_match(labels: Any, expression: str | None) -> bool:
     key, separator, expected = expression.partition("=")
     if not separator or not key:
         return False
-    if isinstance(labels, str):
-        labels = dict(item.split("=", 1) for item in labels.split(",") if "=" in item)
-    return isinstance(labels, dict) and labels.get(key) == expected
+    return _labels(labels).get(key) == expected
 
 
 def select_runtime_images(
@@ -24,10 +47,13 @@ def select_runtime_images(
     exclude: list[str] | None = None,
     exclude_containers: list[str] | None = None,
     include_label: str | None = None,
-    limit: int = 100,
+    limit: int | None = None,
 ) -> list[str]:
-    """Return stable, unique image references selected from running containers."""
-    if limit < 1:
+    """Return stable, unique image references selected from running containers.
+
+    A container labelled `scrutineering.scan=false` is always skipped.
+    """
+    if limit is not None and limit < 1:
         raise ValueError("runtime discovery limit must be positive")
     include, exclude, exclude_containers = include or [], exclude or [], exclude_containers or []
     selected: list[str] = []
@@ -35,7 +61,10 @@ def select_runtime_images(
     for container in containers:
         image = str(container.get("image") or "").strip()
         name = str(container.get("names") or container.get("id") or "").strip()
-        if not image or not _labels_match(container.get("labels"), include_label):
+        labels = container.get("labels")
+        if not image or not _labels_match(labels, include_label):
+            continue
+        if _labels(labels).get(OPT_OUT_LABEL, "").strip().lower() == "false":
             continue
         if exclude_containers and any(fnmatch.fnmatchcase(name, pattern) for pattern in exclude_containers):
             continue
@@ -46,9 +75,31 @@ def select_runtime_images(
         if image not in seen:
             seen.add(image)
             selected.append(image)
-        if len(selected) >= limit:
+        if limit is not None and len(selected) >= limit:
             break
     return selected
+
+
+@dataclass
+class Classified:
+    """Running images split by whether the scanners can pull them."""
+
+    scannable: list[str] = field(default_factory=list)
+    local_only: int = 0  # built on the host: no registry digest
+    id_only: int = 0  # the container shows only an image ID
+
+
+async def classify(images: list[str], repo_digests: Callable[[str], Awaitable[list[str] | None]] | None) -> Classified:
+    """Keep the images pulled from a registry. Without a digest lookup (containerd), names are kept."""
+    result = Classified()
+    for image in images:
+        if IMAGE_ID.fullmatch(image):
+            result.id_only += 1
+        elif repo_digests is None or await repo_digests(image):
+            result.scannable.append(image)
+        else:
+            result.local_only += 1
+    return result
 
 
 async def discover_runtime_containers(
@@ -57,21 +108,147 @@ async def discover_runtime_containers(
     docker_bin: str = "docker",
     ctr_bin: str = "ctr",
     containerd_namespace: str = "default",
-) -> list[dict[str, Any]]:
-    """Discover containers and enrich containerd records with image names."""
+) -> tuple[list[dict[str, Any]], Callable[[str], Awaitable[list[str] | None]] | None]:
+    """Running containers, and the registry-digest lookup for their images (Docker only).
+
+    Raises RuntimeUnavailable when the runtime can't be listed.
+    """
     if use_containerd:
         from src.scan.discovery import ContainerdCollector
 
         collector = ContainerdCollector(ctr_bin=ctr_bin, namespace=containerd_namespace)
-    else:
-        from src.scan.discovery import DockerRuntimeCollector
-
-        collector = DockerRuntimeCollector(docker_bin=docker_bin)
-    containers = await collector.list_running_containers()
-    if use_containerd:
+        containers = await collector.list_running_containers()
         for container in containers:
             if not container.get("image"):
                 info = await collector.get_container_info(container["id"])
                 if info:
                     container["image"] = info.get("image") or info.get("runtime_image") or ""
-    return containers
+        return containers, None
+    from src.scan.discovery import DockerRuntimeCollector
+
+    docker = DockerRuntimeCollector(docker_bin=docker_bin)
+    return await docker.list_running_containers(), docker.repo_digests
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def record_and_select(images: list[str], *, cooldown_seconds: int, now: datetime) -> list[str]:
+    """Mark each image as seen running, and return the ones due for a scan, oldest scan first."""
+    from src.db.connection import get_session
+    from src.db.models import Scan, ScanStatus
+    from src.scan.records import get_or_create_image, scan_identity
+    from src.scan.reliability import ScanCooldown, cooldown_active
+
+    policy = ScanCooldown(cooldown_seconds)
+    aware_now = now.replace(tzinfo=timezone.utc)  # cooldown_active compares in UTC
+    candidates = []
+    with get_session() as session:
+        for reference in images:
+            try:
+                image = get_or_create_image(session, scan_identity(reference))
+            except ValueError:
+                logger.warning("runtime discovery skipped an image reference it could not parse: %r", reference)
+                continue
+            image.last_seen_running_at = now
+            candidates.append((reference, image.id, image.last_scan_at))
+        session.flush()
+        busy = {
+            image_id
+            for (image_id,) in session.query(Scan.image_id)
+            .filter(
+                Scan.image_id.in_([image_id for _, image_id, _ in candidates]),
+                Scan.status.in_([ScanStatus.PENDING.value, ScanStatus.RUNNING.value]),
+            )
+            .all()
+        }
+    due = [
+        (last_scan_at or datetime.min, reference)
+        for reference, image_id, last_scan_at in candidates
+        if image_id not in busy and not cooldown_active(last_scan_at, policy=policy, now=aware_now)
+    ]
+    return [reference for _, reference in sorted(due)]
+
+
+def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now: datetime | None = None) -> dict:
+    """One discovery run. Returns, and stores, the status shown in the system panel."""
+    import asyncio
+
+    from src.scan.discovery._process import RuntimeUnavailable
+
+    now = now or _now()
+    status: dict[str, Any] = {"status": "ok", "checked_at": now.isoformat(timespec="seconds") + "Z", "error": None}
+    if not settings.scan_runtime_discovery_enabled:
+        status["status"] = "disabled"
+        save_status(status, settings.redis_url)
+        return status
+
+    async def default_collect():
+        containers, repo_digests = await discover_runtime_containers(
+            use_containerd=settings.scan_runtime_use_containerd,
+            docker_bin=settings.scan_runtime_docker_bin,
+            ctr_bin=settings.scan_runtime_ctr_bin,
+            containerd_namespace=settings.scan_runtime_containerd_namespace,
+        )
+        images = select_runtime_images(
+            containers,
+            include=settings.scan_runtime_include_images,
+            exclude=settings.scan_runtime_exclude_images,
+            exclude_containers=settings.scan_runtime_exclude_containers,
+            include_label=settings.scan_runtime_include_label,
+        )
+        return containers, await classify(images, repo_digests)
+
+    try:
+        containers, classified = asyncio.run((collect or default_collect)())
+    except RuntimeUnavailable as exc:
+        logger.warning("runtime discovery could not list containers: %s", exc)
+        status.update(status="error", error=str(exc))
+        save_status(status, settings.redis_url)
+        return status
+
+    due = record_and_select(classified.scannable, cooldown_seconds=settings.scan_cooldown_seconds, now=now)
+    queued = 0
+    for image in due[: settings.scan_runtime_max_images]:
+        try:
+            queue(image)
+            queued += 1
+        except Exception:
+            logger.exception("runtime discovery could not queue a scan of %s", image)
+    status.update(
+        containers=len(containers),
+        running_images=len(classified.scannable),
+        local_only=classified.local_only,
+        id_only=classified.id_only,
+        queued=queued,
+    )
+    logger.info("runtime discovery: %s", json.dumps(status, sort_keys=True))
+    save_status(status, settings.redis_url)
+    return status
+
+
+def _redis(url: str):
+    import redis
+
+    return redis.Redis.from_url(url, socket_timeout=2, socket_connect_timeout=2)
+
+
+def save_status(status: dict, redis_url: str) -> None:
+    """Keep the last run's result for an hour. It's status, not history, so there is no table."""
+    try:
+        _redis(redis_url).set(STATUS_KEY, json.dumps(status), ex=STATUS_TTL_SECONDS)
+    except Exception as exc:  # noqa: BLE001 - the status panel says "not reported" instead
+        logger.warning("could not save the runtime discovery status: %s", exc)
+
+
+def load_status(redis_url: str) -> dict | None:
+    """The last run's result, or None if there is none within the hour or Redis is unreachable."""
+    try:
+        raw = _redis(redis_url).get(STATUS_KEY)
+    except Exception:  # noqa: BLE001
+        return None
+    try:
+        return json.loads(raw) if raw else None
+    except (TypeError, ValueError):
+        return None

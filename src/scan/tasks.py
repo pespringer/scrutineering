@@ -26,7 +26,7 @@ from src.scan.image_identity import parse_image_reference
 from src.scan.records import create_pending_scan, mark_scan_failed, queue_scan
 from src.scan.registry import credentials_for_host, resolve_digest
 from src.scan.redis_cache import SyncRedisScanCache
-from src.scan.runtime_discovery import discover_runtime_containers, select_runtime_images
+from src.scan.runtime_discovery import run_discovery
 from src.scan.scanners.base import ScannerError, ScannerFinding
 from src.scan.scanners.grype import GrypeScanner
 from src.scan.scanners.trivy import TrivyScanner
@@ -59,35 +59,9 @@ def schedule_inventory_scans() -> dict[str, int]:
 
 
 @shared_task(name="src.scan.tasks.discover_runtime_scans", acks_late=True)
-def discover_runtime_scans() -> dict[str, int | str]:
-    """Discover running runtime images and queue bounded low-priority scans."""
-    settings = get_settings()
-    if not settings.scan_runtime_discovery_enabled:
-        return {"status": "disabled", "discovered": 0, "queued": 0}
-    containers = asyncio.run(
-        discover_runtime_containers(
-            use_containerd=settings.scan_runtime_use_containerd,
-            docker_bin=settings.scan_runtime_docker_bin,
-            ctr_bin=settings.scan_runtime_ctr_bin,
-            containerd_namespace=settings.scan_runtime_containerd_namespace,
-        )
-    )
-    images = select_runtime_images(
-        containers,
-        include=settings.scan_runtime_include_images,
-        exclude=settings.scan_runtime_exclude_images,
-        exclude_containers=settings.scan_runtime_exclude_containers,
-        include_label=settings.scan_runtime_include_label,
-        limit=settings.scan_runtime_max_images,
-    )
-    queued = 0
-    for image in images:
-        try:
-            queue_scan(image, priority="low", trigger="discovery")
-            queued += 1
-        except Exception:
-            logger.exception("Unable to queue discovered image %s", image)
-    return {"status": "queued", "discovered": len(containers), "queued": queued}
+def discover_runtime_scans() -> dict:
+    """Record the images of running containers and queue low-priority scans of those due one."""
+    return run_discovery(get_settings(), queue=lambda image: queue_scan(image, priority="low", trigger="discovery"))
 
 
 def _now() -> datetime:

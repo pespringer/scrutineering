@@ -52,3 +52,25 @@ def test_unavailable_when_the_database_is_down(workers, monkeypatch):
     assert (status["status"], status["database"]) == ("unavailable", "unavailable")
     assert status["problems"] == ["Database unreachable"]
     assert status["last_scan"] is None
+
+
+def test_the_last_discovery_run_is_reported(workers):
+    from src.scan.runtime_discovery import save_status
+
+    workers([{"celery@a": {"ok": "pong"}}])
+    assert system.system_status()["discovery"] is None  # no run within the hour
+    ok = {"status": "ok", "checked_at": "2026-11-18T12:00:00Z", "error": None, "running_images": 3, "queued": 1}
+    save_status(ok, "redis://unused")
+    status = system.system_status()
+    assert status["discovery"] == ok and status["status"] == "operational"
+
+
+def test_a_discovery_error_degrades_the_status(workers):
+    from src.scan.runtime_discovery import save_status
+
+    workers([{"celery@a": {"ok": "pong"}}])
+    error = "Cannot connect to the Docker daemon at tcp://docker-proxy:2375"
+    save_status({"status": "error", "checked_at": "2026-11-18T12:00:00Z", "error": error}, "redis://unused")
+    status = system.system_status()
+    assert status["status"] == "degraded"
+    assert status["problems"] == [f"Runtime discovery can't list containers: {error}"]
