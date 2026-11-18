@@ -1,6 +1,6 @@
 # Signed SBOMs and remediation evidence
 
-Status: in progress, step 1 of 3 built (SBOMs) · 2026-11-18 · Phase 6
+Status: in progress, steps 1 and 2 of 3 built (SBOMs, signing) · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -206,7 +206,9 @@ generated on first use.
    - migration `0010` (`sboms`);
    - the scan and image routes and dashboard links;
    - tests, docs and the e2e download.
-2. **Signing:**
+2. **Signing** (built). On Kubernetes the worker runs two replicas, so the key is
+   a Secret the operator creates once, mounted read-only; a volume per pod would
+   give each replica its own key. Without the Secret, SBOMs are stored unsigned:
    - `cryptography`;
    - the key volume, generation, and `signing_keys` (migration `0011`);
    - signing SBOMs;

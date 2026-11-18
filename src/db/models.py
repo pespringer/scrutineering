@@ -606,6 +606,21 @@ class Sbom(Base):
     components: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     document: Mapped[str] = mapped_column(Text, nullable=False)
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Base64 ECDSA signature over `document` (src/signing.py), and the key that made it; null if unsigned.
+    signature: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    key_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class SigningKey(Base):
+    """A public key this instance has signed exports with. Kept after rotation so old signatures verify."""
+
+    __tablename__ = "signing_keys"
+    __table_args__ = (UniqueConstraint("key_id", name="uq_signing_keys_key_id"),)
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    key_id: Mapped[str] = mapped_column(String(80), nullable=False)
+    public_key_pem: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 

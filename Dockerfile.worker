@@ -32,7 +32,9 @@ COPY src/ ./src/
 
 # Keep runtime state writable only in /tmp and run the worker as an unprivileged user.
 RUN addgroup --system scanner && adduser --system --ingroup scanner scanner && \
-    mkdir -p /tmp/scanner-cache /tmp/grype && chown -R scanner:scanner /app /tmp/scanner-cache /tmp/grype
+    mkdir -p /tmp/scanner-cache /tmp/grype /var/lib/scrutineering/signing && \
+    chown -R scanner:scanner /app /tmp/scanner-cache /tmp/grype /var/lib/scrutineering && \
+    chmod 700 /var/lib/scrutineering/signing
 USER scanner
 
 HEALTHCHECK --interval=30s --timeout=5s --retries=3 \

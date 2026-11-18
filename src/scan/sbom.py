@@ -26,9 +26,21 @@ def _count_components(components: list | None) -> int:
     return sum(1 + _count_components(item.get("components")) for item in components or [] if isinstance(item, dict))
 
 
+def _sign(document: str):
+    """Sign the stored bytes; an unsigned SBOM is better than none if the key can't be used."""
+    from src import signing
+
+    try:
+        return signing.sign(document.encode())
+    except Exception as exc:  # noqa: BLE001 - logged; the SBOM is kept unsigned
+        logger.error("could not sign an SBOM, keeping it unsigned: %s", exc)
+        return None
+
+
 def store(scan_id: str, image_id: int, document: str) -> Sbom:
-    """Save one scan's SBOM exactly as written, with its SHA-256 and a component count."""
+    """Save one scan's SBOM exactly as written, with its SHA-256, a component count, and a signature."""
     parsed = json.loads(document)
+    signature = _sign(document)
     with get_session() as session:
         sbom = Sbom(
             scan_id=scan_id,
@@ -38,6 +50,8 @@ def store(scan_id: str, image_id: int, document: str) -> Sbom:
             components=_count_components(parsed.get("components")),
             document=document,
             sha256=hashlib.sha256(document.encode()).hexdigest(),
+            signature=signature.value if signature else None,
+            key_id=signature.key_id if signature else None,
         )
         session.add(sbom)
         session.flush()

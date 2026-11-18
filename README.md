@@ -129,6 +129,15 @@ seccomp and AppArmor, which the main namespace's `restricted` Pod Security level
      alembic -c src/db/migrations/alembic.ini upgrade head
    ```
 
+4. Create the key that signs SBOMs and evidence. Every worker replica shares it; until
+   it exists, exports are stored unsigned and the worker logs why:
+
+   ```bash
+   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out private.pem
+   kubectl create secret generic -n scrutineering scrutineering-signing-key --from-file=private.pem
+   rm private.pem
+   ```
+
 To build fixes, set `REMEDIATION_EXECUTION_ENABLED: "true"` in the ConfigMap. On
 Kubernetes, sources must be `https://` repositories, since there is no local sources
 folder. The manifests are checked offline (`tests/test_k8s_manifests.py`: Pod Security,

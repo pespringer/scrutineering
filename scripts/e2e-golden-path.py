@@ -62,6 +62,40 @@ def request(method: str, path: str, body: dict | None = None) -> dict:
     raise AssertionError("unreachable")
 
 
+def download(path: str) -> bytes:
+    """A file from the dashboard, byte for byte."""
+    try:
+        with urllib.request.urlopen(f"{DASHBOARD}{path}", timeout=30) as response:
+            return response.read()
+    except urllib.error.HTTPError as error:
+        fail(f"GET {path} returned {error.code}: {error.read().decode()[:300]}")
+    raise AssertionError("unreachable")
+
+
+def verify_with_openssl(name: str, data: bytes, signature_path: str, key_id: str) -> None:
+    """Check a signature the way a reviewer would: openssl, the downloaded file and the public PEM, nothing else."""
+    import base64
+    import tempfile
+
+    if shutil.which("openssl") is None:
+        print(f"    {name}: signature not checked, openssl is not installed")
+        return
+    with tempfile.TemporaryDirectory() as folder:
+        work = Path(folder)
+        (work / "file").write_bytes(data)
+        (work / "sig.der").write_bytes(base64.b64decode(download(signature_path)))
+        (work / "key.pem").write_bytes(download(f"/api/signing-keys/{key_id.removeprefix('sha256:')}.pem"))
+        result = subprocess.run(
+            ["openssl", "dgst", "-sha256", "-verify", "key.pem", "-signature", "sig.der", "file"],
+            cwd=work,
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode != 0:
+        fail(f"{name}: openssl could not verify the signature: {result.stdout.strip()} {result.stderr.strip()}")
+    print(f"    {name}: signature verified by openssl ({key_id[:19]}...)")
+
+
 def wait_for_scan(scan_id: str) -> dict:
     deadline = time.monotonic() + TIMEOUT
     while True:
@@ -246,6 +280,11 @@ def main() -> None:
     if target[0]["package_version"] not in versions:
         fail(f"the SBOM lists {TARGET_PACKAGE} {sorted(versions)}, not the scanned {target[0]['package_version']}")
     print(f"    CycloneDX {sbom['specVersion']}: {summary['components']} components, includes {TARGET_PACKAGE}")
+    if not summary.get("signed"):
+        fail("the SBOM is not signed (see the worker log: 'could not sign an SBOM')")
+    verify_with_openssl(
+        "SBOM", download(f"/api/scans/{scan_id}/sbom"), f"/api/scans/{scan_id}/sbom.sig", summary["key_id"]
+    )
 
     remediation_half(scan, target[0])
     step("check notifications")

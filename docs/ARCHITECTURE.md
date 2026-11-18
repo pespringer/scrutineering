@@ -125,6 +125,9 @@ erDiagram
 - **`sboms`**: the CycloneDX SBOM of a completed or partial image scan, stored
   exactly as Trivy wrote it, with its SHA-256 and component count. Each image keeps
   its newest; a daily sweep removes the rest.
+- **`signing_keys`**: every public key this instance has signed exports with. The
+  private key is only on the worker (`src/signing.py`); each SBOM records its
+  signature and `key_id`.
 - **`notifications`**: an outbox. Every remediation status change in
   `NOTIFICATION_EVENTS` writes one row per configured channel, in the same
   transaction, with the message's payload. Each row has its own delivery status:
@@ -223,6 +226,9 @@ step from what it cloned, built and scanned itself:
   ignores repeated delivery IDs.
 - **No client-asserted facts.** Digests, finding counts and verification results are
   never accepted from a request. They come from the worker's own scans.
+- **Signing key.** The private key that signs exports exists only on the worker's
+  `signingkeys` volume (a Secret on Kubernetes), mode 0600. The API serves public
+  keys only.
 - **Credentials.** Registry credentials and `GITHUB_TOKEN` stay in the worker. git
   receives the token through `GIT_ASKPASS`, never in a URL or argument. Package
   managers run without the worker's environment, and npm never runs package scripts.
