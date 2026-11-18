@@ -34,6 +34,11 @@ make smoke     # check that the API and dashboard answer
 
 Open the dashboard at <http://localhost:3001>.
 
+Scrutineering lists the containers running on this host (through a read-only
+Docker proxy) and scans their images. Set `SCAN_RUNTIME_DISCOVERY_ENABLED=false`
+in `.env` to turn that off; the [operator guide](docs/OPERATOR_GUIDE.md) explains
+what it can see.
+
 ## Scan your first image
 
 The stack includes a local registry. Push to it from your machine as

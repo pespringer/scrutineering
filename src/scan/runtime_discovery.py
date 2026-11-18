@@ -14,7 +14,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,13 @@ OPT_OUT_LABEL = "scrutineering.scan"
 IMAGE_ID = re.compile(r"(sha256:)?[0-9a-f]{12,64}")
 STATUS_KEY = "scrutineering:runtime-discovery"
 STATUS_TTL_SECONDS = 3600
+# An image counts as running if a discovery run saw it within two runs (beat runs every 15 minutes).
+RUNNING_WINDOW = timedelta(minutes=30)
+
+
+def running_since(now: datetime | None = None) -> datetime:
+    """The oldest `last_seen_running_at` that still counts as running."""
+    return (now or datetime.now(timezone.utc).replace(tzinfo=None)) - RUNNING_WINDOW
 
 
 def _labels(labels: Any) -> dict[str, str]:
@@ -89,17 +96,87 @@ class Classified:
     id_only: int = 0  # the container shows only an image ID
 
 
-async def classify(images: list[str], repo_digests: Callable[[str], Awaitable[list[str] | None]] | None) -> Classified:
-    """Keep the images pulled from a registry. Without a digest lookup (containerd), names are kept."""
+async def classify(
+    images: list[str],
+    repo_digests: Callable[[str], Awaitable[list[str] | None]] | None,
+    in_registry: Callable[[str], bool | None] | None = None,
+    known: set[str] | None = None,
+) -> Classified:
+    """Keep the images the scanners can pull.
+
+    An image is skipped as local-only when Docker has no registry digest for it (the classic image
+    store), or when its registry says it doesn't exist or refuses access. Docker's containerd image
+    store gives local builds a digest too, so the registry is the reliable check. Images already
+    tracked (`known`) skip the registry check; a registry that can't be reached keeps the image, and
+    the scan decides. Without a digest lookup (containerd), named images are kept.
+    """
     result = Classified()
+    known = known or set()
     for image in images:
         if IMAGE_ID.fullmatch(image):
             result.id_only += 1
-        elif repo_digests is None or await repo_digests(image):
-            result.scannable.append(image)
-        else:
+        elif repo_digests is not None and not await repo_digests(image):
             result.local_only += 1
+        elif image not in known and in_registry is not None and in_registry(image) is False:
+            result.local_only += 1
+        else:
+            result.scannable.append(image)
     return result
+
+
+def in_registry(reference: str) -> bool | None:
+    """Whether the image's registry resolves it with the worker's credentials, as a scan would.
+
+    False when the registry says it doesn't exist or refuses access (the scanners couldn't pull it);
+    None when the registry couldn't be asked.
+    """
+    from urllib.error import HTTPError
+
+    from src.scan.image_identity import parse_image_reference
+    from src.scan.registry import credentials_for_host, resolve_digest
+    from src.scan.settings import ScannerSettings
+
+    try:
+        identity = parse_image_reference(reference)
+        insecure = ScannerSettings.from_env().insecure_host(identity.host)
+        credentials = credentials_for_host(identity.host)
+        resolve_digest(identity, credentials=credentials, scheme="http" if insecure else "https")
+    except HTTPError as error:
+        return False if error.code in (401, 403, 404) else None
+    except PermissionError:
+        return False
+    except Exception:  # noqa: BLE001 - unreachable or unexpected: let the scan decide
+        return None
+    return True
+
+
+def known_images(references: list[str]) -> set[str]:
+    """The references with a completed or partial scan: proof the scanners can pull them."""
+    from src.db.connection import get_session
+    from src.db.models import Image, Scan, ScanStatus
+    from src.scan.records import scan_identity
+
+    found = set()
+    with get_session() as session:
+        for reference in references:
+            try:
+                identity = scan_identity(reference)
+            except ValueError:
+                continue
+            scanned = (
+                session.query(Scan.id)
+                .join(Image, Scan.image_id == Image.id)
+                .filter(
+                    Image.registry_name == identity.registry,
+                    Image.repo_name == identity.repo_name,
+                    Image.tag == identity.tag,
+                    Scan.status.in_([ScanStatus.COMPLETED.value, ScanStatus.PARTIAL.value]),
+                )
+                .first()
+            )
+            if scanned:
+                found.add(reference)
+    return found
 
 
 async def discover_runtime_containers(
@@ -198,7 +275,7 @@ def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now
             exclude_containers=settings.scan_runtime_exclude_containers,
             include_label=settings.scan_runtime_include_label,
         )
-        return containers, await classify(images, repo_digests)
+        return containers, await classify(images, repo_digests, in_registry, known_images(images))
 
     try:
         containers, classified = asyncio.run((collect or default_collect)())

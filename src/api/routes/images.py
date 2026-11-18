@@ -10,6 +10,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 
+from src.scan.runtime_discovery import running_since
 from src.config import get_settings
 from src.db.connection import get_session
 from src.db.models import (
@@ -83,10 +84,13 @@ def image_inventory(
     offset: int = Query(default=0, ge=0),
     search: str | None = Query(default=None, max_length=200),
     severity: str | None = Query(default=None),
+    running: bool | None = Query(default=None, description="Only images runtime discovery saw running"),
 ) -> dict:
     severity_value = severity_filter(severity)
     with get_session() as session:
         query = session.query(Image).filter_by(active=True)
+        if running:
+            query = query.filter(Image.last_seen_running_at >= running_since())
         if search:
             query = query.filter(Image.repo_name.ilike(f"%{search.strip()}%"))
         if severity_value:

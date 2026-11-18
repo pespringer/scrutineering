@@ -158,7 +158,86 @@ def test_an_unreachable_runtime_is_an_error_not_zero(stored):
 
 
 def test_disabled_discovery_says_so(stored):
-    status = run_discovery(get_settings({}), queue=lambda image: None, collect=_collect(["x:1"]), now=NOW)
+    off = get_settings({"SCAN_RUNTIME_DISCOVERY_ENABLED": "false"})
+    status = run_discovery(off, queue=lambda image: None, collect=_collect(["x:1"]), now=NOW)
     assert status["status"] == "disabled"
     with get_session() as session:
         assert session.query(Scan).count() == 0 and session.query(Image).count() == 0
+
+
+def test_discovery_is_on_by_default():
+    assert get_settings({}).scan_runtime_discovery_enabled is True
+
+
+def test_the_images_api_says_which_images_are_running(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from src.api.app import create_app
+    from src.scan.runtime_discovery import RUNNING_WINDOW
+
+    monkeypatch.setenv("PYTHON_API_KEY", "key")
+    client = TestClient(create_app())
+    client.headers["x-api-key"] = "key"
+    now = runtime_discovery._now()
+    with get_session() as session:
+        session.add_all(
+            [
+                Image(repo_name="seen/now", tag="1", last_seen_running_at=now),
+                Image(repo_name="seen/yesterday", tag="1", last_seen_running_at=now - RUNNING_WINDOW * 48),
+                Image(repo_name="never/seen", tag="1"),
+            ]
+        )
+    everything = client.get("/api/dashboard/images").json()["items"]
+    assert {item["repo_name"]: item["running"] for item in everything} == {
+        "seen/now": True,
+        "seen/yesterday": False,
+        "never/seen": False,
+    }
+    running = client.get("/api/dashboard/images", params={"running": "true"}).json()
+    assert [item["repo_name"] for item in running["items"]] == ["seen/now"] and running["total"] == 1
+
+
+def test_the_registry_decides_when_docker_gives_local_builds_a_digest_too():
+    """Docker's containerd image store reports a digest for local builds, so RepoDigests can't tell them apart."""
+
+    async def repo_digests(image):
+        return [f"{image.split(':')[0]}@sha256:{'a' * 64}"]
+
+    answers = {"nginx:1.27": True, "scrutineering-api:latest": False, "offline.example/app:1": None}
+    checked = []
+
+    def in_registry(image):
+        checked.append(image)
+        return answers[image]
+
+    result = asyncio.run(classify(list(answers), repo_digests, in_registry, known={"nginx:1.27"}))
+    assert result == Classified(scannable=["nginx:1.27", "offline.example/app:1"], local_only=1)
+    assert checked == ["scrutineering-api:latest", "offline.example/app:1"]  # known images skip the check
+
+
+def test_in_registry_maps_the_registry_s_answers(monkeypatch):
+    from urllib.error import HTTPError, URLError
+
+    from src.scan import registry
+
+    def answer(outcome):
+        def resolve(identity, **kwargs):
+            if isinstance(outcome, Exception):
+                raise outcome
+            return "sha256:" + "b" * 64
+
+        monkeypatch.setattr(registry, "resolve_digest", resolve)
+        return runtime_discovery.in_registry("registry.example/team/app:1")
+
+    assert answer(None) is True
+    assert answer(HTTPError("u", 404, "not found", {}, None)) is False
+    assert answer(HTTPError("u", 401, "unauthorized", {}, None)) is False
+    assert answer(PermissionError("registry requires credentials")) is False
+    assert answer(HTTPError("u", 503, "unavailable", {}, None)) is None
+    assert answer(URLError("no route")) is None
+
+
+def test_only_images_with_a_successful_scan_are_known():
+    _scanned("pulled:1", NOW)  # completed
+    _scanned("failed:1", NOW, ScanStatus.FAILED)
+    assert runtime_discovery.known_images(["pulled:1", "failed:1", "never:1"]) == {"pulled:1"}

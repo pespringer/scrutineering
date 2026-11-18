@@ -27,6 +27,9 @@ data:
   REGISTRY_INSECURE: "true"
   # Set to "true" to let approved remediations build and verify candidates.
   REMEDIATION_EXECUTION_ENABLED: "false"
+  # Runtime discovery lists Docker containers; Kubernetes discovery is a later step
+  # (docs/design/runtime-discovery.md), so it stays off here.
+  SCAN_RUNTIME_DISCOVERY_ENABLED: "false"
 ---
 # Secret — Sensitive values (base64 encoded)
 apiVersion: v1

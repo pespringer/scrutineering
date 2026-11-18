@@ -22,7 +22,9 @@ flowchart LR
         worker --> registry[(registry :5000)]
         worker -->|build candidate| buildkitd[buildkitd<br/>rootless BuildKit]
         buildkitd --> registry
+        worker -->|list containers, read-only| proxy[docker-proxy]
     end
+    proxy -->|socket, read-only| docker([host Docker])
     host([docker push]) --> registry
     worker -->|clone, push branch, open PR| github([GitHub])
     worker -->|pull| registries([Docker Hub, ghcr.io, ...])
@@ -44,6 +46,9 @@ flowchart LR
 - **`redis`**: Celery's broker and result backend, plus an optional shared scan cache.
 - **`registry`**: a local OCI registry. Push to `localhost:5000`; the services reach it
   as `registry:5000`. Candidate images are pushed here too.
+- **`docker-proxy`**: a read-only Docker API for runtime discovery. It mounts the
+  host's socket read-only, allows only listing and inspecting containers and
+  images, and sits on an internal network that only the worker joins.
 - **`buildkitd`**: rootless BuildKit. The worker builds candidate images through it
   over TCP, so nothing mounts the Docker socket.
 

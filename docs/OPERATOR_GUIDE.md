@@ -44,29 +44,31 @@ ECR and GCR use the standard AWS and Google credentials.
 **Automatically.**
 - Every known image is rescanned on `SCHEDULE_CRON_SCAN` (every 6 hours by default),
   skipping images scanned within `SCAN_COOLDOWN_SECONDS`.
-- Runtime discovery can also find the images of running containers every 15
-  minutes. Each run records which images are running (`last_seen_running_at`) and
-  queues a scan only of an image never scanned, or last scanned before
-  `SCAN_COOLDOWN_SECONDS`, with no scan already pending or running. It skips
-  images it can't scan, counting them instead: those built on the host (no
-  registry digest), and containers that show only an image ID. A container
-  labelled `scrutineering.scan=false` is never scanned. The system status panel
-  shows the last run ("Discovery: 7 running images, …"). If Docker can't be
-  reached, the status shows that error rather than "nothing running".
+- **Runtime discovery** finds the images of the containers running on this host,
+  every 15 minutes. It is **on by default**. Each run:
+  - records which images are running: the **Running** badge and the **Running
+    only** filter on the Images page;
+  - queues a scan only of an image never scanned, or last scanned before
+    `SCAN_COOLDOWN_SECONDS`, with no scan already pending or running. New
+    containers are scanned within 15 minutes; the schedule keeps them current;
+  - skips, and counts, images the scanners can't pull: images whose registry
+    doesn't know them (built on this host) or refuses access, and containers that
+    show only an image ID;
+  - never scans a container labelled `scrutineering.scan=false`.
 
-  It is off by default because it needs access to the host's Docker socket or
-  containerd. To turn it on, set `SCAN_RUNTIME_DISCOVERY_ENABLED=true` (plus the
-  include and exclude filters in [Runtime discovery](CONFIGURATION.md#runtime-discovery)),
-  then start the worker with the Docker overlay. **The overlay gives the worker the
-  Docker socket, which is root on the host**; use it only on a dedicated host. A
-  read-only proxy replaces it in the next step of
-  [the design](design/runtime-discovery.md).
+  The system status panel shows the last run ("Discovery: 5 running images, 4 not
+  scannable"). If Docker can't be reached, the status turns **Degraded** with the
+  error, rather than reporting nothing running.
 
-  ```bash
-  export DOCKER_SOCKET_GID="$(stat -c '%g' /var/run/docker.sock)"
-  docker compose -f docker-compose.yml -f docker-compose.deployment-docker.yml \
-    up --build -d celery-worker celery-beat
-  ```
+  The worker reaches Docker only through `docker-proxy`, which mounts the socket
+  read-only and allows only listing and inspecting containers and images. It
+  refuses creating, starting, exec, builds and pulls with `403`, and only the
+  worker can reach it. **One trade-off:** inspecting a container shows its
+  environment variables, so the worker can read secrets that other containers on
+  this host keep there. If that matters, or you don't want this host's
+  containers listed at all, set `SCAN_RUNTIME_DISCOVERY_ENABLED=false`. For
+  rootless Docker, point `DOCKER_SOCKET` at its socket
+  (`$XDG_RUNTIME_DIR/docker.sock`).
 
 Each scan first resolves the tag to its digest and scans that digest, so the result
 always belongs to one exact image. Trivy and Grype run side by side, and their
