@@ -93,7 +93,7 @@ image, as CycloneDX JSON. Download it from the scan page, or from the image page
 (the latest scan's). Trivy writes it right after the scan from its own cache, so it
 costs seconds. If that step fails, the scan still stands, and its completion event
 records `sbom: failed`. Each image keeps its newest SBOM; older ones are removed
-daily.
+daily. Each SBOM is signed; see [Verifying exports](#verifying-exports).
 
 ## 3. Triage findings
 
@@ -321,6 +321,31 @@ and `oauth2-proxy`. Whatever you use, the proxy in front must replace any identi
 headers a client sends, and add `x-dashboard-proxy-secret`
 ([dashboard operations](operations/dashboard.md) lists the headers). Audit entries
 then name the signed-in user and record their email.
+
+## Verifying exports
+
+SBOMs are signed with this instance's own key. The worker creates it on first use
+on the `signingkeys` volume; on Kubernetes you create it as a Secret (README). Anyone
+with the public key can check that a file came from this Scrutineering and hasn't
+changed since. That check is offline, and no Scrutineering code is involved. Next
+to each SBOM download are **signature** and **public key** links (or
+`GET /api/dashboard/signing-keys` for every key).
+
+```bash
+# With openssl
+openssl dgst -sha256 -verify scrutineering.pem \
+  -signature <(base64 -d sbom.cdx.json.sig) sbom.cdx.json      # "Verified OK"
+
+# With cosign (the signature is in its blob format)
+cosign verify-blob --key scrutineering.pem --signature sbom.cdx.json.sig \
+  --insecure-ignore-tlog sbom.cdx.json
+```
+
+The signature says "this instance produced these exact bytes", not that a person
+reviewed them. To rotate the key, delete `private.pem` from the volume (or replace the
+Secret) and restart the worker. Earlier signatures still verify, because every
+public key stays listed. An SBOM made while the key couldn't be used is stored
+unsigned, and its page says so.
 
 ## Troubleshooting
 

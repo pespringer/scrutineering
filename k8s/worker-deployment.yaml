@@ -21,6 +21,8 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+        # Lets the worker's user read the signing-key Secret (mode 0440).
+        fsGroup: 10001
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -51,7 +53,20 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: signing-keys
+              mountPath: /var/lib/scrutineering/signing
+              readOnly: true
       volumes:
+        # The key that signs SBOMs and evidence (src/signing.py), shared by every worker replica. Create it
+        # once (README "Kubernetes"); until it exists, exports are stored unsigned and the worker logs why.
+        - name: signing-keys
+          secret:
+            secretName: scrutineering-signing-key
+            optional: true
+            defaultMode: 0440
+            items:
+              - key: private.pem
+                path: private.pem
         - name: tmp
           # Source checkouts, npm caches and scanner caches.
           emptyDir:

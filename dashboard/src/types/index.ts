@@ -70,6 +70,9 @@ export interface SbomSummary {
   spec_version: string | null;
   components: number;
   sha256: string;
+  /** Signed with this instance's key (`key_id`); verify with the public key from /api/signing-keys. */
+  signed?: boolean;
+  key_id?: string | null;
   created_at: string | null;
 }
 

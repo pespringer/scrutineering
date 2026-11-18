@@ -206,6 +206,8 @@ services:
     volumes:
       # Image sources that remediations patch: one git repository per folder, read-only.
       - ${REMEDIATION_HOST_SOURCES:-./.local/remediation-sources}:/workspace/sources:ro
+      # The key that signs SBOMs and evidence (src/signing.py). Only the worker mounts it.
+      - signingkeys:/var/lib/scrutineering/signing
     depends_on:
       buildkitd:
         condition: service_healthy
@@ -335,6 +337,8 @@ networks:
 # ---------------------------------------------------------------------------
 volumes:
   pgdata:
+    driver: local
+  signingkeys:
     driver: local
   registrydata:
     driver: local

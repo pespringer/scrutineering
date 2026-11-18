@@ -50,7 +50,10 @@ show what they found at the time.
 | GET | `/images?limit&offset&search&severity` | any | Image inventory with open and resolved counts |
 | GET | `/images/{image_id}?severity&limit&offset` | any | Image detail and its open findings, with `sbom` (the latest SBOM's summary) |
 | GET | `/images/{image_id}/sbom` | any | The latest SBOM (CycloneDX JSON); `X-Scrutineering-SBOM-SHA256` and `-Scan-ID` headers |
-| GET | `/scans/{scan_id}/sbom` | any | That scan's SBOM; 404 when it has none |
+| GET | `/scans/{scan_id}/sbom` | any | That scan's SBOM, with `X-Scrutineering-Signature` and `-Key-ID` when signed; 404 when it has none |
+| GET | `/scans/{scan_id}/sbom.sig` | any | The SBOM's base64 signature (cosign blob format); 404 when unsigned |
+| GET | `/signing-keys` | any | Every public key that signed exports: `key_id`, PEM, created |
+| GET | `/signing-keys/{fingerprint}.pem` | any | One public key as PEM; `fingerprint` is the hex part of its `key_id` |
 | GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
 | POST | `/images/bulk-archive` | operator | Mark images inactive |
 | POST | `/findings/bulk-acknowledge` | operator | Acknowledge open findings |

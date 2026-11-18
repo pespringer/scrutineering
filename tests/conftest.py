@@ -71,3 +71,10 @@ def discovery_status_store(monkeypatch):
 
     monkeypatch.setattr("src.scan.runtime_discovery._redis", lambda url: FakeRedis())
     return store
+
+
+@pytest.fixture(autouse=True)
+def signing_key_dir(tmp_path, monkeypatch):
+    """Each test signs with its own key, generated in a temporary directory instead of the worker's volume."""
+    monkeypatch.setattr("src.signing.KEY_DIR", tmp_path / "signing")
+    return tmp_path / "signing"

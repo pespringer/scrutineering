@@ -194,6 +194,12 @@ def test_scan_half_finds_the_fixture_vulnerabilities(api, stage):
     assert image["sbom"]["components"] == len(document["components"])
     assert image["sbom"]["sha256"] == sbom.headers["x-scrutineering-sbom-sha256"]
     assert api.get(f"/api/dashboard/images/{scan['image_id']}/sbom").content == sbom.content
+    # Signed with this instance's key; anyone can check it with the served public key alone.
+    from src.signing import verify
+
+    [key] = api.get("/api/dashboard/signing-keys").json()["keys"]
+    assert sbom.headers["x-scrutineering-key-id"] == key["key_id"]
+    assert verify(sbom.content, sbom.headers["x-scrutineering-signature"], key["public_key_pem"])
     assert api.get("/api/dashboard/posture/summary").json()["total_findings"] == scan["findings"]
 
 

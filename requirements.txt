@@ -15,3 +15,4 @@ pytest
 pyyaml
 httpx
 pytest-cov
+cryptography==46.0.3
