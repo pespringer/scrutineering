@@ -10,6 +10,9 @@ worker patches the source with npm, builds the candidate on buildkitd, runs the
 source's test command inside it, and scans it), then publish the candidate as the image's tag, rescan, and expect the
 remediation to complete. Needs REMEDIATION_EXECUTION_ENABLED=true.
 
+Then: a test notification when a channel is configured, and two runtime discovery runs in the
+worker (the stack's own pulled images are found and scanned once; images built here are skipped).
+
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
 E2E_PUSH_HOST (localhost:5000), E2E_SCAN_HOST (registry:5000), E2E_TIMEOUT_SECONDS (900).
 """
@@ -139,6 +142,48 @@ def remediation_half(scan: dict, target: dict) -> None:
     print(f"    remediation {remediation_id} completed; {TARGET_CVE} resolved")
 
 
+DISCOVERY_RUN = (
+    "import json; from src.scan.tasks import discover_runtime_scans; print(json.dumps(discover_runtime_scans()))"
+)
+
+
+def run_discovery() -> dict:
+    """One runtime discovery run in the worker: what beat triggers every 15 minutes."""
+    result = subprocess.run(
+        ["docker", "compose", "exec", "-T", "celery-worker", "python", "-c", DISCOVERY_RUN],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return json.loads(result.stdout.strip().splitlines()[-1])
+
+
+def discovery_check() -> None:
+    """Discovery lists this stack's containers through docker-proxy, records them, and scans each once."""
+    first = run_discovery()
+    if first["status"] == "disabled":
+        print("    skipped: runtime discovery is disabled")
+        return
+    if first["status"] != "ok":
+        fail(f"runtime discovery failed: {first.get('error')}")
+    second = run_discovery()
+    if second["queued"]:
+        fail(f"a second discovery run queued {second['queued']} scans; each running image should be queued once")
+    if request("GET", "/api/system-status").get("discovery", {}).get("checked_at") != second["checked_at"]:
+        fail("the system status does not show the last discovery run")
+    running = {item["name"] for item in request("GET", "/api/images?running=true&limit=100")["items"]}
+    if "postgres:16-alpine" not in running:
+        fail(f"the stack's postgres:16-alpine is not marked running; running images: {sorted(running)}")
+    built_here = sorted(name for name in running if name.startswith("scrutineering-"))
+    if built_here:
+        fail(f"images built on this host were recorded as scannable: {built_here}")
+    print(
+        f"    {second['running_images']} running images; skipped {second['local_only']} built here and "
+        f"{second['id_only']} shown only by image ID; first run queued {first['queued']}, second run queued 0"
+    )
+
+
 def notifications_check() -> None:
     """Send a test notification to each configured channel and wait for it to be delivered."""
     page = request("GET", "/api/notifications")
@@ -193,7 +238,9 @@ def main() -> None:
     remediation_half(scan, target[0])
     step("check notifications")
     notifications_check()
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete, notify)")
+    step("check runtime discovery")
+    discovery_check()
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete, notify, discover)")
 
 
 if __name__ == "__main__":
