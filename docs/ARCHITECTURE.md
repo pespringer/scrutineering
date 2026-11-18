@@ -187,9 +187,13 @@ step from what it cloned, built and scanned itself:
 ## Trust boundaries
 
 - **Browser to API.** Only through the dashboard's server-side proxy, which adds the
-  API key. A trusted ingress can forward a verified identity instead
-  (`DASHBOARD_TRUSTED_PROXY_SECRET`), and internal services can sign requests
-  (`SERVICE_AUTH_SECRET`).
+  API key. With `DASHBOARD_AUTH_MODE=trusted-proxy`, a forward-auth proxy signs
+  users in and the ingress forwards their identity with
+  `DASHBOARD_TRUSTED_PROXY_SECRET`. The API then requires that identity on every
+  dashboard request (`401 identity_required` without it) and maps the user's
+  groups to roles (`DASHBOARD_GROUP_ROLES`). A user with no role is refused
+  (`403 no_role`). In `local` mode every session gets `DASHBOARD_DEFAULT_ROLES`.
+  Internal services can sign requests (`SERVICE_AUTH_SECRET`).
 - **Other sites.** The dashboard refuses state-changing requests (anything but GET,
   HEAD and OPTIONS) that a browser marks as coming from another site
   (`Sec-Fetch-Site`, or an `Origin` that doesn't match the host), with

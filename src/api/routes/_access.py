@@ -27,6 +27,11 @@ def require_role(request: Request, *allowed: str) -> None:
         raise HTTPException(status_code=403, detail="operator_role_required")
 
 
+def _with_email(detail: dict, email: str | None) -> dict:
+    """Signed-in users are recorded by their proxy's user ID; the email keeps the trail readable."""
+    return {**detail, "actor_email": email} if email else detail
+
+
 def record_operator_event(
     session, request: Request, event_type: AuditEventType, entity_id: str, detail: dict, entity_type: str = "scan"
 ) -> None:
@@ -35,7 +40,7 @@ def record_operator_event(
         event_type=event_type,
         entity_type=entity_type,
         entity_id=entity_id,
-        detail=detail,
+        detail=_with_email(detail, getattr(request.state, "principal_email", None)),
         actor=getattr(request.state, "principal_id", "dashboard-service"),
         actor_kind="user" if getattr(request.state, "auth_method", "") == "oidc_proxy" else "system",
     )

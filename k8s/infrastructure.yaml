@@ -16,6 +16,10 @@ data:
   SERVICE_AUTH_MAX_SKEW_SECONDS: "300"
   SERVICE_AUTH_REQUIRED: "true"
   DASHBOARD_DEFAULT_ROLES: "dashboard,operator"
+  # Users sign in through a forward-auth proxy (docs/design/forward-auth.md); the API then requires a
+  # verified identity on every dashboard request. Map the identity provider's groups to roles here.
+  DASHBOARD_AUTH_MODE: "trusted-proxy"
+  DASHBOARD_GROUP_ROLES: ""
   # Remediation candidates are built on buildkitd (buildkit/buildkit.yaml) and pushed to the
   # in-cluster registry (registry.yaml), which speaks plain HTTP inside the cluster.
   BUILDKIT_HOST: "tcp://buildkitd.scrutineering-buildkit.svc.cluster.local:1234"

@@ -22,6 +22,7 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 API, WORKER, BEAT = "api", "worker", "beat"
 ALL = (API, WORKER, BEAT)
 CommaList = Annotated[list[str], NoDecode]
+ROLES = ("dashboard", "operator", "remediator", "security-operator", "admin")
 # RemediationStatus values (src/db/models.py), kept here so settings don't import the models.
 REMEDIATION_STATUSES = (
     "proposed",
@@ -90,6 +91,21 @@ class Settings(BaseSettings):
         ["dashboard", "operator"],
         "Roles of API-key sessions. `remediator` and `security-operator` are needed to propose, approve, "
         "execute and publish remediations.",
+        "API and access",
+        (API,),
+    )
+    dashboard_auth_mode: Literal["local", "trusted-proxy"] = setting(
+        "local",
+        "`local`: no sign-in, every session gets `DASHBOARD_DEFAULT_ROLES` (trusted networks only). "
+        "`trusted-proxy`: a forward-auth proxy signs users in (docs/design/forward-auth.md). Read by the API "
+        "and the dashboard.",
+        "API and access",
+        (API,),
+    )
+    dashboard_group_roles: CommaList = setting(
+        [],
+        "`group=role` pairs mapping identity-provider groups to roles, e.g. "
+        "`ops=operator,security=security-operator`. Empty: group names are used as role names.",
         "API and access",
         (API,),
     )
@@ -287,6 +303,7 @@ class Settings(BaseSettings):
         "scan_runtime_exclude_images",
         "scan_runtime_exclude_containers",
         "notification_events",
+        "dashboard_group_roles",
         mode="before",
     )
     @classmethod
@@ -307,6 +324,25 @@ class Settings(BaseSettings):
             if not isinstance(parsed, dict):
                 raise ValueError("must map registry hosts to credentials")
         return value
+
+    @field_validator("dashboard_group_roles")
+    @classmethod
+    def _group_roles(cls, value: list[str]) -> list[str]:
+        for pair in value:
+            group, _, role = pair.partition("=")
+            if not group.strip() or not role.strip():
+                raise ValueError(f"{pair!r} is not a group=role pair")
+            if role.strip() not in ROLES:
+                raise ValueError(f"unknown role {role.strip()!r}; roles are {', '.join(ROLES)}")
+        return [f"{pair.partition('=')[0].strip()}={pair.partition('=')[2].strip()}" for pair in value]
+
+    @property
+    def group_role_map(self) -> dict[str, list[str]]:
+        mapping: dict[str, list[str]] = {}
+        for pair in self.dashboard_group_roles:
+            group, _, role = pair.partition("=")
+            mapping.setdefault(group, []).append(role)
+        return mapping
 
     @field_validator("notification_events")
     @classmethod
@@ -331,6 +367,12 @@ class Settings(BaseSettings):
         if raw and not raw.startswith("https://hooks.slack.com/"):
             raise ValueError("must be a Slack incoming webhook, https://hooks.slack.com/...")
         return value
+
+    @model_validator(mode="after")
+    def _trusted_proxy_secret(self):
+        if self.dashboard_auth_mode == "trusted-proxy" and not self.dashboard_trusted_proxy_secret.get_secret_value():
+            raise ValueError("DASHBOARD_TRUSTED_PROXY_SECRET is required with DASHBOARD_AUTH_MODE=trusted-proxy")
+        return self
 
     @model_validator(mode="after")
     def _notification_secret(self):
@@ -368,9 +410,6 @@ EXTERNAL = (
     External("CELERY_LOG_LEVEL", "Worker and beat log level.", "Compose"),
     External("DASHBOARD_API_URL", "API URL the dashboard server calls. Defaults to the Compose service.", "dashboard"),
     External("DASHBOARD_API_KEY", "Key the dashboard server sends. Defaults to `PYTHON_API_KEY`.", "dashboard"),
-    External(
-        "DASHBOARD_AUTH_MODE", "`local` (API-key sessions) or `trusted-proxy` (identity from the ingress).", "dashboard"
-    ),
     External("HOSTNAME", "Address the dashboard server listens on (Kubernetes sets `0.0.0.0`).", "dashboard"),
     External("PORT", "Port the dashboard server listens on.", "dashboard"),
     External("HOME", "The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root).", "worker"),

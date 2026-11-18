@@ -29,12 +29,17 @@ services directly.
 The dashboard always reads live data through the API and shows an
 unavailable-data error when the API is missing; there is no demo mode.
 
-For OIDC deployments, set `DASHBOARD_AUTH_MODE=trusted-proxy`. The ingress must
-validate the bearer token and forward `x-authenticated-sub` plus optional
-email/roles headers and the exact `x-dashboard-proxy-secret` value. The
-dashboard rejects requests without that identity boundary and forwards the
-verified context to the Python API. Keep `DASHBOARD_AUTH_MODE=local` only for
-direct local development; it is not an authentication mechanism.
+For sign-in, set `DASHBOARD_AUTH_MODE=trusted-proxy` on the dashboard and the API
+(docs/design/forward-auth.md). The ingress authenticates users through its
+forward-auth proxy and forwards `x-authenticated-sub`, `x-authenticated-email`
+and `x-authenticated-roles` (the user's groups, comma-separated) with the exact
+`x-dashboard-proxy-secret` value. It must overwrite any of these headers that a
+client sent.
+
+`DASHBOARD_GROUP_ROLES` maps the groups to roles (`ops=operator,security=security-operator`).
+A signed-in user with no mapped role is refused, and the API never falls back to
+`DASHBOARD_DEFAULT_ROLES` in this mode. Audit entries record the user's ID and
+email. Keep `DASHBOARD_AUTH_MODE=local` for a trusted network only; it has no sign-in.
 
 ## Product surface
 

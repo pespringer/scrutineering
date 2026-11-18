@@ -11,7 +11,7 @@ from src.db.connection import get_session
 from src.db.models import Scan
 from src.api.readiness import check_database
 from src.telemetry.scan_metrics import scan_metrics as metrics
-from src.api.auth import is_api_key_authorized
+from src.api.auth import groups_from_header, is_api_key_authorized, roles_for_groups
 from src.api.service_auth import create_replay_guard, verify_service_request
 import time
 import hmac
@@ -93,6 +93,16 @@ def create_app() -> FastAPI:
                 and not proxy_authenticated
             ):
                 return JSONResponse({"error": "unauthorized"}, status_code=401)
+            # Behind a forward-auth proxy, a dashboard request must carry a verified user: the API key alone
+            # no longer stands for DASHBOARD_DEFAULT_ROLES (docs/design/forward-auth.md).
+            trusted_proxy = settings.dashboard_auth_mode == "trusted-proxy"
+            if (
+                trusted_proxy
+                and request.url.path.startswith("/api/dashboard")
+                and not proxy_authenticated
+                and not service_authenticated
+            ):
+                return JSONResponse({"error": "identity_required"}, status_code=401)
             request.state.auth_method = (
                 "oidc_proxy" if proxy_authenticated else "service_auth" if service_authenticated else "api_key"
             )
@@ -104,12 +114,13 @@ def create_app() -> FastAPI:
             request.state.principal_email = (
                 request.headers.get("x-authenticated-email") if proxy_authenticated else None
             )
-            default_roles = list(settings.dashboard_default_roles)
-            request.state.principal_roles = (
-                [role.strip() for role in request.headers.get("x-authenticated-roles", "").split(",") if role.strip()]
-                if proxy_authenticated
-                else default_roles
-            )
+            if proxy_authenticated:
+                groups = groups_from_header(request.headers.get("x-authenticated-roles", ""))
+                request.state.principal_roles = roles_for_groups(groups, settings.group_role_map)
+                if trusted_proxy and not request.state.principal_roles:
+                    return JSONResponse({"error": "no_role"}, status_code=403)
+            else:
+                request.state.principal_roles = list(settings.dashboard_default_roles)
         if provider_webhook:
             request.state.auth_method = "provider_hmac"
             request.state.principal_id = f"provider:{request.url.path.rsplit('/', 1)[-1]}"
