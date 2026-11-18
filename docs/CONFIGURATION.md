@@ -106,6 +106,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 
 | Variable | Default | Meaning | Read by |
 |---|---|---|---|
+| `NOTIFICATION_SLACK_WEBHOOK_URL` 🔒 |  | Slack incoming webhook (`https://hooks.slack.com/...`) to post notifications to. | api, worker |
 | `NOTIFICATION_WEBHOOK_URL` 🔒 |  | Receiver for signed JSON notifications. `https://`, or `http://` to a private address or a single-label host name. | api, worker |
 | `NOTIFICATION_WEBHOOK_SECRET` 🔒 |  | Signs each webhook body (HMAC-SHA256). Required with `NOTIFICATION_WEBHOOK_URL`. | api, worker |
 | `NOTIFICATION_EVENTS` | `proposed,needs_acceptance,ready,published,completed,failed` | Remediation statuses that send a notification. | api, worker |

@@ -244,6 +244,12 @@ class Settings(BaseSettings):
     )
 
     # -- Notifications ----------------------------------------------------------
+    notification_slack_webhook_url: SecretStr = setting(
+        SecretStr(""),
+        "Slack incoming webhook (`https://hooks.slack.com/...`) to post notifications to.",
+        "Notifications",
+        (API, WORKER),
+    )
     notification_webhook_url: SecretStr = setting(
         SecretStr(""),
         "Receiver for signed JSON notifications. `https://`, or `http://` to a private address or a "
@@ -316,6 +322,14 @@ class Settings(BaseSettings):
         raw = value.get_secret_value().strip()
         if raw and not plain_http_allowed(raw) and not raw.startswith("https://"):
             raise ValueError("must be https://, or http:// to a private address or a single-label host")
+        return value
+
+    @field_validator("notification_slack_webhook_url")
+    @classmethod
+    def _slack_url(cls, value: SecretStr) -> SecretStr:
+        raw = value.get_secret_value().strip()
+        if raw and not raw.startswith("https://hooks.slack.com/"):
+            raise ValueError("must be a Slack incoming webhook, https://hooks.slack.com/...")
         return value
 
     @model_validator(mode="after")

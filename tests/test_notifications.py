@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from pathlib import Path
 
 import httpx
 import pytest
@@ -18,7 +19,7 @@ from src.db.models import (
     RemediationStatus,
 )
 from src.db.repositories import RemediationRepository
-from src.notifications import delivery, outbox, webhook
+from src.notifications import delivery, outbox, slack, webhook
 from tests.test_remediation_planning_api import _connect, client, image  # noqa: F401  # fixtures
 
 URL = "https://hooks.example.test/scrutineering"
@@ -287,3 +288,67 @@ def test_the_webhook_needs_a_secret_and_events_must_be_statuses():
 
 def test_the_settings_know_every_remediation_status():
     assert set(REMEDIATION_STATUSES) == {status.value for status in RemediationStatus}
+
+
+SLACK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
+SLACK_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "notifications"
+
+
+@pytest.mark.parametrize("name", ["slack-needs-acceptance", "slack-failed"])
+def test_slack_messages_match_the_stored_json(name):
+    stored = json.loads((SLACK_FIXTURES / f"{name}.json").read_text())
+    assert slack.message(stored["payload"]) == stored["message"]
+
+
+def test_slack_text_is_escaped_and_the_test_message_is_plain():
+    assert slack.escape("<a> & b") == "&lt;a&gt; &amp; b"
+    assert slack.message({"event": "test"})["text"].startswith("Scrutineering test notification")
+
+
+def test_slack_and_the_webhook_each_get_a_row_and_slack_is_unsigned(configured, receiver, monkeypatch):
+    monkeypatch.setenv("NOTIFICATION_SLACK_WEBHOOK_URL", SLACK_URL)
+    _advance(_remediation(S.VERIFYING), S.READY)
+
+    assert sorted(row.channel for row in _rows()) == ["slack", "webhook"]
+    assert delivery.deliver()["sent"] == 2
+    to_slack = next(request for request in receiver["requests"] if str(request.url) == SLACK_URL)
+    assert webhook.SIGNATURE_HEADER not in to_slack.headers
+    assert json.loads(to_slack.content)["text"].startswith("A fix is verified and ready to publish")
+
+
+def test_slack_alone_needs_no_secret_and_keeps_its_error_code(monkeypatch, receiver):
+    monkeypatch.setenv("NOTIFICATION_SLACK_WEBHOOK_URL", SLACK_URL)
+    monkeypatch.setattr(outbox, "enqueue_delivery", lambda: None)
+    monkeypatch.setattr(
+        delivery, "transport", httpx.MockTransport(lambda request: httpx.Response(404, text="no_service"))
+    )
+    _advance(_remediation(S.VERIFYING), S.READY)
+    delivery.deliver()
+    [row] = _rows()
+    assert (row.channel, row.status, row.last_error) == ("slack", "pending", "HTTP 404 no_service")
+
+
+def test_receiver_bodies_other_than_short_codes_are_not_kept(configured, monkeypatch):
+    body = "<html>error at https://hooks.example.test/scrutineering</html>"
+    monkeypatch.setattr(delivery, "transport", httpx.MockTransport(lambda request: httpx.Response(500, text=body)))
+    _advance(_remediation(S.VERIFYING), S.READY)
+    delivery.deliver()
+    assert _rows()[0].last_error == "HTTP 500"
+
+
+@pytest.mark.parametrize(
+    ("url", "allowed"),
+    [
+        (SLACK_URL, True),
+        ("https://hooks.slack.com.evil.example/services/x", False),
+        ("http://hooks.slack.com/services/x", False),
+        ("https://example.com/services/x", False),
+    ],
+)
+def test_the_slack_url_must_be_a_slack_incoming_webhook(url, allowed):
+    env = {"NOTIFICATION_SLACK_WEBHOOK_URL": url}
+    if allowed:
+        assert get_settings(env).notification_slack_webhook_url.get_secret_value() == url
+    else:
+        with pytest.raises(ValueError, match="NOTIFICATION_SLACK_WEBHOOK_URL"):
+            get_settings(env)

@@ -1,0 +1,80 @@
+{
+  "payload": {
+    "event": "remediation.needs_acceptance",
+    "occurred_at": "2026-11-17T14:03:11Z",
+    "remediation": {
+      "id": 57,
+      "status": "needs_acceptance",
+      "label": "Needs acceptance: new findings",
+      "image": "registry:5000/shop/api:1.4.2",
+      "action": "base_image_bump",
+      "targets": 3,
+      "new_critical_high": [
+        "CVE-2026-1",
+        "CVE-2026-2",
+        "CVE-2026-3",
+        "CVE-2026-4",
+        "CVE-2026-5",
+        "CVE-2026-6",
+        "CVE-2026-7"
+      ],
+      "pull_request_url": null,
+      "error": null,
+      "url": "https://scrutineering.home.lan/remediations/57"
+    }
+  },
+  "message": {
+    "text": "A fix needs acceptance: it adds critical or high findings: remediation #57 for registry:5000/shop/api:1.4.2",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*A fix needs acceptance: it adds critical or high findings* \u00b7 remediation #57"
+        }
+      },
+      {
+        "type": "section",
+        "fields": [
+          {
+            "type": "mrkdwn",
+            "text": "*Image*\n`registry:5000/shop/api:1.4.2`"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Status*\nNeeds acceptance: new findings"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Action*\nbase_image_bump"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Targeted findings*\n3"
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*New critical/high:* CVE-2026-1, CVE-2026-2, CVE-2026-3, CVE-2026-4, CVE-2026-5 and 2 more"
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open in Scrutineering"
+            },
+            "url": "https://scrutineering.home.lan/remediations/57",
+            "action_id": "open_remediation"
+          }
+        ]
+      }
+    ]
+  }
+}

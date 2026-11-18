@@ -28,8 +28,13 @@ def now() -> datetime:
 
 
 def channels(settings: Settings) -> list[str]:
-    """The channels that are configured. Slack joins this list in the next PR."""
-    return ["webhook"] if settings.notification_webhook_url.get_secret_value() else []
+    """The channels that are configured."""
+    configured = []
+    if settings.notification_slack_webhook_url.get_secret_value():
+        configured.append("slack")
+    if settings.notification_webhook_url.get_secret_value():
+        configured.append("webhook")
+    return configured
 
 
 def _first_line(text: str | None) -> str | None:
