@@ -31,10 +31,21 @@ unavailable-data error when the API is missing; there is no demo mode.
 
 For sign-in, set `DASHBOARD_AUTH_MODE=trusted-proxy` on the dashboard and the API
 (docs/design/forward-auth.md). The ingress authenticates users through its
-forward-auth proxy and forwards `x-authenticated-sub`, `x-authenticated-email`
-and `x-authenticated-roles` (the user's groups, comma-separated) with the exact
-`x-dashboard-proxy-secret` value. It must overwrite any of these headers that a
-client sent.
+forward-auth proxy, passes on the proxy's identity headers, and adds the exact
+`x-dashboard-proxy-secret` value. It must overwrite any identity headers that a
+client sent. `DASHBOARD_AUTH_HEADERS` says whose headers to read:
+
+| Value | User | Email | Groups |
+|---|---|---|---|
+| `scrutineering` (default) | `x-authenticated-sub` | `x-authenticated-email` | `x-authenticated-roles` (`,`) |
+| `authelia` | `Remote-User` | `Remote-Email` | `Remote-Groups` (`,`) |
+| `authentik` | `X-authentik-username` | `X-authentik-email` | `X-authentik-groups` (`\|`) |
+| `oauth2-proxy` | `X-Auth-Request-User` | `X-Auth-Request-Email` | `X-Auth-Request-Groups` (`,`) |
+
+Every page and `/api` route except `/api/health` requires the user. Without one,
+pages answer 401 with a sign-in message and `/api` routes 401 JSON. A user
+whose groups map to no role sees a "No access yet" page. Set
+`DASHBOARD_LOGOUT_URL` to show **Sign out** in the header.
 
 `DASHBOARD_GROUP_ROLES` maps the groups to roles (`ops=operator,security=security-operator`).
 A signed-in user with no mapped role is refused, and the API never falls back to
