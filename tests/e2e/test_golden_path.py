@@ -416,3 +416,25 @@ def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(ap
     assert all(body["remediation"]["id"] == remediation_id for body in bodies)
     assert [body["remediation"]["status"] for body in bodies] == ["proposed", "ready", "published", "completed"]
     assert bodies[2]["remediation"]["pull_request_url"] == "https://github.com/fixtures/vulnerable-node/pull/1"
+
+    # The finished remediation's signed evidence (docs/design/sbom-evidence.md), as the beat sweep builds it.
+    from src.remediation.evidence import build_due
+    from src.signing import verify
+
+    assert build_due() == 1 and build_due() == 0  # built once, never rebuilt
+    evidence = api.get(f"/api/dashboard/remediations/{remediation_id}/evidence")
+    assert evidence.status_code == 200, evidence.text
+    [key] = api.get("/api/dashboard/signing-keys").json()["keys"]
+    assert verify(evidence.content, evidence.headers["x-scrutineering-signature"], key["public_key_pem"])
+    bundle = evidence.json()
+    assert bundle["schema"] == "scrutineering.evidence/v1"
+    assert bundle["remediation"]["status"] == "completed"
+    assert [(target["cve_id"], target["package"]) for target in bundle["targets"]] == [(TARGET_CVE, TARGET_PACKAGE)]
+    assert bundle["plan"][0]["strategy"] == "dependency_update" and bundle["plan"][0]["to"] == "4.17.21"
+    assert '"lodash": "4.17.21"' in bundle["patch"]["diff"]
+    assert bundle["candidate"]["test_command"] == TEST_COMMAND
+    assert bundle["publication"]["url"] == "https://github.com/fixtures/vulnerable-node/pull/1"
+    assert bundle["scans"]["before"]["sbom_sha256"] and bundle["scans"]["after"]["targets_present"] == []
+    assert bundle["scans"]["after"]["scan_id"] != bundle["scans"]["before"]["scan_id"]
+    detail = api.get(f"/api/dashboard/remediations/{remediation_id}").json()["evidence"]
+    assert detail["signed"] is True and detail["sha256"] == evidence.headers["x-scrutineering-evidence-sha256"]

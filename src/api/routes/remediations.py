@@ -25,6 +25,7 @@ from src.remediation.planner import plan as plan_fixes
 from src.remediation.publish import publish_remediation, token as github_token
 from src.remediation.sources import github_repository
 from src.remediation.worker import execute_approved_remediation
+from src.api.routes.evidence import evidence_summary, latest_bundle
 from src.api.schemas import RemediationRequest
 from src.api.serializers import (
     enum_value,
@@ -209,7 +210,10 @@ def remediation_detail(remediation_id: int, request: Request) -> dict:
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         if remediation is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
-        return remediation_payload(remediation)
+        return {
+            **remediation_payload(remediation),
+            "evidence": evidence_summary(latest_bundle(session, remediation_id)),
+        }
 
 
 @router.get("/remediations/{remediation_id}/events")

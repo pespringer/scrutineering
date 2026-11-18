@@ -612,6 +612,32 @@ class Sbom(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class EvidenceBundle(Base):
+    """A remediation's frozen, signed evidence, built when it ended `completed` or `failed`.
+
+    One per ending: a retry that ends again gets a new bundle, and the old one is kept. The SBOMs of
+    `before_scan_id` and `after_scan_id` are kept for it (src/scan/sbom.py). docs/design/sbom-evidence.md.
+    """
+
+    __tablename__ = "evidence_bundles"
+    __table_args__ = (Index("idx_evidence_bundles_remediation_id", "remediation_id"),)
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    remediation_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("remediations.id", ondelete="CASCADE"), nullable=False
+    )
+    outcome: Mapped[str] = mapped_column(String(16), nullable=False)
+    # The remediation's `completed_at` this bundle describes: a new ending (after a retry) gets a new bundle.
+    ended_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    before_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    after_scan_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    document: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    key_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class SigningKey(Base):
     """A public key this instance has signed exports with. Kept after rotation so old signatures verify."""
 

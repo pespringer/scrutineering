@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from src.api.routes import (
     audit,
+    evidence,
     findings,
     images,
     notifications,
@@ -28,6 +29,7 @@ for module in (
     system,
     audit,
     remediations,
+    evidence,
     notifications,
     sboms,
     webhooks,

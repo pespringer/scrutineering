@@ -44,6 +44,7 @@ import src.remediation.worker  # noqa: E402,F401  # register remediation task wi
 import src.remediation.publish  # noqa: E402,F401  # register the publication task
 import src.notifications.delivery  # noqa: E402,F401  # register the notification delivery task
 from src.scan import sbom  # noqa: E402  # SBOMs; also registers the prune task
+import src.remediation.evidence  # noqa: E402,F401  # register the evidence task
 
 TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 
