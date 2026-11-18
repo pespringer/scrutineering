@@ -29,6 +29,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 |---|---|---|---|
 | `PYTHON_API_KEY` 🔒 |  | Key the dashboard sends to the API. Required. | api |
 | `DASHBOARD_DEFAULT_ROLES` | `dashboard,operator` | Roles of API-key sessions. `remediator` and `security-operator` are needed to propose, approve, execute and publish remediations. | api |
+| `DASHBOARD_AUTH_MODE` | `local` | `local`: no sign-in, every session gets `DASHBOARD_DEFAULT_ROLES` (trusted networks only). `trusted-proxy`: a forward-auth proxy signs users in (docs/design/forward-auth.md). Read by the API and the dashboard. | api |
+| `DASHBOARD_GROUP_ROLES` |  | `group=role` pairs mapping identity-provider groups to roles, e.g. `ops=operator,security=security-operator`. Empty: group names are used as role names. | api |
 | `DASHBOARD_TRUSTED_PROXY_SECRET` 🔒 |  | Shared secret of a trusted ingress that forwards verified user identity headers. | api |
 | `SERVICE_AUTH_SECRET` 🔒 |  | HMAC secret for signed service-to-service requests. | api |
 | `SERVICE_AUTH_REQUIRED` | `false` | Require signed service requests instead of accepting the API key. | api |
@@ -136,7 +138,6 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `CELERY_LOG_LEVEL` | Worker and beat log level. | Compose |
 | `DASHBOARD_API_URL` | API URL the dashboard server calls. Defaults to the Compose service. | dashboard |
 | `DASHBOARD_API_KEY` | Key the dashboard server sends. Defaults to `PYTHON_API_KEY`. | dashboard |
-| `DASHBOARD_AUTH_MODE` | `local` (API-key sessions) or `trusted-proxy` (identity from the ingress). | dashboard |
 | `HOSTNAME` | Address the dashboard server listens on (Kubernetes sets `0.0.0.0`). | dashboard |
 | `PORT` | Port the dashboard server listens on. | dashboard |
 | `HOME` | The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root). | worker |

@@ -1,6 +1,6 @@
 # Sign-in through a forward-auth proxy (OIDC)
 
-Status: proposed · 2026-11-17 · Phase 6
+Status: in progress, step 1 of 3 built (API) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -185,7 +185,7 @@ only.
 
 ## Rollout
 
-1. **API:**
+1. **API** (built):
    - `DASHBOARD_AUTH_MODE` in settings;
    - `DASHBOARD_GROUP_ROLES`;
    - no fallback in `trusted-proxy` mode;
