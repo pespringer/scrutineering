@@ -102,16 +102,19 @@ On `main` it also builds the images and scans the API image with Trivy.
 
 ## Deploying to Kubernetes
 
-The manifests in `k8s/` run the API, dashboard, worker, beat, Postgres and Redis in
-the `scrutineering` namespace:
+The manifests in `k8s/` run the API, dashboard, worker, beat, Postgres, Redis and a
+registry for remediation candidates in the `scrutineering` namespace. Rootless BuildKit
+runs in its own namespace, `scrutineering-buildkit`, because it needs unconfined
+seccomp and AppArmor, which the main namespace's `restricted` Pod Security level forbids.
 
 1. Set the real secrets in `k8s/infrastructure.yaml` (or replace that Secret with
-   your own).
-2. Create the namespace, then apply the rest:
+   your own). `POSTGRES_PASSWORD` must match the password in `DATABASE_URL`.
+2. Create the namespace, apply the rest, then BuildKit:
 
    ```bash
    kubectl apply -f k8s/pod-security.yaml
    kubectl apply -n scrutineering -f k8s/
+   kubectl apply -f k8s/buildkit/
    ```
 
 3. Run the migrations:
@@ -121,7 +124,9 @@ the `scrutineering` namespace:
      alembic -c src/db/migrations/alembic.ini upgrade head
    ```
 
-The manifests do not include a BuildKit service yet, so building fixes works only
-on the Compose stack. Keep `PYTHON_API_KEY` in the Secret. If an ingress verifies
-users, see [dashboard operations](docs/operations/dashboard.md) for the
-trusted-proxy setup.
+To build fixes, set `REMEDIATION_EXECUTION_ENABLED: "true"` in the ConfigMap. On
+Kubernetes, sources must be `https://` repositories, since there is no local sources
+folder. The manifests are checked offline (`tests/test_k8s_manifests.py`: Pod Security,
+quota, services, network policies) but have not yet been applied to a cluster. Keep
+`PYTHON_API_KEY` in the Secret. If an ingress verifies users, see
+[dashboard operations](docs/operations/dashboard.md) for the trusted-proxy setup.

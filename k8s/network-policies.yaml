@@ -1,3 +1,9 @@
+# Default deny, then exactly the connections each service needs:
+#   dashboard -> api -> postgres, redis, registry
+#   worker -> postgres, redis, registry, buildkitd (scrutineering-buildkit namespace), HTTPS
+#   beat -> postgres, redis
+#   buildkitd -> registry (its own policy is in buildkit/buildkit.yaml)
+---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -9,29 +15,9 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: scrutineering-api-allow-dashboard
+  name: scrutineering-dns
 spec:
-  podSelector:
-    matchLabels:
-      app: scrutineering-api
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: scrutineering-dashboard
-      ports:
-        - protocol: TCP
-          port: 8000
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: scrutineering-api-egress
-spec:
-  podSelector:
-    matchLabels:
-      app: scrutineering-api
+  podSelector: {}
   policyTypes: [Egress]
   egress:
     - to:
@@ -43,6 +29,45 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-dashboard
+spec:
+  podSelector:
+    matchLabels:
+      app: scrutineering-dashboard
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # From the ingress controller (or a port-forward).
+    - ports:
+        - protocol: TCP
+          port: 3001
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-api
+      ports:
+        - protocol: TCP
+          port: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-api
+spec:
+  podSelector:
+    matchLabels:
+      app: scrutineering-api
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # The dashboard, and GitHub's webhook through the ingress controller.
+    - ports:
+        - protocol: TCP
+          port: 8000
+  egress:
     - to:
         - podSelector:
             matchLabels:
@@ -50,28 +75,25 @@ spec:
       ports:
         - protocol: TCP
           port: 5432
-    - ports:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
         - protocol: TCP
-          port: 443
+          port: 6379
+    - to:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-registry
+      ports:
+        - protocol: TCP
+          port: 5000
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: scrutineering-dashboard-ingress
-spec:
-  podSelector:
-    matchLabels:
-      app: scrutineering-dashboard
-  policyTypes: [Ingress]
-  ingress:
-    - ports:
-        - protocol: TCP
-          port: 3001
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: scrutineering-worker-egress
+  name: scrutineering-worker
 spec:
   podSelector:
     matchLabels:
@@ -82,23 +104,134 @@ spec:
         - podSelector:
             matchLabels:
               app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
         - podSelector:
             matchLabels:
               app: redis
       ports:
         - protocol: TCP
-          port: 5432
-        - protocol: TCP
           port: 6379
+    - to:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-registry
+      ports:
+        - protocol: TCP
+          port: 5000
     - to:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: kube-system
+              kubernetes.io/metadata.name: scrutineering-buildkit
+          podSelector:
+            matchLabels:
+              app: buildkitd
       ports:
-        - protocol: UDP
-          port: 53
         - protocol: TCP
-          port: 53
+          port: 1234
+    # Registries, vulnerability databases, package registries and GitHub.
     - ports:
         - protocol: TCP
           port: 443
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-celery-beat
+spec:
+  podSelector:
+    matchLabels:
+      app: scrutineering-celery-beat
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: postgres
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-postgres
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-api
+        - podSelector:
+            matchLabels:
+              app: scrutineering-worker
+        - podSelector:
+            matchLabels:
+              app: scrutineering-celery-beat
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-redis
+spec:
+  podSelector:
+    matchLabels:
+      app: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-api
+        - podSelector:
+            matchLabels:
+              app: scrutineering-worker
+        - podSelector:
+            matchLabels:
+              app: scrutineering-celery-beat
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: scrutineering-registry
+spec:
+  podSelector:
+    matchLabels:
+      app: scrutineering-registry
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: scrutineering-worker
+        - podSelector:
+            matchLabels:
+              app: scrutineering-api
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: scrutineering-buildkit
+          podSelector:
+            matchLabels:
+              app: buildkitd
+      ports:
+        - protocol: TCP
+          port: 5000

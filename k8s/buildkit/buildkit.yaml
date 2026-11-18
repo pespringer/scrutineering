@@ -1,0 +1,143 @@
+# Rootless BuildKit, which builds remediation candidates for the worker
+# (`BUILDKIT_HOST` in the ConfigMap).
+#
+# It runs in its own namespace. Rootless BuildKit needs unconfined seccomp and AppArmor
+# to create user namespaces, and the `scrutineering` namespace enforces the `restricted`
+# Pod Security level, which forbids that. The pod still runs as a non-root user without
+# the privileged flag, and its NetworkPolicy admits only the worker.
+#
+# Apply it separately (it names its own namespace):  kubectl apply -f k8s/buildkit/
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: scrutineering-buildkit
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: buildkitd
+  namespace: scrutineering-buildkit
+  labels:
+    app: buildkitd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: buildkitd
+  template:
+    metadata:
+      labels:
+        app: buildkitd
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: Unconfined
+        appArmorProfile:
+          type: Unconfined
+      containers:
+        - name: buildkitd
+          image: moby/buildkit:v0.16.0-rootless
+          args:
+            - --addr
+            - tcp://0.0.0.0:1234
+            - --oci-worker-no-process-sandbox
+          ports:
+            - containerPort: 1234
+              name: buildkit
+          readinessProbe:
+            exec:
+              command: ["buildctl", "--addr", "tcp://127.0.0.1:1234", "debug", "workers"]
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["buildctl", "--addr", "tcp://127.0.0.1:1234", "debug", "workers"]
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: "500m"
+              memory: 512Mi
+            limits:
+              cpu: "4"
+              memory: 4Gi
+          volumeMounts:
+            - name: buildkit-state
+              mountPath: /home/user/.local/share/buildkit
+      volumes:
+        # Build cache. An emptyDir is lost when the pod restarts, which only costs rebuild time.
+        - name: buildkit-state
+          emptyDir:
+            sizeLimit: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: buildkitd
+  namespace: scrutineering-buildkit
+spec:
+  selector:
+    app: buildkitd
+  ports:
+    - port: 1234
+      targetPort: 1234
+      name: buildkit
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: buildkitd
+  namespace: scrutineering-buildkit
+spec:
+  podSelector:
+    matchLabels:
+      app: buildkitd
+  policyTypes: [Ingress, Egress]
+  ingress:
+    # Only the Scrutineering worker may submit builds.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: scrutineering
+          podSelector:
+            matchLabels:
+              app: scrutineering-worker
+      ports:
+        - protocol: TCP
+          port: 1234
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Push candidates to the in-cluster registry.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: scrutineering
+          podSelector:
+            matchLabels:
+              app: scrutineering-registry
+      ports:
+        - protocol: TCP
+          port: 5000
+    # Pull base images and packages during builds.
+    - ports:
+        - protocol: TCP
+          port: 443
+        - protocol: TCP
+          port: 80

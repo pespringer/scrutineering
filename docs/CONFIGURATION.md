@@ -129,5 +129,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `DASHBOARD_AUTH_MODE` | `local` (API-key sessions) or `trusted-proxy` (identity from the ingress). | dashboard |
 | `HOSTNAME` | Address the dashboard server listens on (Kubernetes sets `0.0.0.0`). | dashboard |
 | `PORT` | Port the dashboard server listens on. | dashboard |
+| `HOME` | The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root). | worker |
+| `PGDATA` | Postgres data directory; Kubernetes uses a subdirectory of the volume. | Postgres image |
+| `REGISTRY_STORAGE_DELETE_ENABLED` | Lets the in-cluster registry delete images. | registry image |
 | `GRYPE_DB_CACHE_DIR` | Grype's vulnerability database directory. | Grype |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Service account file for GCR and Artifact Registry. | Trivy, Grype |

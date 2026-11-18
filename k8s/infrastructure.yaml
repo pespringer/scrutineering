@@ -16,6 +16,13 @@ data:
   SERVICE_AUTH_MAX_SKEW_SECONDS: "300"
   SERVICE_AUTH_REQUIRED: "true"
   DASHBOARD_DEFAULT_ROLES: "dashboard,operator"
+  # Remediation candidates are built on buildkitd (buildkit/buildkit.yaml) and pushed to the
+  # in-cluster registry (registry.yaml), which speaks plain HTTP inside the cluster.
+  BUILDKIT_HOST: "tcp://buildkitd.scrutineering-buildkit.svc.cluster.local:1234"
+  LOCAL_REGISTRY_HOST: "scrutineering-registry.scrutineering.svc.cluster.local:5000"
+  REGISTRY_INSECURE: "true"
+  # Set to "true" to let approved remediations build and verify candidates.
+  REMEDIATION_EXECUTION_ENABLED: "false"
 ---
 # Secret — Sensitive values (base64 encoded)
 apiVersion: v1
@@ -24,6 +31,8 @@ metadata:
   name: scrutineering-secrets
 type: Opaque
 stringData:
+  # POSTGRES_PASSWORD must match the password in DATABASE_URL.
+  POSTGRES_PASSWORD: "change-me-secret"
   DATABASE_URL: "postgresql://scrutineering:change-me-secret@scrutineering-postgres:5432/scrutineering"
   REDIS_URL: "redis://scrutineering-redis:6379/0"
   CELERY_BROKER_URL: "redis://scrutineering-redis:6379/0"
@@ -50,9 +59,22 @@ spec:
       labels:
         app: postgres
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The postgres user of the official image.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: postgres
           image: postgres:16
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 5432
           envFrom:
@@ -63,13 +85,27 @@ spec:
               value: scrutineering
             - name: POSTGRES_USER
               value: scrutineering
+            # A subdirectory, because a fresh volume's root may hold lost+found.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: "250m"
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
           volumeMounts:
             - name: pgdata
               mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
       volumes:
         - name: pgdata
           persistentVolumeClaim:
             claimName: postgres-pvc
+        - name: run
+          emptyDir: {}
 ---
 # PersistentVolumeClaim — PostgreSQL
 apiVersion: v1
@@ -103,9 +139,23 @@ spec:
       labels:
         app: redis
     spec:
+      automountServiceAccountToken: false
+      securityContext:
+        # The redis user of the official image.
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: redis
           image: redis:7-alpine
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           ports:
             - containerPort: 6379
           resources:
@@ -115,3 +165,10 @@ spec:
             limits:
               cpu: "500m"
               memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        # Redis holds the queue and results only; nothing here needs to survive a restart.
+        - name: data
+          emptyDir: {}
