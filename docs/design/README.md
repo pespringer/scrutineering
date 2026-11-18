@@ -19,5 +19,6 @@ A note answers:
 ## Notes
 
 - [notifications.md](notifications.md): Slack and webhook notifications (built)
+- [deployment-observation.md](deployment-observation.md): which containers run which build, and stale ones (proposed)
 - [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
 - [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (built)
