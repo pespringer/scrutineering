@@ -56,6 +56,10 @@ The dashboard is organized as a security operations console:
   links each entry to its scan, image or remediation.
 - Remediation detail pages show ordered lifecycle events, the patch and
   candidate image, and the GitHub pull request with its merge outcome.
+- State-changing `/api/*` requests from another site are refused with `403`
+  (`src/proxy.ts`), in every auth mode. Behind a reverse proxy, forward the
+  original `Host` (or set `X-Forwarded-Host`) so same-origin requests from
+  browsers that send `Origin` but not `Sec-Fetch-Site` still match.
 - Notifications (`security-operator`) shows which channels are configured, the
   recent deliveries with their errors, and **Send test**.
 - Read-only `dashboard` users can inspect data; `operator`,
