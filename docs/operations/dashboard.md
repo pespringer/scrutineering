@@ -11,10 +11,12 @@ npm ci
 npm run validate:build
 ```
 
-CI runs `npm audit --audit-level=high` and `npm run lint` (ESLint with the Next.js
-rules, `eslint.config.mjs`) before the build. Keep direct dependency
-versions and `dashboard/package-lock.json` synchronized when applying security
-updates; a high or critical advisory blocks the dashboard job.
+CI runs `npm audit` and `npm run lint` (ESLint with the Next.js rules,
+`eslint.config.mjs`) before the build. A high or critical advisory in a
+production dependency blocks the dashboard job. Advisories in dev dependencies
+(the lint toolchain) show as a warning on the run instead, because they can have
+no fixed release; update them when one appears. Keep direct dependency versions
+and `dashboard/package-lock.json` synchronized when applying security updates.
 
 Run `make check` from the repository root to verify, among other things, that
 the dashboard package and lockfile exist.

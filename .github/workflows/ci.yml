@@ -35,8 +35,12 @@ jobs:
           cache-dependency-path: dashboard/package-lock.json
       - working-directory: dashboard
         run: npm ci
+      # High or critical advisories in what ships block the job. Dev tooling (ESLint and its
+      # resolvers) is reported but doesn't block, since an advisory there can have no fixed release.
       - working-directory: dashboard
-        run: npm audit --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
+      - working-directory: dashboard
+        run: npm audit --audit-level=high || echo "::warning::npm audit found advisories in dev dependencies"
       - working-directory: dashboard
         run: npm run lint
       - working-directory: dashboard
