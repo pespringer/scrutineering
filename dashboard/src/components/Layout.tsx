@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Bell, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
 import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusPanel";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { cx } from "@/lib/cx";
@@ -22,6 +22,12 @@ const NAV: NavItem[] = [
     roles: ["remediator", "security-operator", "admin"],
   },
   { href: "/audit", label: "Audit", icon: <ClipboardList className="h-4 w-4" /> },
+  {
+    href: "/notifications",
+    label: "Notifications",
+    icon: <Bell className="h-4 w-4" />,
+    roles: ["security-operator", "admin"],
+  },
 ];
 
 /** Most capable first: the header shows the strongest role the session holds. */

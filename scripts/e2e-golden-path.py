@@ -139,6 +139,27 @@ def remediation_half(scan: dict, target: dict) -> None:
     print(f"    remediation {remediation_id} completed; {TARGET_CVE} resolved")
 
 
+def notifications_check() -> None:
+    """Send a test notification to each configured channel and wait for it to be delivered."""
+    page = request("GET", "/api/notifications")
+    configured = [channel["name"] for channel in page["channels"] if channel["configured"]]
+    if not configured:
+        print("    skipped: no notification channel is configured")
+        return
+    step(f"send a test notification to {', '.join(configured)}")
+    ids = {item["id"] for item in request("POST", "/api/notifications/test")["queued"]}
+    for _ in range(30):
+        rows = [item for item in request("GET", "/api/notifications")["deliveries"] if item["id"] in ids]
+        if rows and all(row["status"] == "sent" for row in rows):
+            print(f"    delivered to {', '.join(row['channel'] for row in rows)}")
+            return
+        refused = [row for row in rows if row["status"] == "failed" or row["attempts"]]
+        if refused:
+            fail("; ".join(f"{row['channel']} refused the test: {row['last_error']}" for row in refused))
+        time.sleep(1)
+    fail("the test notification was not delivered within 30 seconds; does the worker consume the notify queue?")
+
+
 def main() -> None:
     step(f"build and push {PUSH_HOST}/{REPO}")
     subprocess.run(
@@ -170,7 +191,9 @@ def main() -> None:
     print(f"    found: {TARGET_PACKAGE} {target[0]['package_version']} -> {FIXED}")
 
     remediation_half(scan, target[0])
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete)")
+    step("check notifications")
+    notifications_check()
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete, notify)")
 
 
 if __name__ == "__main__":

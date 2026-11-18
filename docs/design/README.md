@@ -18,4 +18,4 @@ A note answers:
 
 ## Notes
 
-- [notifications.md](notifications.md): Slack and webhook notifications (in progress: outbox, webhook and Slack built)
+- [notifications.md](notifications.md): Slack and webhook notifications (built)

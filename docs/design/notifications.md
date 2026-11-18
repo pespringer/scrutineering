@@ -1,6 +1,6 @@
 # Notifications (Slack and webhook)
 
-Status: in progress, steps 1 and 2 of 3 built (outbox, webhook, Slack) · 2026-11-17 · Phase 6
+Status: built (outbox, webhook, Slack, dashboard page) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -151,9 +151,11 @@ short message: a headline, the image, counts, and a link button.
 - The page is backed by two routes, both requiring `security-operator`:
   - `GET /api/dashboard/notifications`;
   - `POST /api/dashboard/notifications/test`.
-- A test row goes through the same outbox, with event `test`, and the panel
-  polls until it's sent or failed. The test therefore exercises the real
-  delivery path.
+- A test row goes through the same outbox, with event `test`, and the page
+  polls for about 30 seconds until it's sent or its first attempt fails. The
+  test therefore exercises the real delivery path.
+- With no channel configured, **Send test** is disabled and the route answers
+  409.
 
 ## Configuration
 
@@ -217,9 +219,9 @@ the worker sends anything.
   - that each body's `remediation.status` matches the remediation's status at
     that point.
 
-  `make e2e` doesn't check notifications yet: the live stack would need a
-  receiver the worker container can reach, and `.env` changes. That's left for
-  step 3, whose test button gives a live check through the dashboard.
+  `make e2e` sends a test notification through the dashboard when a channel is
+  configured and waits for it to be delivered. With no channel, it says it
+  skipped the check.
 - No test sends anything to Slack. The Slack formatter is checked against the
   stored JSON in `fixtures/notifications/`.
 
@@ -234,7 +236,7 @@ the worker sends anything.
    - docs: OPERATOR_GUIDE section, ARCHITECTURE (services and data model),
      CONFIGURATION.
 2. **Slack** (built): the formatter, the URL check, and docs.
-3. **Dashboard:** the Notifications page, the two routes and the test button.
+3. **Dashboard** (built): the Notifications page, the two routes and the test button.
 
 Each PR keeps the golden path green and leaves the feature off when nothing is
 configured. This note is updated to match what shipped.
