@@ -190,6 +190,12 @@ step from what it cloned, built and scanned itself:
   API key. A trusted ingress can forward a verified identity instead
   (`DASHBOARD_TRUSTED_PROXY_SECRET`), and internal services can sign requests
   (`SERVICE_AUTH_SECRET`).
+- **Other sites.** The dashboard refuses state-changing requests (anything but GET,
+  HEAD and OPTIONS) that a browser marks as coming from another site
+  (`Sec-Fetch-Site`, or an `Origin` that doesn't match the host), with
+  `403 cross_site_request_refused`. Without this, any page a user visited could
+  approve or publish a remediation through their dashboard. Requests with neither
+  header (curl, scripts) are not from a browser and are allowed.
 - **Roles.**
   - `dashboard` reads data.
   - `operator` also starts and cancels scans.
