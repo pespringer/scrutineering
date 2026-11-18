@@ -197,20 +197,32 @@ Scrutineering can post a message when a remediation needs someone or finishes:
 it or rebuild the image), `published` (with the pull request link), `completed`
 and `failed` (with the reason's first line). Choose which with `NOTIFICATION_EVENTS`.
 
-To turn it on, set these in `.env` and restart the stack (`make up`):
+There are two channels. Set either or both in `.env`, then restart the stack
+(`make up`):
 
 ```bash
+# Slack: an incoming webhook (Slack app > Incoming Webhooks > Add New Webhook)
+NOTIFICATION_SLACK_WEBHOOK_URL=https://hooks.slack.com/services/...
+# Any other receiver: signed JSON
 NOTIFICATION_WEBHOOK_URL=https://ntfy.example.com/hooks/scrutineering
 NOTIFICATION_WEBHOOK_SECRET=<a long random string>
-DASHBOARD_PUBLIC_URL=https://scrutineering.home.lan   # optional: links in messages
+# Optional, for both: links to the remediation in messages
+DASHBOARD_PUBLIC_URL=https://scrutineering.home.lan
 ```
 
-The URL must be `https://`, or `http://` to a private address (such as
-`http://192.168.1.20:8080/hook`) or a single-label host name (such as
-`http://ntfy/scrutineering`). The worker must consume the `notify` queue, which
-the default `CELERY_QUEUES` includes.
+Each channel's messages are retried and recorded separately. The worker must
+consume the `notify` queue, which the default `CELERY_QUEUES` includes.
 
-Each message is a JSON `POST`:
+**Slack.** Each message names the image, status, action and number of targeted
+findings. It also lists any new critical/high CVEs (the first five) and the reason
+for a failure. Buttons link to the remediation (when `DASHBOARD_PUBLIC_URL` is set)
+and the pull request. The URL must start with `https://hooks.slack.com/`. If Slack
+refuses a message, `last_error` shows Slack's code, such as `HTTP 404 no_service`
+for a webhook that was removed.
+
+**Webhook.** The URL must be `https://`, or `http://` to a private address (such
+as `http://192.168.1.20:8080/hook`) or a single-label host name (such as
+`http://ntfy/scrutineering`). Each message is a JSON `POST`:
 
 ```json
 {

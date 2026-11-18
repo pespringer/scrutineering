@@ -222,7 +222,7 @@ step from what it cloned, built and scanned itself:
   checkout and BuildKit builds (`build.py`), execution (`worker.py`), publication
   (`publish.py`), and the state machine and lifecycle.
 - `src/notifications/`: the outbox (`outbox.py`, called from
-  `RemediationRepository.update_status`), the webhook channel, and delivery
+  `RemediationRepository.update_status`), the Slack and webhook channels, and delivery
   (`delivery.py`, on the `notify` queue).
 - `src/db/`: models, repositories, connection setup and Alembic migrations.
 - `dashboard/`: the Next.js dashboard; `src/app/api/` holds the proxy routes.

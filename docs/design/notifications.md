@@ -1,6 +1,6 @@
 # Notifications (Slack and webhook)
 
-Status: in progress, step 1 of 3 built (outbox and webhook) · 2026-11-17 · Phase 6
+Status: in progress, steps 1 and 2 of 3 built (outbox, webhook, Slack) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -163,7 +163,7 @@ stays empty.
 
 | Variable | Default | Used by | Notes |
 |---|---|---|---|
-| `NOTIFICATION_SLACK_WEBHOOK_URL` | empty | api, worker | Secret. Must be `https://hooks.slack.com/…`. Step 2. |
+| `NOTIFICATION_SLACK_WEBHOOK_URL` | empty | api, worker | Secret. Must be `https://hooks.slack.com/…`. |
 | `NOTIFICATION_WEBHOOK_URL` | empty | api, worker | Secret. `https://`, or `http://` on the LAN (decision 2). |
 | `NOTIFICATION_WEBHOOK_SECRET` | empty | api, worker | Secret. Signs each body; required with the webhook URL. |
 | `NOTIFICATION_EVENTS` | the six in Scope | api, worker | Comma list of statuses; unknown ones fail at startup. |
@@ -202,8 +202,7 @@ the worker sends anything.
   - `update_status` writes outbox rows only for configured events and channels,
     and writes none when the transaction rolls back;
   - the payload builder, including the error shortening and the URL;
-  - the webhook request, with a signature test vector (the Slack formatter
-    comes with step 2);
+  - the webhook request, with a signature test vector;
   - retry scheduling, the final `failed` status, and errors that never contain
     the URL;
   - every new setting is validated.
@@ -221,8 +220,8 @@ the worker sends anything.
   `make e2e` doesn't check notifications yet: the live stack would need a
   receiver the worker container can reach, and `.env` changes. That's left for
   step 3, whose test button gives a live check through the dashboard.
-- No test sends anything to Slack. The Slack formatter is checked against
-  stored JSON.
+- No test sends anything to Slack. The Slack formatter is checked against the
+  stored JSON in `fixtures/notifications/`.
 
 ## Rollout
 
@@ -234,7 +233,7 @@ the worker sends anything.
    - the `notify` queue, the beat sweep, and the golden-path assertions;
    - docs: OPERATOR_GUIDE section, ARCHITECTURE (services and data model),
      CONFIGURATION.
-2. **Slack:** the formatter, the URL check, and docs.
+2. **Slack** (built): the formatter, the URL check, and docs.
 3. **Dashboard:** the Notifications page, the two routes and the test button.
 
 Each PR keeps the golden path green and leaves the feature off when nothing is

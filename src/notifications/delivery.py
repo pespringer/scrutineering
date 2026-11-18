@@ -7,6 +7,7 @@ webhook carries the delivery ID so receivers can drop the repeat.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import timedelta
 
 import httpx
@@ -16,7 +17,7 @@ from sqlalchemy import delete, select
 from src.config import Settings, get_settings
 from src.db.connection import get_session
 from src.db.models import Notification
-from src.notifications import webhook
+from src.notifications import slack, webhook
 from src.notifications.outbox import now
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,10 @@ def _post(url: str, raw: bytes, headers: dict[str, str]) -> None:
     except httpx.HTTPError as exc:
         raise DeliveryError(f"{type(exc).__name__}: could not reach the receiver") from None
     if not 200 <= response.status_code < 300:
-        raise DeliveryError(f"HTTP {response.status_code}")
+        # Slack answers with a short code such as `no_service` or `invalid_payload`; keep only that shape.
+        code = response.text.strip()
+        suffix = f" {code}" if re.fullmatch(r"[a-z_]{1,40}", code) else ""
+        raise DeliveryError(f"HTTP {response.status_code}{suffix}")
 
 
 def send(notification: Notification, settings: Settings) -> None:
@@ -57,6 +61,12 @@ def send(notification: Notification, settings: Settings) -> None:
             settings.notification_webhook_secret.get_secret_value(),
         )
         _post(url, raw, headers)
+        return
+    if notification.channel == "slack":
+        url = settings.notification_slack_webhook_url.get_secret_value()
+        if not url:
+            raise DeliveryError("NOTIFICATION_SLACK_WEBHOOK_URL is no longer set")
+        _post(url, *slack.request(notification.payload))
         return
     raise DeliveryError(f"unknown channel {notification.channel!r}")
 

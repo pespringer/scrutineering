@@ -1,0 +1,72 @@
+{
+  "payload": {
+    "event": "remediation.failed",
+    "occurred_at": "2026-11-17T15:00:00Z",
+    "remediation": {
+      "id": 58,
+      "status": "failed",
+      "label": "Failed",
+      "image": "registry:5000/shop/web:2.0",
+      "action": "dependency_update",
+      "targets": 1,
+      "new_critical_high": [],
+      "pull_request_url": "https://github.com/shop/web/pull/4",
+      "error": "the pull request was closed <without> merging & more",
+      "url": null
+    }
+  },
+  "message": {
+    "text": "A fix failed: remediation #58 for registry:5000/shop/web:2.0",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*A fix failed* \u00b7 remediation #58"
+        }
+      },
+      {
+        "type": "section",
+        "fields": [
+          {
+            "type": "mrkdwn",
+            "text": "*Image*\n`registry:5000/shop/web:2.0`"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Status*\nFailed"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Action*\ndependency_update"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Targeted findings*\n1"
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*Reason:* the pull request was closed &lt;without&gt; merging &amp; more"
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Pull request"
+            },
+            "url": "https://github.com/shop/web/pull/4",
+            "action_id": "open_pull_request"
+          }
+        ]
+      }
+    ]
+  }
+}
