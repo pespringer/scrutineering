@@ -213,7 +213,18 @@ export type RemediationStatus =
   | "failed"
   | "cancelled";
 
+/** A remediation's signed evidence bundle, as the detail route summarises it. */
+export interface EvidenceSummary {
+  outcome: "completed" | "failed";
+  sha256: string;
+  signed: boolean;
+  key_id: string | null;
+  created_at: string | null;
+}
+
 export interface RemediationRecord {
+  /** Only on the detail route: the latest evidence bundle, once the remediation has ended. */
+  evidence?: EvidenceSummary | null;
   id: number;
   image_id: number;
   status: RemediationStatus;

@@ -10,6 +10,7 @@ import ExecutionControls from "@/components/remediations/ExecutionControls";
 import CandidatePanel from "@/components/remediations/CandidatePanel";
 import ProposedChanges from "@/components/remediations/ProposedChanges";
 import Publications from "@/components/remediations/Publications";
+import EvidencePanel from "@/components/remediations/EvidencePanel";
 import WorkflowStatus from "@/components/remediations/WorkflowStatus";
 import { useRemediation } from "@/hooks/useRemediation";
 import { cx } from "@/lib/cx";
@@ -80,6 +81,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
         </section>
         <aside className="space-y-6">
           <Publications publications={remediation.publications} />
+          <EvidencePanel id={remediation.id} evidence={remediation.evidence} />
         </aside>
       </div>
     </Layout>

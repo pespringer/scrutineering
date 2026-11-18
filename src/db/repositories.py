@@ -7,6 +7,7 @@ transactions can span multiple repositories.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy import func, select, update
@@ -22,6 +23,12 @@ from src.db.models import (
 )
 from src.notifications import outbox as notifications
 from src.remediation.state_machine import TERMINAL, transition
+
+
+def _utcnow() -> datetime:
+    """Naive UTC with microseconds, as scans stamp theirs. On SQLite `func.now()` is whole seconds, which
+    would put a remediation and the scan that completed it out of order within the same second."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class RemediationRepository:
@@ -40,6 +47,7 @@ class RemediationRepository:
             scan_id=scan_id,
             finding_count=finding_count,
             target_severities=target_severities or {},
+            created_at=_utcnow(),
         )
         session.add(rem)
         session.flush()
@@ -64,9 +72,9 @@ class RemediationRepository:
 
         values: dict = {"status": target_status}
         if target_status == RemediationStatus.BUILDING and "started_at" not in kw:
-            values["started_at"] = func.now()
+            values["started_at"] = _utcnow()
         if target_status in TERMINAL:
-            values["completed_at"] = func.now()
+            values["completed_at"] = _utcnow()
         values.update({k: v for k, v in kw.items() if k in values or k not in ("status",)})
         session.execute(
             update(Remediation)

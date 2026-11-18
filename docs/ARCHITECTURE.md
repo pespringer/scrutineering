@@ -97,6 +97,7 @@ erDiagram
     remediations ||--o{ remediation_webhook_events : ""
     remediations ||--o{ notifications : "announced by"
     scans ||--o| sboms : "SBOM"
+    remediations ||--o{ evidence_bundles : "evidence"
 ```
 
 - **`images`**: one row per repository and tag, with the last digest seen, and
@@ -125,6 +126,9 @@ erDiagram
 - **`sboms`**: the CycloneDX SBOM of a completed or partial image scan, stored
   exactly as Trivy wrote it, with its SHA-256 and component count. Each image keeps
   its newest; a daily sweep removes the rest.
+- **`evidence_bundles`**: a remediation's frozen, signed evidence, one per ending
+  (`completed` or `failed`), built by a sweep every minute from server records only.
+  The SBOMs of the scans it cites are kept.
 - **`signing_keys`**: every public key this instance has signed exports with. The
   private key is only on the worker (`src/signing.py`); each SBOM records its
   signature and `key_id`.

@@ -1,6 +1,6 @@
 # Signed SBOMs and remediation evidence
 
-Status: in progress, steps 1 and 2 of 3 built (SBOMs, signing) · 2026-11-18 · Phase 6
+Status: built (SBOMs, signing, evidence bundles) · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -214,7 +214,14 @@ generated on first use.
    - signing SBOMs;
    - `/signing-keys` and the `.sig` routes;
    - the "Verifying exports" guide section.
-3. **Evidence bundles:**
+3. **Evidence bundles** (built). As built, there's no recording in `update_status`.
+   A remediation is due a bundle when it has ended and no bundle records that
+   ending (`ended_at`), and the sweep finds it within a minute. A bundle's
+   before and after scans are picked by **start** time: the scan that completes a
+   remediation saves its findings, which ends the remediation, before the scan
+   itself is stamped finished. Remediations now stamp `created_at`, `started_at`
+   and `completed_at` from Python, like scans, because SQLite's `func.now()` is
+   whole seconds:
    - the builder, with recording through `update_status`;
    - migration `0012` (`evidence_bundles`);
    - the remediation route and panel;

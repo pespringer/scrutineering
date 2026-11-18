@@ -2,7 +2,7 @@
 
 After a scan finishes, Trivy runs once more on the same reference and writes the image's SBOM from
 the cache the scan filled. A failed SBOM never fails the scan. Each image keeps the SBOM of its
-latest scan that has one; a daily sweep removes the rest.
+latest scan that has one, and every SBOM an evidence bundle cites; a daily sweep removes the rest.
 """
 
 from __future__ import annotations
@@ -72,10 +72,17 @@ def generate(scan_id: str, image_id: int, target: str, scanner) -> str:
 
 
 def prune() -> int:
-    """Keep each image's newest SBOM; delete the older ones. Returns how many were deleted."""
+    """Keep each image's newest SBOM, and every SBOM an evidence bundle cites; delete the rest."""
+    from src.db.models import EvidenceBundle
+
     with get_session() as session:
         newest = select(func.max(Sbom.id)).group_by(Sbom.image_id)
-        deleted = session.execute(delete(Sbom).where(Sbom.id.not_in(newest))).rowcount
+        cited = (
+            select(EvidenceBundle.before_scan_id)
+            .where(EvidenceBundle.before_scan_id.is_not(None))
+            .union(select(EvidenceBundle.after_scan_id).where(EvidenceBundle.after_scan_id.is_not(None)))
+        )
+        deleted = session.execute(delete(Sbom).where(Sbom.id.not_in(newest), Sbom.scan_id.not_in(cited))).rowcount
     if deleted:
         logger.info("pruned %d superseded SBOMs", deleted)
     return deleted

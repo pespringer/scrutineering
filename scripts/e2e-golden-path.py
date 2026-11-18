@@ -38,6 +38,8 @@ REPO = "fixtures/vulnerable-node:e2e"
 TARGET_CVE, TARGET_PACKAGE, FIXED = "CVE-2021-23337", "lodash", "4.17.21"
 # Runs inside the candidate image: the patched lodash is the one installed.
 TEST_COMMAND = ["node", "-e", f"process.exit(require('lodash/package.json').version === '{FIXED}' ? 0 : 1)"]
+# The evidence sweep beat runs every minute (src/remediation/evidence.py).
+EVIDENCE_RUN = "from src.remediation.evidence import build_due; print(build_due())"
 
 
 def step(message: str) -> None:
@@ -174,6 +176,24 @@ def remediation_half(scan: dict, target: dict) -> None:
     if remediation["status"] != "completed" or remediation["resolved_finding_count"] != 1:
         fail(f"expected remediation {remediation_id} completed, got {remediation['status']}")
     print(f"    remediation {remediation_id} completed; {TARGET_CVE} resolved")
+
+    step("download and verify the remediation's evidence")
+    subprocess.run(  # what beat runs every minute
+        ["docker", "compose", "exec", "-T", "celery-worker", "python", "-c", EVIDENCE_RUN],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    )
+    summary = request("GET", f"/api/remediations/{remediation_id}").get("evidence")
+    if not summary or not summary.get("signed"):
+        fail(f"remediation {remediation_id} has no signed evidence bundle: {summary}")
+    bundle_bytes = download(f"/api/remediations/{remediation_id}/evidence")
+    bundle = json.loads(bundle_bytes)
+    if bundle["scans"]["after"] is None or bundle["scans"]["after"]["targets_present"]:
+        fail(f"the evidence does not show the targets gone after the rescan: {bundle['scans']['after']}")
+    if TARGET_CVE not in {target["cve_id"] for target in bundle["targets"]}:
+        fail(f"the evidence does not list {TARGET_CVE} as a target")
+    verify_with_openssl("evidence", bundle_bytes, f"/api/remediations/{remediation_id}/evidence.sig", summary["key_id"])
 
 
 DISCOVERY_RUN = (

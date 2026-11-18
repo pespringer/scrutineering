@@ -203,6 +203,19 @@ merge webhook queues) decides the outcome:
 
 If the pull request is closed without merging, the remediation is `failed`.
 
+**Evidence.** Within a minute of a remediation completing or failing, its page shows
+an **Evidence** panel. It holds one signed JSON file with everything that happened:
+- the targeted findings and the plan;
+- the patch and the commit it applies to;
+- the candidate image, its test command and verification;
+- the pull request;
+- the scans before and after, with their SBOM hashes, and which targets the last
+  scan still saw;
+- the event timeline.
+
+It's built from Scrutineering's own records and frozen; a retry that ends again gets a
+new one. Downloading it needs the remediator role, because it includes the patch.
+
 ## 9. The audit trail
 
 **Audit** lists operator actions and scan lifecycle events with who, when and what:
@@ -324,12 +337,12 @@ then name the signed-in user and record their email.
 
 ## Verifying exports
 
-SBOMs are signed with this instance's own key. The worker creates it on first use
+SBOMs and evidence bundles are signed with this instance's own key. The worker creates it on first use
 on the `signingkeys` volume; on Kubernetes you create it as a Secret (README). Anyone
 with the public key can check that a file came from this Scrutineering and hasn't
 changed since. That check is offline, and no Scrutineering code is involved. Next
-to each SBOM download are **signature** and **public key** links (or
-`GET /api/dashboard/signing-keys` for every key).
+to each SBOM and evidence download are **signature** and **public key** links (or
+`GET /api/dashboard/signing-keys` for every key). The same commands verify both.
 
 ```bash
 # With openssl

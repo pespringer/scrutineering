@@ -42,7 +42,6 @@ REMOVED_ROUTE_FRAGMENTS = (
     "deployment-observation",
     "alert-",
     "evidence-export",
-    "/evidence",
     "provider-credentials",
     "provider-diagnostics",
     "release-health",
@@ -55,6 +54,9 @@ def test_canonical_api_composes_health_and_dashboard_routes():
     assert KEPT_ROUTES <= paths
     assert not any(path.startswith(("/api/v1", "/api/runtime", "/api/forensics", "/api/analytics")) for path in paths)
     assert not [path for path in paths if any(fragment in path for fragment in REMOVED_ROUTE_FRAGMENTS)]
+    # Evidence is built by the server (docs/design/sbom-evidence.md); no route may accept it from a client.
+    evidence = {path: set(methods) for path, methods in app.openapi()["paths"].items() if "/evidence" in path}
+    assert evidence and all(methods == {"get"} for methods in evidence.values()), evidence
 
 
 def test_service_auth_configuration_accepts_body_bound_internal_requests(monkeypatch):

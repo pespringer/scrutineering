@@ -83,8 +83,10 @@ show what they found at the time.
 | POST | `/remediations/preview` | remediator | How the selected findings would be fixed; changes nothing |
 | POST | `/remediations` | remediator | Propose a remediation (status `proposed`); the image needs a connected source |
 | GET | `/remediations?status&limit&offset` | remediator | Paginated remediation queue |
-| GET | `/remediations/{id}` | remediator | Remediation detail with actions and publications |
+| GET | `/remediations/{id}` | remediator | Remediation detail with actions, publications and `evidence` (the bundle's summary) |
 | GET | `/remediations/{id}/events` | remediator | Ordered history of the remediation |
+| GET | `/remediations/{id}/evidence` | remediator | The latest signed evidence bundle (canonical JSON), with `X-Scrutineering-Signature`; 404 until it ends |
+| GET | `/remediations/{id}/evidence.sig` | remediator | The bundle's base64 signature; 404 when unsigned |
 | POST | `/remediations/{id}/approve` | security-operator | `proposed` → `approved` |
 | POST | `/remediations/{id}/execute` | remediator | `approved` → `building`; requires `REMEDIATION_EXECUTION_ENABLED=true` |
 | POST | `/remediations/{id}/accept` | security-operator | `needs_acceptance` → `ready`: accept new critical/high findings |
