@@ -1,0 +1,15 @@
+# Example users only. Passwords are in ../README.md; replace this file before real use.
+# Generate a hash: docker run --rm authelia/authelia:4.38.17 authelia crypto hash generate argon2
+users:
+  alice:
+    displayname: "Alice (security operator)"
+    email: alice@scrutineering.localhost
+    password: "$argon2id$v=19$m=65536,t=3,p=4$canulEecQier+8hVIGEwYw$KIW1uj6Gv5lhOSmbIe/59w+hPf43o4mtYfVYKh+/OHI"
+    groups:
+      - scrutineering-security
+  bob:
+    displayname: "Bob (no Scrutineering role)"
+    email: bob@scrutineering.localhost
+    password: "$argon2id$v=19$m=65536,t=3,p=4$pMuJ6IV4qets9VqXRge+dw$mNbWvjSrvP5HDavu6cB9s86y7DujWhJkvichrja5bNE"
+    groups:
+      - family

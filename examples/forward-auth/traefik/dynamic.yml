@@ -1,0 +1,38 @@
+# Traefik routes for the forward-auth example. Every dashboard request is checked by Authelia first;
+# Traefik then copies Authelia's identity headers onto the request, replacing any the client sent,
+# and adds the secret that tells the dashboard the request came through here.
+http:
+  routers:
+    scrutineering:
+      rule: Host(`scrutineering.localhost`)
+      entryPoints: [websecure]
+      tls: {}
+      middlewares: [authelia, scrutineering-proxy-secret]
+      service: dashboard
+    authelia:
+      rule: Host(`auth.scrutineering.localhost`)
+      entryPoints: [websecure]
+      tls: {}
+      service: authelia
+
+  middlewares:
+    authelia:
+      forwardAuth:
+        address: http://authelia:9091/api/authz/forward-auth
+        # Traefik sets the X-Forwarded-* headers Authelia reads itself; a client's are not trusted.
+        trustForwardHeader: false
+        authResponseHeaders: [Remote-User, Remote-Groups, Remote-Email, Remote-Name]
+    scrutineering-proxy-secret:
+      headers:
+        customRequestHeaders:
+          x-dashboard-proxy-secret: '{{ env "DASHBOARD_TRUSTED_PROXY_SECRET" }}'
+
+  services:
+    dashboard:
+      loadBalancer:
+        servers:
+          - url: http://dashboard:3001
+    authelia:
+      loadBalancer:
+        servers:
+          - url: http://authelia:9091

@@ -1,0 +1,37 @@
+# Authelia for the forward-auth example (docs/design/forward-auth.md). Secrets come from the
+# environment (AUTHELIA_*_FILE or AUTHELIA_* variables in docker-compose.yml), never from this file.
+theme: dark
+
+server:
+  address: tcp://0.0.0.0:9091/
+
+log:
+  level: info
+
+authentication_backend:
+  password_reset:
+    disable: true
+  file:
+    path: /config/users.yml
+
+access_control:
+  default_policy: deny
+  rules:
+    # one_factor keeps the example short. For anything reachable from the internet use two_factor,
+    # which adds an authenticator app or security key.
+    - domain: scrutineering.localhost
+      policy: one_factor
+
+session:
+  cookies:
+    - domain: scrutineering.localhost
+      authelia_url: https://auth.scrutineering.localhost:8443
+      default_redirection_url: https://scrutineering.localhost:8443
+
+storage:
+  local:
+    path: /data/db.sqlite3
+
+notifier:
+  filesystem:
+    filename: /data/notification.txt

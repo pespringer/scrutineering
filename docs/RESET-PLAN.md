@@ -694,7 +694,7 @@ Each of these needs its own short design note in [design/](design/), merged
 before the code, and has to keep the golden-path test green:
 
 - notifications (Slack or webhook): done, see [design/notifications.md](design/notifications.md)
-- OIDC and forward-auth: proposed in [design/forward-auth.md](design/forward-auth.md)
+- OIDC and forward-auth: done, see [design/forward-auth.md](design/forward-auth.md)
 - runtime discovery on by default
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster
 - signed SBOM and evidence
