@@ -10,11 +10,35 @@ class BackendError extends Error {
   }
 }
 
+// Waits between attempts when the API can't be reached (it was restarting), within an overall budget:
+// a refused connection fails at once and is retried; one that hangs uses the budget up and is not.
+const RETRY_DELAYS_MS = [250, 750, 1500, 2500];
+const RETRY_BUDGET_MS = 10000;
+
+/**
+ * Fetch from the API, retrying a read when the API could not be reached at all. A write is never
+ * retried: the API may have received it.
+ */
+async function fetchApi(url: string, init: RequestInit): Promise<Response> {
+  const method = (init.method || "GET").toUpperCase();
+  const delays = method === "GET" || method === "HEAD" ? RETRY_DELAYS_MS : [];
+  const started = Date.now();
+  for (const delay of delays) {
+    try {
+      return await fetch(url, init);
+    } catch (error) {
+      if (Date.now() - started + delay >= RETRY_BUDGET_MS) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  return fetch(url, init);
+}
+
 export async function backendJson<T>(path: string, init?: RequestInit): Promise<T> {
   const base = process.env.DASHBOARD_API_URL;
   if (!base) throw new Error("DASHBOARD_API_URL is not configured");
 
-  const response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
+  const response = await fetchApi(`${base.replace(/\/$/, "")}${path}`, {
     ...init,
     cache: "no-store",
     headers: {

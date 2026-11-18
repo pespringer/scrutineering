@@ -29,6 +29,10 @@ services directly.
 The dashboard always reads live data through the API and shows an
 unavailable-data error when the API is missing; there is no demo mode.
 
+When the API can't be reached at all (for example, while it restarts), the
+dashboard's server retries a read for up to about 10 seconds before reporting it
+unavailable. It never retries a write, which the API may already have received.
+
 For sign-in, set `DASHBOARD_AUTH_MODE=trusted-proxy` on the dashboard and the API
 (docs/design/forward-auth.md). The ingress authenticates users through its
 forward-auth proxy, passes on the proxy's identity headers, and adds the exact
