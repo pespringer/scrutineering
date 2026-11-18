@@ -1,6 +1,6 @@
 # Runtime discovery on by default
 
-Status: in progress, step 1 of 2 built · 2026-11-18 · Phase 6
+Status: built · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -94,6 +94,15 @@ discovery reports the error. Everything else in the stack keeps working.
 
    With containerd there is no registry-digest check: named images are kept, and
    only bare IDs are skipped.
+
+   **As built,** `RepoDigests` alone doesn't separate local builds. Docker's
+   containerd image store, the default in current Docker releases, gives a locally
+   built image a digest too. So an image with a digest is also checked against its
+   registry, with the worker's own credentials, the way every scan resolves its
+   digest. If the registry says it doesn't exist or refuses access, the image is
+   local-only. If the registry can't be reached, the image is kept and the scan
+   decides. Images that already have a successful scan skip this check, so a
+   steady state makes no extra registry calls.
 3. **Record what's running.** Each scannable image gets an `images` row if it has
    none, and `last_seen_running_at = now`.
 4. **Queue only what needs it.** Discovery uses the same rule as scheduled rescans
@@ -183,7 +192,7 @@ images recorded as running.
    - `last_seen_running_at` and migration 0009;
    - the status in Redis and the system status panel;
    - tests and docs.
-2. **On by default in Compose:**
+2. **On by default in Compose** (built):
    - the `docker-proxy` service and the `discovery` network;
    - `DOCKER_HOST` for the worker;
    - remove the raw-socket overlay;

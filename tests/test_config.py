@@ -62,7 +62,8 @@ def test_every_configured_variable_is_documented():
     example = _assigned_names((ROOT / ".env.example").read_text())
     assert not example - documented, f".env.example sets undocumented variables: {sorted(example - documented)}"
 
-    compose = set(re.findall(r"\$\{([A-Z][A-Z0-9_]*)", (ROOT / "docker-compose.yml").read_text()))
+    # `$${...}` is Compose's escape for a literal `${...}`, not a variable.
+    compose = set(re.findall(r"(?<!\$)\$\{([A-Z][A-Z0-9_]*)", (ROOT / "docker-compose.yml").read_text()))
     compose.discard("PLANNER_API_KEY")  # the old name of PYTHON_API_KEY, still accepted by Compose
     assert not compose - documented, f"docker-compose.yml uses undocumented variables: {sorted(compose - documented)}"
 

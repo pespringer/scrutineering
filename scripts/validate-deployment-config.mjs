@@ -14,7 +14,6 @@ const required = [
   "k8s/registry.yaml",
   "k8s/buildkit/buildkit.yaml",
   "docker-compose.yml",
-  "docker-compose.deployment-docker.yml",
   "Dockerfile.api",
   "Dockerfile.worker",
   "Dockerfile.dashboard",

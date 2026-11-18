@@ -70,6 +70,9 @@ export interface ImageDetail {
   tag: string;
   last_scan_at: string | null;
   last_scan_id: string | null;
+  /** When runtime discovery last saw it running; `running` means within the last 30 minutes. */
+  last_seen_running_at?: string | null;
+  running?: boolean;
   open_findings: number;
   resolved_findings?: number;
   critical_count: number;

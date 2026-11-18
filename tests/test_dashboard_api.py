@@ -27,6 +27,7 @@ def test_dashboard_serializers_match_frontend_contract():
         tag="v1",
         last_scan_at=datetime(2026, 1, 2, 3, 4, 5),
         last_scan_id="scan-7",
+        last_seen_running_at=None,
         full_name="ghcr/acme/api:v1",
     )
     finding = SimpleNamespace(
@@ -66,6 +67,7 @@ def test_dashboard_serializers_match_frontend_contract():
     assert severity_counts([finding]) == {"critical": 0, "high": 1, "medium": 0, "low": 0}
     assert image_payload(image, [finding])["open_findings"] == 1
     assert image_payload(image, [finding], resolved_count=2)["resolved_findings"] == 2
+    assert (image_payload(image, [])["last_seen_running_at"], image_payload(image, [])["running"]) == (None, False)
     assert scan_payload(scan)["status"] == "completed"
     assert finding_payload(finding)["severity"] == "HIGH"
     assert finding_payload(finding)["remediation_id"] is None

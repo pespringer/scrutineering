@@ -6,6 +6,7 @@ from collections import Counter
 from datetime import datetime, timezone
 
 
+from src.scan.runtime_discovery import running_since
 from src.db.models import (
     FindingObservation,
     Image,
@@ -74,6 +75,8 @@ def image_payload(image: Image, findings: list[ScanFinding], resolved_count: int
         "tag": image.tag,
         "last_scan_at": iso(image.last_scan_at),
         "last_scan_id": image.last_scan_id,
+        "last_seen_running_at": iso(image.last_seen_running_at),
+        "running": bool(image.last_seen_running_at and image.last_seen_running_at >= running_since()),
         "open_findings": len(findings),
         "resolved_findings": resolved_count,
         "critical_count": counts["critical"],

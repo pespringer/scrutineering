@@ -32,18 +32,25 @@ function statusStyle(status: RegistryTag["security_status"]) {
   return "bg-amber-400/10 text-amber-200";
 }
 
+function seenRunning(value: string | null | undefined): string {
+  return value ? `Seen running ${new Date(value).toLocaleString()}` : "Seen running";
+}
+
 export default function ImagesPage() {
   const [page, setPage] = useState<Page<ImageDetail> | null>(null);
   const [registry, setRegistry] = useState<RegistryInventory | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [runningOnly, setRunningOnly] = useState(false);
+  // What the shown list is: the checkbox changes at once, the list only when its data arrives.
+  const [listedRunningOnly, setListedRunningOnly] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const [imagesResponse, registryResponse] = await Promise.all([
-        fetch("/api/images?limit=100", { cache: "no-store" }),
+        fetch(`/api/images?limit=100${runningOnly ? "&running=true" : ""}`, { cache: "no-store" }),
         fetch("/api/registry", { cache: "no-store" }),
       ]);
       if (!imagesResponse.ok) throw new Error();
@@ -54,13 +61,14 @@ export default function ImagesPage() {
           : payload,
       );
       setRegistry(registryResponse.ok ? await registryResponse.json() : null);
+      setListedRunningOnly(runningOnly);
     } catch {
       setPage(null);
       setRegistry(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [runningOnly]);
   useEffect(() => {
     load();
   }, [load]);
@@ -280,9 +288,25 @@ export default function ImagesPage() {
       )}
       <section className="panel overflow-hidden rounded-2xl">
         <div className="border-b border-slate-800/80 px-5 py-5 sm:px-6">
-          <div className="eyebrow mb-2">Tracked inventory</div>
-          <div className="text-sm text-slate-400">
-            {page?.total || 0} image{page?.total === 1 ? "" : "s"} currently under management.
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="eyebrow mb-2">Tracked inventory</div>
+              <div className="text-sm text-slate-400">
+                {page?.total || 0} {listedRunningOnly ? "running " : ""}image{page?.total === 1 ? "" : "s"}
+                {listedRunningOnly
+                  ? " seen by runtime discovery in the last 30 minutes."
+                  : " currently under management."}
+              </div>
+            </div>
+            <label className="flex shrink-0 cursor-pointer items-center gap-2 text-xs text-slate-400">
+              <input
+                type="checkbox"
+                checked={runningOnly}
+                onChange={(event) => setRunningOnly(event.target.checked)}
+                className="accent-emerald-400"
+              />
+              Running only
+            </label>
           </div>
         </div>
         <div className="divide-y divide-slate-800/70">
@@ -308,6 +332,18 @@ export default function ImagesPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="truncate font-mono text-sm text-slate-200">{displayName}</div>
+                      {image.running && (
+                        <span
+                          title={seenRunning(image.last_seen_running_at)}
+                          className={cx(
+                            "rounded-full bg-emerald-400/10 px-2 py-0.5",
+                            "text-[10px] font-semibold uppercase tracking-wider",
+                            "text-emerald-200",
+                          )}
+                        >
+                          running
+                        </span>
+                      )}
                       {localFixture && (
                         <span
                           className={cx(

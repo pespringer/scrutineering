@@ -69,7 +69,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 
 | Variable | Default | Meaning | Read by |
 |---|---|---|---|
-| `SCAN_RUNTIME_DISCOVERY_ENABLED` | `false` | Every 15 minutes, record the images of running containers and scan new ones (docs/design/runtime-discovery.md). | worker |
+| `SCAN_RUNTIME_DISCOVERY_ENABLED` | `true` | Every 15 minutes, record the images of running containers and scan new ones (docs/design/runtime-discovery.md). | worker |
 | `SCAN_RUNTIME_USE_CONTAINERD` | `false` | List containers with `ctr` instead of `docker`. | worker |
 | `SCAN_RUNTIME_DOCKER_BIN` | `docker` | Docker CLI to list containers with. | worker |
 | `SCAN_RUNTIME_CTR_BIN` | `ctr` | containerd CLI to list containers with. | worker |
@@ -142,6 +142,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `DASHBOARD_LOGOUT_URL` | Sign-out link shown in the header, e.g. your auth proxy's logout URL. | dashboard |
 | `HOSTNAME` | Address the dashboard server listens on (Kubernetes sets `0.0.0.0`). | dashboard |
 | `PORT` | Port the dashboard server listens on. | dashboard |
+| `DOCKER_SOCKET` | Host path of the Docker socket that `docker-proxy` mounts read-only for runtime discovery. | Compose |
+| `DOCKER_HOST` | Where the worker's `docker` CLI lists containers; Compose sets the read-only proxy. | worker |
 | `HOME` | The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root). | worker |
 | `PGDATA` | Postgres data directory; Kubernetes uses a subdirectory of the volume. | Postgres image |
 | `REGISTRY_STORAGE_DELETE_ENABLED` | Lets the in-cluster registry delete images. | registry image |

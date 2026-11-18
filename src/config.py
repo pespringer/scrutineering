@@ -176,7 +176,7 @@ class Settings(BaseSettings):
 
     # -- Runtime discovery ------------------------------------------------------
     scan_runtime_discovery_enabled: bool = setting(
-        False,
+        True,
         "Every 15 minutes, record the images of running containers and scan new ones "
         "(docs/design/runtime-discovery.md).",
         "Runtime discovery",
@@ -429,6 +429,14 @@ EXTERNAL = (
     ),
     External("HOSTNAME", "Address the dashboard server listens on (Kubernetes sets `0.0.0.0`).", "dashboard"),
     External("PORT", "Port the dashboard server listens on.", "dashboard"),
+    External(
+        "DOCKER_SOCKET",
+        "Host path of the Docker socket that `docker-proxy` mounts read-only for runtime discovery.",
+        "Compose",
+    ),
+    External(
+        "DOCKER_HOST", "Where the worker's `docker` CLI lists containers; Compose sets the read-only proxy.", "worker"
+    ),
     External("HOME", "The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root).", "worker"),
     External("PGDATA", "Postgres data directory; Kubernetes uses a subdirectory of the volume.", "Postgres image"),
     External("REGISTRY_STORAGE_DELETE_ENABLED", "Lets the in-cluster registry delete images.", "registry image"),

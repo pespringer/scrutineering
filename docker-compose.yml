@@ -201,6 +201,8 @@ services:
       - REMEDIATION_EXECUTION_ENABLED=${REMEDIATION_EXECUTION_ENABLED:-false}
       - REMEDIATION_SOURCES_ROOT=/workspace/sources
       - BUILDKIT_HOST=tcp://buildkitd:1234
+      # Runtime discovery lists containers through the read-only proxy, never the socket itself.
+      - DOCKER_HOST=tcp://docker-proxy:2375
     volumes:
       # Image sources that remediations patch: one git repository per folder, read-only.
       - ${REMEDIATION_HOST_SOURCES:-./.local/remediation-sources}:/workspace/sources:ro
@@ -216,6 +218,7 @@ services:
     restart: unless-stopped
     networks:
       - scrutineering
+      - discovery
     healthcheck:
       test: ["CMD", "python", "-c", "import src.scan.tasks"]
       interval: 30s
@@ -256,6 +259,37 @@ services:
   # ---------------------------------------------------------------------------
   # Celery Beat — periodic task scheduler (scheduled scan orchestration)
   # ---------------------------------------------------------------------------
+  # docker-proxy — read-only Docker API for runtime discovery (docs/design/runtime-discovery.md).
+  # Only GET on containers and images (plus ping and version) is allowed; every POST, exec, build
+  # and volume call is refused. Only the worker can reach it, on the internal `discovery` network.
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:0.3.0
+    container_name: scrutineering-docker-proxy
+    # The image writes its rendered config next to the template, which a read-only root forbids;
+    # render it into the /run tmpfs instead (the image's own entrypoint, for this pinned version).
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        sed 's/\$${BIND_CONFIG}/:2375/g' /usr/local/etc/haproxy/haproxy.cfg.template > /run/haproxy.cfg
+        exec haproxy -W -db -f /run/haproxy.cfg
+    environment:
+      - CONTAINERS=1
+      - IMAGES=1
+      - EVENTS=0
+      - POST=0
+    volumes:
+      - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
+    read_only: true
+    tmpfs:
+      - /run
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    networks:
+      - discovery
+
   celery-beat:
     build:
       context: .
@@ -291,6 +325,10 @@ services:
 networks:
   scrutineering:
     driver: bridge
+  # Only the worker and docker-proxy: no other service, and no route out.
+  discovery:
+    driver: bridge
+    internal: true
 
 # ---------------------------------------------------------------------------
 # Persistent volume for PostgreSQL data
