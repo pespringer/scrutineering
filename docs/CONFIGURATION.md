@@ -138,6 +138,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `CELERY_LOG_LEVEL` | Worker and beat log level. | Compose |
 | `DASHBOARD_API_URL` | API URL the dashboard server calls. Defaults to the Compose service. | dashboard |
 | `DASHBOARD_API_KEY` | Key the dashboard server sends. Defaults to `PYTHON_API_KEY`. | dashboard |
+| `DASHBOARD_AUTH_HEADERS` | In `trusted-proxy` mode, whose headers carry the user: `scrutineering` (`x-authenticated-*`), `authelia`, `authentik` or `oauth2-proxy`. | dashboard |
+| `DASHBOARD_LOGOUT_URL` | Sign-out link shown in the header, e.g. your auth proxy's logout URL. | dashboard |
 | `HOSTNAME` | Address the dashboard server listens on (Kubernetes sets `0.0.0.0`). | dashboard |
 | `PORT` | Port the dashboard server listens on. | dashboard |
 | `HOME` | The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root). | worker |

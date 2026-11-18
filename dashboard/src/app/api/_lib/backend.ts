@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { apiIdentityHeaders, proxyIdentity } from "@/lib/identity.mjs";
 
 class BackendError extends Error {
   constructor(
@@ -28,18 +29,11 @@ export async function backendJson<T>(path: string, init?: RequestInit): Promise<
   return response.json() as Promise<T>;
 }
 
+/** The signed-in user's identity for the API, when the dashboard runs behind a forward-auth proxy. */
 export function trustedIdentityHeaders(request: Request): Record<string, string> {
-  const headers: Record<string, string> = {};
-  const configuredSecret = process.env.DASHBOARD_TRUSTED_PROXY_SECRET;
-  const suppliedSecret = request.headers.get("x-dashboard-proxy-secret");
-  if (configuredSecret && suppliedSecret === configuredSecret) {
-    for (const name of ["x-authenticated-sub", "x-authenticated-email", "x-authenticated-roles"]) {
-      const value = request.headers.get(name);
-      if (value) headers[name] = value;
-    }
-    headers["x-dashboard-proxy-secret"] = configuredSecret;
-  }
-  return headers;
+  if (process.env.DASHBOARD_AUTH_MODE !== "trusted-proxy") return {};
+  const identity = proxyIdentity(process.env, request.headers);
+  return identity ? apiIdentityHeaders(identity, process.env.DASHBOARD_TRUSTED_PROXY_SECRET || "") : {};
 }
 
 export async function dashboardResponse<T>(path: string, request?: Request) {

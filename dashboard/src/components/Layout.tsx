@@ -8,6 +8,14 @@ import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusP
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { cx } from "@/lib/cx";
 
+type Session = {
+  subject?: string;
+  email?: string | null;
+  roles?: string[];
+  auth_method?: string;
+  logout_url?: string | null;
+};
+
 type NavItem = { href: string; label: string; icon: React.ReactNode; roles?: string[]; exact?: boolean };
 
 /** The loop, in order. `roles`: only shown to sessions holding one of them (the API enforces it too). */
@@ -50,16 +58,40 @@ function NavLinks({ pathname, roles }: { pathname: string; roles: string[] }) {
   );
 }
 
+/** Signed in through the proxy, but none of the user's groups maps to a role. */
+function NoRole() {
+  return (
+    <div className="flex min-h-screen items-center justify-center px-5 text-slate-100">
+      <div className="panel max-w-md rounded-2xl p-8">
+        <h1 className="text-xl font-semibold text-white">No access yet</h1>
+        <p className="mt-3 text-sm leading-6 text-slate-400">
+          You are signed in, but none of your groups has a role in Scrutineering. An administrator can add one with{" "}
+          <code className="text-slate-300">DASHBOARD_GROUP_ROLES</code>.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const system = useSystemStatus();
-  const [session, setSession] = useState<{ subject?: string; email?: string | null; roles?: string[] } | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [noRole, setNoRole] = useState(false);
   useEffect(() => {
     fetch("/api/session", { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
+      .then(async (response) => {
+        const body = await response.json().catch(() => null);
+        if (response.status === 403 && body?.error === "no_role") {
+          setNoRole(true);
+          return null;
+        }
+        return response.ok ? body : null;
+      })
       .then(setSession)
       .catch(() => setSession(null));
   }, []);
+  if (noRole) return <NoRole />;
   const identity = session?.email || session?.subject || "Local operator";
   const role = ROLE_ORDER.find((name) => session?.roles?.includes(name)) || "dashboard";
   return (
@@ -125,6 +157,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 >
                   {identity.slice(0, 2).toUpperCase()}
                 </div>
+                {session?.logout_url && (
+                  <a href={session.logout_url} className="text-xs text-slate-400 hover:text-white">
+                    Sign out
+                  </a>
+                )}
               </div>
             </div>
             <nav className="flex gap-1 overflow-x-auto border-t border-slate-800/50 px-5 py-2 lg:hidden">

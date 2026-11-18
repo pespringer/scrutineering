@@ -1,6 +1,6 @@
 # Sign-in through a forward-auth proxy (OIDC)
 
-Status: in progress, step 1 of 3 built (API) · 2026-11-17 · Phase 6
+Status: in progress, steps 1 and 2 of 3 built (API, dashboard) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -192,7 +192,7 @@ only.
    - `403 no_role`;
    - the email in audit entries;
    - tests and docs.
-2. **Dashboard:** header presets, the matcher covering every page, sign-out, the
+2. **Dashboard** (built): header presets, the matcher covering every page, sign-out, the
    no-role page, and tests.
 3. **Example and guide:**
    - `examples/forward-auth/`: Traefik with Authelia, tested live;
