@@ -1,6 +1,6 @@
 # Runtime discovery on by default
 
-Status: proposed · 2026-11-18 · Phase 6
+Status: accepted, not yet built · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -191,22 +191,16 @@ images recorded as running.
 
 Each step keeps the golden path green.
 
-## Open questions
+## Decisions
 
-1. **Container environment variables.** The proxy can't allow `docker ps`
-   without also allowing `docker inspect`, which shows other containers'
-   environment variables. Is that acceptable for discovery on by default?
-   *Recommendation:* yes, with the trade-off stated in the operator guide. The
-   alternative is a tiny purpose-built agent that returns only image names and
-   digests. It's safer, but it's one more image to build and maintain. If secrets
-   in container environments on your host matter more than that, build the agent
-   instead and keep the rest of this design.
-2. **Kubernetes.** Listing pods needs a ClusterRole to `list pods` in every
-   namespace; namespace-scoped Roles would do for a few namespaces. Pod status
-   gives the exact digest that's running, which is better than Docker's.
-   *Recommendation:* a later step after this ships. Your Kubernetes manifests
-   haven't been deployed yet, and the Compose stack is what runs today.
-3. **Local-only images.** Should discovery tell you about images it can't scan
-   (for example, a list on the status panel), or only count them?
-   *Recommendation:* count them in the status for now. A list would invite a
-   "scan it anyway" button, which needs the larger daemon access ruled out above.
+These were open questions on the proposal; all three were decided as recommended.
+
+1. **Container environment variables:** accepted. Through the proxy, the worker
+   can read other containers' configuration, including their environment
+   variables. That's a large step down from today's opt-in, which is root on the
+   host. The operator guide states the trade-off next to the off switch. A
+   purpose-built agent that returns only image names and digests remains the
+   fallback if that changes.
+2. **Kubernetes discovery:** a later step, after this ships and the manifests
+   have been deployed.
+3. **Local-only images:** counted in the discovery status, not listed.
