@@ -47,19 +47,20 @@ Recent commits use short, imperative descriptions (for example, `Add full projec
 
 Copy `.env.example` to `.env` for local settings and never commit credentials, generated reports, or real vulnerability data. For production-impacting changes, review the Docker, Kubernetes, migration, and security-scan paths in `.github/workflows/ci.yml`.
 
-## Reset Rules (in force until docs/RESET-PLAN.md is complete)
+## Project Rules
 
-The project is being cut back to its core loop: push or discover an image →
-scan → track findings → propose a fix → build a patched image → rescan → open
-a PR → mark resolved. Work only on the current phase of
-[docs/RESET-PLAN.md](docs/RESET-PLAN.md).
+The product is one loop: push or discover an image → scan → track findings →
+propose a fix → build a patched image → rescan → open a PR → mark resolved.
+The reset that cut the project back to it is complete
+([docs/RESET-PLAN.md](docs/RESET-PLAN.md)); features return one at a time
+under Phase 6 of that plan.
 
 1. The golden-path test (`tests/e2e/test_golden_path.py`, live: `make e2e`)
    defines "working". A change that breaks it does not merge, even if every
-   other test passes. When the remediation half starts passing, remove its
-   `xfail(strict=True)` marker in the same change.
-2. Do not add a top-level module, service, environment variable, or npm/Make
-   target unless the current phase calls for it.
+   other test passes.
+2. A Phase 6 feature starts with a short design note in `docs/design/`, merged
+   before the code. Add a top-level module, service, environment variable, or
+   npm/Make target only when a merged design note calls for it.
 3. Keep one status field per entity. Event tables record history; never derive
    current state from them.
 4. The server verifies facts itself. Never accept client-asserted verification
@@ -67,4 +68,5 @@ a PR → mark resolved. Work only on the current phase of
 5. No line over 120 characters. Use Prettier for `dashboard/` (`dashboard/.prettierrc.json`)
    and Ruff for Python (`ruff.toml`). Never write a component or function on one line.
 6. Docs describe the current system only. Put history in commit messages, not
-   in the README or guides.
+   in the README or guides; design notes describe planned work and are updated
+   to match what was built.
