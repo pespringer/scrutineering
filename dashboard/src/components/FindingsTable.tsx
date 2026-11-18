@@ -7,6 +7,8 @@ import { cx } from "@/lib/cx";
 
 type SortKey = "cve_id" | "severity" | "package_name" | "package_version" | "first_seen";
 
+const SEVERITY_ORDER: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 };
+
 export default function FindingsTable({
   findings,
   selectable = false,
@@ -27,13 +29,11 @@ export default function FindingsTable({
     [findings, filterSeverity],
   );
 
-  const severityOrder: Record<string, number> = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3, UNKNOWN: 4 };
-
   const sorted = useMemo(() => {
     const arr = [...filtered];
     arr.sort((a, b) => {
       if (sortKey === "severity") {
-        const diff = (severityOrder[a.severity ?? "UNKNOWN"] ?? 5) - (severityOrder[b.severity ?? "UNKNOWN"] ?? 5);
+        const diff = (SEVERITY_ORDER[a.severity ?? "UNKNOWN"] ?? 5) - (SEVERITY_ORDER[b.severity ?? "UNKNOWN"] ?? 5);
         return sortDir === "asc" ? diff : -diff;
       }
       const aVal = String(a[sortKey] ?? "");

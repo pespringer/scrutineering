@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { GitBranch } from "lucide-react";
 import { cx } from "@/lib/cx";
 import type { ImageSource } from "@/types";
@@ -53,7 +53,8 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
   const [notice, setNotice] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
+  /** Open the form filled with the current source (rather than copying props into state in an effect). */
+  function startEditing() {
     if (source) {
       setForm({
         repository: source.repository,
@@ -63,7 +64,9 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
         test_command: source.test_command ? JSON.stringify(source.test_command) : "",
       });
     }
-  }, [source]);
+    setNotice(null);
+    setEditing(true);
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -104,7 +107,7 @@ export default function SourcePanel({ imageId, source, canEdit, onSaved }: Props
           <GitBranch className="h-4 w-4 text-cyan-300" /> Source
         </div>
         {canEdit && !editing && (
-          <button onClick={() => setEditing(true)} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">
+          <button onClick={startEditing} className="text-xs font-medium text-cyan-300 hover:text-cyan-200">
             {source ? "Edit" : "Connect source"}
           </button>
         )}

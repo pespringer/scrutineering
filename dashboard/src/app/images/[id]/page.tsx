@@ -10,7 +10,7 @@ import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
 import type { ImageDetail, VulnerabilityFinding } from "@/types";
-import { Package, ArrowLeft, Filter, ExternalLink, Check, ShieldCheck } from "lucide-react";
+import { Package, ArrowLeft, Filter, Check, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { cx } from "@/lib/cx";
 
@@ -192,7 +192,7 @@ export default function ImageDetailPage() {
                 "All"
               ) : (
                 <>
-                  <SeverityBadge severity={sev as any} />{" "}
+                  <SeverityBadge severity={sev} />{" "}
                 </>
               )}
               {sev === "all" || sev}
