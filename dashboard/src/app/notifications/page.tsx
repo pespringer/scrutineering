@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useAsync } from "@/hooks/useAsync";
 import { Bell, CheckCircle2, Clock, RefreshCw, Send, XCircle } from "lucide-react";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
@@ -72,35 +73,33 @@ function TestResult({ ids, deliveries }: { ids: number[]; deliveries: Delivery[]
   );
 }
 
+function loadNotifications(): Promise<NotificationsPage> {
+  return getJson<NotificationsPage>("/api/notifications");
+}
+
 export default function NotificationsPage() {
-  const [page, setPage] = useState<NotificationsPage | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const notifications = useAsync(loadNotifications);
+  const { reload } = notifications;
+  const [actionError, setActionError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [testIds, setTestIds] = useState<number[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const page = notifications.data ?? null;
+  const error = actionError ?? notifications.error;
+  const load = reload;
 
-  const load = useCallback(async () => {
-    try {
-      const next = await getJson<NotificationsPage>("/api/notifications");
-      setPage(next);
-      setError(null);
-      return next;
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not load notifications");
-      return null;
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-    return () => {
+  useEffect(
+    () => () => {
       if (timer.current) clearTimeout(timer.current);
-    };
-  }, [load]);
+    },
+    [],
+  );
 
+  /** Refresh until the test's first delivery attempt is done, or the tries run out. */
   const poll = (ids: number[], tries: number) => {
     timer.current = setTimeout(async () => {
-      const next = await load();
+      const next = await loadNotifications().catch(() => null);
+      reload();
       const waiting = next?.deliveries.some(
         (item) => ids.includes(item.id) && item.status === "pending" && !item.attempts,
       );
@@ -111,15 +110,15 @@ export default function NotificationsPage() {
 
   const sendTest = async () => {
     setSending(true);
-    setError(null);
+    setActionError(null);
     try {
       const result = await postJson<{ queued: Delivery[] }>("/api/notifications/test");
       const ids = result.queued.map((item) => item.id);
       setTestIds(ids);
-      await load();
+      reload();
       poll(ids, POLL_TRIES);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not send a test");
+      setActionError(cause instanceof Error ? cause.message : "Could not send a test");
       setSending(false);
     }
   };

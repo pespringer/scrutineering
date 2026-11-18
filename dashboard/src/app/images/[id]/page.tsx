@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useAsync } from "@/hooks/useAsync";
 import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
@@ -16,18 +17,16 @@ import { cx } from "@/lib/cx";
 
 const SEVERITY_OPTIONS = ["all", "CRITICAL", "HIGH", "MEDIUM", "LOW"] as const;
 
+type ImageDetailData = { image: ImageDetail | null; findings: VulnerabilityFinding[]; total: number };
+
 export default function ImageDetailPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const imageId = params.id as string;
   const initialSeverity = searchParams.get("severity") || "all";
 
-  const [image, setImage] = useState<ImageDetail | null>(null);
-  const [findings, setFindings] = useState<VulnerabilityFinding[]>([]);
-  const [loading, setLoading] = useState(true);
   const [severityFilter, setSeverityFilter] = useState(initialSeverity);
   const [findingsOffset, setFindingsOffset] = useState(0);
-  const [findingsTotal, setFindingsTotal] = useState(0);
   const [selectedFindings, setSelectedFindings] = useState<number[]>([]);
   const [canManage, setCanManage] = useState(false);
   const [canRemediate, setCanRemediate] = useState(false);
@@ -35,28 +34,25 @@ export default function ImageDetailPage() {
   const [proposedId, setProposedId] = useState<number | null>(null);
   const FINDINGS_PAGE_SIZE = 25;
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const imgRes = await fetch(`/api/images/${imageId}`);
-      const imgData = await imgRes.json();
-      setImage(imgData.image || null);
-
-      const query = new URLSearchParams({ limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) });
-      if (severityFilter !== "all") query.set("severity", severityFilter);
-      const findingsRes = await fetch(`/api/images/${imageId}?${query}`);
-      const findingsData = await findingsRes.json();
-      setFindings(findingsData.findings || []);
-      setFindingsTotal(findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0);
-    } catch {
-      setImage(null);
-    }
-    setLoading(false);
+  const loadDetail = useCallback(async (): Promise<ImageDetailData> => {
+    const imageResponse = await fetch(`/api/images/${imageId}`);
+    const imageData = await imageResponse.json();
+    const query = new URLSearchParams({ limit: String(FINDINGS_PAGE_SIZE), offset: String(findingsOffset) });
+    if (severityFilter !== "all") query.set("severity", severityFilter);
+    const findingsResponse = await fetch(`/api/images/${imageId}?${query}`);
+    const findingsData = await findingsResponse.json();
+    return {
+      image: imageData.image || null,
+      findings: findingsData.findings || [],
+      total: findingsData.findings_page?.total ?? findingsData.findings?.length ?? 0,
+    };
   }, [imageId, severityFilter, findingsOffset]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  const detail = useAsync(loadDetail);
+  const loadData = detail.reload;
+  const image = detail.data?.image ?? null;
+  const findings = detail.data?.findings ?? [];
+  const findingsTotal = detail.data?.total ?? 0;
+  const loading = detail.loading && !detail.data;
 
   useEffect(() => {
     fetch("/api/permissions", { cache: "no-store" })

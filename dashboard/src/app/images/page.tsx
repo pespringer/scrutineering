@@ -11,7 +11,8 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useAsync } from "@/hooks/useAsync";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -37,41 +38,30 @@ function seenRunning(value: string | null | undefined): string {
 }
 
 export default function ImagesPage() {
-  const [page, setPage] = useState<Page<ImageDetail> | null>(null);
-  const [registry, setRegistry] = useState<RegistryInventory | null>(null);
-  const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [runningOnly, setRunningOnly] = useState(false);
-  // What the shown list is: the checkbox changes at once, the list only when its data arrives.
-  const [listedRunningOnly, setListedRunningOnly] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [imagesResponse, registryResponse] = await Promise.all([
-        fetch(`/api/images?limit=100${runningOnly ? "&running=true" : ""}`, { cache: "no-store" }),
-        fetch("/api/registry", { cache: "no-store" }),
-      ]);
-      if (!imagesResponse.ok) throw new Error();
-      const payload = await imagesResponse.json();
-      setPage(
-        Array.isArray(payload)
-          ? { items: payload, limit: payload.length, offset: 0, count: payload.length, total: payload.length }
-          : payload,
-      );
-      setRegistry(registryResponse.ok ? await registryResponse.json() : null);
-      setListedRunningOnly(runningOnly);
-    } catch {
-      setPage(null);
-      setRegistry(null);
-    } finally {
-      setLoading(false);
-    }
+  const loadInventory = useCallback(async () => {
+    const [imagesResponse, registryResponse] = await Promise.all([
+      fetch(`/api/images?limit=100${runningOnly ? "&running=true" : ""}`, { cache: "no-store" }),
+      fetch("/api/registry", { cache: "no-store" }),
+    ]);
+    if (!imagesResponse.ok) throw new Error("Images unavailable");
+    const payload = await imagesResponse.json();
+    const page: Page<ImageDetail> = Array.isArray(payload)
+      ? { items: payload, limit: payload.length, offset: 0, count: payload.length, total: payload.length }
+      : payload;
+    const registry: RegistryInventory | null = registryResponse.ok ? await registryResponse.json() : null;
+    // The shown list says which filter it answers: the checkbox changes at once, the list on arrival.
+    return { page, registry, runningOnly };
   }, [runningOnly]);
-  useEffect(() => {
-    load();
-  }, [load]);
+  const inventory = useAsync(loadInventory);
+  const load = inventory.reload;
+  const page = inventory.error ? null : (inventory.data?.page ?? null);
+  const registry = inventory.error ? null : (inventory.data?.registry ?? null);
+  const listedRunningOnly = inventory.data?.runningOnly ?? false;
+  const loading = inventory.loading;
 
   async function scanTag(item: RegistryTag) {
     setScanning(item.image_name);
@@ -85,7 +75,7 @@ export default function ImagesPage() {
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.detail || body.error || "Unable to queue scan");
       setNotice(`Scan queued for ${item.image_name}. The security status will update when the worker finishes.`);
-      await load();
+      load();
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "Unable to queue scan");
     } finally {

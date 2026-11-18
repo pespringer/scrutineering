@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useAsync } from "@/hooks/useAsync";
+import { getJson } from "@/lib/http";
 import { ShieldCheck, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import Layout from "@/components/Layout";
@@ -21,30 +23,22 @@ type Remediation = {
 };
 
 export default function RemediationsPage() {
-  const [items, setItems] = useState<Remediation[] | null>(null);
-  const [error, setError] = useState(false);
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
-  const [total, setTotal] = useState(0);
-  const load = () => {
-    setError(false);
+  const loadQueue = useCallback(async () => {
     const query = new URLSearchParams({ limit: "20", offset: String(offset) });
     if (status) query.set("status", status);
-    fetch(`/api/remediations?${query}`, { cache: "no-store" })
-      .then(async (remediations) => {
-        if (!remediations.ok) throw new Error();
-        const payload = await remediations.json();
-        setItems(
-          (payload.items || []).map((item: Remediation) => ({ ...item, status: item.status_label || item.status })),
-        );
-        setTotal(payload.total || 0);
-      })
-      .catch(() => {
-        setItems([]);
-        setError(true);
-      });
-  };
-  useEffect(load, [offset, status]);
+    const payload = await getJson<{ items?: Remediation[]; total?: number }>(`/api/remediations?${query}`);
+    return {
+      items: (payload.items || []).map((item) => ({ ...item, status: item.status_label || item.status })),
+      total: payload.total || 0,
+    };
+  }, [offset, status]);
+  const queue = useAsync(loadQueue);
+  const load = queue.reload;
+  const error = Boolean(queue.error);
+  const items = queue.data?.items ?? (queue.error ? [] : null);
+  const total = queue.data?.total ?? 0;
   if (items === null)
     return (
       <Layout>
