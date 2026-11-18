@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useAsync } from "@/hooks/useAsync";
+import { getJson } from "@/lib/http";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
@@ -45,23 +47,19 @@ function describe(record: AuditRecord): string {
 }
 
 export default function AuditPage() {
-  const [page, setPage] = useState<Page<AuditRecord> | null>(null);
-  const [loading, setLoading] = useState(true);
   const [actor, setActor] = useState("");
   const [eventType, setEventType] = useState("");
   const [offset, setOffset] = useState(0);
-  const load = () => {
-    setLoading(true);
+  const loadAudit = useCallback(() => {
     const query = new URLSearchParams({ limit: "25", offset: String(offset) });
     if (actor.trim()) query.set("actor", actor.trim());
     if (eventType.trim()) query.set("event_type", eventType.trim());
-    fetch(`/api/audit?${query}`, { cache: "no-store" })
-      .then((r) => r.json())
-      .then(setPage)
-      .catch(() => setPage(null))
-      .finally(() => setLoading(false));
-  };
-  useEffect(load, [offset, actor, eventType]);
+    return getJson<Page<AuditRecord>>(`/api/audit?${query}`);
+  }, [offset, actor, eventType]);
+  const audit = useAsync(loadAudit);
+  const page = audit.data ?? null;
+  const loading = audit.loading;
+  const load = audit.reload;
   if (loading && !page)
     return (
       <Layout>

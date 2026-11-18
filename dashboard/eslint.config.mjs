@@ -8,11 +8,9 @@ export default defineConfig([
   ...nextTs,
   {
     rules: {
-      // The pages load their data from the API in an effect, which is the effect's intended use
-      // (synchronising with an external system). The rule cannot see that most of these loaders
-      // set state only after an await, so it is a warning until data loading moves to a fetch
-      // library, not an error that blocks CI.
-      "react-hooks/set-state-in-effect": "warn",
+      // Pages load data through useAsync (src/hooks/useAsync.ts), which sets state only when a
+      // request settles. Setting state synchronously in an effect would cascade renders.
+      "react-hooks/set-state-in-effect": "error",
     },
   },
   globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts"]),

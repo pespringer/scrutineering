@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useAsync } from "@/hooks/useAsync";
 import { getJson } from "@/lib/http";
 import type { Page, ScanResult } from "@/types";
 
@@ -8,37 +9,31 @@ export const SCAN_STATUS_FILTERS = ["all", "pending", "running", "completed", "p
 export type ScanStatusFilter = (typeof SCAN_STATUS_FILTERS)[number];
 export type ScanHealth = { total: number; terminal_rate: number; degraded: boolean };
 
+async function loadHealth(): Promise<ScanHealth | null> {
+  return getJson<ScanHealth>("/api/scans/health?limit=100").catch(() => null);
+}
+
 /** Paged, filterable scan history plus the recent-scan health summary. */
 export function useScanHistory(pageSize: number) {
-  const [page, setPage] = useState<Page<ScanResult> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
   const [filter, setFilterState] = useState<ScanStatusFilter>("all");
   const [search, setSearchState] = useState("");
   const [offset, setOffset] = useState(0);
-  const [health, setHealth] = useState<ScanHealth | null>(null);
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  const loadPage = useCallback(() => {
     const query = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
     if (filter !== "all") query.set("status", filter);
     if (search.trim()) query.set("search", search.trim());
-    try {
-      setPage(await getJson<Page<ScanResult>>(`/api/scans?${query}`));
-      setFailed(false);
-    } catch {
-      setFailed(true);
-    } finally {
-      setLoading(false);
-    }
-    getJson<ScanHealth>("/api/scans/health?limit=100")
-      .then(setHealth)
-      .catch(() => setHealth(null));
+    return getJson<Page<ScanResult>>(`/api/scans?${query}`);
   }, [filter, offset, pageSize, search]);
+  const history = useAsync(loadPage);
+  const health = useAsync(loadHealth);
 
-  useEffect(() => {
-    reload();
-  }, [reload]);
+  const { reload: reloadHistory } = history;
+  const { reload: reloadHealth } = health;
+  const reload = useCallback(() => {
+    reloadHistory();
+    reloadHealth();
+  }, [reloadHistory, reloadHealth]);
 
   // Changing the filter or search starts again from the first page.
   const setFilter = (value: ScanStatusFilter) => {
@@ -50,5 +45,17 @@ export function useScanHistory(pageSize: number) {
     setOffset(0);
   };
 
-  return { page, loading, failed, filter, setFilter, search, setSearch, offset, setOffset, health, reload };
+  return {
+    page: history.data ?? null,
+    loading: history.loading,
+    failed: Boolean(history.error),
+    filter,
+    setFilter,
+    search,
+    setSearch,
+    offset,
+    setOffset,
+    health: health.data ?? null,
+    reload,
+  };
 }
