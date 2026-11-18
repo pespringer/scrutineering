@@ -62,6 +62,7 @@ sequenceDiagram
     D->>W: execute_approved_remediation (remediation.normal)
     W->>W: clone source, apply fixes, record the patch
     W->>B: build and push the candidate image
+    W->>B: run the source's tests inside the candidate
     W->>W: scan the candidate: targets gone, nothing new at critical/high?
     Op->>D: open pull request
     D->>W: publish_remediation

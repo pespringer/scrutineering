@@ -10,7 +10,7 @@ would, and `buildctl` reports a digest instead of building. GitHub is a bare git
 repository plus a fake REST client.
 
   scan the fixture -> findings -> connect its source -> propose a fix -> approve
-  -> execute: patch, build the candidate, scan it -> ready
+  -> execute: patch, build the candidate, run the source's tests in it, scan it -> ready
   -> open a pull request with the patch -> published -> merge webhook queues a rescan
   -> rescan the rebuilt image -> the targeted finding resolves -> remediation completed
 """
@@ -74,11 +74,17 @@ json.dump(lock, open("package-lock.json", "w"), indent=2)
 """
 
 FAKE_BUILDCTL = """#!PYTHON
-# Stand-in for `buildctl build`: report a digest for the pushed image.
-import json, sys
+# Stand-in for `buildctl build`: report a digest for the pushed image. The test-stage build
+# (the source's test command) succeeds when its RUN line is the expected command.
+import json, os, sys
 args = sys.argv
+if "target=scrutineering-test" in args:
+    folder = [arg.split("=", 1)[1] for arg in args if arg.startswith("dockerfile=")][0]
+    sys.exit(0 if TEST_RUN in open(os.path.join(folder, "Dockerfile")).read() else 1)
 json.dump({"containerimage.digest": "sha256:" + "c" * 64}, open(args[args.index("--metadata-file") + 1], "w"))
 """
+# The fixture image's test: the patched lodash is the one installed in the candidate.
+TEST_COMMAND = ["node", "-e", "process.exit(require('lodash/package.json').version === '4.17.21' ? 0 : 1)"]
 
 
 @pytest.fixture
@@ -93,7 +99,8 @@ def source(tmp_path, monkeypatch):
     bin_dir.mkdir()
     for name, body in (("npm", FAKE_NPM), ("buildctl", FAKE_BUILDCTL)):
         script = bin_dir / name
-        script.write_text(body.replace("#!PYTHON", f"#!{sys.executable}"))
+        test_run = repr(f"RUN {json.dumps(TEST_COMMAND)}")
+        script.write_text(body.replace("#!PYTHON", f"#!{sys.executable}").replace("TEST_RUN", test_run))
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
     monkeypatch.setenv("REMEDIATION_SOURCES_ROOT", str(root))
@@ -210,7 +217,10 @@ def _fix_to_ready(api: TestClient, stage, repository: str) -> tuple[int, dict]:
     """Scan, connect the source, propose and approve the lodash fix, and execute it to `ready`."""
     scan = _scan(api)
     lodash = _target_finding(api, scan["scan_id"])
-    connected = api.put(f"/api/dashboard/images/{scan['image_id']}/source", json={"repository": repository})
+    connected = api.put(
+        f"/api/dashboard/images/{scan['image_id']}/source",
+        json={"repository": repository, "test_command": TEST_COMMAND},
+    )
     assert connected.status_code == 200, connected.text
 
     preview = api.post(
@@ -238,6 +248,11 @@ def _fix_to_ready(api: TestClient, stage, repository: str) -> tuple[int, dict]:
     assert remediation["verification"]["still_present"] == []
     assert remediation["verification"]["new_critical_or_high"] == []
     assert remediation["resolved_finding_count"] == 0  # the running image is unchanged until it is rebuilt
+    events = [
+        event["event_type"]
+        for event in api.get(f"/api/dashboard/remediations/{remediation_id}/events").json()["events"]
+    ]
+    assert "tested" in events  # the source's test command ran in the candidate
     return remediation_id, remediation
 
 

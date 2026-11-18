@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import stat
 import subprocess
 import tempfile
@@ -17,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.config import get_settings
-from src.remediation.apply import Checkout
+from src.remediation.apply import FROM_LINE, Checkout, final_from
 from src.remediation.sources import SourceError, SourceSettings, clone_url, github_repository
 
 BUILD_TIMEOUT_SECONDS = 1800
@@ -147,3 +148,60 @@ def build_and_push(source: Checkout, build_args: dict[str, str], reference: str)
         except (OSError, ValueError, KeyError) as exc:
             raise BuildError("the build finished without reporting an image digest") from exc
     return BuiltImage(reference=reference, digest=digest)
+
+
+TEST_STAGE = "scrutineering-test"
+CANDIDATE_STAGE = "scrutineering-candidate"
+MAX_TEST_OUTPUT = 3000
+
+
+def test_dockerfile(dockerfile_text: str, command: list[str]) -> str:
+    """The Dockerfile plus a stage that runs `command` in its final stage (exec form, same WORKDIR and USER)."""
+    lines = dockerfile_text.splitlines()
+    index = final_from(lines)
+    match = FROM_LINE.match(lines[index])
+    named = re.search(r"\s+AS\s+(\S+)\s*$", match["rest"], re.IGNORECASE)
+    stage = named.group(1) if named else CANDIDATE_STAGE
+    if not named:
+        lines[index] = f"{lines[index].rstrip()} AS {CANDIDATE_STAGE}"
+    lines += ["", f"FROM {stage} AS {TEST_STAGE}", f"RUN {json.dumps(command)}"]
+    return "\n".join(lines) + "\n"
+
+
+def run_tests(source: Checkout, build_args: dict[str, str], command: list[str]) -> None:
+    """Run the source's test command inside the candidate image, through the same BuildKit build.
+
+    The candidate's layers come from the build cache, so the command sees exactly the image that
+    was pushed. Nothing is exported or pushed, and the patched source is not touched.
+    """
+    with tempfile.TemporaryDirectory(prefix="scrutineering-test-") as scratch:
+        dockerfile = Path(scratch) / "Dockerfile"
+        dockerfile.write_text(test_dockerfile(source.dockerfile.read_text(), command))
+        buildctl = [
+            "buildctl",
+            "--addr",
+            get_settings().buildkit_host,
+            "build",
+            "--frontend",
+            "dockerfile.v0",
+            "--local",
+            f"context={source.context}",
+            "--local",
+            f"dockerfile={scratch}",
+            "--opt",
+            "filename=Dockerfile",
+            "--opt",
+            f"target={TEST_STAGE}",
+            *[part for key, value in sorted(build_args.items()) for part in ("--opt", f"build-arg:{key}={value}")],
+            "--progress",
+            "plain",
+        ]
+        try:
+            result = subprocess.run(buildctl, capture_output=True, text=True, timeout=BUILD_TIMEOUT_SECONDS)
+        except subprocess.TimeoutExpired as exc:
+            raise BuildError(f"the tests timed out after {BUILD_TIMEOUT_SECONDS}s") from exc
+        except FileNotFoundError as exc:
+            raise BuildError("buildctl is not installed in the worker") from exc
+        if result.returncode != 0:
+            shown = " ".join(command)
+            raise BuildError(f"the candidate's tests failed ({shown}):\n{result.stderr[-MAX_TEST_OUTPUT:]}")

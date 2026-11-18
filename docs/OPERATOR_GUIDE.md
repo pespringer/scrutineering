@@ -98,7 +98,11 @@ where that is. On the image page, open **Source → Connect source** and set:
   `GITHUB_TOKEN`.
 - **Ref:** the branch, tag or commit the image is built from (`HEAD` by default).
 - **Dockerfile** and **build context**, relative to the repository.
-- **Build arguments**, if the build needs any.
+- **Test command** (optional): a JSON list of arguments such as `["npm", "test"]`.
+  It runs inside the patched image before it is scanned, so the tools it calls must
+  be in the image; a non-zero exit fails the fix.
+- **Build arguments**, if the build needs any (set through
+  `PUT /api/dashboard/images/{id}/source`; the form keeps them).
 
 ## 5. Propose a fix
 
@@ -128,7 +132,8 @@ Open the remediation from **Remediations**.
    2. applies the changes;
    3. builds the patched image on the rootless `buildkitd` service and pushes it to
       the local registry as `scrutineering-candidate-<id>`;
-   4. scans it with the same scanners.
+   4. runs the source's test command inside it, if it has one;
+   5. scans it with the same scanners.
 
    The status moves through `building` and `verifying`, and the page refreshes
    itself.
@@ -145,8 +150,9 @@ findings it still has, any new critical or high findings, and the patch.
   operator chooses **Accept new findings** (→ `ready`) or **Cancel**.
 - **`failed`**: something stopped it, and the reason is shown. Causes include: no
   source, a clone or apply failure, a build error (with the end of the build log),
-  an incomplete candidate scan, or targets still present. Fix the cause, then
-  **Restart workflow**: it returns to `proposed` and needs approval again.
+  failing tests (with the end of their output), an incomplete candidate scan, or
+  targets still present. Fix the cause, then **Restart workflow**: it returns to
+  `proposed` and needs approval again.
 
 **Cancel** works at any point before `completed`, and releases the findings so they
 can be proposed again.

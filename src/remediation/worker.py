@@ -2,7 +2,8 @@
 
     building:  clone the image's source, apply each planned action, record the patch,
                build the candidate with BuildKit and push it to the local registry
-    verifying: scan the candidate with the same scanners; the targeted vuln_keys must be gone
+    verifying: run the source's test command in the candidate (when it has one), then scan
+               the candidate with the same scanners; the targeted vuln_keys must be gone
     → ready             nothing new at critical/high
     → needs_acceptance  new critical/high findings (decision D6); an operator decides
     → failed            any step failed; `error_message` says which and why
@@ -22,7 +23,7 @@ from src.db.connection import get_session
 from src.db.models import Image, Remediation, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
 from src.remediation.apply import ApplyError, apply_action
-from src.remediation.build import BuildError, BuiltImage, build_and_push, checkout, diff
+from src.remediation.build import BuildError, BuiltImage, build_and_push, checkout, diff, run_tests
 from src.remediation.sources import SourceError, settings_from_record
 from src.scan.image_identity import parse_image_reference
 from src.scan.inspection import inspect_image
@@ -144,14 +145,7 @@ def _patch_and_build(remediation_id: int, job: dict) -> BuiltImage:
             patch=patch[:MAX_PATCH_BYTES],
         )
         _event(remediation_id, "patched", {"commit": commit, "applied": applied})
-        return build_and_push(source, job["settings"].build_args, job["candidate"])
-
-
-def run_remediation(remediation_id: int) -> dict:
-    """Run one remediation from `building` to a resting status. Every exit leaves it out of `building`."""
-    try:
-        job = _load(remediation_id)
-        built = _patch_and_build(remediation_id, job)
+        built = build_and_push(source, job["settings"].build_args, job["candidate"])
         _advance(
             remediation_id,
             RemediationStatus.BUILDING,
@@ -160,7 +154,19 @@ def run_remediation(remediation_id: int) -> dict:
             candidate_digest=built.digest,
         )
         _event(remediation_id, "built", {"candidate": built.reference, "digest": built.digest})
+        command = job["settings"].test_command
+        if command:
+            # Still inside the checkout: the tests build from the same context, cached.
+            run_tests(source, job["settings"].build_args, command)
+            _event(remediation_id, "tested", {"command": command})
+        return built
 
+
+def run_remediation(remediation_id: int) -> dict:
+    """Run one remediation from `building` to a resting status. Every exit leaves it out of `building`."""
+    try:
+        job = _load(remediation_id)
+        built = _patch_and_build(remediation_id, job)
         scan = inspect_image(f"{built.reference.rsplit(':', 1)[0]}@{built.digest}")
         if not scan.complete:
             raise BuildError("the candidate scan did not complete: " + "; ".join(scan.errors)[:1500])

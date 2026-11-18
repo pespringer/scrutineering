@@ -163,3 +163,24 @@ def test_tags_are_listed_across_pages_after_a_token_challenge():
     tags = list_tags(parse_image_reference("node:18"), opener=opener)
     assert tags == ["18.12-alpine", "18.20-alpine"]
     assert calls[-1] == ("https://registry-1.docker.io/v2/library/node/tags/list?n=1000&last=x", "Bearer t")
+
+
+def test_the_test_stage_extends_the_final_stage():
+    from src.remediation.build import test_dockerfile
+
+    single = test_dockerfile("FROM node:18-alpine\nCOPY . .\n", ["npm", "test"])
+    assert single.splitlines() == [
+        "FROM node:18-alpine AS scrutineering-candidate",
+        "COPY . .",
+        "",
+        "FROM scrutineering-candidate AS scrutineering-test",
+        'RUN ["npm", "test"]',
+    ]
+    staged = test_dockerfile(
+        "# syntax=docker/dockerfile:1\nFROM golang:1.22 AS build\nRUN go build\n"
+        "FROM --platform=linux/amd64 alpine:3.20 AS runtime\nCOPY --from=build /app /app\n",
+        ["/app", "--self-test"],
+    )
+    assert staged.startswith("# syntax=docker/dockerfile:1\nFROM golang:1.22 AS build\n")
+    assert "FROM --platform=linux/amd64 alpine:3.20 AS runtime\n" in staged
+    assert staged.endswith('FROM runtime AS scrutineering-test\nRUN ["/app", "--self-test"]\n')

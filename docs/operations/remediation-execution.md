@@ -13,7 +13,8 @@ built and scanned itself.
    `GITHUB_TOKEN`), or a folder (a git repository) under the worker's sources
    directory. Locally that is `./.local/remediation-sources`
    (`REMEDIATION_HOST_SOURCES`), mounted read-only at `/workspace/sources`.
-   Also set the ref, the Dockerfile path and the build context.
+   Also set the ref, the Dockerfile path and the build context, and optionally a
+   test command (see below).
 2. **Execution enabled.** Set `REMEDIATION_EXECUTION_ENABLED=true` for the API.
 3. **The `buildkitd` service running.** `make up` starts it. It is rootless
    BuildKit: the worker reaches it at `BUILDKIT_HOST` (`tcp://buildkitd:1234`)
@@ -47,10 +48,17 @@ and queues it on `remediation.normal`. The worker then:
 3. Builds the patched source with BuildKit and pushes the result to the local
    registry as `<repository>:scrutineering-candidate-<id>`. This is recorded as
    `candidate_image` and `candidate_digest`.
-4. Moves to `verifying` and scans the candidate by digest with the same scanners
-   and settings as any scan. Nothing about the candidate is saved to the
-   inventory.
-5. Decides the outcome:
+4. Moves to `verifying`. If the source has a **test command**, it runs inside the
+   candidate image: the patched Dockerfile gets one more stage,
+   `FROM <final stage>` plus `RUN <command>`, built through the same BuildKit cache.
+   - The command runs as the image's `USER`, in its `WORKDIR`. It needs whatever it
+     calls (`npm`, `pytest`, ...) to be in the image.
+   - Nothing is pushed, and the patch is unchanged.
+   - A non-zero exit fails the remediation with the end of the output, and the
+     candidate is not scanned (decision D7).
+5. Scans the candidate by digest with the same scanners and settings as any scan.
+   Nothing about the candidate is saved to the inventory.
+6. Decides the outcome:
    - If any targeted `vuln_key` is still present, the remediation is `failed`.
    - If it introduced critical or high findings the image did not already have,
      it is `needs_acceptance` (decision D6). A security operator accepts it
@@ -61,8 +69,8 @@ and queues it on `remediation.normal`. The worker then:
 
 Every failure leaves the remediation `failed` with the reason in
 `error_message`: no source, clone failure, the package not being in the source,
-a build error (the last part of the build log is kept), or an incomplete
-candidate scan. **Retry** returns it to `proposed`, so it is approved again.
+a build error (the last part of the build log is kept), failing tests (the end of
+their output is kept), or an incomplete candidate scan. **Retry** returns it to `proposed`, so it is approved again.
 
 A `ready` remediation becomes `completed` when a complete rescan of the image no
 longer shows any targeted finding. That happens once the image is rebuilt from

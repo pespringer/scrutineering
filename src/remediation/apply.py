@@ -28,7 +28,7 @@ OS_UPGRADE_COMMANDS = {
 }
 _PACKAGE_NAME = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9@._+/-]{0,213}$")
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+~:-]{0,127}$")
-_FROM = re.compile(r"^(?P<lead>\s*FROM\s+)(?P<flags>(?:--\S+\s+)*)(?P<image>\S+)(?P<rest>.*)$", re.IGNORECASE)
+FROM_LINE = re.compile(r"^(?P<lead>\s*FROM\s+)(?P<flags>(?:--\S+\s+)*)(?P<image>\S+)(?P<rest>.*)$", re.IGNORECASE)
 
 
 class ApplyError(RuntimeError):
@@ -117,8 +117,8 @@ def update_pip(checkout: Checkout, package: str, version: str) -> list[str]:
     return changed
 
 
-def _final_from(lines: list[str]) -> int:
-    indexes = [index for index, line in enumerate(lines) if _FROM.match(line)]
+def final_from(lines: list[str]) -> int:
+    indexes = [index for index, line in enumerate(lines) if FROM_LINE.match(line)]
     if not indexes:
         raise ApplyError("the Dockerfile has no FROM line")
     return indexes[-1]
@@ -130,7 +130,7 @@ def upgrade_os_packages(checkout: Checkout, family: str, packages: dict[str, str
         raise ApplyError(f"no upgrade command for {family} packages")
     names = " ".join(_safe(name, _PACKAGE_NAME, "package name") for name in sorted(packages))
     lines = checkout.dockerfile.read_text().splitlines()
-    index = _final_from(lines)
+    index = final_from(lines)
     command = OS_UPGRADE_COMMANDS[family].format(packages=names)
     lines.insert(index + 1, f"# Scrutineering: upgrade OS packages with known fixes\nRUN {command}")
     checkout.dockerfile.write_text("\n".join(lines) + "\n")
@@ -165,8 +165,8 @@ def newer_tag(current: str, tags: list[str]) -> str | None:
 def bump_base_image(checkout: Checkout, list_tags: Callable[[str], list[str]]) -> tuple[list[str], str, str]:
     """Rewrite the final stage's FROM to the newest tag of the same line. Returns (files, old, new)."""
     lines = checkout.dockerfile.read_text().splitlines()
-    index = _final_from(lines)
-    match = _FROM.match(lines[index])
+    index = final_from(lines)
+    match = FROM_LINE.match(lines[index])
     image = match["image"]
     if "$" in image or "@" in image or ":" not in image.rsplit("/", 1)[-1]:
         raise ApplyError(f"cannot bump base image {image!r}: it must be a literal name:tag")
