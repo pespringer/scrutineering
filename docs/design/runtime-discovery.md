@@ -124,7 +124,7 @@ images keep `NULL`, meaning not seen running.
 
 | Variable | Default | Read by | Notes |
 |---|---|---|---|
-| `SCAN_RUNTIME_DISCOVERY_ENABLED` | **`true`** (was `false`) | worker | Off switch. Without Docker, it reports the error. |
+| `SCAN_RUNTIME_DISCOVERY_ENABLED` | **`true`** (was `false`) | worker | Off switch. Reports an error without Docker. |
 | `DOCKER_SOCKET` | `/var/run/docker.sock` | Compose | Host path of the socket the proxy mounts read-only. |
 | `DOCKER_HOST` | `tcp://docker-proxy:2375` in Compose | worker (`docker` CLI) | Set by Compose; an external variable. |
 
