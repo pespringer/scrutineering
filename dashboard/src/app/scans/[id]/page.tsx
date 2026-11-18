@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import SbomLink from "@/components/SbomLink";
 import Layout from "@/components/Layout";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import EmptyState from "@/components/EmptyState";
@@ -98,6 +99,11 @@ export default function ScanDetailPage() {
               >
                 Triage this image&apos;s findings
               </Link>
+            )}
+            {scan.sbom && (
+              <div className="mt-2">
+                <SbomLink href={`/api/scans/${scan.scan_id}/sbom`} sbom={scan.sbom} />
+              </div>
             )}
           </div>
           <div className="flex items-center gap-3">

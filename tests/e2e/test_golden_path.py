@@ -49,7 +49,11 @@ def stage(tmp_path, monkeypatch):
     stage_file = tmp_path / "stage"
     for scanner in ("trivy", "grype"):
         script = bin_dir / scanner
-        script.write_text(f'#!/bin/sh\ncat "{RECORDED}/$(cat "{stage_file}")-{scanner}.json"\n')
+        # The SBOM step after each scan asks Trivy for CycloneDX (docs/design/sbom-evidence.md).
+        sbom = f'case " $* " in *" cyclonedx "*) cat "{RECORDED}/cyclonedx.json"; exit 0 ;; esac\n'
+        script.write_text(
+            f'#!/bin/sh\n{sbom if scanner == "trivy" else ""}cat "{RECORDED}/$(cat "{stage_file}")-{scanner}.json"\n'
+        )
         script.chmod(script.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
 
@@ -177,6 +181,19 @@ def test_scan_half_finds_the_fixture_vulnerabilities(api, stage):
     image = api.get(f"/api/dashboard/images/{scan['image_id']}").json()["image"]
     assert image["name"] == IMAGE
     assert image["open_findings"] == scan["findings"]
+
+    # The scan's CycloneDX SBOM (docs/design/sbom-evidence.md), downloadable for the scan and the image.
+    sbom = api.get(f"/api/dashboard/scans/{scan['scan_id']}/sbom")
+    assert sbom.status_code == 200 and sbom.headers["content-type"].startswith("application/vnd.cyclonedx+json")
+    document = sbom.json()
+    assert document["bomFormat"] == "CycloneDX"
+    assert {"name": TARGET_PACKAGE, "version": "4.17.20"}.items() <= next(
+        component for component in document["components"] if component["name"] == TARGET_PACKAGE
+    ).items()
+    assert image["sbom"]["scan_id"] == scan["scan_id"]
+    assert image["sbom"]["components"] == len(document["components"])
+    assert image["sbom"]["sha256"] == sbom.headers["x-scrutineering-sbom-sha256"]
+    assert api.get(f"/api/dashboard/images/{scan['image_id']}/sbom").content == sbom.content
     assert api.get("/api/dashboard/posture/summary").json()["total_findings"] == scan["findings"]
 
 

@@ -6,6 +6,10 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from sqlalchemy import select
+
+from src.api.routes.sboms import sbom_summary
+from src.db.models import Sbom
 from src.db.connection import get_session
 from src.db.models import (
     AuditEventType,
@@ -154,7 +158,8 @@ def scan_status(scan_id: str) -> dict:
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
             raise HTTPException(status_code=404, detail="scan_not_found")
-        return scan_payload(scan)
+        sbom = session.execute(select(Sbom).where(Sbom.scan_id == scan_id)).scalar_one_or_none()
+        return {**scan_payload(scan), "sbom": sbom_summary(sbom)}
 
 
 @router.get("/scans/{scan_id}/findings")

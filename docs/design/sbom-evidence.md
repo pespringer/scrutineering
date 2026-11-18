@@ -1,6 +1,6 @@
 # Signed SBOMs and remediation evidence
 
-Status: proposed · 2026-11-18 · Phase 6
+Status: in progress, step 1 of 3 built (SBOMs) · 2026-11-18 · Phase 6
 
 ## Problem
 
@@ -201,7 +201,7 @@ generated on first use.
 
 ## Rollout
 
-1. **SBOMs:**
+1. **SBOMs** (built):
    - the SBOM step in the worker;
    - migration `0010` (`sboms`);
    - the scan and image routes and dashboard links;

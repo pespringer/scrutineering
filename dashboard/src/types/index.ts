@@ -1,4 +1,6 @@
 export interface ScanResult {
+  /** Only on the single-scan route: the scan's SBOM, if one was written. */
+  sbom?: SbomSummary | null;
   scan_id: string;
   image_id?: number;
   image_name: string;
@@ -61,6 +63,16 @@ export interface PostureSummary {
   last_scan_status: string | null;
 }
 
+/** A scan's CycloneDX SBOM, as the API summarises it before download (docs/design/sbom-evidence.md). */
+export interface SbomSummary {
+  scan_id: string;
+  format: string;
+  spec_version: string | null;
+  components: number;
+  sha256: string;
+  created_at: string | null;
+}
+
 export interface ImageDetail {
   id: number;
   registry: string;
@@ -80,6 +92,8 @@ export interface ImageDetail {
   medium_count: number;
   low_count: number;
   source?: ImageSource | null;
+  /** The SBOM of the image's latest scan that has one. */
+  sbom?: SbomSummary | null;
 }
 
 export interface ImageSource {

@@ -43,6 +43,7 @@ app = create_celery_app()
 import src.remediation.worker  # noqa: E402,F401  # register remediation task with the worker app
 import src.remediation.publish  # noqa: E402,F401  # register the publication task
 import src.notifications.delivery  # noqa: E402,F401  # register the notification delivery task
+from src.scan import sbom  # noqa: E402  # SBOMs; also registers the prune task
 
 TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 
@@ -615,6 +616,16 @@ def _execute_scan(task, image_name: str, scan_id: str, image_id: int, scanners: 
             _write_severity_snapshot(image_id)
         except Exception:
             logger.exception("Unable to write severity snapshot for scan %s", scan_id)
+    sbom_status = None
+    if save_results and not filesystem_path_target(image_name):
+        trivy = build_scanner(
+            "trivy",
+            settings,
+            credentials=resolved["credentials"],
+            registry_host=resolved["host"],
+            insecure=resolved["insecure"],
+        )
+        sbom_status = sbom.generate(scan_id, image_id, resolved["target"], trivy)
     _record_scan_event(
         scan_id,
         AuditEventType.SCAN_COMPLETED if status == ScanStatus.COMPLETED else AuditEventType.SCAN_FAILED,
@@ -629,6 +640,7 @@ def _execute_scan(task, image_name: str, scan_id: str, image_id: int, scanners: 
             "scanners_failed": failed,
             "errors": errors,
             "image_name": image_name,
+            "sbom": sbom_status,
         },
     )
 

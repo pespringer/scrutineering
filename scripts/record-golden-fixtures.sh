@@ -52,5 +52,11 @@ for stage in "${stages[@]}"; do
     grype -q -o json "registry:$ref" > "$work/$stage-grype.raw.json"
   python3 "$root/scripts/trim-scanner-output.py" trivy "$work/$stage-trivy.raw.json" > "$out/$stage-trivy.json"
   python3 "$root/scripts/trim-scanner-output.py" grype "$work/$stage-grype.raw.json" > "$out/$stage-grype.json"
+  if [ "$stage" = before ]; then
+    # The SBOM step after a scan (docs/design/sbom-evidence.md); one stage is enough for the tests.
+    docker compose -f "$root/docker-compose.yml" exec -T celery-worker \
+      trivy image --quiet --insecure --format cyclonedx "$ref" > "$work/$stage-cyclonedx.raw.json"
+    python3 "$root/scripts/trim-scanner-output.py" cyclonedx "$work/$stage-cyclonedx.raw.json" > "$out/cyclonedx.json"
+  fi
   echo "recorded $stage: $(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(sum(len(r.get('Vulnerabilities') or []) for r in d.get('Results', [])))" "$out/$stage-trivy.json") trivy, $(python3 -c "import json,sys; print(len(json.load(open(sys.argv[1]))['matches']))" "$out/$stage-grype.json") grype"
 done
