@@ -10,6 +10,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 
+from src.api.routes.sboms import latest_for_image, sbom_summary
 from src.scan.runtime_discovery import running_since
 from src.config import get_settings
 from src.db.connection import get_session
@@ -284,8 +285,13 @@ def image_detail(
             .filter(ScanFinding.image_id == image_id, ScanFinding.resolved_at.is_not(None))
             .count()
         )
+        sbom = sbom_summary(latest_for_image(session, image_id))
     return {
-        "image": {**image_payload(image, all_findings, resolved_count), "source": source_payload(image.source)},
+        "image": {
+            **image_payload(image, all_findings, resolved_count),
+            "source": source_payload(image.source),
+            "sbom": sbom,
+        },
         "findings": [finding_payload(finding) for finding in findings],
         "findings_page": paginate([finding_payload(finding) for finding in findings], limit, offset, total),
     }

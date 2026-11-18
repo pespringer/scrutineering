@@ -586,6 +586,29 @@ class RemediationEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class Sbom(Base):
+    """The CycloneDX SBOM of one completed or partial image scan (docs/design/sbom-evidence.md).
+
+    `document` is stored exactly as Trivy wrote it; `sha256` is over those bytes (UTF-8).
+    """
+
+    __tablename__ = "sboms"
+    __table_args__ = (
+        UniqueConstraint("scan_id", name="uq_sboms_scan_id"),
+        Index("idx_sboms_image_id", "image_id"),
+    )
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    scan_id: Mapped[str] = mapped_column(String(64), ForeignKey("scans.scan_id", ondelete="CASCADE"), nullable=False)
+    image_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("images.id", ondelete="CASCADE"), nullable=False)
+    format: Mapped[str] = mapped_column(String(32), nullable=False, default="cyclonedx-json")
+    spec_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    components: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    document: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
 class Notification(Base):
     """One message to one channel: an outbox row written with the status change it reports.
 

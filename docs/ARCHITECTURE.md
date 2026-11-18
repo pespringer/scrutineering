@@ -96,6 +96,7 @@ erDiagram
     remediations ||--o{ remediation_publications : "PR"
     remediations ||--o{ remediation_webhook_events : ""
     remediations ||--o{ notifications : "announced by"
+    scans ||--o| sboms : "SBOM"
 ```
 
 - **`images`**: one row per repository and tag, with the last digest seen, and
@@ -121,6 +122,9 @@ erDiagram
 - **`remediation_publications`**: the GitHub pull request. It holds the branch, base,
   head commit, number, status (`open`, `merged`, `closed`, `failed`) and the image
   digest when it was opened.
+- **`sboms`**: the CycloneDX SBOM of a completed or partial image scan, stored
+  exactly as Trivy wrote it, with its SHA-256 and component count. Each image keeps
+  its newest; a daily sweep removes the rest.
 - **`notifications`**: an outbox. Every remediation status change in
   `NOTIFICATION_EVENTS` writes one row per configured channel, in the same
   transaction, with the message's payload. Each row has its own delivery status:

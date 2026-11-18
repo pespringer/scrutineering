@@ -35,7 +35,7 @@ show what they found at the time.
 |---|---|---|---|
 | GET | `/scans?limit&offset&status&search&include_archived` | any | Paginated scan history |
 | GET | `/scans/health` | any | Status counts and terminal rate over recent scans |
-| GET | `/scans/{scan_id}` | any | One scan's status, for polling |
+| GET | `/scans/{scan_id}` | any | One scan's status, for polling, with `sbom` (its SBOM's summary, or null) |
 | GET | `/scans/{scan_id}/findings?severity&fixable_only` | any | The findings this scan observed, as it saw them, with their current lifecycle state |
 | POST | `/scans` | operator | Queue a scan: `{ "image_name": "nginx:1.27", "priority": "normal" }`. Container image references only; `fs:` targets return 422 |
 | POST | `/scans/{scan_id}/cancel` | operator | Cancel a pending or running scan |
@@ -48,7 +48,9 @@ show what they found at the time.
 | Method | Path | Role | Purpose |
 |---|---|---|---|
 | GET | `/images?limit&offset&search&severity` | any | Image inventory with open and resolved counts |
-| GET | `/images/{image_id}?severity&limit&offset` | any | Image detail and its open findings |
+| GET | `/images/{image_id}?severity&limit&offset` | any | Image detail and its open findings, with `sbom` (the latest SBOM's summary) |
+| GET | `/images/{image_id}/sbom` | any | The latest SBOM (CycloneDX JSON); `X-Scrutineering-SBOM-SHA256` and `-Scan-ID` headers |
+| GET | `/scans/{scan_id}/sbom` | any | That scan's SBOM; 404 when it has none |
 | GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
 | POST | `/images/bulk-archive` | operator | Mark images inactive |
 | POST | `/findings/bulk-acknowledge` | operator | Acknowledge open findings |

@@ -88,6 +88,13 @@ refreshes itself while the scan runs.
   says why.
 - **`cancelled`**: stopped by an operator.
 
+A completed or partial image scan also has an **SBOM**: every component in the
+image, as CycloneDX JSON. Download it from the scan page, or from the image page
+(the latest scan's). Trivy writes it right after the scan from its own cache, so it
+costs seconds. If that step fails, the scan still stands, and its completion event
+records `sbom: failed`. Each image keeps its newest SBOM; older ones are removed
+daily.
+
 ## 3. Triage findings
 
 Open the image from **Images**. Its findings are tracked across scans, not per scan:

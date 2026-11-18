@@ -149,6 +149,47 @@ class TrivyScanner(ScannerAdapter):
             raise ScannerError("trivy", "scan findings exceed size limit")
         return findings
 
+    async def sbom(self, image_name: str) -> str:
+        """The image's CycloneDX SBOM (docs/design/sbom-evidence.md).
+
+        Runs after the scan on the same reference, so Trivy reads the layers from the cache the scan
+        just filled instead of pulling the image again. Same credentials and transport as the scan.
+        """
+        cmd = [self.trivy_cmd, "image", "--format", "cyclonedx", "--cache-dir", self.cache_dir, image_name]
+        if self.insecure:
+            cmd.insert(2, "--insecure")
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if key not in {"TRIVY_USERNAME", "TRIVY_PASSWORD", "TRIVY_INSECURE"}
+        }
+        if self.registry_username and self.registry_password:
+            env.update({"TRIVY_USERNAME": self.registry_username, "TRIVY_PASSWORD": self.registry_password})
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, env=env
+            )
+        except FileNotFoundError:
+            raise ScannerError("trivy", f"Trivy binary not found at '{self.trivy_cmd}'", "")
+        try:
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=self.timeout)
+        except asyncio.TimeoutError:
+            proc.kill()
+            raise ScannerError("trivy", f"SBOM timed out after {self.timeout}s", "")
+        if proc.returncode != 0:
+            stderr_text = stderr.decode(errors="replace").strip()
+            raise ScannerError("trivy", f"SBOM exit code {proc.returncode}: {stderr_text[:500]}", stderr_text)
+        if len(stdout) > self.max_output_bytes:
+            raise ScannerError("trivy", "SBOM exceeds size limit")
+        document = stdout.decode(errors="replace")
+        try:
+            parsed = json.loads(document)
+        except json.JSONDecodeError as exc:
+            raise ScannerError("trivy", f"SBOM is not JSON: {exc}", "")
+        if not isinstance(parsed, dict) or parsed.get("bomFormat") != "CycloneDX":
+            raise ScannerError("trivy", "SBOM is not a CycloneDX document", "")
+        return document
+
     def _parse_trivy_output(self, raw_json: str, root_path=None) -> list[ScannerFinding]:
         """Parse Trivy JSON output into normalized ScannerFinding list.
 

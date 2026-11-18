@@ -9,6 +9,7 @@ from src.api.routes import (
     notifications,
     posture,
     remediations,
+    sboms,
     scans,
     session,
     sources,
@@ -28,6 +29,7 @@ for module in (
     audit,
     remediations,
     notifications,
+    sboms,
     webhooks,
 ):
     router.include_router(module.router)

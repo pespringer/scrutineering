@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Trim Trivy or Grype JSON to the fields the scanner parsers read.
+"""Trim Trivy or Grype JSON to the fields the scanner parsers read, or a CycloneDX SBOM to its components.
 
-Usage: trim-scanner-output.py {trivy|grype} RAW_JSON > TRIMMED_JSON
+Usage: trim-scanner-output.py {trivy|grype|cyclonedx} RAW_JSON > TRIMMED_JSON
 
 Keeps recorded fixtures small and deterministic (no timestamps, no database
 metadata). Output is sorted so re-recording produces a readable diff.
@@ -52,10 +52,27 @@ def trim_grype(data: dict) -> dict:
     return {"matches": matches}
 
 
+CYCLONEDX_COMPONENT_FIELDS = ("bom-ref", "type", "name", "version", "purl", "group")
+
+
+def trim_cyclonedx(data: dict) -> dict:
+    """The SBOM without its embedded vulnerabilities, timestamps or serial number."""
+    components = [
+        {key: item[key] for key in CYCLONEDX_COMPONENT_FIELDS if key in item} for item in data.get("components") or []
+    ]
+    components.sort(key=lambda item: (item.get("type", ""), item.get("name", ""), item.get("version", "")))
+    return {
+        "bomFormat": data["bomFormat"],
+        "specVersion": data["specVersion"],
+        "version": data.get("version", 1),
+        "components": components,
+    }
+
+
 def main() -> None:
     kind, path = sys.argv[1], sys.argv[2]
     data = json.load(open(path))
-    trimmed = trim_trivy(data) if kind == "trivy" else trim_grype(data)
+    trimmed = {"trivy": trim_trivy, "grype": trim_grype, "cyclonedx": trim_cyclonedx}[kind](data)
     json.dump(trimmed, sys.stdout, indent=1, sort_keys=True)
     sys.stdout.write("\n")
 

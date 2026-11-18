@@ -1,0 +1,73 @@
+"""CycloneDX SBOMs for completed and partial image scans (docs/design/sbom-evidence.md).
+
+After a scan finishes, Trivy runs once more on the same reference and writes the image's SBOM from
+the cache the scan filled. A failed SBOM never fails the scan. Each image keeps the SBOM of its
+latest scan that has one; a daily sweep removes the rest.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import hashlib
+import json
+import logging
+
+from celery import shared_task
+from sqlalchemy import delete, func, select
+
+from src.db.connection import get_session
+from src.db.models import Sbom
+
+logger = logging.getLogger(__name__)
+
+
+def _count_components(components: list | None) -> int:
+    """Components, including nested ones."""
+    return sum(1 + _count_components(item.get("components")) for item in components or [] if isinstance(item, dict))
+
+
+def store(scan_id: str, image_id: int, document: str) -> Sbom:
+    """Save one scan's SBOM exactly as written, with its SHA-256 and a component count."""
+    parsed = json.loads(document)
+    with get_session() as session:
+        sbom = Sbom(
+            scan_id=scan_id,
+            image_id=image_id,
+            format="cyclonedx-json",
+            spec_version=str(parsed.get("specVersion") or "") or None,
+            components=_count_components(parsed.get("components")),
+            document=document,
+            sha256=hashlib.sha256(document.encode()).hexdigest(),
+        )
+        session.add(sbom)
+        session.flush()
+        session.expunge(sbom)
+        return sbom
+
+
+def generate(scan_id: str, image_id: int, target: str, scanner) -> str:
+    """Write and store the SBOM for a finished scan. Returns `stored` or `failed`; never raises."""
+    try:
+        document = asyncio.run(scanner.sbom(target))
+        sbom = store(scan_id, image_id, document)
+    except Exception as exc:  # noqa: BLE001 - the scan's result stands without its SBOM
+        logger.warning("SBOM for scan %s failed: %s", scan_id, exc)
+        return "failed"
+    logger.info("SBOM for scan %s: %d components", scan_id, sbom.components)
+    return "stored"
+
+
+def prune() -> int:
+    """Keep each image's newest SBOM; delete the older ones. Returns how many were deleted."""
+    with get_session() as session:
+        newest = select(func.max(Sbom.id)).group_by(Sbom.image_id)
+        deleted = session.execute(delete(Sbom).where(Sbom.id.not_in(newest))).rowcount
+    if deleted:
+        logger.info("pruned %d superseded SBOMs", deleted)
+    return deleted
+
+
+@shared_task(name="src.scan.sbom.prune_sboms", acks_late=True, ignore_result=True)
+def prune_sboms() -> int:
+    """Daily, from beat."""
+    return prune()

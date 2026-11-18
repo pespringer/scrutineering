@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
 import SourcePanel from "@/components/images/SourcePanel";
+import SbomLink from "@/components/SbomLink";
 import { proposeFixes } from "@/lib/remediation";
 import SeverityBadge from "@/components/SeverityBadge";
 import LoadingSpinner from "@/components/LoadingSpinner";
@@ -138,6 +139,11 @@ export default function ImageDetailPage() {
               <p className="mt-1 text-xs text-slate-500">
                 Last scanned: {new Date(image.last_scan_at).toLocaleString()}
               </p>
+            )}
+            {image.sbom && (
+              <div className="mt-2">
+                <SbomLink href={`/api/images/${image.id}/sbom`} sbom={image.sbom} />
+              </div>
             )}
           </div>
         </div>

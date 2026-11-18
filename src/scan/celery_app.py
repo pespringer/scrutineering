@@ -36,11 +36,17 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.discover_runtime_scans": {"queue": "scan.low"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.notifications.delivery.deliver_pending": {"queue": "notify"},
+            "src.scan.sbom.prune_sboms": {"queue": "scan.low"},
         },
         beat_schedule={
             "schedule-active-image-scans": {
                 "task": "src.scan.tasks.schedule_active_scans",
                 "schedule": scan_schedule(),
+                "options": {"queue": "scan.low"},
+            },
+            "prune-superseded-sboms": {
+                "task": "src.scan.sbom.prune_sboms",
+                "schedule": crontab(minute=30, hour=3),
                 "options": {"queue": "scan.low"},
             },
             "deliver-pending-notifications": {

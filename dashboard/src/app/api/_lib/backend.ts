@@ -87,3 +87,29 @@ export async function dashboardMutationResponse<T>(path: string, request: Reques
     return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
   }
 }
+
+/** Headers a download keeps on its way through: what it is, its name, and Scrutineering's own metadata. */
+const DOWNLOAD_HEADERS = ["content-type", "content-disposition"];
+
+/** Pass a file from the API to the browser unchanged (SBOMs and other exports), keeping its bytes exact. */
+export async function dashboardDownload(path: string, request: Request) {
+  const base = process.env.DASHBOARD_API_URL;
+  if (!base) return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
+  try {
+    const response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
+      cache: "no-store",
+      headers: { "x-api-key": process.env.DASHBOARD_API_KEY || "", ...trustedIdentityHeaders(request) },
+    });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      return NextResponse.json(payload || { error: "dashboard_backend_rejected" }, { status: response.status });
+    }
+    const headers = new Headers();
+    response.headers.forEach((value, name) => {
+      if (DOWNLOAD_HEADERS.includes(name) || name.startsWith("x-scrutineering-")) headers.set(name, value);
+    });
+    return new NextResponse(await response.arrayBuffer(), { status: 200, headers });
+  } catch {
+    return NextResponse.json({ error: "dashboard_backend_unavailable" }, { status: 503 });
+  }
+}

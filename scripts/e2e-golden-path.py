@@ -235,6 +235,18 @@ def main() -> None:
         fail(f"expected fixed version {FIXED}, got {target[0]['fixed_version']}")
     print(f"    found: {TARGET_PACKAGE} {target[0]['package_version']} -> {FIXED}")
 
+    step("download the scan's SBOM")
+    summary = request("GET", f"/api/scans/{scan_id}").get("sbom")
+    if not summary:
+        fail("the scan has no SBOM (see the worker log for the SBOM step)")
+    sbom = request("GET", f"/api/scans/{scan_id}/sbom")
+    if sbom.get("bomFormat") != "CycloneDX" or len(sbom.get("components") or []) < 1:
+        fail("the downloaded SBOM is not a CycloneDX document with components")
+    versions = {c.get("version") for c in sbom["components"] if c.get("name") == TARGET_PACKAGE}
+    if target[0]["package_version"] not in versions:
+        fail(f"the SBOM lists {TARGET_PACKAGE} {sorted(versions)}, not the scanned {target[0]['package_version']}")
+    print(f"    CycloneDX {sbom['specVersion']}: {summary['components']} components, includes {TARGET_PACKAGE}")
+
     remediation_half(scan, target[0])
     step("check notifications")
     notifications_check()
