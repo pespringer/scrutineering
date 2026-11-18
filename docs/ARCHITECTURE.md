@@ -34,10 +34,12 @@ flowchart LR
 - **`api`**: the dashboard API (`/api/dashboard/...`). It reads and writes the
   database, queues work, and receives the GitHub webhook. It never scans or builds.
 - **`celery-worker`**: runs scans (Trivy and Grype side by side) and remediations
-  (clone, patch, build, scan the candidate, publish). It consumes the queues
-  `scan.high`, `scan.normal`, `scan.low` and `remediation.normal`.
-- **`celery-beat`**: queues scheduled rescans of known images (`SCHEDULE_CRON_SCAN`)
-  and, when enabled, runtime discovery every 15 minutes.
+  (clone, patch, build, scan the candidate, publish), and sends notifications. It
+  consumes the queues `scan.high`, `scan.normal`, `scan.low`, `remediation.normal`
+  and `notify`.
+- **`celery-beat`**: queues scheduled rescans of known images (`SCHEDULE_CRON_SCAN`),
+  runtime discovery every 15 minutes when enabled, and a notification sweep every
+  minute.
 - **`postgres`**: all state. Alembic manages the schema (`src/db/migrations`).
 - **`redis`**: Celery's broker and result backend, plus an optional shared scan cache.
 - **`registry`**: a local OCI registry. Push to `localhost:5000`; the services reach it
@@ -88,6 +90,7 @@ erDiagram
     remediations ||--o{ remediation_events : "history"
     remediations ||--o{ remediation_publications : "PR"
     remediations ||--o{ remediation_webhook_events : ""
+    remediations ||--o{ notifications : "announced by"
 ```
 
 - **`images`**: one row per repository and tag, with the last digest seen. An
@@ -112,6 +115,11 @@ erDiagram
 - **`remediation_publications`**: the GitHub pull request. It holds the branch, base,
   head commit, number, status (`open`, `merged`, `closed`, `failed`) and the image
   digest when it was opened.
+- **`notifications`**: an outbox. Every remediation status change in
+  `NOTIFICATION_EVENTS` writes one row per configured channel, in the same
+  transaction, with the message's payload. Each row has its own delivery status:
+  `pending`, then `sent` or (after five attempts) `failed`. Sent rows are deleted
+  after 30 days.
 - **`remediation_events`** and **`audit_log`**: history. Remediation events are the
   timeline of one remediation; the audit log records operator actions and scan
   lifecycle. Neither is read to decide current state.
@@ -213,6 +221,9 @@ step from what it cloned, built and scanned itself:
 - `src/remediation/`: fix planning (`planner.py`), applying fixes (`apply.py`),
   checkout and BuildKit builds (`build.py`), execution (`worker.py`), publication
   (`publish.py`), and the state machine and lifecycle.
+- `src/notifications/`: the outbox (`outbox.py`, called from
+  `RemediationRepository.update_status`), the webhook channel, and delivery
+  (`delivery.py`, on the `notify` queue).
 - `src/db/`: models, repositories, connection setup and Alembic migrations.
 - `dashboard/`: the Next.js dashboard; `src/app/api/` holds the proxy routes.
 - `tests/e2e/test_golden_path.py`: the loop end to end with recorded scanner output;

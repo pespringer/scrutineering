@@ -1,6 +1,6 @@
 # Notifications (Slack and webhook)
 
-Status: proposed · 2026-11-17 · Phase 6
+Status: in progress, step 1 of 3 built (outbox and webhook) · 2026-11-17 · Phase 6
 
 ## Problem
 
@@ -41,7 +41,7 @@ silent too.
   `NOTIFICATION_EVENTS` is the only filter.
 - Channels configured from the browser. URLs come only from the environment
   (see Security).
-- Alerts for new critical findings found by scans (see Open questions).
+- Alerts for new critical findings found by scans (see Decisions).
 - Digests and scheduled reports, which are a separate Phase 6 item.
 
 `approved`, `building`, `verifying` and `cancelled` are left out on purpose. A
@@ -64,8 +64,11 @@ configured, `update_status` also inserts one row per channel into a new
 - A change that commits always gets its message, even if the worker restarts
   before delivering it.
 
-No code outside `update_status` creates notifications, so a new call site can't
-forget to send one.
+Creating a remediation is the one status change that doesn't go through
+`update_status`: the create route sets `proposed` itself. That route therefore
+records the `proposed` message too, after the planned actions exist so the message
+can name the action. No other code creates notifications, so a new call site
+that changes the status can't forget to send one.
 
 ### The `notifications` table (migration 0008)
 
@@ -160,9 +163,9 @@ stays empty.
 
 | Variable | Default | Used by | Notes |
 |---|---|---|---|
-| `NOTIFICATION_SLACK_WEBHOOK_URL` | empty | api, worker | Secret. Must be `https://hooks.slack.com/…`. |
-| `NOTIFICATION_WEBHOOK_URL` | empty | api, worker | Secret. Must be `https://` (but see Open questions). |
-| `NOTIFICATION_WEBHOOK_SECRET` | empty | worker | Secret. Signs each body; required with the webhook URL. |
+| `NOTIFICATION_SLACK_WEBHOOK_URL` | empty | api, worker | Secret. Must be `https://hooks.slack.com/…`. Step 2. |
+| `NOTIFICATION_WEBHOOK_URL` | empty | api, worker | Secret. `https://`, or `http://` on the LAN (decision 2). |
+| `NOTIFICATION_WEBHOOK_SECRET` | empty | api, worker | Secret. Signs each body; required with the webhook URL. |
 | `NOTIFICATION_EVENTS` | the six in Scope | api, worker | Comma list of statuses; unknown ones fail at startup. |
 | `DASHBOARD_PUBLIC_URL` | empty | api, worker | Base URL for links in messages; links are omitted when empty. |
 
@@ -199,11 +202,15 @@ the worker sends anything.
   - `update_status` writes outbox rows only for configured events and channels,
     and writes none when the transaction rolls back;
   - the payload builder, including the error shortening and the URL;
-  - the Slack and webhook formatters, with a signature test vector;
-  - retry scheduling and the final `failed` status;
-  - `SKIP LOCKED` claiming, on SQLite where it's skipped and on Postgres in the
-    existing DB tests;
+  - the webhook request, with a signature test vector (the Slack formatter
+    comes with step 2);
+  - retry scheduling, the final `failed` status, and errors that never contain
+    the URL;
   - every new setting is validated.
+
+  `SELECT … FOR UPDATE SKIP LOCKED` is a no-op on the SQLite test database.
+  Step 1 checked it by hand on the Compose stack's Postgres; there are no
+  Postgres tests in CI.
 - **Golden path:** the test points `NOTIFICATION_WEBHOOK_URL` at an in-process
   receiver and asserts:
   - one signed delivery for each event in the loop (`proposed`, `ready`,
@@ -211,13 +218,15 @@ the worker sends anything.
   - that each body's `remediation.status` matches the remediation's status at
     that point.
 
-  `make e2e` does the same, with a receiver on the host.
+  `make e2e` doesn't check notifications yet: the live stack would need a
+  receiver the worker container can reach, and `.env` changes. That's left for
+  step 3, whose test button gives a live check through the dashboard.
 - No test sends anything to Slack. The Slack formatter is checked against
   stored JSON.
 
 ## Rollout
 
-1. **Outbox and webhook:**
+1. **Outbox and webhook** (built):
    - migration 0008;
    - recording in `update_status`;
    - the settings;
@@ -231,23 +240,14 @@ the worker sends anything.
 Each PR keeps the golden path green and leaves the feature off when nothing is
 configured. This note is updated to match what shipped.
 
-## Open questions
+## Decisions
 
-1. **Scan alerts.** Should a completed scan that finds new critical findings on
-   an image also notify, with event `scan.new_critical`? It's the most-requested
-   alert in tools like this, but it fires much more often than remediation
-   changes.
-   *Recommendation:* a fourth PR after this design ships, critical only, at most
-   one message per image per scan.
-2. **Plain HTTP for home-lab receivers.** ntfy, n8n and Home Assistant often run
-   on the LAN without TLS.
-   *Recommendation:* allow `http://` only when the host is a private (RFC 1918)
-   address or a single-label name. The signature still protects integrity; only
-   confidentiality is lost on the LAN.
-3. **`ready` for sources with GitHub publication.** Publication is a manual step,
-   so `ready` is actionable. If publication later becomes automatic, `ready`
-   should drop out of the default events.
-   *Recommendation:* keep it for now.
-4. **Retention.** Should old outbox rows be deleted?
-   *Recommendation:* the beat sweep deletes `sent` rows older than 30 days, and
-   keeps `failed` rows until someone looks at them. No new setting.
+These were open questions on the proposal; all four were decided as recommended.
+
+1. **Scan alerts:** a later step, after these three. It will cover critical
+   findings only, with at most one message per image per scan.
+2. **Plain HTTP:** allowed only to a private address (RFC 1918, loopback or
+   link-local) or a single-label host name. Anything else must be `https://`.
+3. **`ready`:** stays in the default events while publication is a manual step.
+4. **Retention:** the sweep deletes `sent` rows older than 30 days and keeps
+   `failed` rows. There's no setting for this.

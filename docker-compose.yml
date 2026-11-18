@@ -178,7 +178,7 @@ services:
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
       - CELERY_LOG_LEVEL=${CELERY_LOG_LEVEL:-info}
       - CELERY_CONCURRENCY=${CELERY_CONCURRENCY:-2}
-      - CELERY_QUEUES=${CELERY_QUEUES:-scan.low,scan.normal,scan.high,remediation.normal}
+      - CELERY_QUEUES=${CELERY_QUEUES:-scan.low,scan.normal,scan.high,remediation.normal,notify}
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL must be set in .env}
       - SCANNER_TIMEOUT=${SCANNER_TIMEOUT:-1800}
       - SCANNER_RETRY_ATTEMPTS=${SCANNER_RETRY_ATTEMPTS:-2}

@@ -10,17 +10,44 @@ variables as empty strings. `docs/CONFIGURATION.md` is generated from this modul
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import sys
 from dataclasses import dataclass
 from typing import Annotated, Literal, Mapping
 
-from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 API, WORKER, BEAT = "api", "worker", "beat"
 ALL = (API, WORKER, BEAT)
 CommaList = Annotated[list[str], NoDecode]
+# RemediationStatus values (src/db/models.py), kept here so settings don't import the models.
+REMEDIATION_STATUSES = (
+    "proposed",
+    "approved",
+    "building",
+    "verifying",
+    "needs_acceptance",
+    "ready",
+    "published",
+    "completed",
+    "failed",
+    "cancelled",
+)
+
+
+def plain_http_allowed(url: str) -> bool:
+    """`http://` is allowed only to a private address or a single-label host (a LAN receiver)."""
+    from urllib.parse import urlsplit
+
+    parts = urlsplit(url)
+    if parts.scheme != "http" or not parts.hostname:
+        return False
+    try:
+        return ipaddress.ip_address(parts.hostname).is_private
+    except ValueError:
+        return "." not in parts.hostname
 
 
 def setting(default, description: str, group: str, used_by: tuple[str, ...], **constraints):
@@ -216,6 +243,33 @@ class Settings(BaseSettings):
         SecretStr(""), "Verifies the `pull_request` webhook that reports merges.", "Remediation and GitHub", (API,)
     )
 
+    # -- Notifications ----------------------------------------------------------
+    notification_webhook_url: SecretStr = setting(
+        SecretStr(""),
+        "Receiver for signed JSON notifications. `https://`, or `http://` to a private address or a "
+        "single-label host name.",
+        "Notifications",
+        (API, WORKER),
+    )
+    notification_webhook_secret: SecretStr = setting(
+        SecretStr(""),
+        "Signs each webhook body (HMAC-SHA256). Required with `NOTIFICATION_WEBHOOK_URL`.",
+        "Notifications",
+        (API, WORKER),
+    )
+    notification_events: CommaList = setting(
+        ["proposed", "needs_acceptance", "ready", "published", "completed", "failed"],
+        "Remediation statuses that send a notification.",
+        "Notifications",
+        (API, WORKER),
+    )
+    dashboard_public_url: str = setting(
+        "",
+        "The dashboard's URL, for links in notifications. Links are left out when empty.",
+        "Notifications",
+        (API, WORKER),
+    )
+
     # -- Tests ------------------------------------------------------------------
     scrutineering_test_mode: bool = setting(
         False, "Tests only: allow an in-memory database when `DATABASE_URL` is unset.", "Tests", ALL
@@ -226,6 +280,7 @@ class Settings(BaseSettings):
         "scan_runtime_include_images",
         "scan_runtime_exclude_images",
         "scan_runtime_exclude_containers",
+        "notification_events",
         mode="before",
     )
     @classmethod
@@ -246,6 +301,28 @@ class Settings(BaseSettings):
             if not isinstance(parsed, dict):
                 raise ValueError("must map registry hosts to credentials")
         return value
+
+    @field_validator("notification_events")
+    @classmethod
+    def _notification_events(cls, value: list[str]) -> list[str]:
+        unknown = sorted(set(value) - set(REMEDIATION_STATUSES))
+        if unknown:
+            raise ValueError(f"unknown remediation statuses: {', '.join(unknown)}")
+        return value
+
+    @field_validator("notification_webhook_url")
+    @classmethod
+    def _notification_url(cls, value: SecretStr) -> SecretStr:
+        raw = value.get_secret_value().strip()
+        if raw and not plain_http_allowed(raw) and not raw.startswith("https://"):
+            raise ValueError("must be https://, or http:// to a private address or a single-label host")
+        return value
+
+    @model_validator(mode="after")
+    def _notification_secret(self):
+        if self.notification_webhook_url.get_secret_value() and not self.notification_webhook_secret.get_secret_value():
+            raise ValueError("NOTIFICATION_WEBHOOK_SECRET is required with NOTIFICATION_WEBHOOK_URL")
+        return self
 
 
 @dataclass(frozen=True)
@@ -268,7 +345,10 @@ EXTERNAL = (
     External("DASHBOARD_PORT", "Host port of the dashboard.", "Compose"),
     External("REMEDIATION_HOST_SOURCES", "Host folder mounted read-only as the worker's sources root.", "Compose"),
     External(
-        "CELERY_QUEUES", "Queues the worker consumes. Include `remediation.normal` to run remediations.", "Compose"
+        "CELERY_QUEUES",
+        "Queues the worker consumes. Include `remediation.normal` to run remediations and `notify` to send "
+        "notifications.",
+        "Compose",
     ),
     External("CELERY_CONCURRENCY", "Worker processes.", "Compose"),
     External("CELERY_LOG_LEVEL", "Worker and beat log level.", "Compose"),

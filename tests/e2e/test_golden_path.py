@@ -13,6 +13,7 @@ repository plus a fake REST client.
   -> execute: patch, build the candidate, run the source's tests in it, scan it -> ready
   -> open a pull request with the patch -> published -> merge webhook queues a rescan
   -> rescan the rebuilt image -> the targeted finding resolves -> remediation completed
+  (each step that needs a person, or ends the loop, sends a signed webhook notification)
 """
 
 from __future__ import annotations
@@ -308,6 +309,26 @@ def github(tmp_path, monkeypatch, source):
     return {"hosted": hosted, "rescans": rescans}
 
 
+@pytest.fixture
+def receiver(monkeypatch):
+    """A webhook notification channel, with an in-process receiver standing in for the operator's."""
+    import httpx
+
+    from src.notifications import delivery, outbox
+
+    monkeypatch.setenv("NOTIFICATION_WEBHOOK_URL", "https://hooks.example.test/scrutineering")
+    monkeypatch.setenv("NOTIFICATION_WEBHOOK_SECRET", "golden-path-notify")
+    monkeypatch.setattr(outbox, "enqueue_delivery", lambda: None)  # the test delivers, as the sweep would
+    received = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        received.append(request)
+        return httpx.Response(204)
+
+    monkeypatch.setattr(delivery, "transport", httpx.MockTransport(handle))
+    return received
+
+
 def _merge_webhook(api: TestClient, number: int) -> dict:
     import hashlib
     import hmac
@@ -326,7 +347,7 @@ def _merge_webhook(api: TestClient, number: int) -> dict:
     return response.json()
 
 
-def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(api, stage, github):
+def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(api, stage, github, receiver):
     remediation_id, _ = _fix_to_ready(api, stage, "https://github.com/fixtures/vulnerable-node")
 
     published = api.post(f"/api/dashboard/remediations/{remediation_id}/publish")
@@ -350,3 +371,25 @@ def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(ap
     remediation = api.get(f"/api/dashboard/remediations/{remediation_id}").json()
     assert remediation["status"] == "completed", remediation
     assert remediation["resolved_finding_count"] == 1
+
+    # Every step that needs a person, or finishes the loop, was announced, signed, in order.
+    import hashlib
+    import hmac
+
+    from src.notifications.delivery import deliver
+
+    assert deliver()["sent"] == 4
+    bodies = []
+    for request in receiver:
+        expected = "sha256=" + hmac.new(b"golden-path-notify", request.content, hashlib.sha256).hexdigest()
+        assert request.headers["x-scrutineering-signature"] == expected
+        bodies.append(json.loads(request.content))
+    assert [body["event"] for body in bodies] == [
+        "remediation.proposed",
+        "remediation.ready",
+        "remediation.published",
+        "remediation.completed",
+    ]
+    assert all(body["remediation"]["id"] == remediation_id for body in bodies)
+    assert [body["remediation"]["status"] for body in bodies] == ["proposed", "ready", "published", "completed"]
+    assert bodies[2]["remediation"]["pull_request_url"] == "https://github.com/fixtures/vulnerable-node/pull/1"
