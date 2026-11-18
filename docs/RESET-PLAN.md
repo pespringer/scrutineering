@@ -695,7 +695,7 @@ before the code, and has to keep the golden-path test green:
 
 - notifications (Slack or webhook): done, see [design/notifications.md](design/notifications.md)
 - OIDC and forward-auth: done, see [design/forward-auth.md](design/forward-auth.md)
-- runtime discovery on by default
+- runtime discovery on by default: proposed in [design/runtime-discovery.md](design/runtime-discovery.md)
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster
 - signed SBOM and evidence
 - deployment observation
