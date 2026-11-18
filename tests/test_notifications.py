@@ -352,3 +352,61 @@ def test_the_slack_url_must_be_a_slack_incoming_webhook(url, allowed):
     else:
         with pytest.raises(ValueError, match="NOTIFICATION_SLACK_WEBHOOK_URL"):
             get_settings(env)
+
+
+def _block_kit_problems(message: dict) -> list[str]:
+    """Slack's published Block Kit limits for what slack.message produces (api.slack.com/reference/block-kit)."""
+    problems = []
+    blocks = message["blocks"]
+    if not 1 <= len(blocks) <= 50:
+        problems.append(f"{len(blocks)} blocks")
+    if not message["text"] or len(message["text"]) > 4000:
+        problems.append("fallback text")
+    action_ids = []
+    for block in blocks:
+        kind = block["type"]
+        if kind == "section":
+            if "text" in block and not 1 <= len(block["text"]["text"]) <= 3000:
+                problems.append("section text length")
+            fields = block.get("fields", [])
+            if len(fields) > 10 or any(not 1 <= len(field["text"]) <= 2000 for field in fields):
+                problems.append("section fields")
+            if "text" not in block and not fields:
+                problems.append("empty section")
+        elif kind == "actions":
+            if not 1 <= len(block["elements"]) <= 25:
+                problems.append("actions elements")
+            for button in block["elements"]:
+                action_ids.append(button["action_id"])
+                if len(button["text"]["text"]) > 75 or len(button["url"]) > 3000 or len(button["action_id"]) > 255:
+                    problems.append("button limits")
+        else:
+            problems.append(f"unexpected block type {kind}")
+    if len(action_ids) != len(set(action_ids)):
+        problems.append("duplicate action_id")
+    return problems
+
+
+@pytest.mark.parametrize("status", ["proposed", "needs_acceptance", "ready", "published", "completed", "failed"])
+def test_slack_messages_stay_within_block_kit_limits_at_the_longest_values(status):
+    """The longest values the database allows, with every optional part present."""
+    payload = {
+        "event": f"remediation.{status}",
+        "remediation": {
+            "id": 2**40,
+            "status": status,
+            "label": "x" * 64,
+            "image": "<&>" * 170 + ":" + "t" * 256,  # repo_name 512 and tag 256, all needing escapes
+            "action": "os_package_upgrade",
+            "targets": 100_000,
+            "new_critical_high": [f"CVE-2026-{index:07d}" for index in range(500)],
+            "pull_request_url": "https://github.com/" + "o" * 1000,
+            "error": "<" * outbox.MAX_ERROR,  # escaping quadruples it
+            "url": "https://scrutineering.example/" + "p" * 1000 + "/remediations/1",
+        },
+    }
+    assert _block_kit_problems(slack.message(payload)) == []
+    for name in ("slack-needs-acceptance", "slack-failed"):
+        stored = json.loads((SLACK_FIXTURES / f"{name}.json").read_text())
+        assert _block_kit_problems(stored["message"]) == []
+    assert _block_kit_problems(slack.message({"event": "test"})) == []
