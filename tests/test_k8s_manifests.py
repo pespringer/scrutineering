@@ -112,7 +112,7 @@ def test_worker_and_beat_run_the_app_that_registers_the_tasks():
     beat = _named("Deployment", "scrutineering-celery-beat")["spec"]["template"]["spec"]["containers"][0]
     assert "--app=src.scan.tasks:app" in beat["command"] and "beat" in beat["command"]
     queues = _named("ConfigMap", "scrutineering-config")["data"]["CELERY_QUEUES"].split(",")
-    assert {"scan.high", "scan.normal", "scan.low", "remediation.normal"} <= set(queues)
+    assert {"scan.high", "scan.normal", "scan.low", "remediation.normal", "notify"} <= set(queues)
 
 
 def _matches(peer: dict, namespace: str, labels: dict, source_namespace: str) -> bool:

@@ -7,7 +7,7 @@ metadata:
 data:
   SCANNER_TIMEOUT: "1800"
   SCHEDULE_CRON_SCAN: "0 */6 * * *"
-  CELERY_QUEUES: "scan.low,scan.normal,scan.high,remediation.normal"
+  CELERY_QUEUES: "scan.low,scan.normal,scan.high,remediation.normal,notify"
   SCRUTINEERING_VERSION: "0.1.0"
   SCRUTINEERING_REVISION: "managed-by-release"
   SCANNER_MAX_OUTPUT_BYTES: "50000000"

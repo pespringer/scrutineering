@@ -35,12 +35,19 @@ def create_celery_app() -> Celery:
             "src.scan.tasks.schedule_active_scans": {"queue": "scan.low"},
             "src.scan.tasks.discover_runtime_scans": {"queue": "scan.low"},
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
+            "src.notifications.delivery.deliver_pending": {"queue": "notify"},
         },
         beat_schedule={
             "schedule-active-image-scans": {
                 "task": "src.scan.tasks.schedule_active_scans",
                 "schedule": scan_schedule(),
                 "options": {"queue": "scan.low"},
+            },
+            "deliver-pending-notifications": {
+                "task": "src.notifications.delivery.deliver_pending",
+                "schedule": 60.0,
+                # A sweep nobody picks up is dropped rather than piling up; the next one covers it.
+                "options": {"queue": "notify", "expires": 55},
             },
             "discover-runtime-image-scans": {
                 "task": "src.scan.tasks.discover_runtime_scans",

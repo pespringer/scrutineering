@@ -102,6 +102,15 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `GITHUB_TOKEN` 🔒 |  | Opens pull requests and clones github.com sources (Contents and Pull requests read/write on the source repositories), and pulls from ghcr.io. | api, worker, beat |
 | `GITHUB_WEBHOOK_SECRET` 🔒 |  | Verifies the `pull_request` webhook that reports merges. | api |
 
+## Notifications
+
+| Variable | Default | Meaning | Read by |
+|---|---|---|---|
+| `NOTIFICATION_WEBHOOK_URL` 🔒 |  | Receiver for signed JSON notifications. `https://`, or `http://` to a private address or a single-label host name. | api, worker |
+| `NOTIFICATION_WEBHOOK_SECRET` 🔒 |  | Signs each webhook body (HMAC-SHA256). Required with `NOTIFICATION_WEBHOOK_URL`. | api, worker |
+| `NOTIFICATION_EVENTS` | `proposed,needs_acceptance,ready,published,completed,failed` | Remediation statuses that send a notification. | api, worker |
+| `DASHBOARD_PUBLIC_URL` |  | The dashboard's URL, for links in notifications. Links are left out when empty. | api, worker |
+
 ## Tests
 
 | Variable | Default | Meaning | Read by |
@@ -121,7 +130,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `PYTHON_API_PORT` | Host port of the API. | Compose |
 | `DASHBOARD_PORT` | Host port of the dashboard. | Compose |
 | `REMEDIATION_HOST_SOURCES` | Host folder mounted read-only as the worker's sources root. | Compose |
-| `CELERY_QUEUES` | Queues the worker consumes. Include `remediation.normal` to run remediations. | Compose |
+| `CELERY_QUEUES` | Queues the worker consumes. Include `remediation.normal` to run remediations and `notify` to send notifications. | Compose |
 | `CELERY_CONCURRENCY` | Worker processes. | Compose |
 | `CELERY_LOG_LEVEL` | Worker and beat log level. | Compose |
 | `DASHBOARD_API_URL` | API URL the dashboard server calls. Defaults to the Compose service. | dashboard |

@@ -20,6 +20,7 @@ from src.db.models import (
     RemediationEvent,
     RemediationStatus,
 )
+from src.notifications import outbox as notifications
 from src.remediation.state_machine import TERMINAL, transition
 
 
@@ -72,6 +73,8 @@ class RemediationRepository:
             .where(Remediation.id == remediation_id)
             .values(**{k: v for k, v in values.items() if v is not None})
         )
+        if target_status != current_status:
+            notifications.record(session, remediation_id, target_status)
 
     @staticmethod
     def add_action(

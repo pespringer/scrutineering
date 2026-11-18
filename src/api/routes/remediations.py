@@ -18,6 +18,7 @@ from src.db.models import (
     ScanFinding,
 )
 from src.db.repositories import RemediationRepository
+from src.notifications import outbox as notifications
 from src.remediation.planner import Plan, finding_input
 from src.remediation.state_machine import TRANSITIONS
 from src.remediation.planner import plan as plan_fixes
@@ -187,6 +188,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
                 after_value=action.to_version,
                 detail=detail,
             )
+        notifications.record(session, remediation.id, RemediationStatus.PROPOSED)  # creation skips update_status
         record_operator_event(
             session,
             request,

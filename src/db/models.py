@@ -583,6 +583,35 @@ class RemediationEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class Notification(Base):
+    """One message to one channel: an outbox row written with the status change it reports.
+
+    `status` is the delivery's own state (`pending`, `sent` or `failed`); a remediation's state is
+    never read from here. `payload` is built when the row is written, so it describes the
+    remediation at the moment of the change. See docs/design/notifications.md.
+    """
+
+    __tablename__ = "notifications"
+    __table_args__ = (
+        Index("idx_notifications_due", "status", "next_attempt_at"),
+        Index("idx_notifications_remediation_id", "remediation_id"),
+    )
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    channel: Mapped[str] = mapped_column(String(16), nullable=False)
+    event: Mapped[str] = mapped_column(String(64), nullable=False)
+    remediation_id: Mapped[int | None] = mapped_column(
+        BigInteger, ForeignKey("remediations.id", ondelete="SET NULL"), nullable=True
+    )
+    payload: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 # -- Compliance Reporting --------------------------------------------------- #
 
 

@@ -190,6 +190,70 @@ accepted, published and cancelled. Export it with `GET /api/dashboard/audit/expo
 Exporting needs the `security-operator` role. Each remediation also has its own event
 timeline on its page.
 
+## 10. Notifications
+
+Scrutineering can post a message when a remediation needs someone or finishes:
+`proposed` (approve it), `needs_acceptance` (accept or cancel it), `ready` (publish
+it or rebuild the image), `published` (with the pull request link), `completed`
+and `failed` (with the reason's first line). Choose which with `NOTIFICATION_EVENTS`.
+
+To turn it on, set these in `.env` and restart the stack (`make up`):
+
+```bash
+NOTIFICATION_WEBHOOK_URL=https://ntfy.example.com/hooks/scrutineering
+NOTIFICATION_WEBHOOK_SECRET=<a long random string>
+DASHBOARD_PUBLIC_URL=https://scrutineering.home.lan   # optional: links in messages
+```
+
+The URL must be `https://`, or `http://` to a private address (such as
+`http://192.168.1.20:8080/hook`) or a single-label host name (such as
+`http://ntfy/scrutineering`). The worker must consume the `notify` queue, which
+the default `CELERY_QUEUES` includes.
+
+Each message is a JSON `POST`:
+
+```json
+{
+  "id": 412,
+  "event": "remediation.published",
+  "occurred_at": "2026-11-17T14:03:11Z",
+  "remediation": {
+    "id": 57, "status": "published", "label": "Pull request open",
+    "image": "registry:5000/shop/api:1.4.2", "action": "dependency_update", "targets": 3,
+    "new_critical_high": [], "pull_request_url": "https://github.com/shop/api/pull/9",
+    "error": null, "url": "https://scrutineering.home.lan/remediations/57"
+  }
+}
+```
+
+The headers are:
+
+- `X-Scrutineering-Event`: the event.
+- `X-Scrutineering-Delivery`: the `id`.
+- `X-Scrutineering-Signature`: `sha256=` and the HMAC-SHA256 of the raw body with
+  your secret.
+
+Verify the signature before trusting a message:
+
+```python
+import hashlib, hmac
+
+def verified(secret: bytes, body: bytes, header: str) -> bool:
+    expected = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, header)
+```
+
+How delivery behaves:
+
+- Delivery is at least once, so drop repeats by `id`.
+- A receiver that doesn't answer 2xx within 10 seconds is retried after 1, 5, 15
+  and 60 minutes. After the fifth failed attempt the message is marked `failed`.
+- Redirects are not followed.
+
+Messages name images, CVEs and pull requests, so send them only to a private
+channel. The URL and secret are credentials: they're never logged or shown, and
+only the environment can set them.
+
 ## Troubleshooting
 
 - **The dashboard shows an API error, or the header shows a degraded service.**
@@ -217,6 +281,13 @@ timeline on its page.
   publish again.
 - **A merged remediation stays `published`.** The image has not been rebuilt and
   pushed under the scanned tag yet. A scan of the new digest settles it.
+- **No notifications arrive.** Check that `CELERY_QUEUES` includes `notify`, then look
+  at the outbox. `last_error` is the receiver's status code or the connection error.
+
+  ```bash
+  docker compose exec postgres psql -U scrutineering -c \
+    "select id, event, status, attempts, last_error from notifications order by id desc limit 10"
+  ```
 
 To remove all local test images, stop the stack and delete the registry volume:
 `docker compose down && docker volume rm scrutineering_registrydata`.
