@@ -76,6 +76,11 @@ def _register(public_key: ec.EllipticCurvePublicKey) -> str:
     return identifier
 
 
+def current_key_id() -> str:
+    """The key ID `sign` will use now (creating the key on first use), for documents that name their signer."""
+    return _register(_load_or_create().public_key())
+
+
 def sign(data: bytes) -> Signature:
     """Sign the exact bytes with this instance's key."""
     private_key = _load_or_create()

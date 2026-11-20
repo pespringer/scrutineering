@@ -42,8 +42,8 @@ flowchart LR
 - **`celery-beat`**: queues scheduled rescans of known images (`SCHEDULE_CRON_SCAN`),
   runtime discovery every 15 minutes when enabled, the notification delivery and
   evidence sweeps every minute, the stale-deployment notification sweep every 15
-  minutes, the weekly report (`REPORT_SCHEDULE_CRON`), and daily prunes of superseded
-  SBOMs and gone containers.
+  minutes, the weekly report (`REPORT_SCHEDULE_CRON`), daily prunes of superseded SBOMs and
+  gone containers, and an hourly prune of compliance exports.
 - **`postgres`**: all state. Alembic manages the schema (`src/db/migrations`).
 - **`redis`**: Celery's broker and result backend, plus an optional shared scan cache.
 - **`registry`**: a local OCI registry. Push to `localhost:5000`; the services reach it
@@ -140,6 +140,8 @@ erDiagram
 - **`reports`**: signed weekly and on-demand reports as canonical JSON
   (`scrutineering.report/v1`), one per week (`REPORT_SCHEDULE_CRON`), kept
   indefinitely.
+- **`compliance_exports`**: requested exports (`pending`, `building`, `ready`,
+  `failed`) and, once built, the zip itself. An hourly sweep deletes them after 24 hours.
 - **`signing_keys`**: every public key this instance has signed exports with. The
   private key is only on the worker (`src/signing.py`); each SBOM records its
   signature and `key_id`.

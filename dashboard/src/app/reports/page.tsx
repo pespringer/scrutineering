@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { FileText, RefreshCw } from "lucide-react";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
+import ComplianceExportPanel from "@/components/reports/ComplianceExportPanel";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAsync } from "@/hooks/useAsync";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -19,7 +20,9 @@ function periodLabel(report: Pick<ReportSummary, "period_start" | "period_end">)
 
 export default function ReportsPage() {
   const permissions = usePermissions();
-  const isAdmin = Array.isArray(permissions.roles) && permissions.roles.includes("admin");
+  const roles = Array.isArray(permissions.roles) ? (permissions.roles as string[]) : [];
+  const isAdmin = roles.includes("admin");
+  const canExport = isAdmin || roles.includes("security-operator");
   const [notice, setNotice] = useState<string | null>(null);
   const loadReports = useCallback(() => getJson<{ items: ReportSummary[] }>("/api/reports"), []);
   const reports = useAsync(loadReports);
@@ -105,6 +108,7 @@ export default function ReportsPage() {
           )}
         </div>
       </section>
+      {canExport && <ComplianceExportPanel />}
     </Layout>
   );
 }

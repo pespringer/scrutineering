@@ -48,6 +48,7 @@ import src.remediation.evidence  # noqa: E402,F401  # register the evidence task
 import src.scan.deployments  # noqa: E402,F401  # register the deployments prune task
 import src.notifications.deployments  # noqa: E402,F401  # register the stale-deployment notification sweep
 import src.reports.weekly  # noqa: E402,F401  # register the report tasks
+import src.reports.export  # noqa: E402,F401  # register the compliance export tasks
 
 TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 

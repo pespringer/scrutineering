@@ -23,4 +23,4 @@ A note answers:
 - [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
 - [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (built)
 - [sbom-evidence.md](sbom-evidence.md): signed SBOMs and remediation evidence (built)
-- [reports-compliance.md](reports-compliance.md): weekly reports and a signed compliance export (step 1 built)
+- [reports-compliance.md](reports-compliance.md): weekly reports and a signed compliance export (built)

@@ -58,6 +58,9 @@ show what they found at the time.
 | GET | `/reports/{id}.json` | any | The report's bytes exactly as signed, with `X-Scrutineering-Signature` |
 | GET | `/reports/{id}.sig` | any | The report's base64 signature; 404 when unsigned |
 | POST | `/reports` | admin | Queue an on-demand report for this week so far (202) |
+| POST | `/compliance/exports` | security-operator | `{ "since": "2026-07-01", "until": "2026-09-30" }` (UTC days, both included, at most 366); 202, or 409 while one is building |
+| GET | `/compliance/exports` | security-operator | The last 20 exports: status, files, size, SHA-256, error |
+| GET | `/compliance/exports/{id}/download` | security-operator | The zip, with `X-Scrutineering-Export-SHA256`; 404 until ready or after 24 h |
 | GET | `/signing-keys` | any | Every public key that signed exports: `key_id`, PEM, created |
 | GET | `/signing-keys/{fingerprint}.pem` | any | One public key as PEM; `fingerprint` is the hex part of its `key_id` |
 | GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
