@@ -73,7 +73,7 @@ def _scan_summary(session, scan: Scan | None, target_keys: set[str] | None = Non
     return summary
 
 
-def _finished_scan(session, image_id: int, *, started_by: datetime | None) -> Scan | None:
+def finished_scan(session, image_id: int, *, started_by: datetime | None) -> Scan | None:
     """The last finished scan of the image that had started by `started_by`.
 
     By start time, not finish time: the scan that completes a remediation saves its findings, which
@@ -90,8 +90,8 @@ def build_document(session, remediation: Remediation) -> tuple[dict, str | None,
     image = remediation.image
     findings = list(remediation.findings)
     target_keys = {finding.vuln_key for finding in findings if finding.vuln_key}
-    before = _finished_scan(session, remediation.image_id, started_by=remediation.created_at)
-    after = _finished_scan(session, remediation.image_id, started_by=remediation.completed_at)
+    before = finished_scan(session, remediation.image_id, started_by=remediation.created_at)
+    after = finished_scan(session, remediation.image_id, started_by=remediation.completed_at)
     if after is not None and before is not None and after.scan_id == before.scan_id:
         after = None  # it ended without a later scan
     publication = max(remediation.publications, key=lambda item: item.id) if remediation.publications else None

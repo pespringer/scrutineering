@@ -11,6 +11,7 @@ import CandidatePanel from "@/components/remediations/CandidatePanel";
 import ProposedChanges from "@/components/remediations/ProposedChanges";
 import Publications from "@/components/remediations/Publications";
 import EvidencePanel from "@/components/remediations/EvidencePanel";
+import DeploymentPanel from "@/components/remediations/DeploymentPanel";
 import WorkflowStatus from "@/components/remediations/WorkflowStatus";
 import { useRemediation } from "@/hooks/useRemediation";
 import { cx } from "@/lib/cx";
@@ -80,6 +81,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
           <EventTimeline events={events} />
         </section>
         <aside className="space-y-6">
+          <DeploymentPanel imageId={remediation.image_id} deployment={remediation.deployment} />
           <Publications publications={remediation.publications} />
           <EvidencePanel id={remediation.id} evidence={remediation.evidence} />
         </aside>

@@ -1,6 +1,6 @@
 # Deployment observation
 
-Status: step 1 built (recording containers) · 2026-11-19 · Phase 6
+Status: steps 1–2 built (recording, dashboard) · 2026-11-19 · Phase 6
 
 ## Problem
 
@@ -119,7 +119,12 @@ gains `deployments: {recorded, gone}` when containers were recorded.
 |---|---|---|---|
 | GET | `/images/{id}/deployments` | any | Containers running (or gone within 24 h): `current`, `stale`, `unknown` |
 | — | `/images` list | any | gains `containers` and `stale_containers` counts |
-| — | `/remediations/{id}` | remediator | gains `deployment`: running containers and how many run a build with the fix |
+| — | `/remediations/{id}` | remediator | gains `deployment`: `{containers, fixed, not_fixed}` once completed |
+
+A container is **running** when discovery listed it within the Running window (30
+minutes, as for the Running badge), so a row whose discovery has stopped doesn't
+count forever. "Latest scan" is the image's latest completed or partial scan by
+start time. `fixed` is null when no fixed build has a digest.
 
 **"Runs the fixed build"** means the container's running digests include the
 digest of the scan that **completed** the remediation (the evidence bundle's

@@ -10,6 +10,10 @@ worker patches the source with npm, builds the candidate on buildkitd, runs the
 source's test command inside it, and scans it), then publish the candidate as the image's tag, rescan, and expect the
 remediation to complete. Needs REMEDIATION_EXECUTION_ENABLED=true.
 
+Deployments: before the fix, a container runs the fixture image (tagged locally under the name
+the stack scans). After the fix completes, discovery must show it stale and the remediation
+"0 of 1" on the fixed build; recreated from the new tag, "1 of 1". Skipped when discovery is off.
+
 Then: a test notification when a channel is configured, and two runtime discovery runs in the
 worker (the stack's own pulled images are found and scanned once; images built here are skipped).
 
@@ -38,6 +42,8 @@ REPO = "fixtures/vulnerable-node:e2e"
 TARGET_CVE, TARGET_PACKAGE, FIXED = "CVE-2021-23337", "lodash", "4.17.21"
 # Runs inside the candidate image: the patched lodash is the one installed.
 TEST_COMMAND = ["node", "-e", f"process.exit(require('lodash/package.json').version === '{FIXED}' ? 0 : 1)"]
+# A container of the fixture image, for the deployment checks (docs/design/deployment-observation.md).
+DEPLOYED = "e2e-deployed-vulnerable-node"
 # The evidence sweep beat runs every minute (src/remediation/evidence.py).
 EVIDENCE_RUN = "from src.remediation.evidence import build_due; print(build_due())"
 
@@ -129,7 +135,47 @@ def prepare_source() -> str:
     return name
 
 
-def remediation_half(scan: dict, target: dict) -> None:
+def start_deployed() -> bool:
+    """Run a container of the image under the name the stack scans, and let discovery record it."""
+    subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
+    scanned_name = f"{SCAN_HOST}/{REPO}"
+    subprocess.run(["docker", "tag", f"{PUSH_HOST}/{REPO}", scanned_name], check=True)
+    # The fixture's server prints a line and exits; keep the container up for discovery to see.
+    run = ["docker", "run", "-d", "--name", DEPLOYED, "--entrypoint", "sleep", scanned_name, "3600"]
+    subprocess.run(run, check=True, stdout=subprocess.DEVNULL)
+    status = run_discovery()
+    if status["status"] == "disabled":
+        print("    skipped: runtime discovery is disabled")
+        return False
+    if status["status"] != "ok" or not status.get("deployments"):
+        fail(f"discovery did not record containers: {status}")
+    return True
+
+
+def deployed_state(image_id: int) -> str:
+    containers = request("GET", f"/api/images/{image_id}/deployments")["containers"]
+    states = [item["state"] for item in containers if item["name"] == DEPLOYED]
+    if len(states) != 1:
+        fail(f"{DEPLOYED} is not among the image's containers: {[item['name'] for item in containers]}")
+    return states[0]
+
+
+def deployment_check(remediation_id: int, image_id: int) -> None:
+    """The old container is stale and not on the fixed build; recreated from the new tag, it is."""
+    run_discovery()
+    deployment = request("GET", f"/api/remediations/{remediation_id}").get("deployment")
+    if deployed_state(image_id) != "stale" or not deployment or DEPLOYED not in deployment["not_fixed"]:
+        fail(f"the container started before the fix should be stale and not fixed: {deployment}")
+    print(f"    before recreating: {deployment['fixed']} of {deployment['containers']} on the fixed build; stale")
+    subprocess.run(["docker", "rm", "-f", DEPLOYED], check=True, stdout=subprocess.DEVNULL)
+    start_deployed()
+    deployment = request("GET", f"/api/remediations/{remediation_id}")["deployment"]
+    if deployed_state(image_id) != "current" or DEPLOYED in deployment["not_fixed"]:
+        fail(f"the recreated container should be current and fixed: {deployment}")
+    print(f"    recreated: {deployment['fixed']} of {deployment['containers']} on the fixed build; current")
+
+
+def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     image_id = scan["image_id"]
     if target.get("remediation_id"):
         # A previous run's remediation may still hold the finding.
@@ -194,6 +240,10 @@ def remediation_half(scan: dict, target: dict) -> None:
     if TARGET_CVE not in {target["cve_id"] for target in bundle["targets"]}:
         fail(f"the evidence does not list {TARGET_CVE} as a target")
     verify_with_openssl("evidence", bundle_bytes, f"/api/remediations/{remediation_id}/evidence.sig", summary["key_id"])
+
+    if deployed:
+        step("check the fix's deployment")
+        deployment_check(remediation_id, image_id)
 
 
 DISCOVERY_RUN = (
@@ -306,12 +356,17 @@ def main() -> None:
         "SBOM", download(f"/api/scans/{scan_id}/sbom"), f"/api/scans/{scan_id}/sbom.sig", summary["key_id"]
     )
 
-    remediation_half(scan, target[0])
-    step("check notifications")
-    notifications_check()
-    step("check runtime discovery")
-    discovery_check()
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete, notify, discover)")
+    step(f"start {DEPLOYED} from the unfixed image")
+    try:
+        deployed = start_deployed()
+        remediation_half(scan, target[0], deployed)
+        step("check notifications")
+        notifications_check()
+        step("check runtime discovery")
+        discovery_check()
+    finally:
+        subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, notify, discover)")
 
 
 if __name__ == "__main__":

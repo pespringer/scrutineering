@@ -50,7 +50,10 @@ ECR and GCR use the standard AWS and Google credentials.
     only** filter on the Images page;
   - on Docker, records each of their containers and the build it runs, and marks a
     container gone when it's no longer listed. A run that can't reach Docker marks
-    nothing gone;
+    nothing gone. An image's page lists its **Containers**, each **current** (it runs
+    the build of the image's latest scan), **stale** (an older build: recreate it from
+    the current tag) or **unknown** (the latest scan has no digest). The Images list
+    shows "1 container · 1 stale";
   - queues a scan only of an image never scanned, or last scanned before
     `SCAN_COOLDOWN_SECONDS`, with no scan already pending or running. New
     containers are scanned within 15 minutes; the schedule keeps them current;
@@ -218,6 +221,12 @@ an **Evidence** panel. It holds one signed JSON file with everything that happen
 
 It's built from Scrutineering's own records and frozen; a retry that ends again gets a
 new one. Downloading it needs the remediator role, because it includes the patch.
+
+**Deployed.** A completed remediation's page also says how many of the image's running
+containers run a build with the fix ("1 of 2 containers run the fixed build") and names
+the others. A fixed build is the one the completing scan saw, or a later complete scan
+that still doesn't show the targets. Completed means the registry is fixed; this panel
+is what tells you the running containers have picked it up.
 
 ## 9. The audit trail
 

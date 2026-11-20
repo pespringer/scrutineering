@@ -334,6 +334,15 @@ export default function ImagesPage() {
                           running
                         </span>
                       )}
+                      {(image.containers ?? 0) > 0 && (
+                        <span
+                          title="Containers runtime discovery listed in the last 30 minutes"
+                          className={cx("text-[11px]", image.stale_containers ? "text-amber-200" : "text-slate-400")}
+                        >
+                          {image.containers} container{image.containers === 1 ? "" : "s"}
+                          {image.stale_containers ? ` · ${image.stale_containers} stale` : ""}
+                        </span>
+                      )}
                       {localFixture && (
                         <span
                           className={cx(

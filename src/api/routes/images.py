@@ -10,6 +10,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 
+from src.api.routes.deployments import container_counts
 from src.api.routes.sboms import latest_for_image, sbom_summary
 from src.scan.runtime_discovery import running_since
 from src.config import get_settings
@@ -128,11 +129,19 @@ def image_inventory(
             if image_ids
             else {}
         )
+        containers = container_counts(session, image_ids)
     findings_by_image: dict[int, list[ScanFinding]] = defaultdict(list)
     for finding in findings:
         findings_by_image[finding.image_id].append(finding)
+    no_containers = {"containers": 0, "stale_containers": 0}
     return paginate(
-        [image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)) for image in images],
+        [
+            {
+                **image_payload(image, findings_by_image[image.id], resolved_counts.get(image.id, 0)),
+                **containers.get(image.id, no_containers),
+            }
+            for image in images
+        ],
         limit,
         offset,
         total,
