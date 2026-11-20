@@ -397,7 +397,9 @@ def main() -> None:
         step("check runtime discovery")
         discovery_check()
     finally:
+        # The container, and the local tag it was started from under the scanned name.
         subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
+        subprocess.run(["docker", "image", "rm", f"{SCAN_HOST}/{REPO}"], capture_output=True)
     print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, report, notify, discover)")
 
 
