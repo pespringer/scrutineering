@@ -5,6 +5,16 @@ from datetime import datetime, timezone
 
 import pytest
 
+
+def pytest_configure(config):
+    # Starlette 1.10's TestClient prefers a package named `httpx2` and warns when it falls back to
+    # httpx, which the notification delivery uses at runtime. Revisit when Starlette drops httpx.
+    config.addinivalue_line(
+        "filterwarnings",
+        "ignore:Using `httpx` with `starlette.testclient`:starlette.exceptions.StarletteDeprecationWarning",
+    )
+
+
 # Production code refuses implicit database credentials. Tests explicitly opt
 # into an in-memory SQLite engine before application modules are imported.
 os.environ.setdefault("SCRUTINEERING_TEST_MODE", "1")
