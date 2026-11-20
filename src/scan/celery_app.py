@@ -37,6 +37,7 @@ def create_celery_app() -> Celery:
             "src.remediation.worker.execute_approved_remediation": {"queue": "remediation.normal"},
             "src.notifications.delivery.deliver_pending": {"queue": "notify"},
             "src.scan.sbom.prune_sboms": {"queue": "scan.low"},
+            "src.scan.deployments.prune_deployments": {"queue": "scan.low"},
             "src.remediation.evidence.build_due_evidence": {"queue": "notify"},
         },
         beat_schedule={
@@ -53,6 +54,11 @@ def create_celery_app() -> Celery:
             "prune-superseded-sboms": {
                 "task": "src.scan.sbom.prune_sboms",
                 "schedule": crontab(minute=30, hour=3),
+                "options": {"queue": "scan.low"},
+            },
+            "prune-gone-deployments": {
+                "task": "src.scan.deployments.prune_deployments",
+                "schedule": crontab(minute=45, hour=3),
                 "options": {"queue": "scan.low"},
             },
             "deliver-pending-notifications": {

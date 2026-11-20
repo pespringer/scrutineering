@@ -98,6 +98,7 @@ erDiagram
     remediations ||--o{ notifications : "announced by"
     scans ||--o| sboms : "SBOM"
     remediations ||--o{ evidence_bundles : "evidence"
+    images ||--o{ deployments : "running as"
 ```
 
 - **`images`**: one row per repository and tag, with the last digest seen, and
@@ -129,6 +130,11 @@ erDiagram
 - **`evidence_bundles`**: a remediation's frozen, signed evidence, one per ending
   (`completed` or `failed`), built by a sweep every minute from server records only.
   The SBOMs of the scans it cites are kept.
+- **`deployments`**: one row per container of a scannable image that runtime
+  discovery saw (Docker only): name, reference, the digests of the build it runs,
+  and when it started. `gone_at` is set when a run no longer lists the container;
+  a daily sweep deletes rows gone for 30 days. Whether it runs the latest scanned
+  build is derived when read.
 - **`signing_keys`**: every public key this instance has signed exports with. The
   private key is only on the worker (`src/signing.py`); each SBOM records its
   signature and `key_id`.

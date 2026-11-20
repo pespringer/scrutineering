@@ -1,6 +1,6 @@
 # Deployment observation
 
-Status: proposed · 2026-11-18 · Phase 6
+Status: step 1 built (recording containers) · 2026-11-19 · Phase 6
 
 ## Problem
 
@@ -75,15 +75,16 @@ state is **unknown**, never stale, because Scrutineering won't guess.
 
 ### Data: the `deployments` table (migration 0013)
 
-One row per container instance. A restarted container has a new ID, so it gets a
-new row.
+One row per container instance. A recreated container (`docker compose up` after a
+pull) has a new ID, so it gets a new row; `docker restart` keeps the ID and updates
+`started_at`.
 
 | Column | Notes |
 |---|---|
 | `container_id` | unique |
 | `name`, `image_ref` | as Docker reports them |
 | `image_id` | FK to `images`, via the same identity rules as scans |
-| `running_digests` | JSON list: the image ID plus its RepoDigests |
+| `running_digests` | JSON list of `sha256:` digests: the image ID plus those of its RepoDigests |
 | `started_at` | from `State.StartedAt` |
 | `first_seen_at`, `last_seen_at` | set by discovery runs |
 | `gone_at` | set when a run no longer sees it; null while running |
@@ -98,15 +99,19 @@ disagree with the first (project rule 3). It's computed when read, from
 `run_discovery` (src/scan/runtime_discovery.py), for each running container of a
 scannable image:
 
-1. **Inspect it** (`docker inspect`), and inspect its image's RepoDigests (it
-   already does the latter).
-2. **Upsert its `deployments` row:** insert on first sight, otherwise update
-   `last_seen_at`.
+1. **Inspect it** (`docker container inspect`, one call for all of them, with a
+   format that returns only the five fields above), and look up the RepoDigests of
+   each distinct build.
+2. **Upsert its `deployments` row:** insert on first sight, otherwise update it and
+   `last_seen_at`, and clear `gone_at` if it was set.
 
-Then, for this host, any row still running that this run didn't see gets
-`gone_at = now`. If listing fails (`RuntimeUnavailable`), nothing is marked gone:
-"couldn't list" is never "everything stopped". A daily sweep deletes rows gone for
-more than 30 days.
+Then any running row whose container this run didn't **list** gets `gone_at = now`.
+A container that was listed but couldn't be inspected isn't gone. If listing or
+inspection fails, nothing is marked gone: "couldn't list" is never "everything
+stopped". A daily sweep (03:45, `scan.low`) deletes rows gone for more than 30 days.
+
+On containerd, discovery has no inspect, so nothing is recorded. The run's status
+gains `deployments: {recorded, gone}` when containers were recorded.
 
 ### Dashboard and API
 
@@ -169,17 +174,14 @@ and the proxy that discovery already uses.
 
 Each step keeps the golden path green.
 
-## Open questions
+## Decisions
 
-1. **When is a fix "deployed"?** Show it only, or let it change the remediation's
-   status (a new `deployed` after `completed`)?
-   *Recommendation:* show it only. A status would be derived from container state
-   that changes outside Scrutineering, and `completed` keeps its meaning: the
+Decided 2026-11-19:
+
+1. **"Deployed" is shown, not a status.** A status would be derived from container
+   state that changes outside Scrutineering, and `completed` keeps its meaning: the
    registry is fixed.
-2. **The stale-notification delay.**
-   *Recommendation:* 24 hours, fixed. Rollouts on a home lab are manual, so a
-   shorter delay would nag.
-3. **Containers of images that can't be scanned** (built on the host): record
-   them?
-   *Recommendation:* no. Without a scan there's nothing to compare them with, and
-   discovery already counts them.
+2. **The stale-notification delay is 24 hours, fixed.** Rollouts on a home lab are
+   manual, so a shorter delay would nag.
+3. **Containers of images that can't be scanned aren't recorded.** Without a scan
+   there's nothing to compare them with, and discovery already counts them.

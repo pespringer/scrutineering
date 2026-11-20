@@ -7,6 +7,10 @@ from typing import Any
 
 from src.scan.discovery._process import RuntimeUnavailable, failure, run_cli
 
+# Only these fields leave `docker inspect`: never the environment, mounts or command.
+INSPECT_FIELDS = ("Id", "Name", "Config.Image", "Image", "State.StartedAt")
+INSPECT_FORMAT = "\t".join("{{json .%s}}" % field for field in INSPECT_FIELDS)
+
 
 class DockerRuntimeCollector:
     def __init__(self, docker_bin: str = "docker"):
@@ -48,3 +52,27 @@ class DockerRuntimeCollector:
         except json.JSONDecodeError:
             return None
         return [str(item) for item in digests] if isinstance(digests, list) else []
+
+    async def inspect_containers(self, container_ids: list[str]) -> list[dict[str, str]] | None:
+        """The INSPECT_FIELDS of each container still there, or None if Docker couldn't be asked.
+
+        A container that stopped since it was listed is left out; `docker inspect` still prints the others.
+        """
+        if not container_ids:
+            return []
+        result = await run_cli([self.docker_bin, "container", "inspect", "--format", INSPECT_FORMAT, *container_ids])
+        if result is None:
+            return None
+        found = []
+        for line in result[1].splitlines():
+            values = line.split("\t")
+            if len(values) != len(INSPECT_FIELDS):
+                continue
+            try:
+                decoded = [json.loads(value) for value in values]
+            except json.JSONDecodeError:
+                continue
+            found.append({field: str(value or "") for field, value in zip(INSPECT_FIELDS, decoded)})
+        if not found and result[0] != 0:
+            return None
+        return found

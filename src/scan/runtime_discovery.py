@@ -4,7 +4,7 @@ See docs/design/runtime-discovery.md. A run lists running containers, keeps the 
 (pulled from a registry), marks them as seen running, and queues only those never scanned or
 scanned before the cooldown, with no scan already pending or running. Its result goes to Redis for
 the system status panel; a runtime that can't be reached is reported as an error, not as "nothing
-running".
+running". On Docker, a run also records each container of a scannable image (src/scan/deployments.py).
 """
 
 from __future__ import annotations
@@ -185,8 +185,8 @@ async def discover_runtime_containers(
     docker_bin: str = "docker",
     ctr_bin: str = "ctr",
     containerd_namespace: str = "default",
-) -> tuple[list[dict[str, Any]], Callable[[str], Awaitable[list[str] | None]] | None]:
-    """Running containers, and the registry-digest lookup for their images (Docker only).
+) -> tuple[list[dict[str, Any]], Any]:
+    """Running containers, and the Docker collector for digest lookups and inspection (None on containerd).
 
     Raises RuntimeUnavailable when the runtime can't be listed.
     """
@@ -204,7 +204,7 @@ async def discover_runtime_containers(
     from src.scan.discovery import DockerRuntimeCollector
 
     docker = DockerRuntimeCollector(docker_bin=docker_bin)
-    return await docker.list_running_containers(), docker.repo_digests
+    return await docker.list_running_containers(), docker
 
 
 def _now() -> datetime:
@@ -252,6 +252,7 @@ def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now
     """One discovery run. Returns, and stores, the status shown in the system panel."""
     import asyncio
 
+    from src.scan import deployments
     from src.scan.discovery._process import RuntimeUnavailable
 
     now = now or _now()
@@ -262,7 +263,7 @@ def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now
         return status
 
     async def default_collect():
-        containers, repo_digests = await discover_runtime_containers(
+        containers, docker = await discover_runtime_containers(
             use_containerd=settings.scan_runtime_use_containerd,
             docker_bin=settings.scan_runtime_docker_bin,
             ctr_bin=settings.scan_runtime_ctr_bin,
@@ -275,10 +276,17 @@ def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now
             exclude_containers=settings.scan_runtime_exclude_containers,
             include_label=settings.scan_runtime_include_label,
         )
-        return containers, await classify(images, repo_digests, in_registry, known_images(images))
+        repo_digests = docker.repo_digests if docker else None
+        classified = await classify(images, repo_digests, in_registry, known_images(images))
+        observed = None
+        if docker:
+            observed = await deployments.observe(
+                containers, classified.scannable, docker.inspect_containers, docker.repo_digests
+            )
+        return containers, classified, observed
 
     try:
-        containers, classified = asyncio.run((collect or default_collect)())
+        containers, classified, observed = asyncio.run((collect or default_collect)())
     except RuntimeUnavailable as exc:
         logger.warning("runtime discovery could not list containers: %s", exc)
         status.update(status="error", error=str(exc))
@@ -286,6 +294,9 @@ def run_discovery(settings, *, queue: Callable[[str], object], collect=None, now
         return status
 
     due = record_and_select(classified.scannable, cooldown_seconds=settings.scan_cooldown_seconds, now=now)
+    if observed is not None:
+        listed = {str(container.get("id")) for container in containers if container.get("id")}
+        status["deployments"] = deployments.record(observed, listed, now=now)
     queued = 0
     for image in due[: settings.scan_runtime_max_images]:
         try:
