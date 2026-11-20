@@ -77,6 +77,6 @@ def test_provider_webhook_path_uses_hmac_boundary():
 
     assert is_provider_webhook_path("/api/dashboard/webhooks/github")
     assert not is_provider_webhook_path("/api/dashboard/webhooks/gitlab")
-    assert is_provider_webhook_path("/api/dashboard/deployment-evidence")
+    assert not is_provider_webhook_path("/api/dashboard/deployment-evidence")
     assert not is_provider_webhook_path("/api/dashboard/remediations")
     assert not is_provider_webhook_path("/api/dashboard/webhooks/github/extra")
