@@ -698,7 +698,7 @@ before the code, and has to keep the golden-path test green:
 - runtime discovery on by default: done, see [design/runtime-discovery.md](design/runtime-discovery.md)
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster
 - signed SBOM and evidence: done, see [design/sbom-evidence.md](design/sbom-evidence.md)
-- deployment observation
+- deployment observation: done, see [design/deployment-observation.md](design/deployment-observation.md)
 - scheduled reports and compliance export
 - GitLab publishing
 - multi-user roles

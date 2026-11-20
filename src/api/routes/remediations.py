@@ -25,7 +25,7 @@ from src.remediation.planner import plan as plan_fixes
 from src.remediation.publish import publish_remediation, token as github_token
 from src.remediation.sources import github_repository
 from src.remediation.worker import execute_approved_remediation
-from src.api.routes.deployments import remediation_deployment
+from src.scan.deployments import remediation_deployment
 from src.api.routes.evidence import evidence_summary, latest_bundle
 from src.api.schemas import RemediationRequest
 from src.api.serializers import (

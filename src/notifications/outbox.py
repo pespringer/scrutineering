@@ -20,6 +20,7 @@ from src.remediation.state_machine import LABELS
 logger = logging.getLogger(__name__)
 
 MAX_ERROR = 300
+DEPLOYMENT_STALE = "remediation.deployment_stale"
 _PENDING_KEY = "notifications_pending"
 
 
@@ -85,7 +86,10 @@ def record(session: Session, remediation_id: int, status: RemediationStatus) -> 
     if remediation is None:
         return []
     occurred_at = now()
-    payload = remediation_payload(remediation, settings, occurred_at)
+    return _queue(session, remediation_id, remediation_payload(remediation, settings, occurred_at), configured)
+
+
+def _queue(session: Session, remediation_id: int, payload: dict, configured: list[str]) -> list[Notification]:
     rows = [
         Notification(
             channel=channel,
@@ -94,7 +98,7 @@ def record(session: Session, remediation_id: int, status: RemediationStatus) -> 
             payload=payload,
             status="pending",
             attempts=0,
-            next_attempt_at=occurred_at,
+            next_attempt_at=now(),
         )
         for channel in configured
     ]
@@ -102,6 +106,22 @@ def record(session: Session, remediation_id: int, status: RemediationStatus) -> 
     session.flush()
     session.info[_PENDING_KEY] = True
     return rows
+
+
+def record_deployment_stale(session: Session, remediation: Remediation, deployment: dict) -> list[Notification]:
+    """Queue `remediation.deployment_stale`: the fix is complete, but these containers still run an older build."""
+    settings = get_settings()
+    configured = channels(settings)
+    if not configured or "deployment_stale" not in settings.notification_events:
+        return []
+    payload = remediation_payload(remediation, settings, now())
+    payload["event"] = DEPLOYMENT_STALE
+    payload["deployment"] = {
+        "containers": deployment["containers"],
+        "fixed": deployment["fixed"],
+        "not_fixed": list(deployment["not_fixed"]),
+    }
+    return _queue(session, remediation.id, payload, configured)
 
 
 def sample_message(session: Session, settings: Settings | None = None) -> list[Notification]:
