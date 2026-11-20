@@ -241,7 +241,11 @@ timeline on its page.
 Scrutineering can post a message when a remediation needs someone or finishes:
 `proposed` (approve it), `needs_acceptance` (accept or cancel it), `ready` (publish
 it or rebuild the image), `published` (with the pull request link), `completed`
-and `failed` (with the reason's first line). Choose which with `NOTIFICATION_EVENTS`.
+and `failed` (with the reason's first line). It also sends `deployment_stale` once,
+when a fix completed 24 hours ago but some running containers still run an older
+build; the message names them. Fixes completed more than 72 hours ago are never
+announced, so setting up a channel later doesn't post old ones. Choose which with
+`NOTIFICATION_EVENTS`.
 
 There are two channels. Set either or both in `.env`, then restart the stack
 (`make up`):

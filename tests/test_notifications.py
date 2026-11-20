@@ -274,7 +274,7 @@ def test_webhook_urls_are_https_or_plain_http_on_the_lan(url, allowed):
 def test_the_webhook_needs_a_secret_and_events_must_be_statuses():
     with pytest.raises(ValueError, match="NOTIFICATION_WEBHOOK_SECRET is required"):
         get_settings({"NOTIFICATION_WEBHOOK_URL": URL})
-    with pytest.raises(ValueError, match="NOTIFICATION_EVENTS: .*unknown remediation statuses: merged"):
+    with pytest.raises(ValueError, match="NOTIFICATION_EVENTS: .*unknown notification events: merged"):
         get_settings({"NOTIFICATION_EVENTS": "ready,merged"})
     assert get_settings({}).notification_events == [
         "proposed",
@@ -283,6 +283,7 @@ def test_the_webhook_needs_a_secret_and_events_must_be_statuses():
         "published",
         "completed",
         "failed",
+        "deployment_stale",
     ]
 
 
@@ -294,7 +295,7 @@ SLACK_URL = "https://hooks.slack.com/services/T000/B000/XXXX"
 SLACK_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "notifications"
 
 
-@pytest.mark.parametrize("name", ["slack-needs-acceptance", "slack-failed"])
+@pytest.mark.parametrize("name", ["slack-needs-acceptance", "slack-failed", "slack-deployment-stale"])
 def test_slack_messages_match_the_stored_json(name):
     stored = json.loads((SLACK_FIXTURES / f"{name}.json").read_text())
     assert slack.message(stored["payload"]) == stored["message"]

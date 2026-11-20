@@ -10,7 +10,7 @@ from urllib.request import Request as UrlRequest, urlopen
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import func
 
-from src.api.routes.deployments import container_counts
+from src.scan.deployments import container_counts
 from src.api.routes.sboms import latest_for_image, sbom_summary
 from src.scan.runtime_discovery import running_since
 from src.config import get_settings
