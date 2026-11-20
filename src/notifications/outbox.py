@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 MAX_ERROR = 300
 DEPLOYMENT_STALE = "remediation.deployment_stale"
+REPORT_READY = "report.ready"
 _PENDING_KEY = "notifications_pending"
 
 
@@ -89,7 +90,7 @@ def record(session: Session, remediation_id: int, status: RemediationStatus) -> 
     return _queue(session, remediation_id, remediation_payload(remediation, settings, occurred_at), configured)
 
 
-def _queue(session: Session, remediation_id: int, payload: dict, configured: list[str]) -> list[Notification]:
+def _queue(session: Session, remediation_id: int | None, payload: dict, configured: list[str]) -> list[Notification]:
     rows = [
         Notification(
             channel=channel,
@@ -122,6 +123,34 @@ def record_deployment_stale(session: Session, remediation: Remediation, deployme
         "not_fixed": list(deployment["not_fixed"]),
     }
     return _queue(session, remediation.id, payload, configured)
+
+
+def record_report_ready(session: Session, report, document: dict) -> list[Notification]:
+    """Queue `report.ready`: counts and a link only; the report itself stays in Scrutineering."""
+    settings = get_settings()
+    configured = channels(settings)
+    if not configured or "report_ready" not in settings.notification_events:
+        return []
+    base = settings.dashboard_public_url.rstrip("/")
+    changes, posture, deployments = document["changes"], document["posture"], document["deployments"]
+    payload = {
+        "event": REPORT_READY,
+        "occurred_at": now().isoformat(timespec="seconds") + "Z",
+        "report": {
+            "id": report.id,
+            "kind": report.kind,
+            "period": document["period"],
+            "open_critical": posture["open"]["critical"],
+            "open_high": posture["open"]["high"],
+            "new_critical_high": changes["new"]["critical"] + changes["new"]["high"],
+            "resolved_critical_high": changes["resolved"]["critical"] + changes["resolved"]["high"],
+            "fixes_completed": sum(1 for item in document["remediations"] if item["outcome"] == "completed"),
+            "fixes_failed": sum(1 for item in document["remediations"] if item["outcome"] == "failed"),
+            "stale_containers": len(deployments["stale_containers"]),
+            "url": f"{base}/reports/{report.id}" if base else None,
+        },
+    }
+    return _queue(session, None, payload, configured)
 
 
 def sample_message(session: Session, settings: Settings | None = None) -> list[Notification]:

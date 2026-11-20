@@ -52,6 +52,12 @@ show what they found at the time.
 | GET | `/images/{image_id}/sbom` | any | The latest SBOM (CycloneDX JSON); `X-Scrutineering-SBOM-SHA256` and `-Scan-ID` headers |
 | GET | `/scans/{scan_id}/sbom` | any | That scan's SBOM, with `X-Scrutineering-Signature` and `-Key-ID` when signed; 404 when it has none |
 | GET | `/scans/{scan_id}/sbom.sig` | any | The SBOM's base64 signature (cosign blob format); 404 when unsigned |
+| GET | `/images/{image_id}/deployments` | any | Running containers (and those gone within 24 h), each `current`, `stale` or `unknown` against the latest scan |
+| GET | `/reports?limit` | any | Weekly and on-demand reports, newest first |
+| GET | `/reports/{id}` | any | One report: summary and the parsed `scrutineering.report/v1` document |
+| GET | `/reports/{id}.json` | any | The report's bytes exactly as signed, with `X-Scrutineering-Signature` |
+| GET | `/reports/{id}.sig` | any | The report's base64 signature; 404 when unsigned |
+| POST | `/reports` | admin | Queue an on-demand report for this week so far (202) |
 | GET | `/signing-keys` | any | Every public key that signed exports: `key_id`, PEM, created |
 | GET | `/signing-keys/{fingerprint}.pem` | any | One public key as PEM; `fingerprint` is the hex part of its `key_id` |
 | GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
@@ -83,7 +89,7 @@ show what they found at the time.
 | POST | `/remediations/preview` | remediator | How the selected findings would be fixed; changes nothing |
 | POST | `/remediations` | remediator | Propose a remediation (status `proposed`); the image needs a connected source |
 | GET | `/remediations?status&limit&offset` | remediator | Paginated remediation queue |
-| GET | `/remediations/{id}` | remediator | Remediation detail with actions, publications and `evidence` (the bundle's summary) |
+| GET | `/remediations/{id}` | remediator | Remediation detail with actions, publications, `evidence` (the bundle's summary) and, once completed, `deployment` (`{containers, fixed, not_fixed}`) |
 | GET | `/remediations/{id}/events` | remediator | Ordered history of the remediation |
 | GET | `/remediations/{id}/evidence` | remediator | The latest signed evidence bundle (canonical JSON), with `X-Scrutineering-Signature`; 404 until it ends |
 | GET | `/remediations/{id}/evidence.sig` | remediator | The bundle's base64 signature; 404 when unsigned |

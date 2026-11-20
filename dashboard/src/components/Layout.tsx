@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ArrowUpRight, Bell, ClipboardList, LayoutDashboard, Package, Radar, ShieldCheck } from "lucide-react";
+import {
+  ArrowUpRight,
+  Bell,
+  ClipboardList,
+  FileText,
+  LayoutDashboard,
+  Package,
+  Radar,
+  ShieldCheck,
+} from "lucide-react";
 import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusPanel";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
 import { cx } from "@/lib/cx";
@@ -29,6 +38,7 @@ const NAV: NavItem[] = [
     icon: <ShieldCheck className="h-4 w-4" />,
     roles: ["remediator", "security-operator", "admin"],
   },
+  { href: "/reports", label: "Reports", icon: <FileText className="h-4 w-4" /> },
   { href: "/audit", label: "Audit", icon: <ClipboardList className="h-4 w-4" /> },
   {
     href: "/notifications",

@@ -11,6 +11,7 @@ from src.api.routes import (
     notifications,
     posture,
     remediations,
+    reports,
     sboms,
     scans,
     session,
@@ -34,6 +35,7 @@ for module in (
     notifications,
     sboms,
     deployments,
+    reports,
     webhooks,
 ):
     router.include_router(module.router)

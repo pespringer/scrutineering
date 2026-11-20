@@ -1,6 +1,6 @@
 # Scheduled reports and compliance export
 
-Status: proposed · 2026-11-20 · Phase 6
+Status: step 1 built (weekly reports) · 2026-11-20 · Phase 6
 
 ## Problem
 

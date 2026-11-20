@@ -40,6 +40,8 @@ def message(payload: dict) -> dict:
     if payload.get("event") == "test":
         text = "Scrutineering test notification: this channel is set up."
         return {"text": text, "blocks": [_section(text)]}
+    if payload.get("event") == "report.ready":
+        return _report_ready(payload["report"])
     item = payload["remediation"]
     if payload.get("event") == "remediation.deployment_stale":
         return _deployment_stale(item, payload["deployment"])
@@ -73,6 +75,23 @@ def message(payload: dict) -> dict:
     if buttons:
         blocks.append({"type": "actions", "elements": buttons})
     return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
+
+
+def _report_ready(report: dict) -> dict:
+    """The weekly report's headline numbers and a link; never its contents."""
+    start, end = report["period"]["start"][:10], report["period"]["end"][:10]
+    text = f"Scrutineering weekly report, {start} to {end}"
+    lines = [
+        f"*Open critical / high:* {report['open_critical']} / {report['open_high']}",
+        f"*New critical or high this week:* {report['new_critical_high']}"
+        f" · *resolved:* {report['resolved_critical_high']}",
+        f"*Fixes completed:* {report['fixes_completed']} · *failed:* {report['fixes_failed']}",
+        f"*Containers on an older build:* {report['stale_containers']}",
+    ]
+    blocks: list[dict] = [_section(f"*{text}*"), _section("\n".join(lines))]
+    if report["url"]:
+        blocks.append({"type": "actions", "elements": [_button("Open the report", report["url"], "open_report")]})
+    return {"text": text, "blocks": blocks}
 
 
 def _deployment_stale(item: dict, deployment: dict) -> dict:
