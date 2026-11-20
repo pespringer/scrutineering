@@ -23,3 +23,4 @@ A note answers:
 - [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
 - [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (built)
 - [sbom-evidence.md](sbom-evidence.md): signed SBOMs and remediation evidence (built)
+- [multi-user-roles.md](multi-user-roles.md): one role matrix, who did what, separation of duties, and people (proposed)
