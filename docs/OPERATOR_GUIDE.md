@@ -48,6 +48,9 @@ ECR and GCR use the standard AWS and Google credentials.
   every 15 minutes. It is **on by default**. Each run:
   - records which images are running: the **Running** badge and the **Running
     only** filter on the Images page;
+  - on Docker, records each of their containers and the build it runs, and marks a
+    container gone when it's no longer listed. A run that can't reach Docker marks
+    nothing gone;
   - queues a scan only of an image never scanned, or last scanned before
     `SCAN_COOLDOWN_SECONDS`, with no scan already pending or running. New
     containers are scanned within 15 minutes; the schedule keeps them current;

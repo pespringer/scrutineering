@@ -71,7 +71,7 @@ def _settings(**env):
 
 def _collect(images, containers=None, local_only=0, id_only=0):
     async def collect():
-        return containers or [{} for _ in images], Classified(list(images), local_only, id_only)
+        return containers or [{} for _ in images], Classified(list(images), local_only, id_only), None
 
     return collect
 

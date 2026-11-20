@@ -638,6 +638,35 @@ class EvidenceBundle(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
+class Deployment(Base):
+    """One running container of a tracked image, as runtime discovery last saw it.
+
+    A recreated container has a new ID and so a new row; a restart keeps the ID and updates
+    `started_at`. `gone_at` is null while the container is listed. Whether it runs the image's
+    latest scanned build is derived when read (src/scan/deployments.py), never stored.
+    docs/design/deployment-observation.md.
+    """
+
+    __tablename__ = "deployments"
+    __table_args__ = (
+        UniqueConstraint("container_id", name="uq_deployments_container_id"),
+        Index("idx_deployments_image_id", "image_id"),
+        Index("idx_deployments_gone_at", "gone_at"),
+    )
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    container_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    name: Mapped[str] = mapped_column(String(256), nullable=False, default="")
+    image_ref: Mapped[str] = mapped_column(String(1024), nullable=False)
+    image_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("images.id", ondelete="CASCADE"), nullable=False)
+    # `sha256:` digests: the local image ID plus the digests of its RepoDigests.
+    running_digests: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    gone_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
 class SigningKey(Base):
     """A public key this instance has signed exports with. Kept after rotation so old signatures verify."""
 
