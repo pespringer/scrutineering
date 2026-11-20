@@ -88,6 +88,9 @@ export interface ImageDetail {
   /** When runtime discovery last saw it running; `running` means within the last 30 minutes. */
   last_seen_running_at?: string | null;
   running?: boolean;
+  /** On the Images list: running containers, and how many run an older build than the latest scan. */
+  containers?: number;
+  stale_containers?: number;
   open_findings: number;
   resolved_findings?: number;
   critical_count: number;
@@ -222,7 +225,37 @@ export interface EvidenceSummary {
   created_at: string | null;
 }
 
+/** A container runtime discovery saw (docs/design/deployment-observation.md). */
+export interface DeploymentContainer {
+  container_id: string;
+  name: string;
+  image_ref: string;
+  /** Against the image's latest scan; `unknown` when that scan has no digest. */
+  state: "current" | "stale" | "unknown";
+  running_digests: string[];
+  started_at: string | null;
+  last_seen_at: string | null;
+  gone_at: string | null;
+}
+
+export interface ImageDeployments {
+  image_id: number;
+  scan_digest: string | null;
+  containers: DeploymentContainer[];
+  /** Gone within the last 24 hours. */
+  gone: DeploymentContainer[];
+}
+
+/** A completed remediation's rollout; `fixed` is null when no fixed build has a digest. */
+export interface RemediationDeployment {
+  containers: number;
+  fixed: number | null;
+  not_fixed: string[];
+}
+
 export interface RemediationRecord {
+  /** Only on the detail route, for a completed remediation: which containers run a fixed build. */
+  deployment?: RemediationDeployment | null;
   /** Only on the detail route: the latest evidence bundle, once the remediation has ended. */
   evidence?: EvidenceSummary | null;
   id: number;

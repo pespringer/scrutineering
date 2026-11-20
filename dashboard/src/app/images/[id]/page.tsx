@@ -6,6 +6,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
 import SourcePanel from "@/components/images/SourcePanel";
+import DeploymentsPanel from "@/components/images/DeploymentsPanel";
 import SbomLink from "@/components/SbomLink";
 import { proposeFixes } from "@/lib/remediation";
 import SeverityBadge from "@/components/SeverityBadge";
@@ -210,6 +211,7 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
+      <DeploymentsPanel imageId={image.id} />
       <SourcePanel imageId={image.id} source={image.source} canEdit={canRemediate} onSaved={loadData} />
       {canManage && selectedFindings.length > 0 && (
         <div

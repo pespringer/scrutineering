@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from src.api.routes import (
     audit,
+    deployments,
     evidence,
     findings,
     images,
@@ -32,6 +33,7 @@ for module in (
     evidence,
     notifications,
     sboms,
+    deployments,
     webhooks,
 ):
     router.include_router(module.router)
