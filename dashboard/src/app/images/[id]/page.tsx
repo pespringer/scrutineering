@@ -170,6 +170,9 @@ export default function ImageDetailPage() {
         </div>
       </div>
 
+      <DeploymentsPanel imageId={image.id} />
+      <SourcePanel imageId={image.id} source={image.source} canEdit={canRemediate} onSaved={loadData} />
+
       {/* Severity filter */}
       <div className="mb-5 flex flex-wrap items-center gap-2">
         <Filter className="w-4 h-4 text-slate-500" />
@@ -211,8 +214,6 @@ export default function ImageDetailPage() {
       </p>
 
       {/* Findings table */}
-      <DeploymentsPanel imageId={image.id} />
-      <SourcePanel imageId={image.id} source={image.source} canEdit={canRemediate} onSaved={loadData} />
       {canManage && selectedFindings.length > 0 && (
         <div
           className={cx(
