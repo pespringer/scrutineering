@@ -68,7 +68,7 @@ export default function PeoplePage() {
                       </span>
                     ))
                   ) : (
-                    <span className="text-xs text-amber-200">No role: can't see anything</span>
+                    <span className="text-xs text-amber-200">No role: can&apos;t see anything</span>
                   )}
                 </div>
                 <div className="text-xs text-slate-500 sm:text-right">
