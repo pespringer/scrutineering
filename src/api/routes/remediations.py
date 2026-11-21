@@ -36,7 +36,7 @@ from src.api.serializers import (
     remediation_payload,
 )
 from src.api.routes._access import record_operator_event
-from src.api.roles import require_action
+from src.api.roles import require_action, require_separate_approver
 
 router = APIRouter()
 
@@ -179,6 +179,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
             target_severities=dict(severities),
         )
         remediation.status = RemediationStatus.PROPOSED
+        remediation.proposed_by = _actor(request)
         for finding in findings:
             finding.remediation_id = remediation.id
         for action in plan.actions:
@@ -257,7 +258,7 @@ def _load(session, remediation_id: int) -> Remediation:
     return remediation
 
 
-def _require_status(remediation: Remediation, *allowed: RemediationStatus) -> None:
+def _require_status(remediation: Remediation, *allowed: RemediationStatus) -> Remediation:
     if remediation.status not in allowed:
         raise HTTPException(
             status_code=409,
@@ -267,6 +268,7 @@ def _require_status(remediation: Remediation, *allowed: RemediationStatus) -> No
                 "allowed": [status.value for status in allowed],
             },
         )
+    return remediation
 
 
 def _actor(request: Request) -> str:
@@ -290,7 +292,8 @@ def approve_remediation(remediation_id: int, request: Request) -> dict:
     require_action(request, "remediations.approve")
     approver = _actor(request)
     with get_session() as session:
-        _require_status(_load(session, remediation_id), RemediationStatus.PROPOSED)
+        remediation = _require_status(_load(session, remediation_id), RemediationStatus.PROPOSED)
+        require_separate_approver(request, remediation)
         RemediationRepository.update_status(
             session,
             remediation_id,
@@ -311,7 +314,9 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
         raise HTTPException(status_code=503, detail="remediation_execution_disabled")
     with get_session() as session:
         _require_status(_load(session, remediation_id), RemediationStatus.APPROVED)
-        RemediationRepository.update_status(session, remediation_id, RemediationStatus.BUILDING, error_message=None)
+        RemediationRepository.update_status(
+            session, remediation_id, RemediationStatus.BUILDING, error_message=None, executed_by=_actor(request)
+        )
         RemediationRepository.record_event(session, remediation_id, "execution_queued", {"by": _actor(request)})
     # Dispatch after the status commit so the worker always sees `building`.
     task = execute_approved_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
@@ -325,8 +330,11 @@ def accept_remediation(remediation_id: int, request: Request) -> dict:
     """Accept a verified candidate that introduced new critical/high findings (decision D6)."""
     require_action(request, "remediations.accept")
     with get_session() as session:
-        _require_status(_load(session, remediation_id), RemediationStatus.NEEDS_ACCEPTANCE)
-        RemediationRepository.update_status(session, remediation_id, RemediationStatus.READY)
+        remediation = _require_status(_load(session, remediation_id), RemediationStatus.NEEDS_ACCEPTANCE)
+        require_separate_approver(request, remediation)
+        RemediationRepository.update_status(
+            session, remediation_id, RemediationStatus.READY, accepted_by=_actor(request)
+        )
         RemediationRepository.record_event(session, remediation_id, "accepted", {"by": _actor(request)})
         _audit(session, request, remediation_id, "remediation_new_findings_accepted")
         return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))
@@ -344,6 +352,7 @@ def publish_remediation_route(remediation_id: int, request: Request) -> dict:
         source = remediation.image.source
         if github_repository(source.repository if source else None) is None:
             raise HTTPException(status_code=422, detail="source_not_on_github")
+        remediation.published_by = _actor(request)
         RemediationRepository.record_event(session, remediation_id, "publication_queued", {"by": _actor(request)})
     task = publish_remediation.apply_async(args=[remediation_id], queue="remediation.normal")
     with get_session() as session:
@@ -362,6 +371,9 @@ def retry_remediation(remediation_id: int, request: Request) -> dict:
         remediation.error_message = None
         remediation.approved_by = None
         remediation.approved_at = None
+        # A retry is a new proposal by whoever asked for it, so it needs a fresh approval from someone else.
+        remediation.proposed_by = _actor(request)
+        remediation.executed_by = remediation.accepted_by = remediation.published_by = None
         RemediationRepository.record_event(session, remediation_id, "retry_requested", {"by": _actor(request)})
         _audit(session, request, remediation_id, "remediation_retry_requested")
         return remediation_payload(RemediationRepository.get_by_id(session, remediation_id))

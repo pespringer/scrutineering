@@ -453,8 +453,13 @@ class Remediation(Base):
     candidate_image: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     candidate_digest: Mapped[str | None] = mapped_column(String(80), nullable=True)
     verification: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Who took each step, by identity-provider subject; set by the route, never from a request body.
+    proposed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    executed_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    accepted_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    published_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Timing
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
