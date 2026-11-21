@@ -326,3 +326,18 @@ export interface ReportDocument {
 export interface ReportDetail extends ReportSummary {
   document: ReportDocument;
 }
+
+/** A requested compliance export; the zip is downloadable for 24 hours once `ready`. */
+export interface ComplianceExport {
+  id: number;
+  since: string;
+  until: string;
+  status: "pending" | "building" | "ready" | "failed";
+  error: string | null;
+  files: number | null;
+  size: number | null;
+  sha256: string | null;
+  requested_by: string | null;
+  created_at: string;
+  finished_at: string | null;
+}

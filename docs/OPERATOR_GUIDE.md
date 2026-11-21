@@ -255,6 +255,21 @@ numbers and a link. Change the schedule with `REPORT_SCHEDULE_CRON` (five cron f
 in UTC, or `off`). An admin can **Build report now** for this week so far; it never
 replaces the weekly one.
 
+**Compliance export.** Security operators can export a range of UTC days (up to 366)
+from the same page. The worker builds one zip, kept for 24 hours, holding:
+- `evidence/`: the evidence bundles that ended in the range, with their signatures;
+- `sboms/`: the SBOMs those bundles cite;
+- `reports/`: the reports whose period starts in the range;
+- `findings.csv`: findings open now, plus those resolved in the range. A cell that a
+  spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) is prefixed
+  with `'`;
+- `audit.json`: the audit records in the range, with their hash chain;
+- `keys/`: every public key that signed something in it;
+- `manifest.json` and `manifest.json.sig`: every file's SHA-256 and size, signed.
+
+One export runs at a time. If the signing key can't be used, the export fails rather
+than shipping unsigned.
+
 ## 11. Notifications
 
 Scrutineering can post a message when a remediation needs someone or finishes:
@@ -387,6 +402,16 @@ openssl dgst -sha256 -verify scrutineering.pem \
 # With cosign (the signature is in its blob format)
 cosign verify-blob --key scrutineering.pem --signature sbom.cdx.json.sig \
   --insecure-ignore-tlog sbom.cdx.json
+```
+
+To check a whole compliance export, verify its manifest, then every file against it:
+
+```bash
+unzip scrutineering-export-*.zip -d export && cd export
+openssl dgst -sha256 -verify keys/<fingerprint>.pem \
+  -signature <(base64 -d manifest.json.sig) manifest.json      # "Verified OK"
+python3 -c 'import hashlib, json; m = json.load(open("manifest.json")); bad = [f["path"] for f in m["files"]
+  if hashlib.sha256(open(f["path"], "rb").read()).hexdigest() != f["sha256"]]; print(bad or "all files match")'
 ```
 
 The signature says "this instance produced these exact bytes", not that a person

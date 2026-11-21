@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -55,3 +56,20 @@ class ImageSourceRequest(BaseModel):
     build_context: str = Field(default=".", max_length=512)
     build_args: dict[str, str] = Field(default_factory=dict)
     test_command: list[str] | None = None
+
+
+class ComplianceExportRequest(BaseModel):
+    """A date range, as whole UTC days: `since` is included, `until` is the last day included."""
+
+    since: date
+    until: date
+
+    @field_validator("until")
+    @classmethod
+    def range_is_sane(cls, value: date, info) -> date:
+        since = info.data.get("since")
+        if since is not None and value < since:
+            raise ValueError("until must not be before since")
+        if since is not None and (value - since).days + 1 > 366:
+            raise ValueError("the range is at most 366 days")
+        return value

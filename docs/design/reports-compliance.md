@@ -1,6 +1,6 @@
 # Scheduled reports and compliance export
 
-Status: step 1 built (weekly reports) · 2026-11-20 · Phase 6
+Status: built · 2026-11-20 · Phase 6
 
 ## Problem
 
@@ -101,7 +101,13 @@ a job:
 3. The page polls `GET /compliance/exports/{id}`, then downloads
    `GET /compliance/exports/{id}/download`.
 
-A daily sweep deletes exports older than 24 hours. The range is at most 366 days.
+An hourly sweep deletes exports older than 24 hours, and fails a request no worker
+finished within an hour. The range is at most 366 days, and a zip over 512 MB fails.
+If the signing key can't be used, the export fails: an unsigned manifest proves
+nothing. The manifest is deterministic for the same records; the signature isn't,
+because ECDSA signatures are randomized. In `findings.csv`, a cell starting with
+`=`, `+`, `-` or `@` gets a leading `'`, so a spreadsheet doesn't run scanner text as
+a formula.
 
 **Contents:**
 

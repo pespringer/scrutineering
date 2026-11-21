@@ -30,6 +30,7 @@ from sqlalchemy import (
     Index,
     Integer,
     JSON,
+    LargeBinary,
     String,
     Text,
     UniqueConstraint,
@@ -688,6 +689,30 @@ class Report(Base):
     signature: Mapped[str | None] = mapped_column(String(256), nullable=True)
     key_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class ComplianceExport(Base):
+    """One requested compliance export: a zip with a signed manifest (docs/design/reports-compliance.md).
+
+    `status` is the export's own state (`pending`, `building`, `ready`, `failed`). The zip is kept in
+    `data` for 24 hours to download, then the row is deleted; its contents live in the database anyway.
+    """
+
+    __tablename__ = "compliance_exports"
+    __table_args__ = (Index("idx_compliance_exports_status", "status"),)
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    requested_by: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    since: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    until: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    files: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    data: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class SigningKey(Base):

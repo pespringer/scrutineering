@@ -47,6 +47,8 @@ def create_celery_app() -> Celery:
             "src.notifications.deployments.notify_stale_deployments": {"queue": "notify"},
             "src.reports.weekly.build_weekly_report": {"queue": "scan.low"},
             "src.reports.weekly.build_on_demand_report": {"queue": "scan.low"},
+            "src.reports.export.build_compliance_export": {"queue": "scan.low"},
+            "src.reports.export.prune_compliance_exports": {"queue": "scan.low"},
             "src.remediation.evidence.build_due_evidence": {"queue": "notify"},
         },
         beat_schedule={
@@ -68,6 +70,11 @@ def create_celery_app() -> Celery:
             "prune-gone-deployments": {
                 "task": "src.scan.deployments.prune_deployments",
                 "schedule": crontab(minute=45, hour=3),
+                "options": {"queue": "scan.low"},
+            },
+            "prune-compliance-exports": {
+                "task": "src.reports.export.prune_compliance_exports",
+                "schedule": crontab(minute=10),
                 "options": {"queue": "scan.low"},
             },
             "notify-stale-deployments": {

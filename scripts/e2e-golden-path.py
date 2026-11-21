@@ -16,7 +16,8 @@ the stack scans). After the fix completes, discovery must show it stale and the 
 
 Then: a test notification when a channel is configured, and two runtime discovery runs in the
 worker (the stack's own pulled images are found and scanned once; images built here are skipped).
-After the fix, an on-demand report for this week must list it and verify with openssl.
+After the fix, an on-demand report for this week must list it and verify with openssl, and a
+compliance export of today must hold its evidence, with every file matching the signed manifest.
 
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
 E2E_PUSH_HOST (localhost:5000), E2E_SCAN_HOST (registry:5000), E2E_TIMEOUT_SECONDS (900).
@@ -204,6 +205,58 @@ def report_check(remediation_id: int) -> None:
     verify_with_openssl("report", data, f"/api/reports/{report_id}/report.json.sig", report["key_id"])
 
 
+def export_check(remediation_id: int) -> None:
+    """A compliance export of today holds the fix's evidence, and its signed manifest covers every file."""
+    import hashlib
+    import io
+    import zipfile
+    from datetime import datetime, timezone
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    for item in request("GET", "/api/compliance/exports")["items"]:
+        if item["status"] in {"pending", "building"}:
+            fail(f"compliance export {item['id']} is still {item['status']}; wait for it, then run again")
+    export_id = request("POST", "/api/compliance/exports", {"since": today, "until": today})["id"]
+    deadline = time.monotonic() + 120
+    while True:
+        item = next(row for row in request("GET", "/api/compliance/exports")["items"] if row["id"] == export_id)
+        if item["status"] in {"ready", "failed"}:
+            break
+        if time.monotonic() > deadline:
+            fail(f"compliance export {export_id} still {item['status']} after 120s")
+        time.sleep(2)
+    if item["status"] != "ready":
+        fail(f"compliance export {export_id} failed: {item['error']}")
+    archive = zipfile.ZipFile(io.BytesIO(download(f"/api/compliance/exports/{export_id}/download")))
+    manifest = json.loads(archive.read("manifest.json"))
+    for entry in manifest["files"]:
+        if hashlib.sha256(archive.read(entry["path"])).hexdigest() != entry["sha256"]:
+            fail(f"{entry['path']} does not match its SHA-256 in the manifest")
+    paths = {entry["path"] for entry in manifest["files"]}
+    if not any(path.startswith(f"evidence/{remediation_id}-") for path in paths):
+        fail(f"the export does not hold remediation {remediation_id}'s evidence")
+    if shutil.which("openssl") is None:
+        print("    export: manifest signature not checked, openssl is not installed")
+        return
+    import base64
+    import tempfile
+
+    with tempfile.TemporaryDirectory() as folder:
+        work = Path(folder)
+        archive.extractall(work)
+        (work / "manifest.der").write_bytes(base64.b64decode((work / "manifest.json.sig").read_text()))
+        key = work / "keys" / f"{manifest['key_id'].removeprefix('sha256:')}.pem"
+        result = subprocess.run(
+            ["openssl", "dgst", "-sha256", "-verify", str(key), "-signature", "manifest.der", "manifest.json"],
+            cwd=work,
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode != 0:
+        fail(f"openssl rejected the export manifest: {result.stdout.strip()} {result.stderr.strip()}")
+    print(f"    export {export_id}: {len(paths)} files match the manifest; manifest signature verified by openssl")
+
+
 def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     image_id = scan["image_id"]
     if target.get("remediation_id"):
@@ -276,6 +329,9 @@ def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
 
     step("build a report for this week and verify it")
     report_check(remediation_id)
+
+    step("export today's records and verify the zip")
+    export_check(remediation_id)
 
 
 DISCOVERY_RUN = (
@@ -400,7 +456,7 @@ def main() -> None:
         # The container, and the local tag it was started from under the scanned name.
         subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
         subprocess.run(["docker", "image", "rm", f"{SCAN_HOST}/{REPO}"], capture_output=True)
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, report, notify, discover)")
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, report, export, notify, discover)")
 
 
 if __name__ == "__main__":
