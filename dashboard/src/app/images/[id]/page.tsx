@@ -7,6 +7,7 @@ import Layout from "@/components/Layout";
 import FindingsTable from "@/components/FindingsTable";
 import SourcePanel from "@/components/images/SourcePanel";
 import DeploymentsPanel from "@/components/images/DeploymentsPanel";
+import AssignFindings from "@/components/images/AssignFindings";
 import SbomLink from "@/components/SbomLink";
 import { proposeFixes } from "@/lib/remediation";
 import SeverityBadge from "@/components/SeverityBadge";
@@ -235,6 +236,16 @@ export default function ImageDetailPage() {
           >
             <Check className="h-3.5 w-3.5" /> Acknowledge
           </button>
+          <AssignFindings
+            findingIds={selectedFindings}
+            onDone={(message, changed) => {
+              setNotice(message);
+              if (changed) {
+                setSelectedFindings([]);
+                loadData();
+              }
+            }}
+          />
           <button onClick={() => setSelectedFindings([])} className="text-slate-400">
             Clear
           </button>

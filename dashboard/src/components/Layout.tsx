@@ -12,6 +12,7 @@ import {
   Package,
   Radar,
   ShieldCheck,
+  Users,
 } from "lucide-react";
 import { SystemStatusBadge, SystemStatusPanel } from "@/components/SystemStatusPanel";
 import { useSystemStatus } from "@/hooks/useSystemStatus";
@@ -46,6 +47,7 @@ const NAV: NavItem[] = [
     icon: <Bell className="h-4 w-4" />,
     roles: ["security-operator", "admin"],
   },
+  { href: "/people", label: "People", icon: <Users className="h-4 w-4" />, roles: ["admin"] },
 ];
 
 /** Most capable first: the header shows the strongest role the session holds. */

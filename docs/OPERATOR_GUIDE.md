@@ -31,6 +31,7 @@ The table is generated from `src/api/roles.py` (`python -m src.api.roles`).
 | Build and download compliance exports (`compliance.export`) |  |  |  | ✓ | ✓ |
 | See notification channels and send a test (`notifications.manage`) |  |  |  | ✓ | ✓ |
 | Build a report on demand (`reports.build`) |  |  |  |  | ✓ |
+| See everyone who has signed in, with their roles (`people.view`) |  |  |  |  | ✓ |
 <!-- roles:end -->
 
 ## 1. Scan an image
@@ -128,6 +129,9 @@ counts tell "the risk is gone" apart from "nothing was scanned".
 - Filter by severity, and sort by severity, CVE, package, version or first seen.
   Findings with a fixed version are the ones a remediation can fix automatically.
 - Select findings, then **Acknowledge** them to mark them as reviewed.
+- With sign-in, **Assign to…** gives the selected findings to someone who has
+  signed in; the finding then shows who has it. The API refuses anyone it hasn't
+  seen sign in. Without sign-in there is nobody to pick, so the control is hidden.
 - `GET /api/dashboard/findings/export` exports findings (filters: severity,
   acknowledged, image) for other tools.
 
@@ -414,6 +418,13 @@ and `oauth2-proxy`. Whatever you use, the proxy in front must replace any identi
 headers a client sends, and add `x-dashboard-proxy-secret`
 ([dashboard operations](operations/dashboard.md) lists the headers). Audit entries
 then name the signed-in user and record their email.
+
+**People.** The API records everyone the proxy signs in: their user ID, email, the
+roles they had last time, and when they were first and last seen (updated at most
+hourly). Admins see them on the **People** page, for access reviews: who still has
+access, and who signed in but has no role. Scrutineering never grants a role; change
+access in your identity provider. People unseen for a year are removed; the audit
+log keeps their user ID.
 
 ## Verifying exports
 

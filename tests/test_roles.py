@@ -28,7 +28,7 @@ EXPECTED = {
         "remediations.cancel",
         "sources.manage",
     },
-    "security-operator": set(ACTIONS) - {"reports.build"},
+    "security-operator": set(ACTIONS) - {"reports.build", "people.view"},
     "admin": set(ACTIONS),
 }
 
