@@ -292,10 +292,27 @@ def test_remediation_half_fixes_the_dependency_and_verifies_by_rescan(api, stage
 class FakeGitHub:
     """Stand-in for the GitHub REST API; the git side is a real bare repository."""
 
+    name = "github"
+    label = "GitHub"
     pulls: list[dict] = []
 
     def __init__(self, token, transport=None):
         assert token == "golden-path-token"
+        self._token = token
+
+    def token(self):
+        return self._token
+
+    def clone_url(self, path):
+        from src.remediation.sources import clone_url
+
+        return clone_url(f"https://github.com/{path}")
+
+    def open_change(self, path, *, head, base, title, body):
+        from src.remediation.publish import Change
+
+        pull = self.open_pull_request(path, head=head, base=base, title=title, body=body)
+        return Change(number=pull["number"], url=pull["html_url"])
 
     def default_branch(self, repository):
         return "main"

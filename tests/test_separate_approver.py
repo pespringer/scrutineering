@@ -12,6 +12,7 @@ from src.db.models import Remediation, RemediationStatus, Scan, ScanFinding
 from src.db.repositories import RemediationRepository
 from src.scan.records import queue_scan
 from src.scan.utils.db import persist_findings
+from src.remediation import sources
 
 API_KEY = "sod-key"
 SECRET = "sod-proxy-secret"
@@ -102,7 +103,10 @@ def test_admins_are_bound_too(client):
 
 def test_each_step_records_who_took_it(client, monkeypatch):
     monkeypatch.setattr("src.api.routes.remediations.github_token", lambda: "token")
-    monkeypatch.setattr("src.api.routes.remediations.github_repository", lambda repository: ("acme", "app"))
+    monkeypatch.setattr(
+        "src.api.routes.remediations.publication_target",
+        lambda repository: sources.PublicationTarget("github", "acme/app"),
+    )
     rid = _propose(client)
     assert _post(client, rid, "approve", BOB).status_code == 200
     assert _post(client, rid, "execute", ALICE).status_code == 202

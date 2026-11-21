@@ -19,7 +19,7 @@ from pathlib import Path
 
 from src.config import get_settings
 from src.remediation.apply import FROM_LINE, Checkout, final_from
-from src.remediation.sources import SourceError, SourceSettings, clone_url, github_repository
+from src.remediation.sources import SourceError, SourceSettings, clone_url, source_token
 
 BUILD_TIMEOUT_SECONDS = 1800
 CLONE_TIMEOUT_SECONDS = 300
@@ -79,8 +79,8 @@ def checkout(settings: SourceSettings, workdir: Path) -> tuple[Checkout, str]:
     # safe.directory only from protected (global or system) config, so give the clone its own.
     config = workdir / "gitconfig"
     config.write_text(f"[safe]\n\tdirectory = {origin}\n\tdirectory = {origin}/.git\n")
-    # A github.com source may be private: clone it with GITHUB_TOKEN, the token publication uses.
-    token = get_settings().github_token.get_secret_value() if github_repository(settings.repository) else ""
+    # A source on a publication provider may be private: clone it with the token publication uses.
+    token = source_token(settings.repository)
     auth = askpass_env(workdir, token) if token else None
     git(["clone", "--quiet", "--no-hardlinks", "--", origin, str(root)], global_config=config, env=auth)
     if settings.ref != "HEAD":

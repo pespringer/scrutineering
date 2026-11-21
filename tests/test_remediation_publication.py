@@ -42,8 +42,11 @@ def _git(cwd, *args) -> str:
     return subprocess.run(command, cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()
 
 
-class FakeGitHub:
+class FakeGitHub(publish.GitHub):
+    """The real client's interface over a fake REST API; git pushes go to the stand-in repository."""
+
     def __init__(self):
+        super().__init__("fake-token")
         self.pulls = []
 
     def default_branch(self, repository):
@@ -136,7 +139,7 @@ def test_publishing_pushes_the_verified_patch_and_opens_a_pull_request(client, r
     rid = _ready(client, remote)
     github = FakeGitHub()
 
-    result = publish.publish(rid, github=github)
+    result = publish.publish(rid, provider=github)
 
     assert result["status"] == "published"
     branch = f"scrutineering/remediation-{rid}"
@@ -167,14 +170,14 @@ def test_a_retried_publication_pushes_the_same_commit(client, remote):
         def open_pull_request(self, *args, **kwargs):
             raise publish.PublishError("GitHub is unreachable: timed out")
 
-    first = publish.publish(rid, github=Unavailable())
+    first = publish.publish(rid, provider=Unavailable())
     assert first["publication"] == "failed"
     assert _remediation(rid).status == RemediationStatus.READY  # failure leaves it publishable
     assert "unreachable" in _publication(rid).error_message
     branch = f"scrutineering/remediation-{rid}"
     first_head = _git(remote["bare"], "rev-parse", branch)
 
-    assert publish.publish(rid, github=FakeGitHub())["status"] == "published"
+    assert publish.publish(rid, provider=FakeGitHub())["status"] == "published"
     assert _git(remote["bare"], "rev-parse", branch) == first_head
     assert _events(rid)[-2:] == ["publication_failed", "published"]
 
@@ -188,7 +191,7 @@ def test_publishing_never_overwrites_someone_elses_branch(client, remote, tmp_pa
     _git(other, "commit", "-q", "-m", "someone else")
     _git(other, "push", "-q", "origin", f"HEAD:refs/heads/scrutineering/remediation-{rid}")
 
-    result = publish.publish(rid, github=FakeGitHub())
+    result = publish.publish(rid, provider=FakeGitHub())
 
     assert result["publication"] == "failed"
     assert "already exists on GitHub with other commits" in result["reason"]
@@ -210,7 +213,7 @@ def test_the_publish_route_needs_a_token_a_github_source_and_a_ready_remediation
     assert response.status_code == 202 and queued == [{"args": [rid], "queue": "remediation.normal"}]
     assert client.get(f"/api/dashboard/remediations/{rid}").json()["publication_target"] == "acme/app"
 
-    publish.publish(rid, github=FakeGitHub())
+    publish.publish(rid, provider=FakeGitHub())
     assert client.post(f"/api/dashboard/remediations/{rid}/publish").status_code == 409
 
 
@@ -242,7 +245,7 @@ def _closed(merged: bool) -> dict:
 @pytest.fixture
 def published(client, remote, monkeypatch):
     rid = _ready(client, remote)
-    publish.publish(rid, github=FakeGitHub())
+    publish.publish(rid, provider=FakeGitHub())
     rescans = []
     monkeypatch.setattr(webhooks, "queue_rescan", lambda image: rescans.append(image) or "postmerge-1")
     return rid, rescans
@@ -378,3 +381,17 @@ def test_github_sources_are_cloned_with_the_token_and_others_without(tmp_path, m
     monkeypatch.setenv("REMEDIATION_SOURCES_ROOT", str(tmp_path / "sources"))
     build.checkout(SourceSettings.validated(repository="app"), tmp_path / "two")
     assert seen[-1][1] is None
+
+
+def test_an_unexpected_failure_is_recorded_against_the_sources_provider(client, remote, monkeypatch):
+    rid = _ready(client, remote)
+
+    def explode(remediation_id, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(publish, "publish", explode)
+    assert publish.publish_remediation.run(rid)["publication"] == "failed"
+    publication = _publication(rid)
+    assert (publication.provider, publication.status) == ("github", "failed")
+    assert "boom" in publication.error_message
+    assert _remediation(rid).status == RemediationStatus.READY

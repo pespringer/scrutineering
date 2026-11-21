@@ -23,7 +23,7 @@ from src.remediation.planner import Plan, finding_input
 from src.remediation.state_machine import TRANSITIONS
 from src.remediation.planner import plan as plan_fixes
 from src.remediation.publish import publish_remediation, token as github_token
-from src.remediation.sources import github_repository
+from src.remediation.sources import publication_target
 from src.remediation.worker import execute_approved_remediation
 from src.scan.deployments import remediation_deployment
 from src.api.routes.evidence import evidence_summary, latest_bundle
@@ -342,7 +342,7 @@ def accept_remediation(remediation_id: int, request: Request) -> dict:
 
 @router.post("/remediations/{remediation_id}/publish", status_code=202)
 def publish_remediation_route(remediation_id: int, request: Request) -> dict:
-    """Open a GitHub pull request with the verified patch (decision D4). Only ever on an operator's request."""
+    """Open a pull request with the verified patch on the source's provider. Only ever on an operator's request."""
     require_action(request, "remediations.publish")
     if not github_token():
         raise HTTPException(status_code=503, detail="publication_not_configured")
@@ -350,7 +350,7 @@ def publish_remediation_route(remediation_id: int, request: Request) -> dict:
         remediation = _load(session, remediation_id)
         _require_status(remediation, RemediationStatus.READY)
         source = remediation.image.source
-        if github_repository(source.repository if source else None) is None:
+        if publication_target(source.repository if source else None) is None:
             raise HTTPException(status_code=422, detail="source_not_on_github")
         remediation.published_by = _actor(request)
         RemediationRepository.record_event(session, remediation_id, "publication_queued", {"by": _actor(request)})
