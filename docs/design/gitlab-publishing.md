@@ -137,7 +137,7 @@ gitlab.com can't reach.
 | Variable | Default | Services | |
 |---|---|---|---|
 | `GITLAB_URL` | `https://gitlab.com` | api, worker | The one GitLab instance, `https://` only |
-| `GITLAB_PUBLISH_TOKEN` 🔒 | empty | api, worker | Opens merge requests, clones private sources (`api`, `write_repository`) |
+| `GITLAB_PUBLISH_TOKEN` 🔒 | empty | api, worker | Opens merge requests and clones private sources |
 | `GITLAB_WEBHOOK_SECRET` 🔒 | empty | api | The secret set on the project's merge request webhook |
 
 **When it's off:** with `GITLAB_PUBLISH_TOKEN` empty, publishing a GitLab source
