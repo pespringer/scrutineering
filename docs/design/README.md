@@ -21,6 +21,7 @@ A note answers:
 - [notifications.md](notifications.md): Slack and webhook notifications (built)
 - [deployment-observation.md](deployment-observation.md): which containers run which build, and stale ones (built)
 - [forward-auth.md](forward-auth.md): sign-in through a forward-auth proxy (OIDC) (built)
+- [multi-user-roles.md](multi-user-roles.md): one role matrix, who did what, separation of duties, and people (proposed)
 - [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (built)
 - [sbom-evidence.md](sbom-evidence.md): signed SBOMs and remediation evidence (built)
 - [reports-compliance.md](reports-compliance.md): weekly reports and a signed compliance export (built)
