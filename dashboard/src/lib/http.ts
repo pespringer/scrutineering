@@ -9,7 +9,7 @@ export class ApiError extends Error {
   }
 }
 
-/** Pull a message out of an API error body: FastAPI's detail[].msg or detail, or our `error` field. */
+/** Pull a message out of an API error body: FastAPI's detail[].msg, detail or detail.reason, or our `error`. */
 export function errorMessage(payload: unknown, fallback: string): string {
   if (!payload || typeof payload !== "object") return fallback;
   const body = payload as { detail?: unknown; error?: unknown };
@@ -18,6 +18,8 @@ export function errorMessage(payload: unknown, fallback: string): string {
     if (first?.msg) return first.msg.replace(/^Value error, /, "");
   }
   if (typeof body.detail === "string") return body.detail.replaceAll("_", " ");
+  const reason = (body.detail as { reason?: unknown } | null)?.reason;
+  if (typeof reason === "string") return reason;
   if (typeof body.error === "string") return body.error.replaceAll("_", " ");
   return fallback;
 }

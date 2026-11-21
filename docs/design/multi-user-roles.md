@@ -1,6 +1,6 @@
 # Multi-user roles
 
-Status: accepted · 2026-11-21 · Phase 6 · step 1 built
+Status: built · 2026-11-21 · Phase 6
 
 ## Problem
 
@@ -102,14 +102,15 @@ for them.
 
 ### Data
 
-Migration 0016:
+Migration 0016 (step 2) and 0017 (step 3):
 
 - `remediations` gains `proposed_by`, `executed_by`, `accepted_by` and `published_by`,
   each a nullable `String(128)`.
 - `principals`: `id`, `subject` (unique), `email`, `roles` (JSON list),
   `first_seen_at`, `last_seen_at`.
-- `scan_findings.assigned_to` keeps its column. The API checks that a new value is a
-  known principal's subject.
+- `scan_findings.assigned_to` keeps its column. In `trusted-proxy` mode the API checks
+  that a new value is a known principal's subject. In `local` mode nobody signs in,
+  so there are no principals, and any name is still accepted.
 
 Principals not seen for 365 days are deleted by a daily sweep. Their subject stays
 in the audit log, which is history.
@@ -118,13 +119,16 @@ in the audit log, which is history.
 
 | Method | Path | Action | |
 |---|---|---|---|
-| GET | `/permissions` | any | Gains `actions`: the caller's allowed actions, from the matrix |
+| GET | `/permissions` | any | Gains `actions`, `subject` and `separate_approver` |
 | GET | `/people` | `people.view` | Principals: subject, email, roles, first and last seen |
+| GET | `/people/assignees` | `findings.triage` | Subject and email only, for the assignment control |
 | — | `/remediations/{id}` | — | Gains `proposed_by`, `executed_by`, `accepted_by`, `published_by` |
 
 The remediation page shows who did each step. When separation is on and the viewer
-proposed the fix, the Approve and Accept buttons are disabled with "Someone else has
-to approve this". The finding assignment control picks from known people.
+proposed the fix, the Approve and Accept buttons are disabled with "You proposed this
+fix, so someone else has to approve it". The image page's **Assign to…** control picks
+from known people. Operators who assign can't see the People page, so they get the
+assignee list from `/people/assignees`, without roles or sign-in times.
 
 ## Configuration
 

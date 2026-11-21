@@ -13,6 +13,7 @@ import Publications from "@/components/remediations/Publications";
 import EvidencePanel from "@/components/remediations/EvidencePanel";
 import DeploymentPanel from "@/components/remediations/DeploymentPanel";
 import WorkflowStatus from "@/components/remediations/WorkflowStatus";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useRemediation } from "@/hooks/useRemediation";
 import { cx } from "@/lib/cx";
 import { statusTone } from "@/lib/status";
@@ -20,6 +21,7 @@ import { statusTone } from "@/lib/status";
 export default function RemediationDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { remediation, events, loadError, notice, busy, publishing, act } = useRemediation(id);
+  const permissions = usePermissions();
 
   if (loadError && !remediation) {
     return (
@@ -42,6 +44,9 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
   }
 
   const label = remediation.status_label;
+  const proposedByViewer = Boolean(
+    permissions.separate_approver && remediation.proposed_by && remediation.proposed_by === permissions.subject,
+  );
   return (
     <Layout>
       <Link href="/remediations" className="mb-6 inline-flex items-center gap-2 text-sm text-cyan-300">
@@ -75,7 +80,13 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
       <WorkflowStatus remediation={remediation} />
       <div className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <section className="space-y-6">
-          <ExecutionControls remediation={remediation} busy={busy} publishing={publishing} onAction={act} />
+          <ExecutionControls
+            remediation={remediation}
+            busy={busy}
+            publishing={publishing}
+            proposedByViewer={proposedByViewer}
+            onAction={act}
+          />
           <ProposedChanges actions={remediation.actions} />
           <CandidatePanel remediation={remediation} />
           <EventTimeline events={events} />

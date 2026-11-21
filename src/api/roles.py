@@ -31,6 +31,7 @@ ACTIONS: dict[str, tuple[str, frozenset[str]]] = {
     "compliance.export": ("Build and download compliance exports", frozenset({"security-operator"})),
     "notifications.manage": ("See notification channels and send a test", frozenset({"security-operator"})),
     "reports.build": ("Build a report on demand", frozenset()),
+    "people.view": ("See everyone who has signed in, with their roles", frozenset()),
 }
 
 
@@ -48,6 +49,29 @@ def actions_for(roles) -> list[str]:
 def require_action(request: Request, action: str) -> None:
     if not allowed(getattr(request.state, "principal_roles", []), action):
         raise HTTPException(status_code=403, detail="operator_role_required")
+
+
+def is_proposer(request: Request, remediation) -> bool:
+    """Whether separation of duties bars this caller from approving or accepting the remediation.
+
+    Binds admins too. Remediations from before the actor columns have no proposer, so nobody is barred.
+    """
+    from src.config import get_settings
+
+    if not get_settings().separate_approver_enabled or not remediation.proposed_by:
+        return False
+    return remediation.proposed_by == getattr(request.state, "principal_id", None)
+
+
+def require_separate_approver(request: Request, remediation) -> None:
+    if is_proposer(request, remediation):
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "separate_approver_required",
+                "reason": "You proposed this fix, so someone else has to approve it or accept its new findings.",
+            },
+        )
 
 
 def markdown_table() -> str:

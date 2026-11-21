@@ -169,7 +169,12 @@ export default function FindingsTable({
                       <SeverityBadge severity={f.severity} />
                     )}
                   </td>
-                  <td className="px-3 py-4 font-medium text-slate-300">{f.package_name}</td>
+                  <td className="px-3 py-4 font-medium text-slate-300">
+                    {f.package_name}
+                    {f.assigned_to && (
+                      <div className="mt-0.5 text-xs font-normal text-slate-500">Assigned to {f.assigned_to}</div>
+                    )}
+                  </td>
                   <td className="px-3 py-4 font-mono text-slate-400">{f.package_version || "-"}</td>
                   <td className="whitespace-nowrap px-3 py-4 font-mono text-xs text-slate-500">
                     {formatDate(f.first_seen)}

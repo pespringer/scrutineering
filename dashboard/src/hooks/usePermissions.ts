@@ -5,6 +5,9 @@ import { getJson } from "@/lib/http";
 
 export type Permissions = {
   roles?: string[];
+  subject?: string;
+  /** Whether separation of duties is on: the proposer of a fix can't approve it or accept its findings. */
+  separate_approver?: boolean;
   /** Actions from the server's role matrix (src/api/roles.py) that this session may take. */
   actions?: string[];
   can_manage_scans?: boolean;

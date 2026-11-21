@@ -5,6 +5,9 @@ from fastapi.responses import PlainTextResponse
 from uuid import uuid4
 import re
 
+from fastapi.concurrency import run_in_threadpool
+
+from src.api import principals
 from src.api.routes import router as dashboard_router
 from src.config import get_settings
 from src.db.connection import get_session
@@ -117,6 +120,12 @@ def create_app() -> FastAPI:
             if proxy_authenticated:
                 groups = groups_from_header(request.headers.get("x-authenticated-roles", ""))
                 request.state.principal_roles = roles_for_groups(groups, settings.group_role_map)
+                await run_in_threadpool(
+                    principals.seen,
+                    request.state.principal_id,
+                    request.state.principal_email,
+                    request.state.principal_roles,
+                )
                 if trusted_proxy and not request.state.principal_roles:
                     return JSONResponse({"error": "no_role"}, status_code=403)
             else:
