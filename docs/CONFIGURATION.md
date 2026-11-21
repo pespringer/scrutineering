@@ -104,6 +104,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 
 | Variable | Default | Meaning | Read by |
 |---|---|---|---|
+| `REMEDIATION_SEPARATE_APPROVER` | `auto` | Separation of duties: `on` stops the person who proposed a fix from approving it or accepting its new critical or high findings. `auto` is on with `DASHBOARD_AUTH_MODE=trusted-proxy` and off with `local`, where everyone shares the API key's identity. `on` with `local` is refused. | api |
 | `REMEDIATION_EXECUTION_ENABLED` | `false` | Allow approved remediations to patch the source, build a candidate and scan it. | api |
 | `REMEDIATION_SOURCES_ROOT` | `/workspace/sources` | Where the worker finds local source repositories. | worker |
 | `BUILDKIT_HOST` | `tcp://buildkitd:1234` | The rootless BuildKit service candidates are built on. | worker |

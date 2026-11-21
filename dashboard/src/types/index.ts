@@ -263,7 +263,12 @@ export interface RemediationRecord {
   status: RemediationStatus;
   status_label: string;
   error_message?: string | null;
+  /** Who took each step, by identity-provider subject. */
+  proposed_by?: string | null;
   approved_by?: string | null;
+  executed_by?: string | null;
+  accepted_by?: string | null;
+  published_by?: string | null;
   source_commit?: string | null;
   patch?: string | null;
   candidate_image?: string | null;

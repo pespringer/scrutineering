@@ -76,7 +76,7 @@ show what they found at the time.
 | Method | Path | Role | Purpose |
 |---|---|---|---|
 | GET | `/session` | any | The caller's identity and roles |
-| GET | `/permissions` | any | `roles`, `actions` (the caller's allowed actions) and the `can_*` flags derived from them |
+| GET | `/permissions` | any | `roles`, `subject`, `actions` (the caller's allowed actions), the `can_*` flags derived from them, and `separate_approver` |
 | GET | `/audit?limit&offset&actor&event_type&since&until` | any | Paginated audit trail |
 | GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
 
@@ -94,15 +94,15 @@ show what they found at the time.
 | POST | `/remediations/preview` | remediator | How the selected findings would be fixed; changes nothing |
 | POST | `/remediations` | remediator | Propose a remediation (status `proposed`); the image needs a connected source |
 | GET | `/remediations?status&limit&offset` | remediator | Paginated remediation queue |
-| GET | `/remediations/{id}` | remediator | Remediation detail with actions, publications, `evidence` (the bundle's summary) and, once completed, `deployment` (`{containers, fixed, not_fixed}`) |
+| GET | `/remediations/{id}` | remediator | Remediation detail with actions, publications, who took each step (`proposed_by`, `approved_by`, `executed_by`, `accepted_by`, `published_by`), `evidence` (the bundle's summary) and, once completed, `deployment` (`{containers, fixed, not_fixed}`) |
 | GET | `/remediations/{id}/events` | remediator | Ordered history of the remediation |
 | GET | `/remediations/{id}/evidence` | remediator | The latest signed evidence bundle (canonical JSON), with `X-Scrutineering-Signature`; 404 until it ends |
 | GET | `/remediations/{id}/evidence.sig` | remediator | The bundle's base64 signature; 404 when unsigned |
-| POST | `/remediations/{id}/approve` | security-operator | `proposed` → `approved` |
+| POST | `/remediations/{id}/approve` | security-operator | `proposed` → `approved`; `403 separate_approver_required` when the caller proposed it and separation of duties is on |
 | POST | `/remediations/{id}/execute` | remediator | `approved` → `building`; requires `REMEDIATION_EXECUTION_ENABLED=true` |
-| POST | `/remediations/{id}/accept` | security-operator | `needs_acceptance` → `ready`: accept new critical/high findings |
+| POST | `/remediations/{id}/accept` | security-operator | `needs_acceptance` → `ready`: accept new critical/high findings; refused to the proposer like approve |
 | POST | `/remediations/{id}/publish` | security-operator | Queue a GitHub pull request for a `ready` remediation (→ `published`); 503 without `GITHUB_TOKEN`, 422 if the source is not on github.com |
-| POST | `/remediations/{id}/retry` | security-operator | `failed` → `proposed` (approval is required again) |
+| POST | `/remediations/{id}/retry` | security-operator | `failed` → `proposed` (approval is required again); the caller becomes the proposer |
 | POST | `/remediations/{id}/cancel` | remediator | Any open status → `cancelled`; releases the findings |
 | GET/PUT/DELETE | `/images/{id}/source` | remediator to change | The repository, ref, Dockerfile and build context the image is built from |
 

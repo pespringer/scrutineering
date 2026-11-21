@@ -1,6 +1,6 @@
 # Multi-user roles
 
-Status: accepted · 2026-11-21 · Phase 6 · step 1 built
+Status: accepted · 2026-11-21 · Phase 6 · steps 1 and 2 built
 
 ## Problem
 
@@ -102,7 +102,7 @@ for them.
 
 ### Data
 
-Migration 0016:
+Migration 0016 (step 2) and 0017 (step 3):
 
 - `remediations` gains `proposed_by`, `executed_by`, `accepted_by` and `published_by`,
   each a nullable `String(128)`.

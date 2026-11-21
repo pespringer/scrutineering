@@ -29,6 +29,14 @@ const TONE: Partial<Record<RemediationStatus, string>> = {
   cancelled: "border-slate-700 bg-slate-900/40",
 };
 
+const STEPS: [keyof RemediationRecord, string][] = [
+  ["proposed_by", "Proposed by"],
+  ["approved_by", "approved by"],
+  ["executed_by", "built by"],
+  ["accepted_by", "new findings accepted by"],
+  ["published_by", "published by"],
+];
+
 /** "What happens next": the current status in plain words, plus the failure reason when there is one. */
 export default function WorkflowStatus({ remediation }: { remediation: RemediationRecord }) {
   return (
@@ -42,6 +50,14 @@ export default function WorkflowStatus({ remediation }: { remediation: Remediati
           Reason: {remediation.error_message}
         </p>
       )}
+      <WhoDidWhat remediation={remediation} />
     </section>
   );
+}
+
+function WhoDidWhat({ remediation }: { remediation: RemediationRecord }) {
+  const steps = STEPS.filter(([key]) => remediation[key]).map(([key, label]) => `${label} ${remediation[key]}`);
+  if (steps.length === 0) return null;
+  const text = steps.join(" · ");
+  return <p className="mt-3 text-xs text-slate-400">{text.charAt(0).toUpperCase() + text.slice(1)}</p>;
 }

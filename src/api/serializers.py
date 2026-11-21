@@ -169,8 +169,12 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
         if remediation_findings and resolved_findings == len(remediation_findings)
         else "open",
         "target_severities": remediation.target_severities,
+        "proposed_by": getattr(remediation, "proposed_by", None),
         "approved_by": remediation.approved_by,
         "approved_at": iso(remediation.approved_at),
+        "executed_by": getattr(remediation, "executed_by", None),
+        "accepted_by": getattr(remediation, "accepted_by", None),
+        "published_by": getattr(remediation, "published_by", None),
         "actions": actions
         if actions is not None
         else [
