@@ -9,7 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import select
 
-from src.api.routes._access import require_role
+from src.api.roles import require_action
 from src.api.serializers import iso
 from src.config import get_settings
 from src.db.connection import get_session
@@ -39,7 +39,7 @@ def _delivery(row: Notification) -> dict:
 
 @router.get("/notifications")
 def notifications(request: Request) -> dict:
-    require_role(request, "security-operator")
+    require_action(request, "notifications.manage")
     settings = get_settings()
     configured = set(outbox.channels(settings))
     with get_session() as session:
@@ -56,7 +56,7 @@ def notifications(request: Request) -> dict:
 @router.post("/notifications/test", status_code=202)
 def send_test(request: Request) -> dict:
     """Queue a sample message to every configured channel, through the normal outbox and delivery."""
-    require_role(request, "security-operator")
+    require_action(request, "notifications.manage")
     settings = get_settings()
     if not outbox.channels(settings):
         raise HTTPException(status_code=409, detail="no_notification_channel_configured")

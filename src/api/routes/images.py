@@ -30,7 +30,8 @@ from src.api.serializers import (
     iso,
     paginate,
 )
-from src.api.routes._access import record_operator_event, require_role, severity_filter
+from src.api.routes._access import record_operator_event, severity_filter
+from src.api.roles import require_action
 
 router = APIRouter()
 
@@ -151,7 +152,7 @@ def image_inventory(
 @router.get("/registry/inventory")
 def registry_inventory(request: Request) -> dict:
     """Return the local registry catalog joined with scan and finding state."""
-    require_role(request, "dashboard", "operator", "security-operator")
+    require_action(request, "registry.view")
     try:
         catalog = _registry_json("/v2/_catalog?n=1000")
         repositories = [str(value) for value in catalog.get("repositories", [])]
@@ -251,7 +252,7 @@ def registry_inventory(request: Request) -> dict:
 
 @router.post("/images/bulk-archive")
 def bulk_archive_images(payload: BulkIdsRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "images.archive")
     image_ids = [int(value) for value in payload.ids]
     archived: list[int] = []
     with get_session() as session:

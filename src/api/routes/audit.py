@@ -17,7 +17,7 @@ from src.api.serializers import (
     iso,
     paginate,
 )
-from src.api.routes._access import require_role
+from src.api.roles import require_action
 
 router = APIRouter()
 
@@ -68,7 +68,7 @@ def dashboard_audit_export(
     since: datetime | None = Query(default=None),
     until: datetime | None = Query(default=None),
 ) -> dict:
-    require_role(request, "security-operator", "admin")
+    require_action(request, "audit.export")
     with get_session() as session:
         query = session.query(AuditLog)
         if actor:

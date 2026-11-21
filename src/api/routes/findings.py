@@ -16,14 +16,15 @@ from src.api.schemas import BulkFindingAssignmentRequest, BulkIdsRequest
 from src.api.serializers import (
     finding_payload,
 )
-from src.api.routes._access import record_operator_event, require_role, severity_filter
+from src.api.routes._access import record_operator_event, severity_filter
+from src.api.roles import require_action
 
 router = APIRouter()
 
 
 @router.post("/findings/bulk-acknowledge")
 def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "findings.triage")
     finding_ids = [int(value) for value in payload.ids]
     changed: list[int] = []
     with get_session() as session:
@@ -46,7 +47,7 @@ def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict
 
 @router.post("/findings/bulk-assign")
 def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "findings.triage")
     changed: list[int] = []
     with get_session() as session:
         for finding in (
@@ -76,7 +77,7 @@ def export_findings(
     image_id: int | None = Query(default=None),
     acknowledged: bool | None = Query(default=None),
 ) -> dict:
-    require_role(request, "dashboard", "operator", "security-operator")
+    require_action(request, "findings.export")
     severity_value = severity_filter(severity)
     with get_session() as session:
         query = session.query(ScanFinding).filter(ScanFinding.resolved_at.is_(None))

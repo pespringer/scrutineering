@@ -6,15 +6,32 @@ together, see [ARCHITECTURE.md](ARCHITECTURE.md); for every setting, see
 [CONFIGURATION.md](CONFIGURATION.md).
 
 What you can do depends on your roles (local API-key sessions get
-`DASHBOARD_DEFAULT_ROLES`):
+`DASHBOARD_DEFAULT_ROLES`). Any role can read scans, images, findings, posture and
+reports. Beyond that, each role may do the following, and `admin` may do everything.
+The table is generated from `src/api/roles.py` (`python -m src.api.roles`).
 
-- `dashboard`: read scans, images and findings.
-- `operator`: also start, cancel and retry scans, and acknowledge findings.
-- `remediator`: see remediations, connect sources, and propose, execute and cancel
-  remediations.
-- `security-operator`: all of the above, plus approve, accept new findings, restart
-  a failed remediation, publish, and export the audit trail.
-- `admin`: everything.
+<!-- roles:start -->
+| Action | `dashboard` | `operator` | `remediator` | `security-operator` | `admin` |
+|---|---|---|---|---|---|
+| Browse the registry catalog (`registry.view`) | ✓ | ✓ |  | ✓ | ✓ |
+| Export open findings (`findings.export`) | ✓ | ✓ |  | ✓ | ✓ |
+| Start, cancel, retry and archive scans (`scans.manage`) |  | ✓ |  | ✓ | ✓ |
+| Archive images (`images.archive`) |  | ✓ |  | ✓ | ✓ |
+| Acknowledge and assign findings (`findings.triage`) |  | ✓ |  | ✓ | ✓ |
+| See remediations, their events and evidence (`remediations.view`) |  |  | ✓ | ✓ | ✓ |
+| Preview and propose a fix (`remediations.propose`) |  |  | ✓ | ✓ | ✓ |
+| Build and rescan an approved fix (`remediations.execute`) |  |  | ✓ | ✓ | ✓ |
+| Cancel a remediation (`remediations.cancel`) |  |  | ✓ | ✓ | ✓ |
+| Connect and disconnect an image's source (`sources.manage`) |  |  | ✓ | ✓ | ✓ |
+| Approve a proposed fix (`remediations.approve`) |  |  |  | ✓ | ✓ |
+| Accept a fix's new critical or high findings (`remediations.accept`) |  |  |  | ✓ | ✓ |
+| Open the fix's pull request (`remediations.publish`) |  |  |  | ✓ | ✓ |
+| Restart a failed remediation (`remediations.retry`) |  |  |  | ✓ | ✓ |
+| Export the audit trail (`audit.export`) |  |  |  | ✓ | ✓ |
+| Build and download compliance exports (`compliance.export`) |  |  |  | ✓ | ✓ |
+| See notification channels and send a test (`notifications.manage`) |  |  |  | ✓ | ✓ |
+| Build a report on demand (`reports.build`) |  |  |  |  | ✓ |
+<!-- roles:end -->
 
 ## 1. Scan an image
 

@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 
-from src.api.routes._access import require_role
+from src.api.roles import require_action
 from src.api.routes.images import _local_registry_public_url
 from src.api.schemas import RemediationRequest, ScanRequest
 from src.api.serializers import (
@@ -145,9 +145,9 @@ def test_registry_dashboard_uses_public_host_for_browser_links(monkeypatch):
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():
     readonly = SimpleNamespace(state=SimpleNamespace(principal_roles=["dashboard"]))
     operator = SimpleNamespace(state=SimpleNamespace(principal_roles=["operator"]))
-    require_role(operator, "operator", "security-operator")
+    require_action(operator, "scans.manage")
     with pytest.raises(HTTPException) as error:
-        require_role(readonly, "operator", "security-operator")
+        require_action(readonly, "scans.manage")
     assert error.value.status_code == 403
 
 

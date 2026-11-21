@@ -9,8 +9,10 @@ the proxy secret never reach the browser.
 **Roles.** Local API-key sessions get the roles in `DASHBOARD_DEFAULT_ROLES`. A
 trusted ingress may forward `x-authenticated-sub`, `x-authenticated-email` and
 `x-authenticated-roles`, which are accepted only alongside the matching
-`x-dashboard-proxy-secret` (`DASHBOARD_TRUSTED_PROXY_SECRET`). `admin` satisfies
-every role check.
+`x-dashboard-proxy-secret` (`DASHBOARD_TRUSTED_PROXY_SECRET`). Each route that
+needs a role checks one action from `src/api/roles.py`; the Role column below names
+the least role that holds it, and `admin` holds every action. A missing action is
+`403 operator_role_required`.
 
 **Pagination.** Paginated responses use `{ items, limit, offset, count, total }`.
 
@@ -74,7 +76,7 @@ show what they found at the time.
 | Method | Path | Role | Purpose |
 |---|---|---|---|
 | GET | `/session` | any | The caller's identity and roles |
-| GET | `/permissions` | any | Dashboard capabilities derived from roles |
+| GET | `/permissions` | any | `roles`, `actions` (the caller's allowed actions) and the `can_*` flags derived from them |
 | GET | `/audit?limit&offset&actor&event_type&since&until` | any | Paginated audit trail |
 | GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
 
