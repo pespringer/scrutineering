@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.db.connection import get_session
 from src.db.models import (
@@ -17,7 +17,9 @@ from src.api.serializers import (
     finding_payload,
 )
 from src.api.routes._access import record_operator_event, severity_filter
+from src.api.principals import is_known
 from src.api.roles import require_action
+from src.config import get_settings
 
 router = APIRouter()
 
@@ -48,6 +50,9 @@ def bulk_acknowledge_findings(payload: BulkIdsRequest, request: Request) -> dict
 @router.post("/findings/bulk-assign")
 def bulk_assign_findings(payload: BulkFindingAssignmentRequest, request: Request) -> dict:
     require_action(request, "findings.triage")
+    # With sign-in, findings go to people who have signed in; in local mode there are none, so any name goes.
+    if payload.assignee and get_settings().dashboard_auth_mode == "trusted-proxy" and not is_known(payload.assignee):
+        raise HTTPException(status_code=422, detail="unknown_assignee")
     changed: list[int] = []
     with get_session() as session:
         for finding in (

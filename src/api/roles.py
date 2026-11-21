@@ -31,6 +31,7 @@ ACTIONS: dict[str, tuple[str, frozenset[str]]] = {
     "compliance.export": ("Build and download compliance exports", frozenset({"security-operator"})),
     "notifications.manage": ("See notification channels and send a test", frozenset({"security-operator"})),
     "reports.build": ("Build a report on demand", frozenset()),
+    "people.view": ("See everyone who has signed in, with their roles", frozenset()),
 }
 
 

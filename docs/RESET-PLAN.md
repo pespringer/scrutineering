@@ -699,9 +699,9 @@ before the code, and has to keep the golden-path test green:
 - Kubernetes manifests: written after Phase 5; still to be applied to a cluster
 - signed SBOM and evidence: done, see [design/sbom-evidence.md](design/sbom-evidence.md)
 - deployment observation: done, see [design/deployment-observation.md](design/deployment-observation.md)
-- scheduled reports and compliance export
+- scheduled reports and compliance export: done, see [design/reports-compliance.md](design/reports-compliance.md)
 - GitLab publishing
-- multi-user roles
+- multi-user roles: done, see [design/multi-user-roles.md](design/multi-user-roles.md)
 
 ---
 

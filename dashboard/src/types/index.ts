@@ -253,6 +253,15 @@ export interface RemediationDeployment {
   not_fixed: string[];
 }
 
+/** Someone recorded at sign-in (GET /people). */
+export interface Person {
+  subject: string;
+  email: string | null;
+  roles: string[];
+  first_seen_at: string | null;
+  last_seen_at: string | null;
+}
+
 export interface RemediationRecord {
   /** Only on the detail route, for a completed remediation: which containers run a fixed build. */
   deployment?: RemediationDeployment | null;

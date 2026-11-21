@@ -794,3 +794,20 @@ class AuditLog(Base):
     actor: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 'agent', 'scheduler', 'user', 'system'
     actor_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class Principal(Base):
+    """A person who signed in through the forward-auth proxy, for access reviews (docs/design/multi-user-roles.md).
+
+    The identity provider owns accounts and groups; this records what it last said. `roles` are the roles
+    at the last recorded sign-in. Updated at most hourly per person, and deleted after a year unseen.
+    """
+
+    __tablename__ = "principals"
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    subject: Mapped[str] = mapped_column(String(128), nullable=False, unique=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    roles: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, index=True)

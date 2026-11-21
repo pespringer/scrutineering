@@ -68,7 +68,7 @@ show what they found at the time.
 | GET | `/registry/inventory` | dashboard, operator | Local registry tags joined with scan state |
 | POST | `/images/bulk-archive` | operator | Mark images inactive |
 | POST | `/findings/bulk-acknowledge` | operator | Acknowledge open findings |
-| POST | `/findings/bulk-assign` | operator | Assign open findings: `{ "finding_ids": [...], "assignee": "alice" }` |
+| POST | `/findings/bulk-assign` | operator | Assign open findings: `{ "finding_ids": [...], "assignee": "alice" }` (`null` unassigns). In `trusted-proxy` mode the assignee must be a recorded person's subject, else `422 unknown_assignee` |
 | GET | `/findings/export` | dashboard, operator | Bounded JSON export of findings with a SHA-256 |
 
 ## Session and audit
@@ -78,6 +78,8 @@ show what they found at the time.
 | GET | `/session` | any | The caller's identity and roles |
 | GET | `/permissions` | any | `roles`, `subject`, `actions` (the caller's allowed actions), the `can_*` flags derived from them, and `separate_approver` |
 | GET | `/audit?limit&offset&actor&event_type&since&until` | any | Paginated audit trail |
+| GET | `/people` | admin | Everyone recorded at sign-in: `subject`, `email`, `roles` (at last sign-in), `first_seen_at`, `last_seen_at` |
+| GET | `/people/assignees` | operator | Who findings can be assigned to: `subject` and `email` only |
 | GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
 
 ## Notifications
