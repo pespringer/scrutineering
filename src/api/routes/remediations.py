@@ -35,7 +35,8 @@ from src.api.serializers import (
     paginate,
     remediation_payload,
 )
-from src.api.routes._access import record_operator_event, require_role
+from src.api.routes._access import record_operator_event
+from src.api.roles import require_action
 
 router = APIRouter()
 
@@ -71,7 +72,7 @@ def _plan_payload(image: Image, findings: list[ScanFinding]) -> dict:
 @router.post("/remediations/preview")
 def remediation_preview(payload: RemediationRequest, request: Request) -> dict:
     """How the selected findings would be fixed. Changes nothing."""
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.propose")
     with get_session() as session:
         image = session.get(Image, payload.image_id)
         if image is None:
@@ -98,7 +99,7 @@ def list_remediations(
     offset: int = Query(default=0, ge=0),
     status: str | None = Query(default=None, max_length=32),
 ) -> dict:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.view")
     with get_session() as session:
         query = session.query(Remediation)
         if status:
@@ -114,7 +115,7 @@ def list_remediations(
 
 @router.post("/remediations", status_code=201)
 def create_remediation(payload: RemediationRequest, request: Request) -> dict:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.propose")
     requested_ids = set(payload.finding_ids)
     if len(requested_ids) != len(payload.finding_ids):
         raise HTTPException(status_code=400, detail="finding_ids_must_be_unique")
@@ -206,7 +207,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
 
 @router.get("/remediations/{remediation_id}")
 def remediation_detail(remediation_id: int, request: Request) -> dict:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.view")
     with get_session() as session:
         remediation = RemediationRepository.get_by_id(session, remediation_id)
         if remediation is None:
@@ -220,7 +221,7 @@ def remediation_detail(remediation_id: int, request: Request) -> dict:
 
 @router.get("/remediations/{remediation_id}/events")
 def remediation_events(remediation_id: int, request: Request) -> dict:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.view")
     with get_session() as session:
         if session.get(Remediation, remediation_id) is None:
             raise HTTPException(status_code=404, detail="remediation_not_found")
@@ -286,7 +287,7 @@ def _audit(session, request: Request, remediation_id: int, action: str, **detail
 @router.post("/remediations/{remediation_id}/approve")
 def approve_remediation(remediation_id: int, request: Request) -> dict:
     """Approve a proposed remediation for execution. Requires the security-operator role."""
-    require_role(request, "security-operator")
+    require_action(request, "remediations.approve")
     approver = _actor(request)
     with get_session() as session:
         _require_status(_load(session, remediation_id), RemediationStatus.PROPOSED)
@@ -305,7 +306,7 @@ def approve_remediation(remediation_id: int, request: Request) -> dict:
 @router.post("/remediations/{remediation_id}/execute", status_code=202)
 def execute_remediation(remediation_id: int, request: Request) -> dict:
     """Start building and verifying the patched image. The status moves to `building` before the task is queued."""
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.execute")
     if not get_settings().remediation_execution_enabled:
         raise HTTPException(status_code=503, detail="remediation_execution_disabled")
     with get_session() as session:
@@ -322,7 +323,7 @@ def execute_remediation(remediation_id: int, request: Request) -> dict:
 @router.post("/remediations/{remediation_id}/accept")
 def accept_remediation(remediation_id: int, request: Request) -> dict:
     """Accept a verified candidate that introduced new critical/high findings (decision D6)."""
-    require_role(request, "security-operator")
+    require_action(request, "remediations.accept")
     with get_session() as session:
         _require_status(_load(session, remediation_id), RemediationStatus.NEEDS_ACCEPTANCE)
         RemediationRepository.update_status(session, remediation_id, RemediationStatus.READY)
@@ -334,7 +335,7 @@ def accept_remediation(remediation_id: int, request: Request) -> dict:
 @router.post("/remediations/{remediation_id}/publish", status_code=202)
 def publish_remediation_route(remediation_id: int, request: Request) -> dict:
     """Open a GitHub pull request with the verified patch (decision D4). Only ever on an operator's request."""
-    require_role(request, "security-operator")
+    require_action(request, "remediations.publish")
     if not github_token():
         raise HTTPException(status_code=503, detail="publication_not_configured")
     with get_session() as session:
@@ -353,7 +354,7 @@ def publish_remediation_route(remediation_id: int, request: Request) -> dict:
 @router.post("/remediations/{remediation_id}/retry")
 def retry_remediation(remediation_id: int, request: Request) -> dict:
     """Return a failed remediation to approval so an operator can deliberately restart it."""
-    require_role(request, "security-operator")
+    require_action(request, "remediations.retry")
     with get_session() as session:
         _require_status(_load(session, remediation_id), RemediationStatus.FAILED)
         RemediationRepository.update_status(session, remediation_id, RemediationStatus.PROPOSED)
@@ -369,7 +370,7 @@ def retry_remediation(remediation_id: int, request: Request) -> dict:
 @router.post("/remediations/{remediation_id}/cancel")
 def cancel_remediation(remediation_id: int, request: Request) -> dict:
     """Stop a remediation and release its findings so they can be proposed again."""
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.cancel")
     with get_session() as session:
         remediation = _load(session, remediation_id)
         _require_status(

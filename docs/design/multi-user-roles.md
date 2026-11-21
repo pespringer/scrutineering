@@ -1,6 +1,6 @@
 # Multi-user roles
 
-Status: proposed · 2026-11-20 · Phase 6
+Status: accepted · 2026-11-21 · Phase 6 · step 1 built
 
 ## Problem
 
@@ -18,7 +18,7 @@ three things go wrong:
 - **Nobody can review access.** Who has signed in, with which roles, is only known to
   the identity provider. Findings are assigned to free text, which may not be a
   person who can act on them. And what each role may do is spread over about 30
-  `require_role` calls.
+  role checks.
 
 ## Scope
 
@@ -54,27 +54,31 @@ three things go wrong:
 
 ```python
 ACTIONS = {
+    "registry.view":          {"dashboard", "operator", "security-operator"},
+    "findings.export":        {"dashboard", "operator", "security-operator"},
     "scans.manage":           {"operator", "security-operator"},
+    "images.archive":         {"operator", "security-operator"},
     "findings.triage":        {"operator", "security-operator"},
     "remediations.view":      {"remediator", "security-operator"},
     "remediations.propose":   {"remediator", "security-operator"},
     "remediations.execute":   {"remediator", "security-operator"},
+    "remediations.cancel":    {"remediator", "security-operator"},
+    "sources.manage":         {"remediator", "security-operator"},
     "remediations.approve":   {"security-operator"},
     "remediations.accept":    {"security-operator"},
     "remediations.publish":   {"security-operator"},
     "remediations.retry":     {"security-operator"},
-    "remediations.cancel":    {"remediator", "security-operator"},
-    "sources.manage":         {"remediator", "security-operator"},
     "audit.export":           {"security-operator"},
     "compliance.export":      {"security-operator"},
     "notifications.manage":   {"security-operator"},
     "reports.build":          set(),          # admin only
-    "people.view":            set(),          # admin only
+    "people.view":            set(),          # admin only; added with the People page (step 3)
 }
 ```
 
-`admin` passes every action. `require_action(request, "remediations.approve")` replaces
-`require_role(...)`. A test fails if a route under `/api/dashboard` that changes state
+Each action also carries a label, which the generated table in the operator guide uses.
+
+`admin` passes every action. Routes call `require_action(request, "remediations.approve")`. A test fails if a route under `/api/dashboard` that changes state
 checks no action. The matrix above is today's behaviour, unchanged. Moving it into one
 place is the first step; changing it is a separate decision (open question 2).
 
@@ -165,19 +169,13 @@ to approve this". The finding assignment control picks from known people.
 3. **People:** the `principals` table and sweep, `/people`, the People page, and
    assignment from known people.
 
-## Open questions
+## Decisions
 
-1. **Default for separation of duties.** `auto` (on with sign-in, off with the API
-   key), or off until an operator turns it on?
-   *Recommendation:* `auto`. Several people signing in is when it matters, and a
-   single-user forward-auth setup can set `off`.
-2. **Should `security-operator` keep the remediator actions?** Today a security
-   operator can also propose and execute. Removing that makes the split structural,
-   but a small team would need two groups per person.
-   *Recommendation:* keep them, and rely on separation of duties. It stops
-   self-approval without making small teams juggle groups.
-3. **Recording principals.** Keep a `principals` table, or derive People from the audit
-   log?
-   *Recommendation:* the table. The audit log records actions, not sign-ins, so someone
-   who only reads would never appear. The table is also the only way to show their
-   current roles. It holds one row per person and is pruned after a year.
+Accepted with the recommendations on 2026-11-21:
+
+1. **Separation of duties defaults to `auto`:** on with sign-in, off with the API key.
+   A single-user forward-auth setup can set `off`.
+2. **`security-operator` keeps the remediator actions.** Separation of duties, not the
+   role split, stops self-approval, so small teams don't need two groups per person.
+3. **People are recorded in a `principals` table**, not derived from the audit log,
+   so people who only read appear, with their current roles.

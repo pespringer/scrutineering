@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { getJson } from "@/lib/http";
 
 export type Permissions = {
+  roles?: string[];
+  /** Actions from the server's role matrix (src/api/roles.py) that this session may take. */
+  actions?: string[];
   can_manage_scans?: boolean;
   can_cancel_scans?: boolean;
   can_remediate?: boolean;
@@ -19,4 +22,9 @@ export function usePermissions(): Permissions {
       .catch(() => setPermissions({}));
   }, []);
   return permissions;
+}
+
+/** Whether the session may take an action; false until permissions load. */
+export function can(permissions: Permissions, action: string): boolean {
+  return Array.isArray(permissions.actions) && permissions.actions.includes(action);
 }

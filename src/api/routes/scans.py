@@ -28,7 +28,8 @@ from src.api.serializers import (
     paginate,
     scan_payload,
 )
-from src.api.routes._access import record_operator_event, require_role, severity_filter
+from src.api.routes._access import record_operator_event, severity_filter
+from src.api.roles import require_action
 
 router = APIRouter()
 
@@ -67,7 +68,7 @@ def scan_health(limit: int = Query(default=100, ge=1, le=1000)) -> dict:
 
 @router.post("/scans/{scan_id}/cancel")
 def cancel_scan(scan_id: str, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "scans.manage")
     with get_session() as session:
         scan = session.query(Scan).filter_by(scan_id=scan_id).first()
         if scan is None:
@@ -83,7 +84,7 @@ def cancel_scan(scan_id: str, request: Request) -> dict:
 
 @router.post("/scans/bulk-cancel")
 def bulk_cancel_scans(payload: BulkIdsRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "scans.manage")
     scan_ids = [str(value) for value in payload.ids]
     changed: list[str] = []
     with get_session() as session:
@@ -103,7 +104,7 @@ def bulk_cancel_scans(payload: BulkIdsRequest, request: Request) -> dict:
 
 @router.post("/scans/bulk-archive")
 def bulk_archive_scans(payload: BulkIdsRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "scans.manage")
     scan_ids = [str(value) for value in payload.ids]
     archived: list[str] = []
     with get_session() as session:
@@ -122,7 +123,7 @@ def bulk_archive_scans(payload: BulkIdsRequest, request: Request) -> dict:
 
 @router.post("/scans/bulk-retry", status_code=202)
 def bulk_retry_scans(payload: BulkIdsRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "scans.manage")
     with get_session() as session:
         sources = [
             (scan.scan_id, scan.target or scan.image.full_name)
@@ -193,7 +194,7 @@ def scan_findings(
 
 @router.post("/scans", status_code=202)
 def start_scan(payload: ScanRequest, request: Request) -> dict:
-    require_role(request, "operator", "security-operator")
+    require_action(request, "scans.manage")
     try:
         scan_id = queue_scan(payload.image_name, priority=payload.priority, trigger="manual")
     except Exception as exc:

@@ -1,4 +1,4 @@
-"""Role checks, operator audit events, and shared query parsing for dashboard routes."""
+"""Operator audit events and shared query parsing for dashboard routes."""
 
 from __future__ import annotations
 
@@ -19,12 +19,6 @@ def severity_filter(value: str | None) -> Severity | None:
         return Severity(value.lower())
     except ValueError as exc:
         raise HTTPException(status_code=400, detail="invalid severity") from exc
-
-
-def require_role(request: Request, *allowed: str) -> None:
-    roles = set(getattr(request.state, "principal_roles", []))
-    if not roles.intersection({*allowed, "admin"}):
-        raise HTTPException(status_code=403, detail="operator_role_required")
 
 
 def _with_email(detail: dict, email: str | None) -> dict:

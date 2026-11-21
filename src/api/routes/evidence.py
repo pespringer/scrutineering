@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 from sqlalchemy import select
 
-from src.api.routes._access import require_role
+from src.api.roles import require_action
 from src.api.serializers import iso
 from src.db.connection import get_session
 from src.db.models import EvidenceBundle
@@ -49,7 +49,7 @@ def _bundle(remediation_id: int) -> EvidenceBundle:
 
 @router.get("/remediations/{remediation_id}/evidence")
 def remediation_evidence(remediation_id: int, request: Request) -> Response:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.view")
     bundle = _bundle(remediation_id)
     headers = {
         "Content-Disposition": f'attachment; filename="remediation-{remediation_id}-evidence.json"',
@@ -62,7 +62,7 @@ def remediation_evidence(remediation_id: int, request: Request) -> Response:
 
 @router.get("/remediations/{remediation_id}/evidence.sig")
 def remediation_evidence_signature(remediation_id: int, request: Request) -> PlainTextResponse:
-    require_role(request, "remediator", "security-operator")
+    require_action(request, "remediations.view")
     bundle = _bundle(remediation_id)
     if not bundle.signature:
         raise HTTPException(status_code=404, detail="evidence_not_signed")

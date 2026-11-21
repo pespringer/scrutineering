@@ -8,7 +8,7 @@ import EmptyState from "@/components/EmptyState";
 import ComplianceExportPanel from "@/components/reports/ComplianceExportPanel";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAsync } from "@/hooks/useAsync";
-import { usePermissions } from "@/hooks/usePermissions";
+import { can, usePermissions } from "@/hooks/usePermissions";
 import { getJson, postJson } from "@/lib/http";
 import { cx } from "@/lib/cx";
 import type { ReportSummary } from "@/types";
@@ -20,9 +20,8 @@ function periodLabel(report: Pick<ReportSummary, "period_start" | "period_end">)
 
 export default function ReportsPage() {
   const permissions = usePermissions();
-  const roles = Array.isArray(permissions.roles) ? (permissions.roles as string[]) : [];
-  const isAdmin = roles.includes("admin");
-  const canExport = isAdmin || roles.includes("security-operator");
+  const canBuild = can(permissions, "reports.build");
+  const canExport = can(permissions, "compliance.export");
   const [notice, setNotice] = useState<string | null>(null);
   const loadReports = useCallback(() => getJson<{ items: ReportSummary[] }>("/api/reports"), []);
   const reports = useAsync(loadReports);
@@ -55,7 +54,7 @@ export default function ReportsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          {isAdmin && (
+          {canBuild && (
             <button
               onClick={buildNow}
               className="rounded-xl bg-cyan-400 px-4 py-2.5 text-sm font-semibold text-slate-950 hover:bg-cyan-300"

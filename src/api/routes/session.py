@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from src.api.roles import actions_for
+
 
 router = APIRouter()
 
@@ -23,11 +25,12 @@ def dashboard_session(request: Request) -> dict:
 @router.get("/permissions")
 def dashboard_permissions(request: Request) -> dict:
     roles = set(getattr(request.state, "principal_roles", []))
-    elevated = bool(roles.intersection({"admin", "security-operator"}))
+    actions = actions_for(roles)
     return {
         "roles": sorted(roles),
+        "actions": actions,
         "can_view": True,
-        "can_manage_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
-        "can_cancel_scans": bool(roles.intersection({"admin", "operator", "security-operator"})),
-        "can_remediate": elevated or "remediator" in roles,
+        "can_manage_scans": "scans.manage" in actions,
+        "can_cancel_scans": "scans.manage" in actions,
+        "can_remediate": "remediations.view" in actions,
     }

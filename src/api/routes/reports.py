@@ -12,7 +12,7 @@ from datetime import datetime, time, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse, Response
 
-from src.api.routes._access import require_role
+from src.api.roles import require_action
 from src.api.schemas import ComplianceExportRequest
 from src.api.serializers import iso
 from src.db.connection import get_session
@@ -92,7 +92,7 @@ def report_signature(report_id: int) -> PlainTextResponse:
 @router.post("/reports", status_code=202)
 def build_report_now(request: Request) -> dict:
     """Queue an on-demand report for this week so far. Admin only: reports are signed and kept."""
-    require_role(request, "admin")
+    require_action(request, "reports.build")
     from src.reports import weekly
 
     try:
@@ -124,7 +124,7 @@ def _export_summary(export: ComplianceExport) -> dict:
 @router.post("/compliance/exports", status_code=202)
 def request_export(payload: ComplianceExportRequest, request: Request) -> dict:
     """Queue a zip of the range's evidence, SBOMs, reports, findings and audit log. One at a time."""
-    require_role(request, "security-operator")
+    require_action(request, "compliance.export")
     from src.reports import export as exports
 
     since = datetime.combine(payload.since, time.min)
@@ -156,7 +156,7 @@ def request_export(payload: ComplianceExportRequest, request: Request) -> dict:
 @router.get("/compliance/exports")
 def list_exports(request: Request) -> dict:
     """Exports of the last 24 hours, newest first (their zips are deleted after that)."""
-    require_role(request, "security-operator")
+    require_action(request, "compliance.export")
     with get_session() as session:
         rows = session.query(ComplianceExport).order_by(ComplianceExport.id.desc()).limit(20).all()
         return {"items": [_export_summary(export) for export in rows]}
@@ -164,7 +164,7 @@ def list_exports(request: Request) -> dict:
 
 @router.get("/compliance/exports/{export_id:int}/download")
 def download_export(export_id: int, request: Request) -> Response:
-    require_role(request, "security-operator")
+    require_action(request, "compliance.export")
     with get_session() as session:
         export = session.get(ComplianceExport, export_id)
         if export is None or export.status != "ready" or export.data is None:
