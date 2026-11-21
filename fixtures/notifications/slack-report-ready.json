@@ -1,0 +1,56 @@
+{
+  "payload": {
+    "event": "report.ready",
+    "occurred_at": "2026-11-23T07:00:04Z",
+    "report": {
+      "id": 12,
+      "kind": "weekly",
+      "period": {
+        "start": "2026-11-16T00:00:00Z",
+        "end": "2026-11-23T00:00:00Z",
+        "generated_at": "2026-11-23T07:00:03Z"
+      },
+      "open_critical": 3,
+      "open_high": 41,
+      "new_critical_high": 5,
+      "resolved_critical_high": 9,
+      "fixes_completed": 2,
+      "fixes_failed": 1,
+      "stale_containers": 2,
+      "url": "https://scrutineering.home.lan/reports/12"
+    }
+  },
+  "message": {
+    "text": "Scrutineering weekly report, 2026-11-16 to 2026-11-23",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*Scrutineering weekly report, 2026-11-16 to 2026-11-23*"
+        }
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*Open critical / high:* 3 / 41\n*New critical or high this week:* 5 \u00b7 *resolved:* 9\n*Fixes completed:* 2 \u00b7 *failed:* 1\n*Containers on an older build:* 2"
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open the report"
+            },
+            "url": "https://scrutineering.home.lan/reports/12",
+            "action_id": "open_report"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -278,3 +278,51 @@ export interface RemediationRecord {
   publication_target?: string | null;
   publications: RemediationPublication[];
 }
+
+/** A stored report's summary (docs/design/reports-compliance.md). */
+export interface ReportSummary {
+  id: number;
+  kind: "weekly" | "on_demand";
+  period_start: string;
+  period_end: string;
+  sha256: string;
+  signed: boolean;
+  key_id: string | null;
+  created_at: string;
+}
+
+type SeverityCounts = Record<"critical" | "high" | "medium" | "low" | "unknown", number>;
+
+/** `scrutineering.report/v1`: posture, deployments and top images describe `generated_at`; the rest, the period. */
+export interface ReportDocument {
+  schema: string;
+  kind: ReportSummary["kind"];
+  period: { start: string; end: string; generated_at: string };
+  posture: { active_images: number; running_images: number; open: SeverityCounts; fixable: number };
+  changes: { new: SeverityCounts; resolved: SeverityCounts; reopened: SeverityCounts };
+  scans: { by_status: Record<string, number>; images_not_scanned: number };
+  remediations: {
+    id: number;
+    image: string | null;
+    outcome: "completed" | "failed";
+    targets: number;
+    completed_at: string | null;
+    evidence_sha256: string | null;
+  }[];
+  deployments: {
+    containers: number;
+    stale_containers: { container: string; image: string | null }[];
+    fixes_not_running: {
+      remediation_id: number;
+      image: string | null;
+      containers: number;
+      fixed: number;
+      not_fixed: string[];
+    }[];
+  };
+  top_images: { image_id: number; image: string; critical: number; high: number }[];
+}
+
+export interface ReportDetail extends ReportSummary {
+  document: ReportDocument;
+}

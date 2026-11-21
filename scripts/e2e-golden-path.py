@@ -16,6 +16,7 @@ the stack scans). After the fix completes, discovery must show it stale and the 
 
 Then: a test notification when a channel is configured, and two runtime discovery runs in the
 worker (the stack's own pulled images are found and scanned once; images built here are skipped).
+After the fix, an on-demand report for this week must list it and verify with openssl.
 
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
 E2E_PUSH_HOST (localhost:5000), E2E_SCAN_HOST (registry:5000), E2E_TIMEOUT_SECONDS (900).
@@ -44,6 +45,11 @@ TARGET_CVE, TARGET_PACKAGE, FIXED = "CVE-2021-23337", "lodash", "4.17.21"
 TEST_COMMAND = ["node", "-e", f"process.exit(require('lodash/package.json').version === '{FIXED}' ? 0 : 1)"]
 # A container of the fixture image, for the deployment checks (docs/design/deployment-observation.md).
 DEPLOYED = "e2e-deployed-vulnerable-node"
+# An admin's "Build report now": this week so far (src/reports/weekly.py).
+REPORT_RUN = (
+    "from src.reports.weekly import ON_DEMAND, build, week_start; from src.scan.deployments import utcnow; "
+    "now = utcnow(); report = build(ON_DEMAND, week_start(now), now, now); print(report.id if report else '')"
+)
 # The evidence sweep beat runs every minute (src/remediation/evidence.py).
 EVIDENCE_RUN = "from src.remediation.evidence import build_due; print(build_due())"
 
@@ -175,6 +181,29 @@ def deployment_check(remediation_id: int, image_id: int) -> None:
     print(f"    recreated: {deployment['fixed']} of {deployment['containers']} on the fixed build; current")
 
 
+def report_check(remediation_id: int) -> None:
+    """A report built now lists the completed fix, and its signature verifies."""
+    result = subprocess.run(
+        ["docker", "compose", "exec", "-T", "celery-worker", "python", "-c", REPORT_RUN],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    report_id = result.stdout.strip().splitlines()[-1] if result.stdout.strip() else ""
+    if not report_id:
+        fail("no report was built")
+    report = request("GET", f"/api/reports/{report_id}")
+    listed = {item["id"]: item["outcome"] for item in report["document"]["remediations"]}
+    if listed.get(remediation_id) != "completed":
+        fail(f"the report does not list remediation {remediation_id} as completed: {listed}")
+    print(f"    report {report_id}: lists remediation {remediation_id}; {len(listed)} fix(es) this week")
+    if not report["signed"]:
+        fail("the report is not signed")
+    data = download(f"/api/reports/{report_id}/report.json")
+    verify_with_openssl("report", data, f"/api/reports/{report_id}/report.json.sig", report["key_id"])
+
+
 def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     image_id = scan["image_id"]
     if target.get("remediation_id"):
@@ -244,6 +273,9 @@ def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     if deployed:
         step("check the fix's deployment")
         deployment_check(remediation_id, image_id)
+
+    step("build a report for this week and verify it")
+    report_check(remediation_id)
 
 
 DISCOVERY_RUN = (
@@ -368,7 +400,7 @@ def main() -> None:
         # The container, and the local tag it was started from under the scanned name.
         subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
         subprocess.run(["docker", "image", "rm", f"{SCAN_HOST}/{REPO}"], capture_output=True)
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, notify, discover)")
+    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, report, notify, discover)")
 
 
 if __name__ == "__main__":

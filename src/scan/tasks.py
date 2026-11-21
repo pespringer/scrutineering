@@ -47,6 +47,7 @@ from src.scan import sbom  # noqa: E402  # SBOMs; also registers the prune task
 import src.remediation.evidence  # noqa: E402,F401  # register the evidence task
 import src.scan.deployments  # noqa: E402,F401  # register the deployments prune task
 import src.notifications.deployments  # noqa: E402,F401  # register the stale-deployment notification sweep
+import src.reports.weekly  # noqa: E402,F401  # register the report tasks
 
 TERMINAL_STATUSES = {ScanStatus.COMPLETED, ScanStatus.PARTIAL, ScanStatus.FAILED, ScanStatus.CANCELLED}
 

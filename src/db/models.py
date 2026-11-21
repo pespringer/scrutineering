@@ -667,6 +667,29 @@ class Deployment(Base):
     gone_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
+class Report(Base):
+    """A signed weekly (or on-demand) report, as canonical JSON (docs/design/reports-compliance.md).
+
+    Built by the worker from server records only, and kept indefinitely: a few kilobytes each.
+    """
+
+    __tablename__ = "reports"
+    __table_args__ = (
+        UniqueConstraint("kind", "period_start", "period_end", name="uq_reports_kind_period"),
+        Index("idx_reports_period_start", "period_start"),
+    )
+
+    id: Mapped[int] = mapped_column(PrimaryKey, primary_key=True, autoincrement=True)
+    kind: Mapped[str] = mapped_column(String(16), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    document: Mapped[str] = mapped_column(Text, nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    signature: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    key_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class SigningKey(Base):
     """A public key this instance has signed exports with. Kept after rotation so old signatures verify."""
 

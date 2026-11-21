@@ -18,6 +18,12 @@ def scan_schedule(expression: str | None = None) -> crontab:
     )
 
 
+def report_schedule(expression: str | None = None) -> crontab | None:
+    """REPORT_SCHEDULE_CRON as a beat schedule, or None when it's `off`."""
+    value = (expression or get_settings().report_schedule_cron).strip()
+    return None if value == "off" else scan_schedule(value)
+
+
 def create_celery_app() -> Celery:
     """Build and return a configured Celery application."""
     settings = get_settings()
@@ -39,6 +45,8 @@ def create_celery_app() -> Celery:
             "src.scan.sbom.prune_sboms": {"queue": "scan.low"},
             "src.scan.deployments.prune_deployments": {"queue": "scan.low"},
             "src.notifications.deployments.notify_stale_deployments": {"queue": "notify"},
+            "src.reports.weekly.build_weekly_report": {"queue": "scan.low"},
+            "src.reports.weekly.build_on_demand_report": {"queue": "scan.low"},
             "src.remediation.evidence.build_due_evidence": {"queue": "notify"},
         },
         beat_schedule={
@@ -84,4 +92,11 @@ def create_celery_app() -> Celery:
         task_soft_time_limit=3000,
     )
 
+    weekly = report_schedule()
+    if weekly is not None:
+        app.conf.beat_schedule["build-weekly-report"] = {
+            "task": "src.reports.weekly.build_weekly_report",
+            "schedule": weekly,
+            "options": {"queue": "scan.low"},
+        }
     return app

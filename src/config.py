@@ -37,7 +37,7 @@ REMEDIATION_STATUSES = (
     "cancelled",
 )
 # Notification events that aren't a status change (docs/design/deployment-observation.md).
-OTHER_NOTIFICATION_EVENTS = ("deployment_stale",)
+OTHER_NOTIFICATION_EVENTS = ("deployment_stale", "report_ready")
 
 
 def plain_http_allowed(url: str) -> bool:
@@ -175,6 +175,13 @@ class Settings(BaseSettings):
     schedule_cron_scan: str = setting(
         "0 */6 * * *", "Cron expression (five fields) for scheduled rescans of known images.", "Scanning", (BEAT,)
     )
+    report_schedule_cron: str = setting(
+        "0 7 * * 1",
+        "When the weekly report is built: five cron fields, in UTC, or `off`. It covers the previous Monday "
+        "to Monday.",
+        "Reports",
+        (BEAT,),
+    )
 
     # -- Runtime discovery ------------------------------------------------------
     scan_runtime_discovery_enabled: bool = setting(
@@ -290,9 +297,18 @@ class Settings(BaseSettings):
         (API, WORKER),
     )
     notification_events: CommaList = setting(
-        ["proposed", "needs_acceptance", "ready", "published", "completed", "failed", "deployment_stale"],
-        "Remediation statuses that send a notification, plus `deployment_stale`: a completed fix whose "
-        "containers still run an older build 24 hours later.",
+        [
+            "proposed",
+            "needs_acceptance",
+            "ready",
+            "published",
+            "completed",
+            "failed",
+            "deployment_stale",
+            "report_ready",
+        ],
+        "Remediation statuses that send a notification, plus `deployment_stale` (a completed fix whose "
+        "containers still run an older build 24 hours later) and `report_ready` (the weekly report).",
         "Notifications",
         (API, WORKER),
     )
@@ -354,6 +370,14 @@ class Settings(BaseSettings):
             group, _, role = pair.partition("=")
             mapping.setdefault(group, []).append(role)
         return mapping
+
+    @field_validator("report_schedule_cron")
+    @classmethod
+    def _report_schedule(cls, value: str) -> str:
+        value = value.strip()
+        if value != "off" and len(value.split()) != 5:
+            raise ValueError("must be five cron fields or `off`")
+        return value
 
     @field_validator("notification_events")
     @classmethod

@@ -236,7 +236,26 @@ accepted, published and cancelled. Export it with `GET /api/dashboard/audit/expo
 Exporting needs the `security-operator` role. Each remediation also has its own event
 timeline on its page.
 
-## 10. Notifications
+## 10. Reports
+
+Every Monday at 07:00 UTC the worker builds a **weekly report** of the week before
+(Monday to Monday, UTC) and signs it like an SBOM. **Reports** lists them; each page
+shows:
+- posture when it was built: open findings by severity, fixable, images and running
+  images;
+- the week's new, resolved and reopened findings, and its scans;
+- the fixes that completed or failed in the week, each with its signed evidence;
+- containers still on an older build, and fixes not running everywhere yet;
+- the 10 images with the most open critical and high findings.
+
+Download `report.json` with its **signature** and **public key** to keep or forward
+it (see [Verifying exports](#verifying-exports)); the browser's Print gives a paper
+copy. When a channel is configured, a `report_ready` notification posts the headline
+numbers and a link. Change the schedule with `REPORT_SCHEDULE_CRON` (five cron fields
+in UTC, or `off`). An admin can **Build report now** for this week so far; it never
+replaces the weekly one.
+
+## 11. Notifications
 
 Scrutineering can post a message when a remediation needs someone or finishes:
 `proposed` (approve it), `needs_acceptance` (accept or cancel it), `ready` (publish
@@ -323,7 +342,7 @@ Messages name images, CVEs and pull requests, so send them only to a private
 channel. The URL and secret are credentials: they're never logged or shown, and
 only the environment can set them.
 
-## 11. Sign-in
+## 12. Sign-in
 
 Out of the box (`DASHBOARD_AUTH_MODE=local`) there is no sign-in: anyone who can
 reach the dashboard gets `DASHBOARD_DEFAULT_ROLES`. That's fine on a trusted home
@@ -353,7 +372,7 @@ then name the signed-in user and record their email.
 
 ## Verifying exports
 
-SBOMs and evidence bundles are signed with this instance's own key. The worker creates it on first use
+SBOMs, evidence bundles and reports are signed with this instance's own key. The worker creates it on first use
 on the `signingkeys` volume; on Kubernetes you create it as a Secret (README). Anyone
 with the public key can check that a file came from this Scrutineering and hasn't
 changed since. That check is offline, and no Scrutineering code is involved. Next
