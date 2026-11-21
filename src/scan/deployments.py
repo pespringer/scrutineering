@@ -16,6 +16,11 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Awaitable, Callable, Iterable
 
 from celery import shared_task
+from sqlalchemy import select
+
+from src.db.models import Deployment, FindingObservation, Remediation, Scan, ScanFinding, ScanStatus
+from src.remediation.evidence import FINISHED_SCANS, finished_scan
+from src.scan.runtime_discovery import running_since
 
 logger = logging.getLogger(__name__)
 
@@ -157,3 +162,96 @@ def prune(now: datetime | None = None) -> int:
 def prune_deployments() -> int:
     """Daily, from beat."""
     return prune()
+
+
+# -- Reading: which containers count as running, and which run the latest or the fixed build ---------
+#
+# A container counts as running when discovery listed it within the Running window (30 minutes, as
+# for the Running badge), so rows whose discovery stopped don't count forever.
+
+
+def utcnow() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
+def running_rows(session, image_ids: list[int], now: datetime) -> list[Deployment]:
+    if not image_ids:
+        return []
+    return (
+        session.query(Deployment)
+        .filter(
+            Deployment.image_id.in_(image_ids),
+            Deployment.gone_at.is_(None),
+            Deployment.last_seen_at >= running_since(now),
+        )
+        .order_by(Deployment.name.asc(), Deployment.id.asc())
+        .all()
+    )
+
+
+def latest_scan_digest(session, image_id: int) -> str | None:
+    """The digest of the image's latest finished scan; None if it has none or was scanned by tag."""
+    return session.execute(
+        select(Scan.image_digest)
+        .where(Scan.image_id == image_id, Scan.status.in_(FINISHED_SCANS))
+        .order_by(Scan.started_at.desc(), Scan.id.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+
+
+def container_counts(session, image_ids: list[int], now: datetime | None = None) -> dict[int, dict[str, int]]:
+    """Per image: running containers, and how many of them are stale. Images without any are left out."""
+    rows = running_rows(session, image_ids, now or utcnow())
+    digests = {image_id: latest_scan_digest(session, image_id) for image_id in {row.image_id for row in rows}}
+    counts: dict[int, dict[str, int]] = {}
+    for row in rows:
+        entry = counts.setdefault(row.image_id, {"containers": 0, "stale_containers": 0})
+        entry["containers"] += 1
+        if deployment_state(row.running_digests or [], digests[row.image_id]) == "stale":
+            entry["stale_containers"] += 1
+    return counts
+
+
+def fixed_digests(session, remediation: Remediation) -> set[str]:
+    """Builds that carry the fix: the scan that completed it, and later complete scans without the targets."""
+    before = finished_scan(session, remediation.image_id, started_by=remediation.created_at)
+    after = finished_scan(session, remediation.image_id, started_by=remediation.completed_at)
+    if after is None or (before is not None and after.scan_id == before.scan_id):
+        return set()
+    found = {after.image_digest} if after.image_digest else set()
+    targets = {finding.vuln_key for finding in remediation.findings if finding.vuln_key}
+    later = session.execute(
+        select(Scan).where(
+            Scan.image_id == remediation.image_id,
+            Scan.status == ScanStatus.COMPLETED.value,
+            Scan.started_at > after.started_at,
+            Scan.image_digest.is_not(None),
+        )
+    ).scalars()
+    for scan in later:
+        present = session.execute(
+            select(ScanFinding.id)
+            .join(FindingObservation, FindingObservation.finding_id == ScanFinding.id)
+            .where(FindingObservation.scan_id == scan.scan_id, ScanFinding.vuln_key.in_(targets))
+            .limit(1)
+        ).first()
+        if present is None:
+            found.add(scan.image_digest)
+    return found
+
+
+def remediation_deployment(session, remediation: Remediation, now: datetime | None = None) -> dict | None:
+    """For a completed remediation: its image's running containers, and how many run a fixed build.
+
+    `fixed` is None when no fixed build has a digest (scanned by tag): Scrutineering won't guess.
+    """
+    if str(getattr(remediation.status, "value", remediation.status)) != "completed":
+        return None
+    rows = running_rows(session, [remediation.image_id], now or utcnow())
+    digests = fixed_digests(session, remediation)
+    fixed = [row for row in rows if digests & set(row.running_digests or [])]
+    return {
+        "containers": len(rows),
+        "fixed": len(fixed) if digests else None,
+        "not_fixed": [row.name for row in rows if row not in fixed] if digests else [],
+    }

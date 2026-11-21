@@ -1,0 +1,59 @@
+{
+  "payload": {
+    "event": "remediation.deployment_stale",
+    "occurred_at": "2026-11-20T09:05:00Z",
+    "remediation": {
+      "id": 23,
+      "status": "completed",
+      "label": "Completed",
+      "image": "registry:5000/fixtures/vulnerable-node:e2e",
+      "action": "dependency_update",
+      "targets": 1,
+      "new_critical_high": [],
+      "pull_request_url": "https://github.com/acme/vulnerable-node/pull/7",
+      "error": null,
+      "url": "https://scrutineering.home.lan/remediations/23"
+    },
+    "deployment": {
+      "containers": 3,
+      "fixed": 1,
+      "not_fixed": [
+        "web-2",
+        "worker<1>"
+      ]
+    }
+  },
+  "message": {
+    "text": "A fix isn't running yet: 2 of 3 container(s) of registry:5000/fixtures/vulnerable-node:e2e still run an older build (remediation #23)",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*A fix isn't running yet* \u00b7 remediation #23"
+        }
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "The fix for `registry:5000/fixtures/vulnerable-node:e2e` completed over 24 hours ago, but `web-2`, `worker&lt;1&gt;` still run an older build. Recreate them from the current tag."
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open in Scrutineering"
+            },
+            "url": "https://scrutineering.home.lan/remediations/23",
+            "action_id": "open_remediation"
+          }
+        ]
+      }
+    ]
+  }
+}

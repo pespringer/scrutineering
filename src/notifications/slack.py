@@ -41,6 +41,8 @@ def message(payload: dict) -> dict:
         text = "Scrutineering test notification: this channel is set up."
         return {"text": text, "blocks": [_section(text)]}
     item = payload["remediation"]
+    if payload.get("event") == "remediation.deployment_stale":
+        return _deployment_stale(item, payload["deployment"])
     headline = HEADLINES.get(item["status"], item["label"])
     text = f"{escape(headline)}: remediation #{item['id']} for {escape(item['image'])}"
     fields = [
@@ -70,6 +72,30 @@ def message(payload: dict) -> dict:
         buttons.append(_button("Pull request", item["pull_request_url"], "open_pull_request"))
     if buttons:
         blocks.append({"type": "actions", "elements": buttons})
+    return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
+
+
+def _deployment_stale(item: dict, deployment: dict) -> dict:
+    """A completed fix that the running containers haven't picked up yet."""
+    stale = deployment["not_fixed"]
+    text = (
+        f"A fix isn't running yet: {len(stale)} of {deployment['containers']} container(s) of "
+        f"{escape(item['image'])} still run an older build (remediation #{item['id']})"
+    )
+    listed = ", ".join(f"`{escape(name)}`" for name in stale[:MAX_LISTED])
+    more = len(stale) - MAX_LISTED
+    listed += f" and {more} more" if more > 0 else ""
+    blocks: list[dict] = [
+        _section(f"*A fix isn't running yet* · remediation #{item['id']}"),
+        _section(
+            f"The fix for `{escape(item['image'])}` completed over 24 hours ago, but {listed} still "
+            "run an older build. Recreate them from the current tag."
+        ),
+    ]
+    if item["url"]:
+        blocks.append(
+            {"type": "actions", "elements": [_button("Open in Scrutineering", item["url"], "open_remediation")]}
+        )
     return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
 
 

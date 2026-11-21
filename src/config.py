@@ -36,6 +36,8 @@ REMEDIATION_STATUSES = (
     "failed",
     "cancelled",
 )
+# Notification events that aren't a status change (docs/design/deployment-observation.md).
+OTHER_NOTIFICATION_EVENTS = ("deployment_stale",)
 
 
 def plain_http_allowed(url: str) -> bool:
@@ -288,8 +290,9 @@ class Settings(BaseSettings):
         (API, WORKER),
     )
     notification_events: CommaList = setting(
-        ["proposed", "needs_acceptance", "ready", "published", "completed", "failed"],
-        "Remediation statuses that send a notification.",
+        ["proposed", "needs_acceptance", "ready", "published", "completed", "failed", "deployment_stale"],
+        "Remediation statuses that send a notification, plus `deployment_stale`: a completed fix whose "
+        "containers still run an older build 24 hours later.",
         "Notifications",
         (API, WORKER),
     )
@@ -355,9 +358,9 @@ class Settings(BaseSettings):
     @field_validator("notification_events")
     @classmethod
     def _notification_events(cls, value: list[str]) -> list[str]:
-        unknown = sorted(set(value) - set(REMEDIATION_STATUSES))
+        unknown = sorted(set(value) - set(REMEDIATION_STATUSES) - set(OTHER_NOTIFICATION_EVENTS))
         if unknown:
-            raise ValueError(f"unknown remediation statuses: {', '.join(unknown)}")
+            raise ValueError(f"unknown notification events: {', '.join(unknown)}")
         return value
 
     @field_validator("notification_webhook_url")

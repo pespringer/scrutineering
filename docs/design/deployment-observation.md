@@ -1,6 +1,6 @@
 # Deployment observation
 
-Status: steps 1–2 built (recording, dashboard) · 2026-11-19 · Phase 6
+Status: built · 2026-11-20 · Phase 6
 
 ## Problem
 
@@ -133,9 +133,15 @@ digest of the scan that **completed** the remediation (the evidence bundle's
 ### Notification (step 3)
 
 A new event, **`remediation.deployment_stale`**, is sent once when a completed
-remediation still has stale containers 24 hours after completing. It names the
-containers. It goes through the existing outbox and channels, and is listed in
-`NOTIFICATION_EVENTS` (on by default).
+remediation still has containers off the fixed build 24 hours after completing. It
+names the containers. It goes through the existing outbox and channels, and is
+listed in `NOTIFICATION_EVENTS` as `deployment_stale` (on by default).
+
+A sweep on the `notify` queue (at 5, 20, 35 and 50 past the hour, after discovery)
+finds the due fixes. "Once" is read from the outbox: a fix with a
+`remediation.deployment_stale` row isn't announced again. Fixes completed more than
+72 hours ago are skipped, so a channel configured later isn't flooded. A fix scanned
+by tag (`fixed` unknown) is never announced.
 
 ## Configuration
 

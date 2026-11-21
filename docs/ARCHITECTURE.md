@@ -40,8 +40,9 @@ flowchart LR
   consumes the queues `scan.high`, `scan.normal`, `scan.low`, `remediation.normal`
   and `notify`.
 - **`celery-beat`**: queues scheduled rescans of known images (`SCHEDULE_CRON_SCAN`),
-  runtime discovery every 15 minutes when enabled, and a notification sweep every
-  minute.
+  runtime discovery every 15 minutes when enabled, the notification delivery and
+  evidence sweeps every minute, the stale-deployment notification sweep every 15
+  minutes, and daily prunes of superseded SBOMs and gone containers.
 - **`postgres`**: all state. Alembic manages the schema (`src/db/migrations`).
 - **`redis`**: Celery's broker and result backend, plus an optional shared scan cache.
 - **`registry`**: a local OCI registry. Push to `localhost:5000`; the services reach it
