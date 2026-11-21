@@ -1,4 +1,4 @@
-"""Publish a verified remediation as a GitHub pull request (decision D4: GitHub is the only provider).
+"""Publish a verified remediation as a change request on its source's provider (docs/design/gitlab-publishing.md).
 
     ready ──operator: publish──▶ published ──PR merged, image rebuilt and rescanned──▶ completed
                                           └──PR closed unmerged, or the rebuilt image still has a target──▶ failed
@@ -8,6 +8,8 @@ against, to `scrutineering/remediation-<id>` and opens a pull request whose body
 plan and the before/after scan comparison. It never merges. Publishing only happens when an
 operator asks for it, so setting `GITHUB_TOKEN` (also used to pull from ghcr.io) never opens
 pull requests by itself.
+
+Each provider implements `Provider`; `sources.publication_target` decides which one a source uses.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ import logging
 import re
 import tempfile
 from dataclasses import dataclass
+from typing import Protocol
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -31,12 +34,11 @@ from src.db.connection import get_session
 from src.db.models import Remediation, RemediationPublication, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
 from src.remediation.build import BuildError, askpass_env, git
-from src.remediation.sources import clone_url, github_repository
+from src.remediation.sources import PublicationTarget, clone_url, publication_target
 from src.scan.image_identity import parse_image_reference
 
 logger = logging.getLogger(__name__)
 
-PROVIDER = "github"
 GITHUB_API = "https://api.github.com"
 MAX_PATCH_BYTES = 200_000  # the worker stores at most this much of a patch; a longer one was truncated
 MAX_BODY_CHARS = 60_000
@@ -56,12 +58,38 @@ def token() -> str:
     return get_settings().github_token.get_secret_value()
 
 
+@dataclass(frozen=True)
+class Change:
+    """The pull or merge request a publication opened."""
+
+    number: int
+    url: str
+
+
+class Provider(Protocol):
+    """What publishing needs from a code host. Errors are `PublishError`s that never hold a token."""
+
+    name: str  # stored as `remediation_publications.provider`
+    label: str  # shown in messages: "GitHub"
+
+    def token(self) -> str: ...
+
+    def clone_url(self, path: str) -> str: ...
+
+    def default_branch(self, path: str) -> str: ...
+
+    def open_change(self, path: str, *, head: str, base: str, title: str, body: str) -> Change: ...
+
+
 def branch_for(remediation_id: int) -> str:
     return f"scrutineering/remediation-{remediation_id}"
 
 
 class GitHub:
     """The few GitHub REST calls publication needs. Errors never include the token."""
+
+    name = "github"
+    label = "GitHub"
 
     def __init__(self, access_token: str, transport=urlopen):
         if not access_token:
@@ -94,8 +122,18 @@ class GitHub:
         except URLError as exc:
             raise PublishError(f"GitHub is unreachable: {exc.reason}") from None
 
+    def token(self) -> str:
+        return self._token
+
+    def clone_url(self, path: str) -> str:
+        return clone_url(f"https://github.com/{path}")
+
     def default_branch(self, repository: str) -> str:
         return str(self.request("GET", f"/repos/{repository}")["default_branch"])
+
+    def open_change(self, path: str, *, head: str, base: str, title: str, body: str) -> Change:
+        pull = self.open_pull_request(path, head=head, base=base, title=title, body=body)
+        return Change(number=int(pull["number"]), url=str(pull["html_url"]))
 
     def open_pull_request(self, repository: str, *, head: str, base: str, title: str, body: str) -> dict:
         """Open the pull request, or return the open one that already exists for `head`."""
@@ -113,6 +151,13 @@ class GitHub:
         return existing[0]
 
 
+def provider_for(target: PublicationTarget) -> Provider:
+    """The client for a publication target, built from the environment's token."""
+    if target.provider == "github":
+        return GitHub(token())
+    raise PublishError(f"publishing to {target.provider} is not supported")
+
+
 class GitHubError(PublishError):
     def __init__(self, status: int, detail: dict):
         errors = "; ".join(str(item.get("message") or item) for item in detail.get("errors") or [])
@@ -124,6 +169,7 @@ class GitHubError(PublishError):
 @dataclass
 class Job:
     remediation_id: int
+    target: PublicationTarget
     repository: str
     base: str | None
     commit: str
@@ -204,9 +250,9 @@ def _load(remediation_id: int) -> Job:
         if remediation.status != RemediationStatus.READY:
             raise PublishStopped(remediation.status.value)
         image = remediation.image
-        repository = github_repository(image.source.repository if image.source else None)
-        if repository is None:
-            raise PublishError("the image's source is not an https://github.com repository")
+        target = publication_target(image.source.repository if image.source else None)
+        if target is None:
+            raise PublishError("the image's source is not on a provider Scrutineering can publish to")
         if not remediation.patch or not remediation.source_commit or not _COMMIT.fullmatch(remediation.source_commit):
             raise PublishError("the remediation has no verified patch to publish")
         if len(remediation.patch) >= MAX_PATCH_BYTES:
@@ -216,12 +262,13 @@ def _load(remediation_id: int) -> Job:
             .filter(ScanFinding.image_id == image.id, ScanFinding.resolved_at.is_(None))
             .count()
         )
-        previous = _publication(session, remediation_id)
+        previous = _publication(session, remediation_id, target.provider)
         ref = image.source.ref
         stamp = remediation.approved_at or remediation.created_at or datetime(2000, 1, 1)
         return Job(
             remediation_id=remediation_id,
-            repository=repository,
+            target=target,
+            repository=target.path,
             base=None if ref == "HEAD" or _COMMIT.fullmatch(ref) else ref,
             commit=remediation.source_commit,
             patch=remediation.patch,
@@ -236,18 +283,18 @@ def _load(remediation_id: int) -> Job:
         )
 
 
-def _publication(session, remediation_id: int) -> RemediationPublication | None:
-    return (
-        session.query(RemediationPublication)
-        .filter_by(remediation_id=remediation_id, provider=PROVIDER)
-        .order_by(RemediationPublication.id.desc())
-        .first()
-    )
+def _publication(session, remediation_id: int, provider: str | None) -> RemediationPublication | None:
+    """The latest publication of a remediation on `provider`, or on any provider when it isn't known."""
+    query = session.query(RemediationPublication).filter_by(remediation_id=remediation_id)
+    if provider is not None:
+        query = query.filter_by(provider=provider)
+    return query.order_by(RemediationPublication.id.desc()).first()
 
 
-def push_branch(job: Job, workdir: Path, access_token: str) -> str:
+def push_branch(job: Job, workdir: Path, provider: Provider) -> str:
     """Commit the patch on top of `job.commit` and push it to the remediation branch. Returns the new commit."""
-    remote = clone_url(f"https://github.com/{job.repository}")
+    remote = provider.clone_url(job.repository)
+    access_token = provider.token()
     root = workdir / "source"
     auth = askpass_env(workdir, access_token)
     git(["clone", "--quiet", "--no-checkout", "--", remote, str(root)], env=auth)
@@ -273,19 +320,28 @@ def push_branch(job: Job, workdir: Path, access_token: str) -> str:
         git(["push", "--quiet", lease, "origin", f"HEAD:refs/heads/{branch}"], cwd=root, env=auth)
     except BuildError as exc:
         if "stale info" in str(exc) or "rejected" in str(exc):
-            raise PublishError(f"{branch} already exists on GitHub with other commits; delete it to publish") from exc
+            raise PublishError(
+                f"{branch} already exists on {provider.label} with other commits; delete it to publish"
+            ) from exc
         message = str(exc).replace(access_token, "***") if access_token else str(exc)
         raise PublishError(message) from exc
     return head
 
 
+def _target_of(session, remediation_id: int) -> PublicationTarget | None:
+    remediation = session.get(Remediation, remediation_id)
+    source = remediation.image.source if remediation is not None else None
+    return publication_target(source.repository if source else None)
+
+
 def _record(remediation_id: int, job: Job | None, **values) -> RemediationPublication:
     with get_session() as session:
-        publication = _publication(session, remediation_id)
+        target = job.target if job else _target_of(session, remediation_id)
+        publication = _publication(session, remediation_id, target.provider if target else None)
         if publication is None:
             publication = RemediationPublication(
                 remediation_id=remediation_id,
-                provider=PROVIDER,
+                provider=target.provider if target else "unknown",
                 repository=job.repository if job else "",
                 idempotency_key=f"remediation-{remediation_id}",
                 request_hash=hashlib.sha256((job.patch if job else "").encode()).hexdigest(),
@@ -299,16 +355,16 @@ def _record(remediation_id: int, job: Job | None, **values) -> RemediationPublic
         return publication
 
 
-def publish(remediation_id: int, *, github: GitHub | None = None) -> dict:
+def publish(remediation_id: int, *, provider: Provider | None = None) -> dict:
     """Push the verified patch and open the pull request. A failure leaves the remediation `ready`."""
     job = None
     try:
         job = _load(remediation_id)
-        client = github or GitHub(token())
+        client = provider or provider_for(job.target)
         base = job.base or client.default_branch(job.repository)
         with tempfile.TemporaryDirectory(prefix="scrutineering-publish-") as workdir:
-            head = push_branch(job, Path(workdir), token())
-        pull = client.open_pull_request(
+            head = push_branch(job, Path(workdir), client)
+        change = client.open_change(
             job.repository, head=branch_for(remediation_id), base=base, title=job.title, body=job.body
         )
     except PublishStopped as stopped:
@@ -324,8 +380,8 @@ def publish(remediation_id: int, *, github: GitHub | None = None) -> dict:
         job,
         repository=job.repository,
         status="open",
-        url=str(pull["html_url"]),
-        provider_number=int(pull["number"]),
+        url=change.url,
+        provider_number=change.number,
         base_branch=base,
         head_commit=head,
         image_digest=job.image_digest,
@@ -334,7 +390,7 @@ def publish(remediation_id: int, *, github: GitHub | None = None) -> dict:
     )
     with get_session() as session:
         remediation = session.get(Remediation, remediation_id)
-        detail = {"url": pull["html_url"], "number": pull["number"], "branch": branch_for(remediation_id)}
+        detail = {"url": change.url, "number": change.number, "branch": branch_for(remediation_id)}
         if remediation is not None and remediation.status == RemediationStatus.READY:
             RemediationRepository.update_status(session, remediation_id, RemediationStatus.PUBLISHED)
         RemediationRepository.record_event(session, remediation_id, "published", detail)

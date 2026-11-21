@@ -1,6 +1,6 @@
 # GitLab publishing
 
-Status: proposed · 2026-11-21 · Phase 6
+Status: accepted · 2026-11-21 · Phase 6 · step 1 built
 
 ## Problem
 
@@ -66,6 +66,8 @@ that the API, the serializer and the worker all use.
 ```python
 class Provider(Protocol):
     name: str                                   # "github" or "gitlab"
+    label: str                                  # "GitHub", for messages
+    def token(self) -> str: ...
     def clone_url(self, path: str) -> str: ...
     def default_branch(self, path: str) -> str: ...
     def open_change(self, path: str, *, head: str, base: str, title: str, body: str) -> Change: ...
@@ -75,6 +77,9 @@ class Change:
     number: int        # GitHub pull number, or GitLab merge request iid
     url: str           # web URL shown on the remediation page
 ```
+
+`provider_for(target)` builds the client from the environment's token, and
+`sources.source_token(url)` picks the token that clones a source.
 
 `publish()` stays one function: it loads the job, resolves the provider, pushes
 the branch with `push_branch()` (already provider-neutral apart from the clone
@@ -205,19 +210,11 @@ returns `503 publication_not_configured`, as GitHub does without
      GitHub one;
    - the reset plan's D4 entry updated to say GitLab is the second provider.
 
-## Open questions
+## Decisions
 
-1. **Reuse `GITLAB_TOKEN`, or add `GITLAB_PUBLISH_TOKEN`?** GitHub uses one
-   token for both pulling from ghcr.io and publishing.
-   *Recommendation:* a separate token. `GITLAB_TOKEN` is usually a
-   registry-only deploy token, or falls back to `CI_JOB_TOKEN`, and neither can
-   open merge requests. Widening it to `api` scope would hand a write token to
-   every scan.
-2. **One GitLab instance, or several?** Several would need a host column on
-   publications and a token per host.
-   *Recommendation:* one, set by `GITLAB_URL`. Teams rarely use more than one,
-   and the model can grow later without a breaking change.
-3. **Ask GitLab to delete the branch after merging?** GitLab's merge request
-   option `remove_source_branch` would do it.
-   *Recommendation:* leave it unset, so the project's default applies, as
-   GitHub publishing leaves branch deletion to the repository's settings.
+Accepted with the recommendations on 2026-11-21:
+
+1. **A separate `GITLAB_PUBLISH_TOKEN`.** `GITLAB_TOKEN` stays a registry credential, so
+   scans never hold a write-capable token.
+2. **One GitLab instance**, set by `GITLAB_URL`.
+3. **Branch deletion after merge is left to the project's settings**, as with GitHub.

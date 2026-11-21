@@ -15,7 +15,7 @@ from src.db.models import (
     Scan,
     ScanFinding,
 )
-from src.remediation.sources import github_repository
+from src.remediation.sources import publication_target
 from src.remediation.state_machine import LABELS
 
 
@@ -144,6 +144,11 @@ def paginate(items: list[dict], limit: int, offset: int, total: int) -> dict:
     return {"items": items, "limit": limit, "offset": offset, "count": len(items), "total": total}
 
 
+def _target_path(repository: str | None) -> str | None:
+    target = publication_target(repository)
+    return target.path if target else None
+
+
 def remediation_payload(remediation: Remediation, actions: list[dict] | None = None) -> dict:
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
@@ -189,7 +194,7 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
             }
             for action in remediation.actions
         ],
-        "publication_target": github_repository(getattr(source, "repository", None)),
+        "publication_target": _target_path(getattr(source, "repository", None)),
         "publications": [
             {
                 "id": publication.id,

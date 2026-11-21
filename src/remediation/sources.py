@@ -115,6 +115,28 @@ def settings_from_record(record) -> SourceSettings:
     )
 
 
+@dataclass(frozen=True)
+class PublicationTarget:
+    """Where a verified fix for a source can be published: a provider and the project's path on it."""
+
+    provider: str  # "github"
+    path: str  # "owner/name"
+
+
+def publication_target(source_url: str | None) -> PublicationTarget | None:
+    """The provider and project a source publishes to, or None when its fixes are applied by hand."""
+    repository = github_repository(source_url)
+    return PublicationTarget("github", repository) if repository else None
+
+
+def source_token(source_url: str | None) -> str:
+    """The token that clones a remote source: its publication provider's, or none."""
+    target = publication_target(source_url)
+    if target is not None and target.provider == "github":
+        return get_settings().github_token.get_secret_value()
+    return ""
+
+
 def github_repository(source_url: str | None) -> str | None:
     """`owner/name` when a source is an https://github.com repository (the one publication target), else None."""
     match = _GITHUB_REPOSITORY.fullmatch(str(source_url or "").rstrip("/"))
