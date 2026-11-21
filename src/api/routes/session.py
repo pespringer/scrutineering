@@ -6,6 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 
 from src.api.roles import actions_for
+from src.config import get_settings
 
 
 router = APIRouter()
@@ -28,9 +29,12 @@ def dashboard_permissions(request: Request) -> dict:
     actions = actions_for(roles)
     return {
         "roles": sorted(roles),
+        "subject": getattr(request.state, "principal_id", "dashboard-service"),
         "actions": actions,
         "can_view": True,
         "can_manage_scans": "scans.manage" in actions,
         "can_cancel_scans": "scans.manage" in actions,
         "can_remediate": "remediations.view" in actions,
+        # Whether the proposer of a fix is barred from approving or accepting it (REMEDIATION_SEPARATE_APPROVER).
+        "separate_approver": get_settings().separate_approver_enabled,
     }

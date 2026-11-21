@@ -250,6 +250,14 @@ class Settings(BaseSettings):
     )
 
     # -- Remediation and GitHub -------------------------------------------------
+    remediation_separate_approver: Literal["auto", "on", "off"] = setting(
+        "auto",
+        "Separation of duties: `on` stops the person who proposed a fix from approving it or accepting its new "
+        "critical or high findings. `auto` is on with `DASHBOARD_AUTH_MODE=trusted-proxy` and off with `local`, "
+        "where everyone shares the API key's identity. `on` with `local` is refused.",
+        "Remediation and GitHub",
+        (API,),
+    )
     remediation_execution_enabled: bool = setting(
         False,
         "Allow approved remediations to patch the source, build a candidate and scan it.",
@@ -408,6 +416,21 @@ class Settings(BaseSettings):
         if self.dashboard_auth_mode == "trusted-proxy" and not self.dashboard_trusted_proxy_secret.get_secret_value():
             raise ValueError("DASHBOARD_TRUSTED_PROXY_SECRET is required with DASHBOARD_AUTH_MODE=trusted-proxy")
         return self
+
+    @model_validator(mode="after")
+    def _separate_approver_needs_sign_in(self):
+        if self.remediation_separate_approver == "on" and self.dashboard_auth_mode == "local":
+            raise ValueError(
+                "REMEDIATION_SEPARATE_APPROVER=on needs DASHBOARD_AUTH_MODE=trusted-proxy: in local mode every "
+                "request shares one identity"
+            )
+        return self
+
+    @property
+    def separate_approver_enabled(self) -> bool:
+        if self.remediation_separate_approver == "auto":
+            return self.dashboard_auth_mode == "trusted-proxy"
+        return self.remediation_separate_approver == "on"
 
     @model_validator(mode="after")
     def _notification_secret(self):

@@ -21,11 +21,13 @@ type Props = {
   remediation: RemediationRecord;
   busy: boolean;
   publishing: boolean;
+  /** Separation of duties: the viewer proposed this fix, so someone else approves and accepts. */
+  proposedByViewer: boolean;
   onAction: (action: RemediationAction) => void;
 };
 
 /** Only the actions the current status allows are shown. */
-export default function ExecutionControls({ remediation, busy, publishing, onAction }: Props) {
+export default function ExecutionControls({ remediation, busy, publishing, proposedByViewer, onAction }: Props) {
   const status = remediation.status;
   if (status === "completed" || status === "cancelled") return null;
   return (
@@ -36,7 +38,7 @@ export default function ExecutionControls({ remediation, busy, publishing, onAct
       <div className="flex flex-wrap gap-3">
         {status === "proposed" && (
           <button
-            disabled={busy}
+            disabled={busy || proposedByViewer}
             onClick={() => onAction("approve")}
             className={cx(BUTTON, "bg-cyan-400 font-semibold text-slate-950")}
           >
@@ -54,7 +56,7 @@ export default function ExecutionControls({ remediation, busy, publishing, onAct
         )}
         {status === "needs_acceptance" && (
           <button
-            disabled={busy}
+            disabled={busy || proposedByViewer}
             onClick={() => onAction("accept")}
             className={cx(BUTTON, "bg-amber-400 font-semibold text-slate-950")}
           >
@@ -91,6 +93,11 @@ export default function ExecutionControls({ remediation, busy, publishing, onAct
         {status === "ready" && !remediation.publication_target && (
           <span className="self-center text-sm text-slate-400">
             Connect a github.com source to publish this fix as a pull request; or apply the patch below by hand.
+          </span>
+        )}
+        {proposedByViewer && (status === "proposed" || status === "needs_acceptance") && (
+          <span className="self-center text-sm text-slate-400">
+            You proposed this fix, so someone else has to approve it.
           </span>
         )}
         {(status === "building" || status === "verifying" || publishing) && (

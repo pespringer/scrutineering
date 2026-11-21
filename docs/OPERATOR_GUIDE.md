@@ -170,6 +170,8 @@ finding can be in only one open remediation at a time.
 Open the remediation from **Remediations**.
 
 1. A **security operator** reviews the proposed changes and chooses **Approve**.
+   With separation of duties on, the person who proposed the fix can't approve it,
+   and the button says so.
 2. **Build and verify** starts execution. It needs `REMEDIATION_EXECUTION_ENABLED=true`.
    The worker:
    1. clones the source into a temporary directory;
@@ -196,7 +198,18 @@ findings it still has, any new critical or high findings, and the patch.
   source, a clone or apply failure, a build error (with the end of the build log),
   failing tests (with the end of their output), an incomplete candidate scan, or
   targets still present. Fix the cause, then **Restart workflow**: it returns to
-  `proposed` and needs approval again.
+  `proposed` and needs approval again. The person who restarts it counts as its
+  proposer.
+
+**Who did what.** Under "What happens next", the page lists who proposed, approved,
+built, accepted and published the fix, by their sign-in identity.
+
+**Separation of duties** (`REMEDIATION_SEPARATE_APPROVER`) stops one person from
+shipping a fix alone: whoever proposed a fix can't approve it, or accept its new
+critical or high findings. Admins are bound by it too. The default, `auto`, turns
+it on when people sign in (`DASHBOARD_AUTH_MODE=trusted-proxy`) and off in `local`
+mode, where every session shares the API key's identity. A one-person sign-in
+setup can set it to `off`.
 
 **Cancel** works at any point before `completed`, and releases the findings so they
 can be proposed again.
