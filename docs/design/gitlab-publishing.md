@@ -1,6 +1,6 @@
 # GitLab publishing
 
-Status: accepted · 2026-11-21 · Phase 6 · step 1 built
+Status: accepted · 2026-11-21 · Phase 6 · step 1 built; steps 2–3 paused until a GitLab is available to test
 
 ## Problem
 
@@ -194,6 +194,12 @@ returns `503 publication_not_configured`, as GitHub does without
   4. see the rescan queued.
 
 ## Rollout
+
+**Paused after step 1** (2026-11-21). There is no GitLab instance to test against: none is in use
+here, and a self-managed one doesn't fit on the development machine. Steps 2 and 3 resume when
+someone who publishes to GitLab can run the live test above. Until then, GitHub is the only
+provider, and step 1's interface is where GitLab plugs in.
+
 
 1. **Publisher interface:** `Provider`, `Change` and `publication_target`, with
    GitHub moved behind them. There's no behaviour change, and the GitHub tests

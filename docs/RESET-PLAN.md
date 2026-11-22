@@ -700,7 +700,8 @@ before the code, and has to keep the golden-path test green:
 - signed SBOM and evidence: done, see [design/sbom-evidence.md](design/sbom-evidence.md)
 - deployment observation: done, see [design/deployment-observation.md](design/deployment-observation.md)
 - scheduled reports and compliance export: done, see [design/reports-compliance.md](design/reports-compliance.md)
-- GitLab publishing
+- GitLab publishing: step 1 built, steps 2–3 paused until a GitLab is available to test;
+  see [design/gitlab-publishing.md](design/gitlab-publishing.md)
 - multi-user roles: done, see [design/multi-user-roles.md](design/multi-user-roles.md)
 
 ---
