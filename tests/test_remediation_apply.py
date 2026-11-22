@@ -184,3 +184,45 @@ def test_the_test_stage_extends_the_final_stage():
     assert staged.startswith("# syntax=docker/dockerfile:1\nFROM golang:1.22 AS build\n")
     assert "FROM --platform=linux/amd64 alpine:3.20 AS runtime\n" in staged
     assert staged.endswith('FROM runtime AS scrutineering-test\nRUN ["/app", "--self-test"]\n')
+
+
+def test_a_manifest_committed_as_a_symlink_is_never_written_through(tmp_path, npm_log):
+    outside = tmp_path.parent / f"{tmp_path.name}-outside"
+    outside.mkdir()
+    victim = outside / "package.json"
+    victim.write_text(json.dumps({"dependencies": {"lodash": "4.17.20"}}))
+    source = tmp_path / "source"
+    source.mkdir()
+    checkout = _checkout(source)
+    (source / "package.json").symlink_to(victim)
+
+    with pytest.raises(ApplyError, match="symlink or outside the source"):
+        update_npm(checkout, "lodash", "4.17.21")
+
+    assert json.loads(victim.read_text()) == {"dependencies": {"lodash": "4.17.20"}}
+    assert not npm_log.exists()
+
+
+def test_a_lockfile_symlink_is_refused(tmp_path, npm_log):
+    outside = tmp_path.parent / f"{tmp_path.name}-lock"
+    outside.write_text('{"packages": {"node_modules/lodash": {}}}')
+    checkout = _checkout(tmp_path)
+    (tmp_path / "package.json").write_text("{}")
+    (tmp_path / "package-lock.json").symlink_to(outside)
+
+    with pytest.raises(ApplyError, match="package-lock.json"):
+        update_npm(checkout, "lodash", "4.17.21")
+    assert not npm_log.exists()
+
+
+def test_requirements_symlinks_are_skipped(tmp_path):
+    outside = tmp_path.parent / f"{tmp_path.name}-requirements.txt"
+    outside.write_text("django==3.2.0\n")
+    source = tmp_path / "source"
+    source.mkdir()
+    checkout = _checkout(source)
+    (source / "requirements.txt").symlink_to(outside)
+
+    with pytest.raises(ApplyError, match="not pinned"):
+        update_pip(checkout, "django", "3.2.25")
+    assert outside.read_text() == "django==3.2.0\n"

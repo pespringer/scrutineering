@@ -297,7 +297,7 @@ from the same page. The worker builds one zip, kept for 24 hours, holding:
 - `findings.csv`: findings open now, plus those resolved in the range. A cell that a
   spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) is prefixed
   with `'`;
-- `audit.json`: the audit records in the range, with their hash chain;
+- `audit.json`: the audit records in the range;
 - `keys/`: every public key that signed something in it;
 - `manifest.json` and `manifest.json.sig`: every file's SHA-256 and size, signed.
 
