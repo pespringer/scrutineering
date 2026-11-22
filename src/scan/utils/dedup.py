@@ -15,7 +15,7 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Optional
 
 from src.scan.scanners.base import ScannerFinding
 from src.scan.models import Severity
@@ -67,16 +67,6 @@ def _count_metadata_fields(finding: ScannerFinding) -> int:
 def _pick_highest_severity(severities: list[Severity | None]) -> Severity | None:
     """Return the highest severity from a list."""
     return max(severities, key=lambda s: SEVERITY_RANK.get(s, 0)) if severities else None
-
-
-def _merge_field(new_val: Any, existing_val: Any) -> Any:
-    """Pick the best non-empty value between two fields.
-
-    Prefers existing if both are present (stability), otherwise uses new_val.
-    """
-    if existing_val:
-        return existing_val
-    return new_val
 
 
 def _build_merged_finding(
@@ -172,49 +162,12 @@ class DedupReport:
         }
 
 
-def deduplicate_findings(
-    findings: list[tuple[ScannerFinding, str]],  # (finding, source_name)
-) -> list[dict]:
-    """Deduplicate findings from multiple scanner runs.
-
-    Args:
-        findings: List of (ScannerFinding, source_name) tuples.
-                  source_name should be 'trivy' or 'grype'.
-
-    Returns:
-        List of deduplicated finding dicts ready for persistence.
-        Each dict includes a 'sources' field listing all scanners that
-        reported this finding.
-    """
-    grouped: dict[str, list[tuple[ScannerFinding, str]]] = defaultdict(list)
-
-    for finding, source_name in findings:
-        fp = finding.make_fingerprint()
-        grouped[fp].append((finding, source_name))
-
-    deduplicated = []
-    for fingerprint, group in grouped.items():
-        merged = _build_merged_finding(fingerprint, group)
-        deduplicated.append(merged)
-
-    # Sort by severity (critical first)
-    deduplicated.sort(
-        key=lambda x: SEVERITY_RANK.get(
-            getattr(Severity, x["severity"].upper(), "UNKNOWN") if x["severity"] else None, 0
-        ),
-        reverse=True,
-    )
-
-    return deduplicated
-
-
 def deduplicate_findings_with_report(
     findings: list[tuple[ScannerFinding, str]],  # (finding, source_name)
 ) -> tuple[list[dict], DedupReport]:
     """Deduplicate findings and produce a full audit report.
 
-    This is the same logic as deduplicate_findings but also returns
-    a DedupReport with counts, audit trail, and per-source breakdowns.
+    Also returns a DedupReport with counts, audit trail, and per-source breakdowns.
 
     Args:
         findings: List of (ScannerFinding, source_name) tuples.

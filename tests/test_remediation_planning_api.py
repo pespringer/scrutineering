@@ -115,3 +115,33 @@ def test_proposal_records_one_action_per_fix_and_reserves_the_findings(client, i
 
     again = client.post("/api/dashboard/remediations", json={"image_id": image_id, "finding_ids": selected[:1]})
     assert again.status_code == 409
+
+
+def test_requests_for_unknown_images_or_foreign_findings_are_refused(client, image):
+    image_id, ids = image
+    preview = client.post("/api/dashboard/remediations/preview", json={"image_id": 999, "finding_ids": [1]})
+    assert (preview.status_code, preview.json()["detail"]) == (404, "image_not_found")
+    foreign = client.post("/api/dashboard/remediations/preview", json={"image_id": image_id, "finding_ids": [999]})
+    assert (foreign.status_code, foreign.json()["detail"]) == (400, "findings_must_belong_to_image")
+    unknown = client.post("/api/dashboard/remediations", json={"image_id": 999, "finding_ids": [1]})
+    assert (unknown.status_code, unknown.json()["detail"]) == (404, "image_not_found")
+    _connect(client, image_id)
+    lodash = ids["lodash-trivy"]
+    twice = client.post("/api/dashboard/remediations", json={"image_id": image_id, "finding_ids": [lodash, lodash]})
+    assert (twice.status_code, twice.json()["detail"]) == (400, "finding_ids_must_be_unique")
+    missing = client.post("/api/dashboard/remediations", json={"image_id": image_id, "finding_ids": [lodash, 999]})
+    assert (missing.status_code, missing.json()["detail"]) == (400, "findings_must_be_open_and_belong_to_image")
+
+
+def test_remediations_list_filters_by_status(client, image):
+    image_id, ids = image
+    _connect(client, image_id)
+    created = client.post(
+        "/api/dashboard/remediations", json={"image_id": image_id, "finding_ids": [ids["libssl3-grype"]]}
+    )
+    assert created.status_code == 201, created.text
+
+    assert client.get("/api/dashboard/remediations?status=PROPOSED").json()["total"] == 1
+    assert client.get("/api/dashboard/remediations?status=completed").json()["total"] == 0
+    invalid = client.get("/api/dashboard/remediations?status=done")
+    assert (invalid.status_code, invalid.json()["detail"]) == (400, "invalid_remediation_status")

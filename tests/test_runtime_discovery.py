@@ -34,6 +34,7 @@ from src.db.models import Image, Scan, ScanStatus  # noqa: E402
 from src.scan import runtime_discovery  # noqa: E402
 from src.scan.discovery._process import RuntimeUnavailable  # noqa: E402
 from src.scan.runtime_discovery import Classified, classify, run_discovery  # noqa: E402
+from src.scan import records as runtime_discovery_records  # noqa: E402
 
 NOW = datetime(2026, 11, 18, 12, 0, 0)
 
@@ -241,3 +242,32 @@ def test_only_images_with_a_successful_scan_are_known():
     _scanned("pulled:1", NOW)  # completed
     _scanned("failed:1", NOW, ScanStatus.FAILED)
     assert runtime_discovery.known_images(["pulled:1", "failed:1", "never:1"]) == {"pulled:1"}
+
+
+def test_selection_skips_opted_out_and_imageless_containers_and_honours_the_limit():
+    containers = [
+        {"image": "", "names": "init"},
+        {"image": "acme/api:1", "names": "api", "labels": {"scrutineering.scan": "FALSE"}},
+        {"image": "acme/web:1", "names": "web", "labels": "tier=front,team=a"},
+        {"image": "acme/web:1", "names": "web-2"},
+        {"image": "acme/db:1", "names": "db"},
+    ]
+    assert select_runtime_images(containers) == ["acme/web:1", "acme/db:1"]
+    assert select_runtime_images(containers, limit=1) == ["acme/web:1"]
+    # A label filter without "key=value" matches nothing rather than everything.
+    assert select_runtime_images(containers, include_label="tier") == []
+    with pytest.raises(ValueError):
+        select_runtime_images(containers, limit=0)
+
+
+def test_known_images_are_those_with_a_usable_scan():
+    with get_session() as session:
+        for reference, status in (
+            ("acme/done:1", "completed"),
+            ("acme/partial:1", "partial"),
+            ("acme/bad:1", "failed"),
+        ):
+            scan = runtime_discovery_records.create_pending_scan(session, reference)
+            scan.status = status
+    known = runtime_discovery.known_images(["acme/done:1", "acme/partial:1", "acme/bad:1", "acme/never:1", "Not A Ref"])
+    assert known == {"acme/done:1", "acme/partial:1"}
