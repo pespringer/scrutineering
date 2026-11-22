@@ -80,7 +80,7 @@ Each action also carries a label, which the generated table in the operator guid
 
 `admin` passes every action. Routes call `require_action(request, "remediations.approve")`. A test fails if a route under `/api/dashboard` that changes state
 checks no action. The matrix above is today's behaviour, unchanged. Moving it into one
-place is the first step; changing it is a separate decision (open question 2).
+place is the first step; changing it is a separate decision (decision 2).
 
 ### Separation of duties
 

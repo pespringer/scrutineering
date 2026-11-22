@@ -30,6 +30,7 @@ show what they found at the time.
 |---|---|---|---|
 | GET | `/posture/summary` | any | Open-finding counts by severity and the latest scan state |
 | GET | `/posture/trend?days=30` | any | Daily severity snapshots for the window |
+| GET | `/system-status` | any | `operational`, `degraded` or `unavailable`, from the database, the scan queue, responding workers and runtime discovery, with the `problems` found and the last scan |
 
 ## Scans
 

@@ -1,5 +1,10 @@
 # Product Requirements Document: Container Sentinel
 
+> **Status: superseded.** These are the original April 2026 requirements. The
+> product is now the loop in [README.md](../README.md), built as described in
+> [ARCHITECTURE.md](ARCHITECTURE.md); features return through
+> [design/](design/README.md).
+
 **Automated Container Security Scanning with Intelligent Remediation**
 
 | | |
