@@ -9,6 +9,11 @@ const SERIES = [
   { key: "low", name: "Low", color: "#55a6ff" },
 ] as const;
 
+/** Legend and tooltip rows in severity order (Recharts sorts them alphabetically by default). */
+function bySeverity(item: { dataKey?: unknown }) {
+  return SERIES.findIndex((series) => series.key === item.dataKey);
+}
+
 export default function SeverityTrendChart({ trends }: { trends: SeverityTrend[] }) {
   return (
     <section className="panel rounded-2xl p-5 sm:p-6">
@@ -34,8 +39,9 @@ export default function SeverityTrendChart({ trends }: { trends: SeverityTrend[]
               <YAxis axisLine={false} tickLine={false} tick={{ fill: "#68788d", fontSize: 11 }} />
               <Tooltip
                 contentStyle={{ background: "#111925", border: "1px solid #2a3b50", borderRadius: 12, color: "#fff" }}
+                itemSorter={bySeverity}
               />
-              <Legend iconType="circle" wrapperStyle={{ fontSize: 11, color: "#8d9aab" }} />
+              <Legend iconType="circle" itemSorter={bySeverity} wrapperStyle={{ fontSize: 11, color: "#8d9aab" }} />
               {SERIES.map((series) => (
                 <Line
                   key={series.key}
