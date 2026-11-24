@@ -53,7 +53,7 @@ fmt:
 # old (docs/design/dependency-pinning.md).
 lock:
 	cutoff=$$(date -u -d '14 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-14d +%Y-%m-%d); \
-		uv pip compile requirements.in --universal --generate-hashes --python-version 3.12 \
+		uv pip compile requirements.in --universal --generate-hashes --python-version 3.13 \
 		--exclude-newer "$$cutoff" -o requirements.txt
 
 # Requires a running stack (make up).

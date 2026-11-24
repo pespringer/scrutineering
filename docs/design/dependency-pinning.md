@@ -25,7 +25,7 @@ published. Nothing checks that a downloaded file is the one we tested.
 
 - Splitting test-only packages (`pytest`, `pytest-cov`) out of the images. It's
   worth doing, but it changes what the images contain, so it's a separate change.
-- Pinning base images (`python:3.12-slim`, `node:22-alpine`) by digest.
+- Pinning base images (`python:3.13-slim`, `node:22-alpine`) by digest.
 - Automatic update PRs (Dependabot or Renovate). Refreshing stays a deliberate
   `make lock` and a reviewed diff.
 - The dashboard. `package-lock.json` already pins npm packages with integrity
@@ -36,7 +36,7 @@ published. Nothing checks that a downloaded file is the one we tested.
 - **`requirements.in`** (new) holds the direct dependencies, as `requirements.txt`
   does now. People edit this file.
 - **`requirements.txt`** becomes generated. It's the output of
-  `uv pip compile requirements.in --universal --generate-hashes --python-version 3.12
+  `uv pip compile requirements.in --universal --generate-hashes --python-version 3.13
   --exclude-newer <date>`, with `<date>` 14 days before the run. The command is
   written at the top of the file, so anyone can see which cutoff produced it and
   rerun it.
