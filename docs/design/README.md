@@ -26,3 +26,4 @@ A note answers:
 - [runtime-discovery.md](runtime-discovery.md): runtime discovery on by default (built)
 - [sbom-evidence.md](sbom-evidence.md): signed SBOMs and remediation evidence (built)
 - [reports-compliance.md](reports-compliance.md): weekly reports and a signed compliance export (built)
+- [security-hardening.md](security-hardening.md): approved sources, a tamper-evident audit log, local ports (proposed)
