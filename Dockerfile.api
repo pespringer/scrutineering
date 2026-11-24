@@ -12,7 +12,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# pip is build-time only; the runtime never invokes it. Removing it (and the
+# ensurepip bootstrap copy) also removes pip's vendored libraries, which the
+# image scan otherwise reports as this image's own vulnerable packages.
+RUN pip install --no-cache-dir -r requirements.txt \
+    && pip uninstall -y pip \
+    && rm -rf /usr/local/lib/python3.13/ensurepip
 
 COPY src/ ./src/
 
