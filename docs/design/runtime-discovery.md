@@ -155,7 +155,7 @@ images recorded as running.
 - **The remaining exposure, environment variables,** is the main trade-off.
   Anyone who takes over the worker can already read its own `GITHUB_TOKEN` and
   registry credentials. With discovery on, they could also read secrets that
-  other containers on the host keep in environment variables. See Open questions.
+  other containers on the host keep in environment variables (decision 1).
 - **Network reach:** the proxy is on an internal network with only the worker.
   It has no published port and no internet access.
 - **The proxy itself** runs read-only, without new privileges, with every

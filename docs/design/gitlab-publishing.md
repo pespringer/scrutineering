@@ -42,7 +42,7 @@ the remediation, so a closed merge request never fails it.
 - **Pipeline status** on the merge request. The rescan of the rebuilt image
   decides whether the fix worked, as it does for GitHub.
 - **Registry access.** `GITLAB_TOKEN`, `GITLAB_USERNAME` and `CI_JOB_TOKEN` keep
-  pulling from registry.gitlab.com unchanged (see open question 1).
+  pulling from registry.gitlab.com unchanged (decision 1).
 
 ## Design
 
@@ -155,7 +155,7 @@ returns `503 publication_not_configured`, as GitHub does without
   Developer role and `api` plus `write_repository`, is enough. The guide will
   say so, and warn against personal tokens.
   - A separate variable keeps this write-capable token away from the
-    registry-pull code paths, which run on every scan (open question 1).
+    registry-pull code paths, which run on every scan (decision 1).
 - **No server-side request forgery.** Requests go only to `GITLAB_URL`, which
   is set in the environment and never from the browser. A source URL on any
   other host can't trigger a GitLab call.

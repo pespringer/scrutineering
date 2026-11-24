@@ -200,17 +200,6 @@ Decided 2026-11-20 (the recommendations accepted with the overnight plan):
 2. **Reports are stored in the database** and shown in the dashboard. The existing
    channels post a link; there's no email channel.
 3. **The export is a zip with a signed `manifest.json`** listing every file's SHA-256.
-
-## Open questions
-
-1. **Timezone.** The schedule and the week boundaries are UTC.
-   *Recommendation:* keep UTC. A `TZ` setting means two clocks to reason about,
-   and Monday 07:00 UTC is Monday morning across Europe and early Monday in the
-   Americas.
-2. **What `findings.csv` covers.** Findings open at export time, plus those
-   resolved in the range, or only the range?
-   *Recommendation:* both. An auditor wants what's open now and what was fixed in
-   the period.
-3. **Who can build a report on demand.**
-   *Recommendation:* `admin` only. Reports are signed and kept forever, so they
-   shouldn't be cheap to make.
+4. **UTC throughout.** The schedule and the week boundaries are UTC, with no `TZ` setting.
+5. **`findings.csv` holds findings open at export time, plus those resolved in the range.**
+6. **Only `admin` builds a report on demand,** because reports are signed and kept forever.

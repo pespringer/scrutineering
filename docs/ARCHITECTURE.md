@@ -103,6 +103,8 @@ erDiagram
     images ||--o{ deployments : "running as"
 ```
 
+`principals` and `audit_log` stand alone: they name people by their sign-in subject.
+
 - **`images`**: one row per repository and tag, with the last digest seen, and
   when runtime discovery last saw it running (`last_seen_running_at`). An
   `image_sources` row says which repository, ref, Dockerfile and build context the
@@ -123,8 +125,10 @@ erDiagram
   `candidate_image`/`candidate_digest`, and `verification` (the candidate scan
   compared with the targets). While open, it reserves its findings
   (`scan_findings.remediation_id`), so a finding is in at most one open remediation.
-- **`remediation_publications`**: the GitHub pull request. It holds the branch, base,
-  head commit, number, status (`open`, `merged`, `closed`, `failed`) and the image
+  `proposed_by`, `approved_by`, `executed_by`, `accepted_by` and `published_by`
+  record who took each step, for separation of duties.
+- **`remediation_publications`**: the GitHub pull request. It holds the provider
+  (`github`), repository, branch, base, head commit, number, status (`open`, `merged`, `closed`, `failed`) and the image
   digest when it was opened.
 - **`sboms`**: the CycloneDX SBOM of a completed or partial image scan, stored
   exactly as Trivy wrote it, with its SHA-256 and component count. Each image keeps
@@ -150,6 +154,9 @@ erDiagram
   transaction, with the message's payload. Each row has its own delivery status:
   `pending`, then `sent` or (after five attempts) `failed`. Sent rows are deleted
   after 30 days.
+- **`principals`**: everyone the forward-auth proxy has signed in: subject, email,
+  roles at their last sign-in, and when they were first and last seen (written at
+  most hourly per person). A daily sweep removes people unseen for a year.
 - **`remediation_events`** and **`audit_log`**: history. Remediation events are the
   timeline of one remediation; the audit log records operator actions and scan
   lifecycle. Neither is read to decide current state.
@@ -230,14 +237,18 @@ step from what it cloned, built and scanned itself:
   `403 cross_site_request_refused`. Without this, any page a user visited could
   approve or publish a remediation through their dashboard. Requests with neither
   header (curl, scripts) are not from a browser and are allowed.
-- **Roles.**
-  - `dashboard` reads data.
-  - `operator` also starts and cancels scans.
-  - `remediator` proposes and executes remediations.
-  - `security-operator` can do all of that, plus approve, accept new findings and
-    publish.
-  - `admin` is allowed everywhere. Each route
-  checks its role (see the [API reference](api/dashboard-v1.md)).
+- **Roles.** One matrix in `src/api/roles.py` maps each action to the roles that
+  hold it, and each route checks one action (see the
+  [API reference](api/dashboard-v1.md)).
+  - Every role reads posture, scans, images and findings.
+  - `operator` starts and cancels scans, archives images and triages findings.
+  - `remediator` connects sources and proposes, executes and cancels remediations.
+  - `security-operator` holds both of those, plus approve, accept new findings,
+    publish, retry, the audit and compliance exports, and notifications.
+  - `admin` holds every action, including building reports and seeing people.
+- **Separation of duties.** With `REMEDIATION_SEPARATE_APPROVER` on (the default
+  when people sign in), whoever proposed a remediation can't approve it or accept
+  its new findings (`403 separate_approver_required`).
 - **GitHub to API.** The webhook route is the one exception to API-key
   authentication. It requires GitHub's HMAC signature (`GITHUB_WEBHOOK_SECRET`) and
   ignores repeated delivery IDs.
@@ -258,15 +269,19 @@ step from what it cloned, built and scanned itself:
 
 - `src/config.py`: every setting, and the generator of [CONFIGURATION.md](CONFIGURATION.md).
 - `src/api/`: the FastAPI app (`app.py` holds the auth middleware), routes
-  (`routes/<area>.py`), request schemas and response serializers.
+  (`routes/<area>.py`), request schemas and response serializers, the role matrix
+  (`roles.py`) and sign-in records (`principals.py`).
 - `src/scan/`: scan tasks (`tasks.py`), scanner adapters (`scanners/`),
   deduplication, registry access, runtime discovery, and the Celery app and schedule.
 - `src/remediation/`: fix planning (`planner.py`), applying fixes (`apply.py`),
   checkout and BuildKit builds (`build.py`), execution (`worker.py`), publication
-  (`publish.py`), and the state machine and lifecycle.
+  (`publish.py`, behind a provider interface; GitHub is the one provider), and the
+  state machine and lifecycle.
 - `src/notifications/`: the outbox (`outbox.py`, called from
   `RemediationRepository.update_status`), the Slack and webhook channels, and delivery
   (`delivery.py`, on the `notify` queue).
+- `src/reports/`: weekly reports (`weekly.py`) and compliance exports (`export.py`).
+- `src/signing.py`: the signing key, and signatures in cosign's format.
 - `src/db/`: models, repositories, connection setup and Alembic migrations.
 - `dashboard/`: the Next.js dashboard; `src/app/api/` holds the proxy routes.
 - `tests/e2e/test_golden_path.py`: the loop end to end with recorded scanner output;

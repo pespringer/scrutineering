@@ -71,9 +71,9 @@ trivy image --format cyclonedx --cache-dir <same cache> <repo>@sha256:...
   | `signature`, `key_id` | added in step 2 |
   | `created_at` | |
 
-- **Size:** a typical image's CycloneDX document is 0.2–3 MB. Every completed
-  scan keeps its SBOM, as each scan keeps its observations. See Open questions
-  on retention.
+- **Size:** a typical image's CycloneDX document is 0.2–3 MB. Each image keeps
+  its newest SBOM and those an evidence bundle cites; the rest are pruned daily
+  (decision 3).
 
 ### Evidence bundles
 
@@ -237,20 +237,8 @@ Decided before the note was written (2026-11-18):
    or public transparency log.
 2. **Storage:** in the database, downloadable from the dashboard. No registry
    attestations.
-
-## Open questions
-
-1. **Retention.** SBOMs add 0.2–3 MB per completed scan. With discovery and
-   6-hourly rescans, that grows.
-   *Recommendation:* keep the SBOM of the latest completed scan per image, plus
-   any SBOM an evidence bundle refers to. Prune the rest daily in the beat
-   sweep, with no setting.
-2. **cosign compatibility.** Should the public key and signatures follow
-   cosign's conventions exactly (PEM public key, base64 signature) so
-   `cosign verify-blob` works, at the cost of a slightly unusual `.sig`?
-   *Recommendation:* yes. It's the most widely used verifier, and `openssl`
-   still works.
-3. **Who can download SBOMs.** Any signed-in role, as findings, or the operator
-   role and above?
-   *Recommendation:* any role. An SBOM reveals less than the findings, which
-   every role already sees.
+3. **Retention:** each image keeps its newest SBOM, plus any SBOM an evidence
+   bundle cites. The daily beat sweep prunes the rest, with no setting.
+4. **cosign compatibility:** signatures use cosign's format, so `cosign
+   verify-blob` and `openssl` both verify them.
+5. **Downloads:** any signed-in role can download SBOMs, as any role sees findings.
