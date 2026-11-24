@@ -1,6 +1,6 @@
 # Python formatting and lint settings (docs/RESET-PLAN.md, ground rule 5). Enforced in CI.
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 # Alembic revisions are generated; their long lines come from autogenerate.
 extend-exclude = ["src/db/migrations/versions", ".local", "source-fixture"]
 

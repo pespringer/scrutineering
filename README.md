@@ -88,7 +88,7 @@ state machines.
 
 ## Development
 
-Development needs Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 22, and
+Development needs Python 3.13 with [uv](https://docs.astral.sh/uv/), Node.js 22, and
 Docker.
 
 ```bash
