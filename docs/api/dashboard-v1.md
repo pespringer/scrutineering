@@ -82,6 +82,7 @@ show what they found at the time.
 | GET | `/people` | admin | Everyone recorded at sign-in: `subject`, `email`, `roles` (at last sign-in), `first_seen_at`, `last_seen_at` |
 | GET | `/people/assignees` | operator | Who findings can be assigned to: `subject` and `email` only |
 | GET | `/audit/export` | security-operator | Bounded audit export with a SHA-256 |
+| GET | `/audit/verify` | security-operator | Recompute the audit hash chain: `intact`, `records`, `first_broken_id` |
 
 ## Notifications
 

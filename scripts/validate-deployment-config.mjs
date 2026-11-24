@@ -34,3 +34,46 @@ for (const file of required) {
     throw new Error("pod disruption budgets must define availability");
   console.log(`PASS ${file}`);
 }
+
+// Every port a Compose file publishes names a host address, so nothing listens on every
+// interface by default (docs/design/security-hardening.md).
+const composeFiles = [
+  ...fs
+    .readdirSync(".")
+    .filter((name) => /^docker-compose.*\.ya?ml$/.test(name)),
+  ...fs
+    .readdirSync("examples")
+    .flatMap((dir) =>
+      fs.existsSync(`examples/${dir}/docker-compose.yml`)
+        ? [`examples/${dir}/docker-compose.yml`]
+        : [],
+    ),
+];
+function unboundPorts(content) {
+  const unbound = [];
+  let inPorts = false;
+  for (const line of content.split("\n")) {
+    if (/^\s*ports:\s*$/.test(line)) {
+      inPorts = true;
+      continue;
+    }
+    const entry = line.match(/^\s*-\s*["']?([^"'\s]+)["']?\s*$/);
+    if (inPorts && entry) {
+      // Collapse ${VAR:-default} so its own colon doesn't count as a separator.
+      const parts = entry[1].replace(/\$\{[^}]*\}/g, "X").split(":");
+      const address = entry[1].startsWith("${") ? null : parts[0];
+      if (parts.length < 3 || address === "0.0.0.0") unbound.push(entry[1]);
+      continue;
+    }
+    inPorts = false;
+  }
+  return unbound;
+}
+for (const file of composeFiles) {
+  const unbound = unboundPorts(fs.readFileSync(file, "utf8"));
+  if (unbound.length)
+    throw new Error(
+      `${file} publishes ports without a host address: ${unbound.join(", ")}`,
+    );
+  console.log(`PASS ${file} binds every published port to an address`);
+}

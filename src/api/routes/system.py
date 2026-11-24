@@ -7,6 +7,7 @@ from sqlalchemy import text
 
 from src.api.serializers import enum_value, iso
 from src.config import get_settings
+from src.db import audit_chain
 from src.db.connection import get_session
 from src.db.models import Scan
 from src.scan.runtime_discovery import load_status
@@ -61,6 +62,9 @@ def system_status() -> dict:
     discovery = load_status(get_settings().redis_url)
     if discovery and discovery.get("status") == "error":
         problems.append(f"Runtime discovery can't list containers: {discovery.get('error')}")
+    chain = audit_chain.load_status(get_settings().redis_url)
+    if chain and not chain.get("intact"):
+        problems.append(f"The audit log's hash chain is broken at record {chain.get('first_broken_id')}")
     status = "unavailable" if not database else "degraded" if problems else "operational"
     return {
         "status": status,
@@ -70,5 +74,7 @@ def system_status() -> dict:
         "last_scan": last_scan,
         # The last discovery run within the hour (docs/design/runtime-discovery.md), or None.
         "discovery": discovery,
+        # The daily audit chain check's last result (docs/design/security-hardening.md), or None.
+        "audit_chain": chain,
         "problems": problems,
     }

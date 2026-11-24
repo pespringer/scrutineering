@@ -10,9 +10,10 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session, joinedload
 
+from src.db import audit_chain
 from src.db.models import (
     AuditLog,
     AuditEventType,
@@ -172,7 +173,12 @@ class AuditLogRepository:
         actor: str | None = None,
         actor_kind: str | None = None,
     ) -> AuditLog:
+        if session.get_bind().dialect.name == "postgresql":
+            # Held until this transaction commits, so no other writer can read the same head (no fork).
+            session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": audit_chain.LOCK_KEY})
+        previous = session.execute(select(AuditLog.record_hash).order_by(AuditLog.id.desc()).limit(1)).scalar()
         entry = AuditLog(
+            timestamp=_utcnow(),
             event_type=event_type,
             detail=detail or {},
             entity_type=entity_type,
@@ -180,7 +186,9 @@ class AuditLogRepository:
             image_id=image_id,
             actor=actor,
             actor_kind=actor_kind,
+            previous_hash=previous or "",
         )
+        entry.record_hash = audit_chain.hash_of(entry, entry.previous_hash)
         session.add(entry)
         session.flush()
         return entry

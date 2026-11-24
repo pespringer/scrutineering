@@ -139,6 +139,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `LOCAL_REGISTRY_PORT` | Host port of the bundled registry. | Compose |
 | `PYTHON_API_PORT` | Host port of the API. | Compose |
 | `DASHBOARD_PORT` | Host port of the dashboard. | Compose |
+| `PUBLISH_ADDRESS` | Host address the API and dashboard ports are published on (default `127.0.0.1`, this host only). | Compose |
+| `REGISTRY_PUBLISH_ADDRESS` | Host address the bundled registry is published on (default `127.0.0.1`). `0.0.0.0` lets other machines push to it; it has no authentication. | Compose |
 | `REMEDIATION_HOST_SOURCES` | Host folder mounted read-only as the worker's sources root. | Compose |
 | `CELERY_QUEUES` | Queues the worker consumes. Include `remediation.normal` to run remediations and `notify` to send notifications. | Compose |
 | `CELERY_CONCURRENCY` | Worker processes. | Compose |

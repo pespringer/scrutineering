@@ -250,7 +250,8 @@ def _load(remediation_id: int) -> Job:
         if remediation.status != RemediationStatus.READY:
             raise PublishStopped(remediation.status.value)
         image = remediation.image
-        target = publication_target(image.source.repository if image.source else None)
+        source = remediation.source or {}
+        target = publication_target(source.get("repository"))
         if target is None:
             raise PublishError("the image's source is not on a provider Scrutineering can publish to")
         if not remediation.patch or not remediation.source_commit or not _COMMIT.fullmatch(remediation.source_commit):
@@ -263,7 +264,7 @@ def _load(remediation_id: int) -> Job:
             .count()
         )
         previous = _publication(session, remediation_id, target.provider)
-        ref = image.source.ref
+        ref = source.get("ref") or "HEAD"
         stamp = remediation.approved_at or remediation.created_at or datetime(2000, 1, 1)
         return Job(
             remediation_id=remediation_id,
@@ -330,8 +331,8 @@ def push_branch(job: Job, workdir: Path, provider: Provider) -> str:
 
 def _target_of(session, remediation_id: int) -> PublicationTarget | None:
     remediation = session.get(Remediation, remediation_id)
-    source = remediation.image.source if remediation is not None else None
-    return publication_target(source.repository if source else None)
+    source = (remediation.source if remediation is not None else None) or {}
+    return publication_target(source.get("repository"))
 
 
 def _record(remediation_id: int, job: Job | None, **values) -> RemediationPublication:

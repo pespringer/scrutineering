@@ -9,6 +9,7 @@ import EventTimeline from "@/components/remediations/EventTimeline";
 import ExecutionControls from "@/components/remediations/ExecutionControls";
 import CandidatePanel from "@/components/remediations/CandidatePanel";
 import ProposedChanges from "@/components/remediations/ProposedChanges";
+import SourceCopy from "@/components/remediations/SourceCopy";
 import Publications from "@/components/remediations/Publications";
 import EvidencePanel from "@/components/remediations/EvidencePanel";
 import DeploymentPanel from "@/components/remediations/DeploymentPanel";
@@ -88,6 +89,7 @@ export default function RemediationDetail({ params }: { params: Promise<{ id: st
             onAction={act}
           />
           <ProposedChanges actions={remediation.actions} />
+          <SourceCopy source={remediation.source} changed={remediation.source_changed} />
           <CandidatePanel remediation={remediation} />
           <EventTimeline events={events} />
         </section>

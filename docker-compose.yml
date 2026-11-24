@@ -32,7 +32,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "${PYTHON_API_PORT:-8000}:8000"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${PYTHON_API_PORT:-8000}:8000"
     env_file:
       - .env
     environment:
@@ -73,7 +73,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "${DASHBOARD_PORT:-3001}:3001"
+      - "${PUBLISH_ADDRESS:-127.0.0.1}:${DASHBOARD_PORT:-3001}:3001"
     environment:
       - HOSTNAME=0.0.0.0
       - PORT=3001
@@ -147,7 +147,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "${LOCAL_REGISTRY_PORT:-5000}:5000"
+      - "${REGISTRY_PUBLISH_ADDRESS:-127.0.0.1}:${LOCAL_REGISTRY_PORT:-5000}:5000"
     volumes:
       - registrydata:/var/lib/registry
     restart: unless-stopped
