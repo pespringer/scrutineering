@@ -84,7 +84,7 @@ None. There are no new settings.
 
 1. This note.
 2. One PR: `requirements.in`, the generated `requirements.txt`, `make lock`, the
-   check and its test, and the docs (`AGENTS.md`, the operator guide's upgrade
+   check and its test, and the docs (`AGENTS.md`, the README's development
    section).
 3. The Python 3.13 image change follows, and regenerates the lock for 3.13.
 
