@@ -17,7 +17,9 @@ Scrutineering is a Python backend with a Next.js dashboard:
 
 ## Build, Test, and Development Commands
 
-Python dependencies come from `requirements.txt` (run through `uv`). Use the Makefile:
+Python dependencies are listed in `requirements.in`; `requirements.txt` is the generated lock (exact versions
+with hashes, from releases at least 14 days old). Edit `requirements.in`, then run `make lock`; never edit
+`requirements.txt` by hand. Use the Makefile:
 
 ```bash
 make test         # Python tests plus repository checks
@@ -25,6 +27,7 @@ make test-python  # pytest tests/
 make check        # doc links, deployment manifests, frontend layout, release config
 make fmt          # apply Ruff and Prettier
 make fmt-check    # formatting, lint, and the 120-character limit (enforced in CI)
+make lock         # regenerate requirements.txt from requirements.in
 make e2e          # golden path against the running stack, real scanners
 make up           # docker compose up --build -d
 make migrate      # apply Alembic migrations in the api container

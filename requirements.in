@@ -1,0 +1,19 @@
+# Direct dependencies. Edit this file, then run `make lock` to regenerate requirements.txt.
+celery
+redis
+sqlalchemy
+psycopg2-binary
+asyncpg
+aiosqlite
+alembic
+pydantic
+pydantic-settings
+rich
+fastapi
+uvicorn
+greenlet
+pytest
+pyyaml
+httpx
+pytest-cov
+cryptography==50.0.2
