@@ -197,7 +197,8 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
         ],
         # The source as proposed: what the fix builds from (docs/design/security-hardening.md).
         "source": source,
-        "source_changed": source is not None and live is not None and snapshot(live) != source,
+        # Changed, or disconnected: either way the image no longer has the source this fix builds from.
+        "source_changed": source is not None and (live is None or snapshot(live) != source),
         "publication_target": _target_path((source or {}).get("repository")),
         "publications": [
             {

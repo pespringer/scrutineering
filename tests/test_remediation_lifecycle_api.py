@@ -20,7 +20,7 @@ def client(monkeypatch):
     monkeypatch.setenv("DASHBOARD_DEFAULT_ROLES", "dashboard,operator,remediator,security-operator")
     monkeypatch.setenv("REMEDIATION_EXECUTION_ENABLED", "true")
     dispatched = []
-    from src.api.routes import remediations
+    from src.api.routes import remediation_steps
 
     class FakeTask:
         @staticmethod
@@ -28,7 +28,7 @@ def client(monkeypatch):
             dispatched.append(args)
             return type("Result", (), {"id": "task-1"})()
 
-    monkeypatch.setattr(remediations, "execute_approved_remediation", FakeTask)
+    monkeypatch.setattr(remediation_steps, "execute_approved_remediation", FakeTask)
     client = TestClient(create_app())
     client.headers["x-api-key"] = API_KEY
     client.dispatched = dispatched
@@ -148,6 +148,15 @@ def test_a_retry_needs_the_source_still_connected(client, proposal):
 
     assert response.status_code == 409 and response.json()["detail"]["code"] == "source_not_connected"
     assert _status(client, rid) == "failed"
+
+
+def test_disconnecting_the_source_counts_as_a_change(client, proposal):
+    rid = proposal["id"]
+    assert client.delete(f"/api/dashboard/images/{proposal['image_id']}/source").status_code == 200
+
+    shown = client.get(f"/api/dashboard/remediations/{rid}").json()
+
+    assert (shown["source"]["repository"], shown["source_changed"]) == ("app", True)
 
 
 def test_cancelling_releases_the_findings(client, proposal):

@@ -38,15 +38,15 @@ def client(monkeypatch):
     monkeypatch.setenv("DASHBOARD_TRUSTED_PROXY_SECRET", SECRET)
     monkeypatch.setenv("DASHBOARD_GROUP_ROLES", "security=security-operator,admin=admin")
     monkeypatch.setenv("REMEDIATION_EXECUTION_ENABLED", "true")
-    from src.api.routes import remediations
+    from src.api.routes import remediation_steps
 
     class FakeTask:
         @staticmethod
         def apply_async(args, queue):
             return type("Result", (), {"id": "task-1"})()
 
-    monkeypatch.setattr(remediations, "execute_approved_remediation", FakeTask)
-    monkeypatch.setattr(remediations, "publish_remediation", FakeTask)
+    monkeypatch.setattr(remediation_steps, "execute_approved_remediation", FakeTask)
+    monkeypatch.setattr(remediation_steps, "publish_remediation", FakeTask)
     client = TestClient(create_app())
     client.headers["x-api-key"] = API_KEY
     return client
@@ -102,9 +102,9 @@ def test_admins_are_bound_too(client):
 
 
 def test_each_step_records_who_took_it(client, monkeypatch):
-    monkeypatch.setattr("src.api.routes.remediations.github_token", lambda: "token")
+    monkeypatch.setattr("src.api.routes.remediation_steps.github_token", lambda: "token")
     monkeypatch.setattr(
-        "src.api.routes.remediations.publication_target",
+        "src.api.routes.remediation_steps.publication_target",
         lambda repository: sources.PublicationTarget("github", "acme/app"),
     )
     rid = _propose(client)

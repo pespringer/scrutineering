@@ -172,8 +172,9 @@ finding can be in only one open remediation at a time.
 A proposal keeps a copy of the image's source as it is at that moment, shown as
 **Builds from** on the remediation page. Every later step uses that copy: building,
 testing, the evidence, and the pull request's base branch. Editing the image's
-source afterwards doesn't change a fix that's already proposed. The page notes the
-change, and **Retry** on a failed fix takes a fresh copy for a new approval.
+source afterwards, or disconnecting it, doesn't change a fix that's already proposed.
+The page notes the change, and **Retry** on a failed fix takes a fresh copy for a new
+approval (it needs the source connected).
 
 ## 6. Approve and build
 

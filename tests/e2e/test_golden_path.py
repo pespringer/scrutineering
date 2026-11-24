@@ -125,7 +125,7 @@ def api(monkeypatch):
         "enqueue_scan",
         lambda target, **kw: tasks.run_scan.run.__func__(MagicMock(), target, scan_id=kw["scan_id"]),
     )
-    from src.api.routes import remediations
+    from src.api.routes import remediation_steps
     from src.remediation.worker import run_remediation
 
     class RunNow:
@@ -134,7 +134,7 @@ def api(monkeypatch):
             run_remediation(*args)
             return MagicMock(id="remediation-task")
 
-    monkeypatch.setattr(remediations, "execute_approved_remediation", RunNow)
+    monkeypatch.setattr(remediation_steps, "execute_approved_remediation", RunNow)
     client = TestClient(create_app())
     client.headers["x-api-key"] = API_KEY
     return client
@@ -325,7 +325,7 @@ class FakeGitHub:
 @pytest.fixture
 def github(tmp_path, monkeypatch, source):
     """The fixture source hosted on a stand-in github.com, with publication running synchronously."""
-    from src.api.routes import remediations, webhooks
+    from src.api.routes import remediation_steps, webhooks
     from src.remediation import publish, sources
 
     hosted = tmp_path / "github" / "fixtures" / "vulnerable-node.git"
@@ -343,7 +343,7 @@ def github(tmp_path, monkeypatch, source):
             publish.publish(*args)
             return MagicMock(id="publish-task")
 
-    monkeypatch.setattr(remediations, "publish_remediation", PublishNow)
+    monkeypatch.setattr(remediation_steps, "publish_remediation", PublishNow)
     rescans = []
     monkeypatch.setattr(webhooks, "queue_rescan", rescans.append)
     return {"hosted": hosted, "rescans": rescans}

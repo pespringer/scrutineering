@@ -293,7 +293,7 @@ export interface RemediationRecord {
   actions: RemediationAction[];
   /** The image's source as proposed: what the fix builds from. */
   source?: RemediationSource | null;
-  /** The image's source has changed since this fix was proposed; retrying picks up the change. */
+  /** The image's source has changed or been disconnected since this fix was proposed. */
   source_changed?: boolean;
   /** `owner/name` when the image's source is on GitHub, so it can be published as a pull request. */
   publication_target?: string | null;

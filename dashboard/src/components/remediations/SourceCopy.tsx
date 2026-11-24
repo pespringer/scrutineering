@@ -29,8 +29,8 @@ export default function SourceCopy({ source, changed }: { source?: RemediationSo
       )}
       {changed && (
         <p className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
-          The image&apos;s source has changed since this fix was proposed. The fix still builds from the source shown
-          here; a retry picks up the change.
+          The image&apos;s source has changed or been disconnected since this fix was proposed. The fix still builds
+          from the source shown here; a retry uses the image&apos;s current source.
         </p>
       )}
     </div>
