@@ -8,12 +8,6 @@ from src.scan.reliability import ScanCooldown, cooldown_active
 from src.telemetry.scan_metrics import set_queue_health
 
 
-def active_image_names(session) -> list[str]:
-    return [
-        image.full_name for image in session.query(Image).filter(Image.active.is_(True)).order_by(Image.id.asc()).all()
-    ]
-
-
 def schedule_active_scans(
     enqueue, *, limit: int = 100, cooldown: ScanCooldown | None = None, now=None
 ) -> dict[str, int]:

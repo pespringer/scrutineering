@@ -157,31 +157,6 @@ class RemediationRepository:
             .all()
         )
 
-    @staticmethod
-    def list_by_image(session: Session, image_id: int, limit: int = 20) -> Sequence[Remediation]:
-        return (
-            session.execute(
-                select(Remediation)
-                .where(Remediation.image_id == image_id)
-                .order_by(Remediation.created_at.desc())
-                .limit(limit)
-            )
-            .scalars()
-            .all()
-        )
-
-    @staticmethod
-    def list_in_progress(session: Session) -> Sequence[Remediation]:
-        return (
-            session.execute(
-                select(Remediation)
-                .where(Remediation.status.in_([RemediationStatus.BUILDING, RemediationStatus.VERIFYING]))
-                .order_by(Remediation.created_at)
-            )
-            .scalars()
-            .all()
-        )
-
 
 class AuditLogRepository:
     """Append-only audit log writes."""
