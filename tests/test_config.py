@@ -14,9 +14,9 @@ PASS_THROUGH = {"PATH", "HOME", "LANG", "HTTPS_PROXY", "NO_PROXY"}
 
 
 def test_configuration_doc_is_generated_from_the_settings_module():
-    assert (
-        (ROOT / "docs" / "CONFIGURATION.md").read_text() == documentation()
-    ), "docs/CONFIGURATION.md is stale: run `python -m src.config > docs/CONFIGURATION.md`"
+    assert (ROOT / "docs" / "CONFIGURATION.md").read_text() == documentation(), (
+        "docs/CONFIGURATION.md is stale: run `python -m src.config > docs/CONFIGURATION.md`"
+    )
 
 
 def _environment_reads(tree: ast.AST):

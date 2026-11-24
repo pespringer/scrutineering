@@ -55,7 +55,7 @@ class MetricsRegistry:
         if not labels:
             return ""
         return ",".join(
-            f'{key}="{str(value).replace(chr(92), chr(92)+chr(92)).replace(chr(34), chr(92)+chr(34))}"'
+            f'{key}="{str(value).replace(chr(92), chr(92) + chr(92)).replace(chr(34), chr(92) + chr(34))}"'
             for key, value in sorted(labels.items())
         )
 
@@ -63,9 +63,9 @@ class MetricsRegistry:
         with self._lock:
             rows = []
             for (name, labels), value in sorted(self._counters.items()):
-                rows.append(f"{name}{('{'+labels+'}') if labels else ''} {value:g}")
+                rows.append(f"{name}{('{' + labels + '}') if labels else ''} {value:g}")
             for (name, labels), value in sorted(self._gauges.items()):
-                rows.append(f"{name}{('{'+labels+'}') if labels else ''} {value:g}")
+                rows.append(f"{name}{('{' + labels + '}') if labels else ''} {value:g}")
             for (name, labels), values in sorted(self._histograms.items()):
                 for quantile, percentile in (("0.5", 0.5), ("0.95", 0.95)):
                     ordered = sorted(values)

@@ -239,7 +239,7 @@ services:
   # BuildKit — builds remediation candidate images (rootless; no Docker socket)
   # ---------------------------------------------------------------------------
   buildkitd:
-    image: moby/buildkit:v0.16.0-rootless
+    image: moby/buildkit:v0.34.2-rootless
     container_name: scrutineering-buildkitd
     # Rootless BuildKit needs user namespaces; these options relax only this container's
     # seccomp/AppArmor profiles so it can create them. It is reachable only on the internal network.
@@ -265,16 +265,11 @@ services:
   # Only GET on containers and images (plus ping and version) is allowed; every POST, exec, build
   # and volume call is refused. Only the worker can reach it, on the internal `discovery` network.
   docker-proxy:
-    image: tecnativa/docker-socket-proxy:0.3.0
+    image: tecnativa/docker-socket-proxy:v0.5.0
     container_name: scrutineering-docker-proxy
-    # The image writes its rendered config next to the template, which a read-only root forbids;
-    # render it into the /run tmpfs instead (the image's own entrypoint, for this pinned version).
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        sed 's/\$${BIND_CONFIG}/:2375/g' /usr/local/etc/haproxy/haproxy.cfg.template > /run/haproxy.cfg
-        exec haproxy -W -db -f /run/haproxy.cfg
     environment:
+      # IPv4 only, like the internal network; the image renders its config into the /tmp tmpfs.
+      - BIND_CONFIG=:2375
       - CONTAINERS=1
       - IMAGES=1
       - EVENTS=0
@@ -283,6 +278,7 @@ services:
       - ${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock:ro
     read_only: true
     tmpfs:
+      - /tmp
       - /run
     cap_drop:
       - ALL

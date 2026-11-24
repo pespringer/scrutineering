@@ -9,6 +9,7 @@ venv/
 *.log
 dashboard/.next/
 dashboard/out/
+dashboard/*.tsbuildinfo
 *.sqlite3
 *.db
 dist/
