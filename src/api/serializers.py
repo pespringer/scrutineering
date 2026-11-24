@@ -15,7 +15,7 @@ from src.db.models import (
     Scan,
     ScanFinding,
 )
-from src.remediation.sources import publication_target
+from src.remediation.sources import publication_target, snapshot
 from src.remediation.state_machine import LABELS
 
 
@@ -153,7 +153,8 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
     remediation_findings = list(getattr(remediation, "findings", []) or [])
     resolved_findings = sum(1 for finding in remediation_findings if getattr(finding, "resolved_at", None) is not None)
     status = RemediationStatus(enum_value(remediation.status))
-    source = getattr(getattr(remediation, "image", None), "source", None)
+    source = getattr(remediation, "source", None)
+    live = getattr(getattr(remediation, "image", None), "source", None)
     return {
         "id": remediation.id,
         "image_id": remediation.image_id,
@@ -194,7 +195,10 @@ def remediation_payload(remediation: Remediation, actions: list[dict] | None = N
             }
             for action in remediation.actions
         ],
-        "publication_target": _target_path(getattr(source, "repository", None)),
+        # The source as proposed: what the fix builds from (docs/design/security-hardening.md).
+        "source": source,
+        "source_changed": source is not None and live is not None and snapshot(live) != source,
+        "publication_target": _target_path((source or {}).get("repository")),
         "publications": [
             {
                 "id": publication.id,

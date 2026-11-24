@@ -104,6 +104,52 @@ def test_failed_remediation_returns_to_approval_on_retry(client, proposal):
     assert (retried["status"], retried["approved_by"]) == ("proposed", None)
 
 
+def _edit_source(client, image_id, **changes):
+    current = client.get(f"/api/dashboard/images/{image_id}/source").json()["source"]
+    body = {key: current[key] for key in ("repository", "ref", "dockerfile_path", "build_context", "test_command")}
+    assert client.put(f"/api/dashboard/images/{image_id}/source", json={**body, **changes}).status_code == 200
+
+
+def test_a_proposal_keeps_the_source_it_was_proposed_with(client, proposal):
+    rid = proposal["id"]
+    shown = client.get(f"/api/dashboard/remediations/{rid}").json()
+    assert shown["source"] == {
+        "repository": "app",
+        "ref": "HEAD",
+        "dockerfile_path": "Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "test_command": None,
+    }
+    assert shown["source_changed"] is False
+
+    _edit_source(client, proposal["image_id"], ref="release", test_command=["true"])
+
+    shown = client.get(f"/api/dashboard/remediations/{rid}").json()
+    assert (shown["source"]["ref"], shown["source"]["test_command"], shown["source_changed"]) == ("HEAD", None, True)
+
+
+def test_a_retry_takes_a_fresh_copy_of_the_source(client, proposal):
+    rid = proposal["id"]
+    _force(rid, RemediationStatus.APPROVED, RemediationStatus.BUILDING, RemediationStatus.FAILED)
+    _edit_source(client, proposal["image_id"], ref="release")
+
+    retried = client.post(f"/api/dashboard/remediations/{rid}/retry").json()
+
+    assert (retried["source"]["ref"], retried["source_changed"]) == ("release", False)
+
+
+def test_a_retry_needs_the_source_still_connected(client, proposal):
+    rid = proposal["id"]
+    _force(rid, RemediationStatus.APPROVED, RemediationStatus.BUILDING, RemediationStatus.FAILED)
+    assert client.delete(f"/api/dashboard/images/{proposal['image_id']}/source").status_code == 200
+
+    response = client.post(f"/api/dashboard/remediations/{rid}/retry")
+
+    assert response.status_code == 409 and response.json()["detail"]["code"] == "source_not_connected"
+    assert _status(client, rid) == "failed"
+
+
 def test_cancelling_releases_the_findings(client, proposal):
     rid = proposal["id"]
     assert client.post(f"/api/dashboard/remediations/{rid}/cancel").json()["status"] == "cancelled"

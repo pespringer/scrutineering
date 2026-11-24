@@ -8,6 +8,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Query, Request
 
+from src.db import audit_chain
 from src.db.connection import get_session
 from src.db.models import (
     AuditLog,
@@ -57,6 +58,14 @@ def dashboard_audit(
         for record in records
     ]
     return paginate(items, limit, offset, total)
+
+
+@router.get("/audit/verify")
+def dashboard_audit_verify(request: Request) -> dict:
+    """Recompute the whole audit hash chain (docs/design/security-hardening.md)."""
+    require_action(request, "audit.export")
+    with get_session() as session:
+        return audit_chain.verify_all(session).as_dict()
 
 
 @router.get("/audit/export")

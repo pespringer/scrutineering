@@ -17,7 +17,8 @@ the stack scans). After the fix completes, discovery must show it stale and the 
 Then: a test notification when a channel is configured, and two runtime discovery runs in the
 worker (the stack's own pulled images are found and scanned once; images built here are skipped).
 After the fix, an on-demand report for this week must list it and verify with openssl, and a
-compliance export of today must hold its evidence, with every file matching the signed manifest.
+compliance export of today must hold its evidence, with every file matching the signed manifest, and
+the audit log's hash chain must verify.
 
 Environment: E2E_DASHBOARD_URL (default http://localhost:3001),
 E2E_PUSH_HOST (localhost:5000), E2E_SCAN_HOST (registry:5000), E2E_TIMEOUT_SECONDS (900).
@@ -332,6 +333,11 @@ def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
 
     step("export today's records and verify the zip")
     export_check(remediation_id)
+    step("verify the audit hash chain")
+    chain = request("GET", "/api/audit/verify")
+    if not chain.get("intact"):
+        fail(f"the audit hash chain is broken at record {chain.get('first_broken_id')}")
+    print(f"    {chain['records']} audit records chain intact")
 
 
 DISCOVERY_RUN = (

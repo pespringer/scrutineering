@@ -23,7 +23,7 @@ from src.remediation.planner import Plan, finding_input
 from src.remediation.state_machine import TRANSITIONS
 from src.remediation.planner import plan as plan_fixes
 from src.remediation.publish import publish_remediation, token as github_token
-from src.remediation.sources import publication_target
+from src.remediation.sources import publication_target, snapshot
 from src.remediation.worker import execute_approved_remediation
 from src.scan.deployments import remediation_deployment
 from src.api.routes.evidence import evidence_summary, latest_bundle
@@ -180,6 +180,7 @@ def create_remediation(payload: RemediationRequest, request: Request) -> dict:
         )
         remediation.status = RemediationStatus.PROPOSED
         remediation.proposed_by = _actor(request)
+        remediation.source = snapshot(image.source)
         for finding in findings:
             finding.remediation_id = remediation.id
         for action in plan.actions:
@@ -349,8 +350,7 @@ def publish_remediation_route(remediation_id: int, request: Request) -> dict:
     with get_session() as session:
         remediation = _load(session, remediation_id)
         _require_status(remediation, RemediationStatus.READY)
-        source = remediation.image.source
-        if publication_target(source.repository if source else None) is None:
+        if publication_target((remediation.source or {}).get("repository")) is None:
             raise HTTPException(status_code=422, detail="source_not_on_github")
         remediation.published_by = _actor(request)
         RemediationRepository.record_event(session, remediation_id, "publication_queued", {"by": _actor(request)})
@@ -365,10 +365,18 @@ def retry_remediation(remediation_id: int, request: Request) -> dict:
     """Return a failed remediation to approval so an operator can deliberately restart it."""
     require_action(request, "remediations.retry")
     with get_session() as session:
-        _require_status(_load(session, remediation_id), RemediationStatus.FAILED)
+        failed = _load(session, remediation_id)
+        _require_status(failed, RemediationStatus.FAILED)
+        if failed.image.source is None:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "source_not_connected", "reason": "Connect the image's source repository first."},
+            )
         RemediationRepository.update_status(session, remediation_id, RemediationStatus.PROPOSED)
         remediation = session.get(Remediation, remediation_id)
         remediation.error_message = None
+        # A retry is approved afresh, so it takes the source as it is now.
+        remediation.source = snapshot(remediation.image.source)
         remediation.approved_by = None
         remediation.approved_at = None
         # A retry is a new proposal by whoever asked for it, so it needs a fresh approval from someone else.

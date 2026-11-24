@@ -24,7 +24,7 @@ from src.db.models import Image, Remediation, RemediationStatus, ScanFinding
 from src.db.repositories import RemediationRepository
 from src.remediation.apply import ApplyError, apply_action
 from src.remediation.build import BuildError, BuiltImage, build_and_push, checkout, diff, run_tests
-from src.remediation.sources import SourceError, settings_from_record
+from src.remediation.sources import SourceError, settings_from_snapshot
 from src.scan.image_identity import parse_image_reference
 from src.scan.inspection import inspect_image
 from src.scan.registry import credentials_for_host, list_tags
@@ -116,13 +116,13 @@ def _load(remediation_id: int) -> dict:
         if remediation.status != RemediationStatus.BUILDING:
             raise RemediationStopped(remediation.status.value)
         image = remediation.image
-        if image.source is None:
-            raise SourceError("the image has no connected source")
+        if remediation.source is None:
+            raise SourceError("the remediation has no recorded source")
         open_keys = session.query(ScanFinding.vuln_key).filter(
             ScanFinding.image_id == image.id, ScanFinding.resolved_at.is_(None)
         )
         return {
-            "settings": settings_from_record(image.source),
+            "settings": settings_from_snapshot(remediation.source),
             "actions": [dict(action.detail or {}) for action in remediation.actions],
             "targets": {finding.vuln_key for finding in remediation.findings},
             "baseline": {vuln_key for (vuln_key,) in open_keys},

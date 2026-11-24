@@ -1,6 +1,6 @@
 # Security hardening: approved sources, a tamper-evident audit log, local ports
 
-Status: proposed · 2026-11-23 · Phase 6
+Status: built · 2026-11-23 · Phase 6
 
 ## Problem
 
@@ -175,10 +175,10 @@ One PR after this note merges:
 
 Dependency upgrades are a separate PR.
 
-## Open questions
+## Decisions
 
-1. Should a "source changed since proposal" notice block approval, or only
-   warn? Proposed: warn. The approver approves what's shown, which is the copy.
-2. One setting for the API and dashboard, plus one for the registry, or a single
-   setting for all three? Proposed: two, because sharing the registry is common
-   and sharing a `local`-mode dashboard shouldn't be the side effect.
+1. A "source changed since proposal" notice only warns. The approver approves what's
+   shown, which is the copy.
+2. Two settings: one for the API and dashboard, one for the registry. Sharing the
+   registry is common, and opening a `local`-mode dashboard shouldn't be the side
+   effect.

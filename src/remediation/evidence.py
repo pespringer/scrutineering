@@ -139,7 +139,7 @@ def build_document(session, remediation: Remediation) -> tuple[dict, str | None,
         "candidate": {
             "image": remediation.candidate_image,
             "digest": remediation.candidate_digest,
-            "test_command": image.source.test_command if image is not None and image.source else None,
+            "test_command": (remediation.source or {}).get("test_command"),
             "verification": remediation.verification,
         },
         "publication": (

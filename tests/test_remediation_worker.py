@@ -183,11 +183,36 @@ def test_only_building_remediations_run(remediation_id):
 
 
 def _set_test_command(remediation_id, command):
+    """As if the source had this test command when the fix was proposed: the fix's copy is what counts."""
+    with get_session() as session:
+        remediation = session.get(Remediation, remediation_id)
+        remediation.source = {**remediation.source, "test_command": command}
+
+
+def test_the_fix_builds_from_the_source_as_proposed_not_as_edited_later(remediation_id, monkeypatch, tmp_path):
     from src.db.models import ImageSource
 
     with get_session() as session:
         image_id = session.get(Remediation, remediation_id).image_id
-        session.query(ImageSource).filter_by(image_id=image_id).one().test_command = command
+        source = session.query(ImageSource).filter_by(image_id=image_id).one()
+        # After approval: point the source somewhere else and add a test command.
+        source.repository = "elsewhere"
+        source.test_command = ["sh", "-c", "exit 1"]
+    _candidate_scan(monkeypatch, EXISTING)
+
+    assert worker.run_remediation(remediation_id)["status"] == "ready"
+    assert not (tmp_path / "test-dockerfile").exists()  # the later test command never ran
+    record = _record(remediation_id)
+    assert record.source["repository"] == "app"
+    assert record.source_commit
+
+
+def test_a_remediation_without_a_recorded_source_fails(remediation_id):
+    with get_session() as session:
+        session.get(Remediation, remediation_id).source = None
+
+    assert worker.run_remediation(remediation_id)["status"] == "failed"
+    assert "no recorded source" in _record(remediation_id).error_message
 
 
 def test_the_test_command_runs_in_the_candidate_before_it_is_scanned(remediation_id, monkeypatch, tmp_path):
