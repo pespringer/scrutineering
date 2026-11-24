@@ -120,7 +120,7 @@ scrutineering-export-2026-07-01_2026-09-30.zip
 ├── sboms/<scan id>.cdx.json(.sig)                SBOMs those bundles cite
 ├── reports/<period start>.json(.sig)             weekly reports in the range
 ├── findings.csv                  findings open at export time, plus those resolved in the range
-└── audit.json                    audit records in the range, with their hash chain
+└── audit.json                    audit records in the range
 ```
 
 Files keep their own signatures, so each can be verified on its own as well. The

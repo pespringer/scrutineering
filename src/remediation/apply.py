@@ -64,6 +64,18 @@ def _run(command: list[str], cwd: Path) -> None:
         raise ApplyError(f"{' '.join(command[:3])} failed: {(result.stderr or result.stdout)[-1500:]}")
 
 
+def _own_file(checkout: Checkout, path: Path) -> Path:
+    """`path`, refused if it is a symlink or lies outside the checkout.
+
+    A source is cloned from a repository others can push to, so a manifest committed as a symlink
+    must not let a fix write to the worker's own files.
+    """
+    root = checkout.root.resolve()
+    if path.is_symlink() or not path.resolve().is_relative_to(root):
+        raise ApplyError(f"refusing to change {path.name}: it is a symlink or outside the source")
+    return path
+
+
 def _package_dirs(context: Path, manifest: str) -> list[Path]:
     return sorted(
         path.parent for path in context.rglob(manifest) if "node_modules" not in path.parts and ".git" not in path.parts
@@ -76,9 +88,11 @@ def update_npm(checkout: Checkout, package: str, version: str) -> list[str]:
     _safe(version, _VERSION, "version")
     changed = []
     for directory in _package_dirs(checkout.context, "package.json"):
-        manifest_path = directory / "package.json"
+        manifest_path = _own_file(checkout, directory / "package.json")
         manifest = json.loads(manifest_path.read_text())
         lock = directory / "package-lock.json"
+        if lock.exists() or lock.is_symlink():
+            _own_file(checkout, lock)
         lock_text = lock.read_text() if lock.exists() else ""
         sections = ("dependencies", "devDependencies", "optionalDependencies")
         direct = next((section for section in sections if package in manifest.get(section, {})), None)
@@ -107,10 +121,12 @@ def update_pip(checkout: Checkout, package: str, version: str) -> list[str]:
     pin = re.compile(rf"^(?P<name>{name})(?P<extras>\[[^\]]*\])?\s*==\s*[^\s;#]+", re.IGNORECASE | re.MULTILINE)
     changed = []
     for path in sorted(checkout.context.rglob("requirements*.txt")):
+        if path.is_symlink():
+            continue  # never followed; a pin the fix needs is reported as missing below
         text = path.read_text()
         updated = pin.sub(lambda m: f"{m['name']}{m['extras'] or ''}=={version}", text)
         if updated != text:
-            path.write_text(updated)
+            _own_file(checkout, path).write_text(updated)
             changed.append(str(path.relative_to(checkout.root)))
     if not changed:
         raise ApplyError(f"{package} is not pinned with == in any requirements file under the build context")
@@ -129,7 +145,7 @@ def upgrade_os_packages(checkout: Checkout, family: str, packages: dict[str, str
     if family not in OS_UPGRADE_COMMANDS:
         raise ApplyError(f"no upgrade command for {family} packages")
     names = " ".join(_safe(name, _PACKAGE_NAME, "package name") for name in sorted(packages))
-    lines = checkout.dockerfile.read_text().splitlines()
+    lines = _own_file(checkout, checkout.dockerfile).read_text().splitlines()
     index = final_from(lines)
     command = OS_UPGRADE_COMMANDS[family].format(packages=names)
     lines.insert(index + 1, f"# Scrutineering: upgrade OS packages with known fixes\nRUN {command}")
@@ -164,7 +180,7 @@ def newer_tag(current: str, tags: list[str]) -> str | None:
 
 def bump_base_image(checkout: Checkout, list_tags: Callable[[str], list[str]]) -> tuple[list[str], str, str]:
     """Rewrite the final stage's FROM to the newest tag of the same line. Returns (files, old, new)."""
-    lines = checkout.dockerfile.read_text().splitlines()
+    lines = _own_file(checkout, checkout.dockerfile).read_text().splitlines()
     index = final_from(lines)
     match = FROM_LINE.match(lines[index])
     image = match["image"]
