@@ -2,7 +2,7 @@
 
 PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt python -m pytest
 
-.PHONY: up down migrate backup test test-python check fmt fmt-check smoke e2e record-fixtures
+.PHONY: up down migrate backup test test-python check fmt fmt-check lock smoke e2e record-fixtures
 
 up:
 	@# Create the sources folder as you, before Docker creates it as root for the bind mount.
@@ -33,6 +33,7 @@ check:
 	node scripts/validate-doc-links.mjs
 	node scripts/validate-deployment-config.mjs
 	node scripts/validate-frontend-config.mjs
+	node scripts/check-python-lock.mjs
 	node --test scripts/tests/*.test.mjs
 
 # Formatting and lint; enforced in CI.
@@ -47,6 +48,13 @@ fmt:
 	uvx ruff@0.17.4 format src tests scripts
 	uvx ruff@0.17.4 check --fix src tests scripts
 	cd dashboard && npx --yes prettier@3.3.3 --write "src/**/*.{ts,tsx,css}" "../scripts/**/*.mjs"
+
+# Regenerate requirements.txt from requirements.in: exact versions with hashes, from releases at least 14 days
+# old (docs/design/dependency-pinning.md).
+lock:
+	cutoff=$$(date -u -d '14 days ago' +%Y-%m-%d 2>/dev/null || date -u -v-14d +%Y-%m-%d); \
+		uv pip compile requirements.in --universal --generate-hashes --python-version 3.12 \
+		--exclude-newer "$$cutoff" -o requirements.txt
 
 # Requires a running stack (make up).
 smoke:

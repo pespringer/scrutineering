@@ -88,7 +88,7 @@ state machines.
 
 ## Development
 
-Development needs Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 20, and
+Development needs Python 3.12 with [uv](https://docs.astral.sh/uv/), Node.js 22, and
 Docker.
 
 ```bash
@@ -96,6 +96,7 @@ make test         # Python tests and repository checks
 make e2e          # the golden path against the running stack, with real scanners
 make fmt          # format with Ruff and Prettier
 make fmt-check    # formatting, lint, and the 120-character line limit (as in CI)
+make lock         # regenerate requirements.txt after editing requirements.in
 cd dashboard && npm ci && npm run dev   # the dashboard with live reload
 ```
 
@@ -103,6 +104,9 @@ The golden-path test (`tests/e2e/test_golden_path.py`) defines "working": a chan
 that breaks it does not merge. Repository conventions are in
 [AGENTS.md](AGENTS.md). CI (`.github/workflows/ci.yml`) runs the tests, the
 repository checks, the format check and the dashboard build on every pull request.
+Python packages are listed in `requirements.in` and locked, with hashes, in the
+generated `requirements.txt`; `make lock` takes only releases at least 14 days old
+([design note](docs/design/dependency-pinning.md)).
 On `main` it also builds the images and scans the API image with Trivy.
 
 ## Deploying to Kubernetes

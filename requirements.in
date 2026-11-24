@@ -1,3 +1,4 @@
+# Direct dependencies. Edit this file, then run `make lock` to regenerate requirements.txt.
 celery
 redis
 sqlalchemy
