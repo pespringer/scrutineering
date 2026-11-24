@@ -37,15 +37,15 @@ check:
 
 # Formatting and lint; enforced in CI.
 fmt-check:
-	uvx ruff@0.6.9 format --check src tests scripts
-	uvx ruff@0.6.9 check src tests scripts
+	uvx ruff@0.17.4 format --check src tests scripts
+	uvx ruff@0.17.4 check src tests scripts
 	cd dashboard && npx --yes prettier@3.3.3 --check "src/**/*.{ts,tsx,css}" "../scripts/**/*.mjs"
 	node scripts/check-line-length.mjs
 
 # Apply the formatters.
 fmt:
-	uvx ruff@0.6.9 format src tests scripts
-	uvx ruff@0.6.9 check --fix src tests scripts
+	uvx ruff@0.17.4 format src tests scripts
+	uvx ruff@0.17.4 check --fix src tests scripts
 	cd dashboard && npx --yes prettier@3.3.3 --write "src/**/*.{ts,tsx,css}" "../scripts/**/*.mjs"
 
 # Requires a running stack (make up).

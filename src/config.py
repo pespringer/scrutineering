@@ -177,8 +177,7 @@ class Settings(BaseSettings):
     )
     report_schedule_cron: str = setting(
         "0 7 * * 1",
-        "When the weekly report is built: five cron fields, in UTC, or `off`. It covers the previous Monday "
-        "to Monday.",
+        "When the weekly report is built: five cron fields, in UTC, or `off`. It covers the previous Monday to Monday.",
         "Reports",
         (BEAT,),
     )

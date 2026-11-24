@@ -45,7 +45,7 @@ spec:
           type: Unconfined
       containers:
         - name: buildkitd
-          image: moby/buildkit:v0.16.0-rootless
+          image: moby/buildkit:v0.34.2-rootless
           args:
             - --addr
             - tcp://0.0.0.0:1234
