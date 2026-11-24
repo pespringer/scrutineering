@@ -27,3 +27,4 @@ A note answers:
 - [sbom-evidence.md](sbom-evidence.md): signed SBOMs and remediation evidence (built)
 - [reports-compliance.md](reports-compliance.md): weekly reports and a signed compliance export (built)
 - [security-hardening.md](security-hardening.md): approved sources, a tamper-evident audit log, local ports (built)
+- [dependency-pinning.md](dependency-pinning.md): pinned, hash-checked Python dependencies (proposed)
