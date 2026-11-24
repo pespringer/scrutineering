@@ -20,7 +20,8 @@ The security review of 2026-11-22 left three gaps that need a design decision:
   nothing ever writes them. Someone with database access can change or delete a
   record, and nothing in an export or check shows it.
 - **The stack listens on every interface.** Compose publishes the API (8000),
-  the dashboard (3001) and the registry (5000) on `0.0.0.0`. The registry has no
+  the dashboard (3001) and the registry (5000) on `0.0.0.0`. The host-access
+  overlay does the same for Postgres and Redis. The registry has no
   authentication. In the default `local` sign-in mode, anyone who reaches the
   dashboard is an operator. On a laptop on shared Wi-Fi, that is everyone on the
   network.
@@ -110,6 +111,9 @@ The security review of 2026-11-22 left three gaps that need a design decision:
 - **Registry:** published on `${REGISTRY_PUBLISH_ADDRESS:-127.0.0.1}`. A separate
   setting lets a team push images from other machines without also exposing the
   dashboard.
+- **Host-access overlay:** `docker-compose.host-access.yml` publishes Postgres
+  and Redis, which carry every record and the task queue, for tools on the host.
+  Both are bound to `127.0.0.1`, with no setting to widen them.
 - **Forward-auth overlay:** unchanged. It already removes the dashboard's
   published port, and Traefik is the entry point.
 
@@ -155,7 +159,7 @@ Both are Compose-only, listed in `src/config.py` as `External` so they appear in
   - setting an image's audit `image_id` to null doesn't break it;
   - the migration's hash function matches the app's.
 - **Ports:** `validate-deployment-config` checks that every published port in
-  `docker-compose.yml` has a host address.
+  the Compose files has a host address.
 - **Golden path:** `make e2e` passes unchanged. It reaches the stack on
   `localhost`. It also calls `/audit/verify` at the end and expects `intact`.
 
