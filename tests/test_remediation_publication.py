@@ -206,7 +206,7 @@ def test_the_publish_route_needs_a_token_a_github_source_and_a_ready_remediation
     monkeypatch.setenv("GITHUB_TOKEN", "token-value")
     queued = []
     monkeypatch.setattr(
-        "src.api.routes.remediations.publish_remediation",
+        "src.api.routes.remediation_steps.publish_remediation",
         type("Task", (), {"apply_async": lambda self, **kw: queued.append(kw) or type("R", (), {"id": "t1"})()})(),
     )
     response = client.post(f"/api/dashboard/remediations/{rid}/publish")
