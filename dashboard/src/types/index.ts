@@ -113,6 +113,9 @@ export interface ImageSource {
   updated_at: string | null;
 }
 
+/** A remediation's copy of its image's source, taken when it was proposed. */
+export type RemediationSource = Omit<ImageSource, "updated_by" | "updated_at">;
+
 export interface RegistryTag {
   repository: string;
   tag: string;
@@ -288,6 +291,10 @@ export interface RemediationRecord {
   resolved_finding_count?: number;
   resolution_status?: string;
   actions: RemediationAction[];
+  /** The image's source as proposed: what the fix builds from. */
+  source?: RemediationSource | null;
+  /** The image's source has changed since this fix was proposed; retrying picks up the change. */
+  source_changed?: boolean;
   /** `owner/name` when the image's source is on GitHub, so it can be published as a pull request. */
   publication_target?: string | null;
   publications: RemediationPublication[];

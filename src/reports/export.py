@@ -17,6 +17,8 @@ from datetime import datetime, timedelta
 
 from celery import shared_task
 
+from src.config import get_settings
+from src.db import audit_chain
 from src.db.connection import get_session
 from src.db.models import AuditLog, ComplianceExport, EvidenceBundle, Report, Sbom, ScanFinding, SigningKey
 from src.remediation.evidence import canonical
@@ -263,3 +265,15 @@ def build_compliance_export(export_id: int) -> str:
 def prune_compliance_exports() -> int:
     """Hourly, from beat."""
     return prune()
+
+
+@shared_task(name="src.reports.export.verify_audit_chain", acks_late=True, ignore_result=True)
+def verify_audit_chain() -> dict:
+    """Daily, from beat: recompute the audit log's hash chain (docs/design/security-hardening.md)."""
+    with get_session() as session:
+        result = audit_chain.verify_all(session).as_dict()
+    result["checked_at"] = utcnow().isoformat() + "Z"
+    if not result["intact"]:
+        logger.error("the audit log's hash chain is broken at record %s", result["first_broken_id"])
+    audit_chain.save_status(result, get_settings().redis_url)
+    return result

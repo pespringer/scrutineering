@@ -457,6 +457,17 @@ EXTERNAL = (
     External("LOCAL_REGISTRY_PORT", "Host port of the bundled registry.", "Compose"),
     External("PYTHON_API_PORT", "Host port of the API.", "Compose"),
     External("DASHBOARD_PORT", "Host port of the dashboard.", "Compose"),
+    External(
+        "PUBLISH_ADDRESS",
+        "Host address the API and dashboard ports are published on (default `127.0.0.1`, this host only).",
+        "Compose",
+    ),
+    External(
+        "REGISTRY_PUBLISH_ADDRESS",
+        "Host address the bundled registry is published on (default `127.0.0.1`). `0.0.0.0` lets other machines "
+        "push to it; it has no authentication.",
+        "Compose",
+    ),
     External("REMEDIATION_HOST_SOURCES", "Host folder mounted read-only as the worker's sources root.", "Compose"),
     External(
         "CELERY_QUEUES",

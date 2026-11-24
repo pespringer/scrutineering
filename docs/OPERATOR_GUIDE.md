@@ -169,16 +169,23 @@ fixed and proposes the ones it can:
 The details are in [remediation execution](operations/remediation-execution.md). A
 finding can be in only one open remediation at a time.
 
+A proposal keeps a copy of the image's source as it is at that moment, shown as
+**Builds from** on the remediation page. Every later step uses that copy: building,
+testing, the evidence, and the pull request's base branch. Editing the image's
+source afterwards doesn't change a fix that's already proposed. The page notes the
+change, and **Retry** on a failed fix takes a fresh copy for a new approval.
+
 ## 6. Approve and build
 
 Open the remediation from **Remediations**.
 
-1. A **security operator** reviews the proposed changes and chooses **Approve**.
+1. A **security operator** reviews the proposed changes and the source the fix
+   builds from, and chooses **Approve**.
    With separation of duties on, the person who proposed the fix can't approve it,
    and the button says so.
 2. **Build and verify** starts execution. It needs `REMEDIATION_EXECUTION_ENABLED=true`.
    The worker:
-   1. clones the source into a temporary directory;
+   1. clones the copied source into a temporary directory;
    2. applies the changes;
    3. builds the patched image on the rootless `buildkitd` service and pushes it to
       the local registry as `scrutineering-candidate-<id>`;
@@ -270,6 +277,28 @@ accepted, published and cancelled. Export it with `GET /api/dashboard/audit/expo
 Exporting needs the `security-operator` role. Each remediation also has its own event
 timeline on its page.
 
+**Hash chain.** Each audit record carries `record_hash`, which covers its own fields
+and the record before it, so editing, inserting or deleting a record breaks every
+hash after it. `GET /api/dashboard/audit/verify` (same role) recomputes the whole
+chain and returns `intact`, `records` and `first_broken_id`. The worker runs the same
+check daily at 03:50 UTC, and a break shows in the system status panel.
+
+To check an export yourself, walk its records from the oldest:
+
+```text
+record_hash = sha256(previous_hash + "\n" + json)
+```
+
+Here `json` holds the record's `timestamp`, `event_type`, `entity_type`, `entity_id`,
+`actor`, `actor_kind` and `detail`, written with sorted keys and no spaces. Each
+record's `previous_hash` must equal the `record_hash` of the record before it; the
+first record in the log has an empty one.
+
+The chain catches edits inside it, but not someone with database access who
+recomputes every hash after the point they changed. A signed compliance export is
+the anchor: keep exports where the database's owners can't write, and check that the
+newest `record_hash` in an old export still appears in the live log.
+
 ## 10. Reports
 
 Every Monday at 07:00 UTC the worker builds a **weekly report** of the week before
@@ -297,7 +326,7 @@ from the same page. The worker builds one zip, kept for 24 hours, holding:
 - `findings.csv`: findings open now, plus those resolved in the range. A cell that a
   spreadsheet would run as a formula (starting with `=`, `+`, `-` or `@`) is prefixed
   with `'`;
-- `audit.json`: the audit records in the range;
+- `audit.json`: the audit records in the range, with their hash chain;
 - `keys/`: every public key that signed something in it;
 - `manifest.json` and `manifest.json.sig`: every file's SHA-256 and size, signed.
 
@@ -394,9 +423,13 @@ only the environment can set them.
 ## 12. Sign-in
 
 Out of the box (`DASHBOARD_AUTH_MODE=local`) there is no sign-in: anyone who can
-reach the dashboard gets `DASHBOARD_DEFAULT_ROLES`. That's fine on a trusted home
-network. Before the dashboard is reachable from anywhere else, put it behind a
-sign-in proxy.
+reach the dashboard gets `DASHBOARD_DEFAULT_ROLES`. Compose publishes the dashboard,
+the API and the registry on `127.0.0.1`, so only this host can reach them. Setting
+`PUBLISH_ADDRESS=0.0.0.0` opens the dashboard and the API to the network, which is
+fine only on a trusted one. Before the dashboard is reachable from anywhere else, put
+it behind a sign-in proxy. To push images from other machines without opening the
+dashboard, set `REGISTRY_PUBLISH_ADDRESS` instead. The registry has no
+authentication.
 
 [examples/forward-auth/](../examples/forward-auth/README.md) does this with Traefik
 and Authelia, and runs on top of the stack with one command. It has two test users
@@ -411,7 +444,8 @@ to try it with. To adapt it:
    on the dashboard and the API, and `DASHBOARD_AUTH_HEADERS=authelia` on the
    dashboard. Set `DASHBOARD_LOGOUT_URL` to show **Sign out**.
 4. **Reach the dashboard only through the proxy:** don't publish its port or the
-   API's on a network others can reach.
+   API's on a network others can reach. Compose publishes them on `127.0.0.1` unless
+   `PUBLISH_ADDRESS` says otherwise.
 
 Other proxies work the same way: `DASHBOARD_AUTH_HEADERS` also accepts `authentik`
 and `oauth2-proxy`. Whatever you use, the proxy in front must replace any identity

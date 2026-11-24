@@ -103,6 +103,9 @@ class SourceSettings:
         return path
 
 
+SNAPSHOT_FIELDS = ("repository", "ref", "dockerfile_path", "build_context", "build_args", "test_command")
+
+
 def settings_from_record(record) -> SourceSettings:
     """SourceSettings for an `ImageSource` row."""
     return SourceSettings.validated(
@@ -113,6 +116,19 @@ def settings_from_record(record) -> SourceSettings:
         build_args=record.build_args or {},
         test_command=record.test_command,
     )
+
+
+def snapshot(record) -> dict:
+    """The copy of an `ImageSource` a remediation keeps from its proposal (docs/design/security-hardening.md)."""
+    copy = {name: getattr(record, name) for name in SNAPSHOT_FIELDS}
+    copy["build_args"] = dict(copy["build_args"] or {})
+    copy["test_command"] = list(copy["test_command"]) if copy["test_command"] else None
+    return copy
+
+
+def settings_from_snapshot(copy: dict) -> SourceSettings:
+    """SourceSettings for a remediation's copy of its source."""
+    return SourceSettings.validated(**{name: copy.get(name) for name in SNAPSHOT_FIELDS})
 
 
 @dataclass(frozen=True)

@@ -47,3 +47,42 @@ def test_upgrade_head_matches_models_and_downgrade_removes_everything(tmp_path):
     with engine.begin() as connection:
         _run(connection, command.downgrade, "base")
     assert set(sa.inspect(engine).get_table_names()) - {"alembic_version"} == set()
+
+
+def test_0018_copies_sources_onto_remediations_and_chains_existing_audit_records(tmp_path):
+    from datetime import datetime
+
+    from src.db import audit_chain
+
+    tables = Base.metadata.tables
+    engine = _sqlite_engine(tmp_path / "backfill.db")
+    with engine.begin() as connection:
+        _run(connection, command.upgrade, "0017_principals")
+        connection.execute(sa.insert(tables["images"]).values(id=1, repo_name="team/app"))
+        connection.execute(sa.insert(tables["images"]).values(id=2, repo_name="team/web"))
+        connection.execute(
+            sa.insert(tables["image_sources"]).values(image_id=1, repository="app", ref="v1", test_command=["true"])
+        )
+        connection.execute(sa.insert(tables["remediations"]).values(id=10, image_id=1, status="proposed"))
+        connection.execute(sa.insert(tables["remediations"]).values(id=11, image_id=2, status="proposed"))
+        for n in range(3):
+            connection.execute(
+                sa.insert(tables["audit_log"]).values(
+                    timestamp=datetime(2026, 11, 1, 12, 0, n), event_type="config_changed", detail={"n": n}
+                )
+            )
+        _run(connection, command.upgrade, "0018_security_hardening")
+
+    with engine.connect() as connection:
+        sources = dict(connection.execute(sa.text("SELECT id, source FROM remediations ORDER BY id")).all())
+        audit = connection.execute(sa.select(tables["audit_log"]).order_by(tables["audit_log"].c.id)).all()
+    assert sa.JSON().result_processor(engine.dialect, None)(sources[10]) == {
+        "repository": "app",
+        "ref": "v1",
+        "dockerfile_path": "Dockerfile",
+        "build_context": ".",
+        "build_args": {},
+        "test_command": ["true"],
+    }
+    assert sources[11] is None
+    assert audit_chain.verify(audit) == audit_chain.Verification(True, 3, None)

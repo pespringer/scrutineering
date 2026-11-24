@@ -217,6 +217,21 @@ def test_the_publish_route_needs_a_token_a_github_source_and_a_ready_remediation
     assert client.post(f"/api/dashboard/remediations/{rid}/publish").status_code == 409
 
 
+def test_publishing_uses_the_source_the_fix_was_proposed_with(client, remote, monkeypatch):
+    rid = _ready(client, remote)
+    image_id = _remediation(rid).image_id
+    # After approval, someone repoints the source at another project and branch.
+    changed = {"repository": "https://github.com/evil/app", "ref": "attacker-branch"}
+    assert client.put(f"/api/dashboard/images/{image_id}/source", json=changed).status_code == 200
+    github = FakeGitHub()
+
+    assert publish.publish(rid, provider=github)["status"] == "published"
+
+    [pull] = github.pulls
+    assert (pull["repository"], pull["base"]) == ("acme/app", "main")
+    assert client.get(f"/api/dashboard/remediations/{rid}").json()["publication_target"] == "acme/app"
+
+
 def test_a_source_that_is_not_on_github_cannot_be_published(client, remote, monkeypatch):
     rid = _ready(client, remote, repository="https://gitlab.example.com/acme/app")
     monkeypatch.setenv("GITHUB_TOKEN", "token-value")
