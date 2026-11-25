@@ -1,9 +1,10 @@
-node_modules/
-.next/
+# Unlike .gitignore, a pattern without `**/` matches only at the root of the build context.
+**/node_modules/
+**/.next/
+**/__pycache__/
+**/*.pyc
+**/.env
 .python-version
-__pycache__/
-*.pyc
 .git/
-.env
 docker-compose.yml
 Dockerfile.worker
