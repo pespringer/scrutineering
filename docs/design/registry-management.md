@@ -1,13 +1,14 @@
 # Registry management
 
-Status: proposed · 2026-11-24 · Phase 6
+Status: accepted · 2026-11-24 · Phase 6 · step 1 built
 
 ## Problem
 
 The stack ships a registry, and every remediation pushes to it, but the dashboard
 can only list its tags. An operator can't see what an image contains or how much
 it stores, can't delete one, and can't reclaim its disk space short of deleting
-the whole registry volume. What the catalog does show is partly wrong:
+the whole registry volume. Before step 1, what the catalog
+did show was partly wrong:
 
 - **Size** is the manifest's `Content-Length`: about 2 KB for a 53 MB image.
 - **Multi-platform tags fail.** The catalog's `Accept` header leaves out OCI
@@ -51,8 +52,10 @@ which is near the size limit, to `src/api/routes/registry.py`.
 - accepts OCI indexes, and follows `Link` pagination for repositories and tags;
 - matches a tag to a tracked image by its full name, host included, with no
   fallback;
-- returns, for each tag, its compressed size, platforms, the other tags with the
-  same digest, and whether it's a candidate (with its remediation's ID and status);
+- returns, for each tag, its compressed size, its platforms, how many other tags in
+  the repository have the same digest, and whether it's a candidate;
+- names a candidate's remediation and its status only when the recorded reference
+  and digest match the tag, and the caller has `remediations.view`;
 - returns stored bytes for each repository and in total, counting each blob once;
 - leaves out repositories with no tags. The registry keeps listing them after
   their last tag is deleted.
@@ -62,12 +65,13 @@ For an index, the size is listed per platform. Entries with the platform
 
 `GET /registry/tags/detail?repository=&tag=` adds the layers, the build date,
 labels, entrypoint, command, exposed ports, user and build history, read from the
-image's config blob. Environment values aren't returned, because they often
-hold secrets.
+image's config blob. Environment values often hold secrets, so they aren't
+returned. Build history repeats them, along with build arguments, so both are
+replaced there too. A secret written into a command itself is still shown.
 
 A manifest never changes for a given digest, so parsed manifests are cached in
-Redis by digest for 7 days. Repeat loads cost one `HEAD` per tag. Manifests and
-config blobs over 4 MB are reported as unreadable rather than parsed.
+Redis by digest for 7 days. Repeat loads cost one `HEAD` per tag. Content over 4 MB, or
+that doesn't match its digest, is reported as unreadable rather than parsed.
 
 ### 2. Deleting tags
 
@@ -193,7 +197,8 @@ One new Make target, `registry-gc`. No new service or top-level module.
   decides which sources build.
 - **Image metadata is untrusted.** Labels and history are written by whoever
   built the image. They are size-limited and rendered as text.
-- **Requests:** the API only calls the configured registry. Repository and tag
+- **Requests:** the API only calls the configured registry, and doesn't follow
+  redirects. Repository and tag
   names are validated before they're put in a URL.
 
 ## Testing

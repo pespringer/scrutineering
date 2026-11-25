@@ -1,4 +1,4 @@
-"""Images, the local registry catalog, findings triage and export, the audit trail and posture trend."""
+"""Images, findings triage and export, the audit trail and posture trend."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import hashlib
 import json
 from datetime import datetime, timedelta, timezone
 
-import pytest
 from fastapi.testclient import TestClient
 
 from src.api.app import create_app
@@ -124,102 +123,6 @@ def test_image_detail_pages_open_findings_and_counts_resolved_ones(monkeypatch):
     # The image's own counts cover every open finding, not just the filtered page.
     assert page["image"]["open_findings"] == 2
     assert client.get("/api/dashboard/images/999").status_code == 404
-
-
-class FakeRegistry:
-    """The local registry's catalog, tags and manifest HEADs."""
-
-    def __init__(self, tags: dict[str, list[str]], broken_manifest: str | None = None):
-        self.tags, self.broken_manifest = tags, broken_manifest
-
-    def json(self, path: str) -> dict:
-        if path.startswith("/v2/_catalog"):
-            return {"repositories": list(self.tags)}
-        repository = path.removeprefix("/v2/").removesuffix("/tags/list")
-        return {"tags": self.tags[repository]}
-
-    def manifest(self, repository: str, tag: str) -> dict:
-        if f"{repository}:{tag}" == self.broken_manifest:
-            raise OSError("manifest unknown")
-        return {"digest": f"sha256:{repository}-{tag}", "size": 1234}
-
-
-@pytest.fixture
-def registry(monkeypatch):
-    def install(fake: FakeRegistry) -> None:
-        monkeypatch.setattr("src.api.routes.images._registry_json", fake.json)
-        monkeypatch.setattr("src.api.routes.images._registry_manifest_metadata", fake.manifest)
-
-    return install
-
-
-def test_registry_inventory_joins_tags_with_scan_state(monkeypatch, registry):
-    monkeypatch.setenv("LOCAL_REGISTRY_HOST", "registry:5000")
-    client = _client(monkeypatch)
-    registry(FakeRegistry({"team/api": ["2", "1"], "team/web": ["1"], "team/new": ["1"]}, "team/web:1"))
-    api1 = _image("registry:5000/team/api:1")
-    api2 = _image("registry:5000/team/api:2")
-    web1 = _image("registry:5000/team/web:1")
-    _finding(api1, "CVE-1", Severity.CRITICAL)
-    _finding(api1, "CVE-2", Severity.HIGH, resolved=True)
-    with get_session() as session:
-        for reference, status in (
-            ("registry:5000/team/api:1", "completed"),
-            ("registry:5000/team/api:2", "completed"),
-            ("registry:5000/team/web:1", "running"),
-        ):
-            create_pending_scan(session, reference).status = status
-
-    body = client.get("/api/dashboard/registry/inventory").json()
-
-    by_name = {item["image_name"]: item for item in body["tags"]}
-    assert [item["tag"] for item in body["tags"] if item["repository"] == "team/api"] == ["1", "2"]
-    assert by_name["registry:5000/team/api:1"]["security_status"] == "issues_found"
-    assert (
-        by_name["registry:5000/team/api:1"]["open_findings"],
-        by_name["registry:5000/team/api:1"]["critical_count"],
-    ) == (
-        1,
-        1,
-    )
-    assert by_name["registry:5000/team/api:2"]["security_status"] == "clean"
-    assert by_name["registry:5000/team/web:1"]["security_status"] == "scanning"
-    assert by_name["registry:5000/team/web:1"]["error"] == "manifest unknown"
-    assert by_name["registry:5000/team/new:1"]["security_status"] == "not_scanned"
-    assert by_name["registry:5000/team/new:1"]["image_id"] is None
-    assert {by_name[f"registry:5000/team/{n}"]["image_id"] for n in ("api:1", "api:2", "web:1")} == {api1, api2, web1}
-    assert body["summary"] == {
-        "repositories": 3,
-        "tags": 4,
-        "scanned": 3,
-        "not_scanned": 1,
-        "scanning": 1,
-        "issues_found": 1,
-        "clean": 1,
-    }
-    assert body["registry"]["reachable"] is True
-
-
-def test_registry_inventory_reports_an_unreachable_registry(monkeypatch, registry):
-    client = _client(monkeypatch)
-
-    def unreachable(path: str) -> dict:
-        raise OSError("connection refused")
-
-    monkeypatch.setattr("src.api.routes.images._registry_json", unreachable)
-    response = client.get("/api/dashboard/registry/inventory")
-    assert (response.status_code, response.json()["detail"]) == (503, "local_registry_unavailable")
-
-
-def test_registry_inventory_marks_a_failed_scan(monkeypatch, registry):
-    monkeypatch.setenv("LOCAL_REGISTRY_HOST", "registry:5000")
-    client = _client(monkeypatch)
-    registry(FakeRegistry({"team/api": ["1"]}))
-    _image("registry:5000/team/api:1")
-    with get_session() as session:
-        create_pending_scan(session, "registry:5000/team/api:1").status = "failed"
-
-    assert client.get("/api/dashboard/registry/inventory").json()["tags"][0]["security_status"] == "scan_failed"
 
 
 # Findings

@@ -116,11 +116,31 @@ export interface ImageSource {
 /** A remediation's copy of its image's source, taken when it was proposed. */
 export type RemediationSource = Omit<ImageSource, "updated_by" | "updated_at">;
 
+export interface RegistryPlatform {
+  platform: string;
+  size: number;
+}
+
+/** A tag a remediation pushed. Both are null unless the records match and the viewer may see remediations. */
+export interface RegistryCandidate {
+  remediation_id: number | null;
+  status: string | null;
+}
+
 export interface RegistryTag {
   repository: string;
   tag: string;
+  image_name: string;
   digest: string | null;
-  size: number;
+  /** Why the image can't be read, if it can't. */
+  error: string | null;
+  /** Compressed bytes of its layers, each counted once across platforms. */
+  size: number | null;
+  platforms: RegistryPlatform[];
+  attestations: number;
+  /** Other tags in the repository that point to the same image. */
+  shared_count: number;
+  candidate: RegistryCandidate | null;
   image_id: number | null;
   scan_id: string | null;
   scan_status: string | null;
@@ -129,22 +149,52 @@ export interface RegistryTag {
   open_findings: number;
   critical_count: number;
   high_count: number;
-  image_name: string;
+}
+
+export interface RegistryRepository {
+  name: string;
+  tags: number;
+  stored_bytes: number;
 }
 
 export interface RegistryInventory {
   registry: { host: string; url: string; internal_host?: string; reachable: boolean };
-  repositories: string[];
+  repositories: RegistryRepository[];
   tags: RegistryTag[];
   summary: {
     repositories: number;
     tags: number;
+    stored_bytes: number;
     scanned: number;
     not_scanned: number;
     scanning: number;
     issues_found: number;
     clean: number;
   };
+}
+
+/** One platform's image, read from its manifest and config. */
+export interface RegistryImage extends RegistryPlatform {
+  digest: string;
+  created: string | null;
+  labels: Record<string, string>;
+  entrypoint: string[];
+  command: string[];
+  exposed_ports: string[];
+  user: string | null;
+  working_dir: string | null;
+  layers: { digest: string | null; size: number }[];
+  history: { created: string | null; command: string; empty_layer: boolean }[];
+}
+
+export interface RegistryTagDetail {
+  repository: string;
+  tag: string;
+  digest: string;
+  media_type: string | null;
+  manifest_size: number;
+  attestations: number;
+  images: RegistryImage[];
 }
 
 export interface SeverityTrend {

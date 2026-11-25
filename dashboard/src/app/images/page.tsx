@@ -1,37 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import {
-  AlertTriangle,
-  CircleSlash2,
-  Container,
-  ExternalLink,
-  Package,
-  Play,
-  RefreshCw,
-  ShieldAlert,
-} from "lucide-react";
+import { AlertTriangle, CircleSlash2, Container, HardDrive, Package, RefreshCw, ShieldAlert } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useAsync } from "@/hooks/useAsync";
 import Layout from "@/components/Layout";
 import EmptyState from "@/components/EmptyState";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import RegistryCatalog from "@/components/images/RegistryCatalog";
 import type { ImageDetail, Page, RegistryInventory, RegistryTag } from "@/types";
+import { formatBytes } from "@/lib/bytes";
 import { cx } from "@/lib/cx";
-
-const statusCopy: Record<RegistryTag["security_status"], string> = {
-  clean: "Clean",
-  issues_found: "Issues found",
-  scanning: "Scanning",
-  scan_failed: "Scan failed",
-  not_scanned: "Not scanned",
-};
-function statusStyle(status: RegistryTag["security_status"]) {
-  if (status === "clean") return "bg-emerald-400/10 text-emerald-200";
-  if (status === "issues_found" || status === "scan_failed") return "bg-rose-400/10 text-rose-200";
-  if (status === "scanning") return "bg-cyan-400/10 text-cyan-200";
-  return "bg-amber-400/10 text-amber-200";
-}
 
 function seenRunning(value: string | null | undefined): string {
   return value ? `Seen running ${new Date(value).toLocaleString()}` : "Seen running";
@@ -144,13 +123,18 @@ export default function ImagesPage() {
                   state.
                 </p>
               </div>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="grid shrink-0 grid-cols-2 gap-3 sm:grid-cols-3">
                 <Summary
                   label="Repositories"
                   value={registry.summary.repositories}
                   icon={<Container className="h-4 w-4" />}
                 />
                 <Summary label="Tags" value={registry.summary.tags} icon={<Package className="h-4 w-4" />} />
+                <Summary
+                  label="Stored"
+                  value={formatBytes(registry.summary.stored_bytes)}
+                  icon={<HardDrive className="h-4 w-4" />}
+                />
                 <Summary
                   label="Issues"
                   value={registry.summary.issues_found}
@@ -164,107 +148,7 @@ export default function ImagesPage() {
               </div>
             </div>
           </section>
-          <section className="panel mb-8 overflow-hidden rounded-2xl">
-            <div
-              className={cx(
-                "flex flex-col gap-2 border-b border-slate-800/80",
-                "px-5 py-5 sm:flex-row sm:items-center sm:justify-between",
-                "sm:px-6",
-              )}
-            >
-              <div>
-                <div className="eyebrow mb-2">Registry catalog</div>
-                <div className="text-sm text-slate-400">Every repository tag is actionable from this view.</div>
-              </div>
-              <a
-                href={registry.registry.url}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 text-xs text-cyan-300 hover:text-cyan-200"
-              >
-                Open registry API <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            </div>
-            <div className="divide-y divide-slate-800/70">
-              {registry.tags.map((item) => (
-                <div
-                  key={`${item.repository}:${item.tag}`}
-                  className={cx(
-                    "flex flex-col gap-4 p-5 transition hover:bg-slate-800/20 lg:flex-row lg:items-center",
-                    "lg:justify-between lg:px-6",
-                  )}
-                >
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div
-                      className={cx(
-                        "flex h-10 w-10 shrink-0 items-center",
-                        "justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10",
-                        "text-cyan-300",
-                      )}
-                    >
-                      <Package className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate font-mono text-sm text-slate-200">
-                        {item.repository}:{item.tag}
-                      </div>
-                      <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-600">
-                        <span>{item.digest ? item.digest.slice(0, 19) : "digest unavailable"}</span>
-                        <span>
-                          {item.last_scan_at
-                            ? `Scanned ${new Date(item.last_scan_at).toLocaleString()}`
-                            : "Never scanned"}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 lg:justify-end">
-                    <span
-                      className={cx(
-                        "rounded-full px-3 py-1",
-                        "text-xs font-semibold uppercase",
-                        "tracking-wider",
-                        statusStyle(item.security_status),
-                      )}
-                    >
-                      {statusCopy[item.security_status]}
-                    </span>
-                    {item.open_findings > 0 && (
-                      <span className="text-xs text-rose-200">
-                        {item.open_findings} open · {item.critical_count} critical · {item.high_count} high
-                      </span>
-                    )}
-                    {item.image_id ? (
-                      <Link
-                        href={`/images/${item.image_id}`}
-                        className="inline-flex items-center gap-1 text-xs text-cyan-300 hover:text-cyan-200"
-                      >
-                        Details <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    ) : null}
-                    <button
-                      disabled={scanning === item.image_name || item.security_status === "scanning"}
-                      onClick={() => scanTag(item)}
-                      className={cx(
-                        "inline-flex items-center gap-1 rounded-lg border border-violet-400/30 px-3 py-2 text-xs",
-                        "text-violet-100 disabled:cursor-not-allowed disabled:opacity-40",
-                      )}
-                    >
-                      <Play className="h-3.5 w-3.5" />{" "}
-                      {item.security_status === "scanning" ? "Scanning" : item.image_id ? "Rescan" : "Scan image"}
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {!registry.tags.length && (
-                <EmptyState
-                  icon={Package}
-                  title="Registry is empty"
-                  description="Push an image to localhost:5000, then refresh this page."
-                />
-              )}
-            </div>
-          </section>
+          <RegistryCatalog inventory={registry} scanning={scanning} onScan={scanTag} />
         </>
       ) : (
         <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-100">
@@ -386,14 +270,14 @@ export default function ImagesPage() {
   );
 }
 
-function Summary({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function Summary({ label, value, icon }: { label: string; value: number | string; icon: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-slate-700/70 bg-slate-950/35 px-4 py-3">
-      <div className="mb-2 flex items-center justify-between text-slate-500">
+      <div className="mb-2 flex items-center justify-between gap-3 text-sm text-slate-500">
         {label}
         <span className="text-cyan-300">{icon}</span>
       </div>
-      <div className="text-2xl font-semibold text-white">{value}</div>
+      <div className="whitespace-nowrap text-2xl font-semibold text-white">{value}</div>
     </div>
   );
 }

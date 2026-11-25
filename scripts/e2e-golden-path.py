@@ -7,8 +7,9 @@ scan it through the dashboard API, and check the targeted lodash finding.
 Remediation half: connect the image to a git copy of its source under
 .local/remediation-sources, propose the lodash fix, approve and execute it (the
 worker patches the source with npm, builds the candidate on buildkitd, runs the
-source's test command inside it, and scans it), then publish the candidate as the image's tag, rescan, and expect the
-remediation to complete. Needs REMEDIATION_EXECUTION_ENABLED=true.
+source's test command inside it, and scans it), find the candidate in the registry catalog,
+then publish it as the image's tag, rescan, and expect the remediation to complete. Needs
+REMEDIATION_EXECUTION_ENABLED=true.
 
 Deployments: before the fix, a container runs the fixture image (tagged locally under the name
 the stack scans). After the fix completes, discovery must show it stale and the remediation
@@ -258,6 +259,24 @@ def export_check(remediation_id: int) -> None:
     print(f"    export {export_id}: {len(paths)} files match the manifest; manifest signature verified by openssl")
 
 
+def catalog_check(remediation: dict) -> None:
+    """The registry catalog shows the candidate, its remediation, and its real (layer) size."""
+    tags = {item["image_name"]: item for item in request("GET", "/api/registry")["tags"]}
+    candidate = tags.get(remediation["candidate_image"])
+    if not candidate or candidate["digest"] != remediation["candidate_digest"]:
+        fail(f"the registry catalog does not show the candidate: {candidate}")
+    if candidate["candidate"] != {"remediation_id": remediation["id"], "status": "ready"}:
+        fail(f"the catalog does not name the candidate's remediation: {candidate['candidate']}")
+    unreadable = sorted(name for name, item in tags.items() if item["error"])
+    if unreadable:
+        fail(f"tags the catalog can't read: {unreadable}")
+    detail = request("GET", f"/api/registry/tags/detail?repository={candidate['repository']}&tag={candidate['tag']}")
+    layers = sum(layer["size"] for image in detail["images"] for layer in image["layers"])
+    if candidate["size"] != layers or layers < 1_000_000:
+        fail(f"the candidate's size is {candidate['size']}, but its layers are {layers} bytes")
+    print(f"    {candidate['tag']}: {candidate['size'] / 1e6:.1f} MB, {len(tags)} tags readable")
+
+
 def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     image_id = scan["image_id"]
     if target.get("remediation_id"):
@@ -294,6 +313,9 @@ def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
         fail(f"the test command did not run: events {events}")
     print("    the source's test command passed inside the candidate")
     print(f"    candidate has {verification['candidate_findings']} findings, none of the targeted ones")
+
+    step("check the candidate in the registry catalog")
+    catalog_check(remediation)
 
     step("publish the candidate as the image's tag and rescan it")
     candidate = remediation["candidate_image"].replace(SCAN_HOST, PUSH_HOST, 1)

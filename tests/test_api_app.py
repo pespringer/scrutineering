@@ -16,6 +16,7 @@ KEPT_ROUTES = {
     "/api/dashboard/images/{image_id}",
     "/api/dashboard/remediations/{remediation_id}/publish",
     "/api/dashboard/registry/inventory",
+    "/api/dashboard/registry/tags/detail",
     "/api/dashboard/session",
     "/api/dashboard/permissions",
     "/api/dashboard/audit",
