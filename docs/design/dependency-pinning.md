@@ -1,6 +1,6 @@
 # Pinned Python dependencies
 
-Status: proposed · 2026-11-24 · Phase 6
+Status: built · 2026-11-24 · Phase 6
 
 ## Problem
 
@@ -88,10 +88,11 @@ None. There are no new settings.
    section).
 3. The Python 3.13 image change follows, and regenerates the lock for 3.13.
 
-## Open questions
+## Decisions
 
-- **Release age:** 14 days, the same rule the dependency upgrades used. A shorter
-  wait gets fixes sooner, but gives less time for a bad release to be found.
-- **Test packages:** keep `pytest` and `pytest-cov` in the images for now, as
-  they are today. Splitting them out would make the images smaller, but it's a
-  separate change.
+These were open questions on the proposal; both were decided as recommended.
+
+1. **Release age:** 14 days, the same rule the dependency upgrades used. A shorter
+   wait gets fixes sooner, but gives less time for a bad release to be found.
+2. **Test packages:** `pytest` and `pytest-cov` stay in the images for now.
+   Splitting them out would make the images smaller, but it's a separate change.
