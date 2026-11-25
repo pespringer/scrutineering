@@ -37,7 +37,8 @@ Run the frontend locally with `cd dashboard && npm run dev`; build it with `npm 
 
 ## Coding Style & Naming Conventions
 
-Use four-space indentation for Python and the existing two-space JavaScript/TypeScript style. Follow standard `snake_case` for Python modules, functions, and variables; use `camelCase` for JavaScript functions and variables; use `PascalCase` for classes and React components. Keep repository scripts as `.mjs`, Python packages importable from `src`, and TypeScript types in the frontend `src/types` directories. Format with Ruff (`ruff.toml`) and Prettier (`dashboard/.prettierrc.json`).
+Keep repository scripts as `.mjs`, Python packages importable from `src`, and TypeScript types in the frontend
+`src/types` directories.
 
 ## Testing Guidelines
 
