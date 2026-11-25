@@ -1,4 +1,4 @@
-"""Reading the bundled registry: its tags, what each image holds, and how much it stores.
+"""Talking to the bundled registry: its tags, what each image holds, and how much it stores.
 
 See docs/design/registry-management.md. This only talks to the configured local registry, never
 follows a redirect away from it, and checks names before they go into a URL. Manifests and configs
@@ -141,6 +141,12 @@ class RegistryClient:
         if not _DIGEST.fullmatch(digest):
             raise RegistryError("the registry returned no digest")
         return digest
+
+    def delete_tag(self, repository: str, tag: str) -> None:
+        """Remove one tag. Never called with a digest, which would remove every tag that shares the image."""
+        if not valid_tag(tag):
+            raise RegistryError("that isn't a tag")
+        self._request(f"/v2/{quote(repository, safe='/')}/manifests/{quote(tag, safe='')}", method="DELETE")
 
     def _content(self, kind: str, repository: str, digest: str, accept: str) -> bytes:
         if not _DIGEST.fullmatch(digest):
@@ -296,6 +302,11 @@ def _cache(summaries: dict[str, ImageSummary]) -> None:
         pipeline.execute()
     except Exception as error:  # noqa: BLE001 - the cache only saves requests
         logger.warning("could not write the registry cache: %s", error)
+
+
+def image_summary(client: RegistryClient, repository: str, digest: str) -> ImageSummary:
+    """One image's summary, from the cache when it's there."""
+    return _cached([digest]).get(digest) or summarize(client, repository, digest)
 
 
 @dataclass

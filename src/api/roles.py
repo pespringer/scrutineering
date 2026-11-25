@@ -13,6 +13,7 @@ ACTIONS: dict[str, tuple[str, frozenset[str]]] = {
     "registry.view": ("Browse the registry catalog", frozenset({"dashboard", "operator", "security-operator"})),
     "findings.export": ("Export open findings", frozenset({"dashboard", "operator", "security-operator"})),
     "scans.manage": ("Start, cancel, retry and archive scans", frozenset({"operator", "security-operator"})),
+    "registry.delete": ("Delete tags from the registry", frozenset({"security-operator"})),
     "images.archive": ("Archive images", frozenset({"operator", "security-operator"})),
     "findings.triage": ("Acknowledge and assign findings", frozenset({"operator", "security-operator"})),
     "remediations.view": (

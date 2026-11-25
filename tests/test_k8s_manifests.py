@@ -169,3 +169,15 @@ def test_network_policies_allow_the_loop(source, target, port):
     (source_ns, source_labels), (target_ns, target_labels) = pods[source], pods[target]
     assert _allows(policies, "egress", source_ns, source_labels, target_ns, target_labels, port), "egress"
     assert _allows(policies, "ingress", target_ns, target_labels, source_ns, source_labels, port), "ingress"
+
+
+def test_the_registry_is_pinned_and_keeps_its_debug_port_to_itself():
+    """Compose and Kubernetes run the same exact 3.x: deleting one tag needs it (docs/design/registry-management.md)."""
+    container = _named("Deployment", "scrutineering-registry")["spec"]["template"]["spec"]["containers"][0]
+    assert re.fullmatch(r"registry:3\.\d+\.\d+", container["image"])
+    environment = {item["name"]: item["value"] for item in container["env"]}
+    compose = yaml.safe_load((K8S.parent / "docker-compose.yml").read_text())["services"]["registry"]
+    assert compose["image"] == container["image"]
+    for settings in (environment, dict(item.split("=", 1) for item in compose["environment"])):
+        assert settings["REGISTRY_HTTP_DEBUG_ADDR"].startswith("127.0.0.1:")
+        assert "true" in settings["REGISTRY_STORAGE_DELETE_ENABLED"]

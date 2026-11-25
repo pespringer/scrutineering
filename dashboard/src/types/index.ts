@@ -173,6 +173,15 @@ export interface RegistryInventory {
   };
 }
 
+export interface RegistryDeleteResult {
+  repository: string;
+  tag: string;
+  deleted: boolean;
+  /** Why it was refused, or what went wrong; null when it was simply deleted. */
+  code: string | null;
+  reason: string | null;
+}
+
 /** One platform's image, read from its manifest and config. */
 export interface RegistryImage extends RegistryPlatform {
   digest: string;

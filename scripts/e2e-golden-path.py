@@ -7,7 +7,7 @@ scan it through the dashboard API, and check the targeted lodash finding.
 Remediation half: connect the image to a git copy of its source under
 .local/remediation-sources, propose the lodash fix, approve and execute it (the
 worker patches the source with npm, builds the candidate on buildkitd, runs the
-source's test command inside it, and scans it), find the candidate in the registry catalog,
+source's test command inside it, and scans it), find the candidate in the registry catalog, check what may be deleted,
 then publish it as the image's tag, rescan, and expect the remediation to complete. Needs
 REMEDIATION_EXECUTION_ENABLED=true.
 
@@ -277,6 +277,41 @@ def catalog_check(remediation: dict) -> None:
     print(f"    {candidate['tag']}: {candidate['size'] / 1e6:.1f} MB, {len(tags)} tags readable")
 
 
+def delete_tag(repository: str, tag: str) -> dict:
+    """Ask the dashboard to delete one tag, as the catalog lists it now."""
+    tags = {(item["repository"], item["tag"]): item for item in request("GET", "/api/registry")["tags"]}
+    item = {"repository": repository, "tag": tag, "digest": tags[(repository, tag)]["digest"]}
+    return request("POST", "/api/registry/tags/delete", {"items": [item]})["results"][0]
+
+
+def deletion_check(remediation: dict) -> None:
+    """A candidate its remediation needs is refused; one of two tags of an image goes, and the other still pulls."""
+    repository, _, tag = remediation["candidate_image"].removeprefix(f"{SCAN_HOST}/").rpartition(":")
+    result = delete_tag(repository, tag)
+    if result["deleted"] or result["code"] != "remediation_active":
+        fail(f"deleting a ready remediation's candidate should be refused: {result}")
+    print(f"    {tag}: refused ({result['reason']})")
+    candidate = remediation["candidate_image"].replace(SCAN_HOST, PUSH_HOST, 1)
+    subprocess.run(["docker", "pull", "-q", candidate], check=True, stdout=subprocess.DEVNULL)
+    repository, names = "fixtures/e2e-delete", ("one", "two")
+    for name in names:
+        reference = f"{PUSH_HOST}/{repository}:{name}"
+        subprocess.run(["docker", "tag", candidate, reference], check=True)
+        subprocess.run(["docker", "push", "-q", reference], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(["docker", "image", "rm", reference], check=True, stdout=subprocess.DEVNULL)
+    result = delete_tag(repository, "one")
+    if not result["deleted"]:
+        fail(f"the first tag was not deleted: {result}")
+    kept = f"{PUSH_HOST}/{repository}:two"
+    if subprocess.run(["docker", "pull", "-q", kept], stdout=subprocess.DEVNULL).returncode != 0:
+        fail("deleting one tag broke another tag of the same image")
+    subprocess.run(["docker", "image", "rm", kept], check=True, stdout=subprocess.DEVNULL)
+    left = [item["tag"] for item in request("GET", "/api/registry")["tags"] if item["repository"] == repository]
+    if left != ["two"] or not delete_tag(repository, "two")["deleted"]:
+        fail(f"expected only the second tag to be left, and then deleted: {left}")
+    print("    one of two tags of an image deleted; the other still pulled")
+
+
 def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
     image_id = scan["image_id"]
     if target.get("remediation_id"):
@@ -316,6 +351,9 @@ def remediation_half(scan: dict, target: dict, deployed: bool) -> None:
 
     step("check the candidate in the registry catalog")
     catalog_check(remediation)
+
+    step("delete tags from the registry")
+    deletion_check(remediation)
 
     step("publish the candidate as the image's tag and rescan it")
     candidate = remediation["candidate_image"].replace(SCAN_HOST, PUSH_HOST, 1)
@@ -484,7 +522,10 @@ def main() -> None:
         # The container, and the local tag it was started from under the scanned name.
         subprocess.run(["docker", "rm", "-f", DEPLOYED], capture_output=True)
         subprocess.run(["docker", "image", "rm", f"{SCAN_HOST}/{REPO}"], capture_output=True)
-    print("PASS: golden path (scan, fix, build, verify, rescan, complete, deployed, report, export, notify, discover)")
+    print(
+        "PASS: golden path (scan, fix, build, verify, delete, rescan, complete, deployed, report, export, notify, "
+        "discover)"
+    )
 
 
 if __name__ == "__main__":

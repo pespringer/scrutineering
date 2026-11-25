@@ -3,33 +3,79 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Container, ExternalLink, Package } from "lucide-react";
 import EmptyState from "@/components/EmptyState";
+import RegistryDelete, { DeleteResults } from "@/components/images/RegistryDelete";
 import RegistryTagRow from "@/components/images/RegistryTagRow";
+import { can, usePermissions } from "@/hooks/usePermissions";
 import { formatBytes } from "@/lib/bytes";
 import { cx } from "@/lib/cx";
-import type { RegistryInventory, RegistryRepository, RegistryTag } from "@/types";
+import type { RegistryDeleteResult, RegistryInventory, RegistryRepository, RegistryTag } from "@/types";
 
-type RowProps = { scanning: string | null; onScan: (item: RegistryTag) => void };
+type ScanProps = { scanning: string | null; onScan: (item: RegistryTag) => void };
 
-function Tags({ tags, scanning, onScan }: RowProps & { tags: RegistryTag[] }) {
+/** `selection` is null when the viewer can't delete tags. */
+type RowProps = ScanProps & {
+  selection: ReadonlySet<string> | null;
+  onSelect: (names: string[], selected: boolean) => void;
+};
+
+function Tags({ tags, scanning, onScan, selection, onSelect }: RowProps & { tags: RegistryTag[] }) {
   return tags.map((item) => (
-    <RegistryTagRow key={item.image_name} item={item} scanning={scanning === item.image_name} onScan={onScan} />
+    <RegistryTagRow
+      key={item.image_name}
+      item={item}
+      scanning={scanning === item.image_name}
+      onScan={onScan}
+      selected={selection ? selection.has(item.image_name) : null}
+      onSelect={(selected) => onSelect([item.image_name], selected)}
+    />
   ));
 }
 
+/** The line that unfolds the candidates, and selects them all. */
+function CandidatesLine({
+  candidates,
+  open,
+  onToggle,
+  selection,
+  onSelect,
+}: Pick<RowProps, "selection" | "onSelect"> & { candidates: RegistryTag[]; open: boolean; onToggle: () => void }) {
+  const Chevron = open ? ChevronDown : ChevronRight;
+  const names = candidates.filter((item) => item.digest).map((item) => item.image_name);
+  const all = selection !== null && names.length > 0 && names.every((name) => selection.has(name));
+  return (
+    <div className="flex items-center justify-between gap-3 px-5 text-xs text-slate-400 lg:px-6">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={onToggle}
+        className="flex flex-1 items-center gap-2 py-3 text-left hover:text-slate-200"
+      >
+        <Chevron className="h-3.5 w-3.5" />
+        {candidates.length} candidate{candidates.length === 1 ? "" : "s"} built by remediations
+      </button>
+      {open && selection && (
+        <label className="flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            checked={all}
+            onChange={(event) => onSelect(names, event.target.checked)}
+            className="accent-rose-400"
+          />
+          Select all
+        </label>
+      )}
+    </div>
+  );
+}
+
 /** One repository: its tags, with the candidates Scrutineering built folded away below them. */
-function Repository({
-  repository,
-  tags,
-  scanning,
-  onScan,
-}: RowProps & { repository: RegistryRepository; tags: RegistryTag[] }) {
+function Repository({ repository, tags, ...row }: RowProps & { repository: RegistryRepository; tags: RegistryTag[] }) {
   const [showCandidates, setShowCandidates] = useState(false);
   // Newest first: their tags end in the remediation's number.
   const candidates = tags
     .filter((item) => item.candidate)
     .sort((a, b) => b.tag.localeCompare(a.tag, undefined, { numeric: true }));
   const own = tags.filter((item) => !item.candidate);
-  const Chevron = showCandidates ? ChevronDown : ChevronRight;
   return (
     <section className="border-b border-slate-800/80 last:border-b-0">
       <div
@@ -47,22 +93,17 @@ function Repository({
         </span>
       </div>
       <div className="divide-y divide-slate-800/70">
-        <Tags tags={own} scanning={scanning} onScan={onScan} />
+        <Tags tags={own} {...row} />
         {candidates.length > 0 && (
-          <button
-            type="button"
-            aria-expanded={showCandidates}
-            onClick={() => setShowCandidates((value) => !value)}
-            className={cx(
-              "flex w-full items-center gap-2 px-5 py-3 text-left text-xs text-slate-400",
-              "hover:bg-slate-800/20 hover:text-slate-200 lg:px-6",
-            )}
-          >
-            <Chevron className="h-3.5 w-3.5" />
-            {candidates.length} candidate{candidates.length === 1 ? "" : "s"} built by remediations
-          </button>
+          <CandidatesLine
+            candidates={candidates}
+            open={showCandidates}
+            onToggle={() => setShowCandidates((value) => !value)}
+            selection={row.selection}
+            onSelect={row.onSelect}
+          />
         )}
-        {showCandidates && <Tags tags={candidates} scanning={scanning} onScan={onScan} />}
+        {showCandidates && <Tags tags={candidates} {...row} />}
       </div>
     </section>
   );
@@ -73,11 +114,32 @@ export default function RegistryCatalog({
   inventory,
   scanning,
   onScan,
-}: RowProps & {
+  onChanged,
+}: ScanProps & {
   inventory: RegistryInventory;
+  onChanged: () => void;
 }) {
+  const mayDelete = can(usePermissions(), "registry.delete");
+  const [selection, setSelection] = useState<ReadonlySet<string>>(new Set());
+  const [results, setResults] = useState<RegistryDeleteResult[]>([]);
+  const selected = inventory.tags.filter((item) => item.digest && selection.has(item.image_name));
+
+  function select(names: string[], on: boolean) {
+    setSelection((previous) => {
+      const next = new Set(previous);
+      names.forEach((name) => (on ? next.add(name) : next.delete(name)));
+      return next;
+    });
+  }
+
+  function finish(outcome: RegistryDeleteResult[]) {
+    setResults(outcome);
+    setSelection(new Set());
+    onChanged();
+  }
+
   return (
-    <section className="panel mb-8 overflow-hidden rounded-2xl">
+    <section className="panel mb-8 overflow-clip rounded-2xl">
       <div
         className={cx(
           "flex flex-col gap-2 border-b border-slate-800/80",
@@ -100,6 +162,7 @@ export default function RegistryCatalog({
           Open registry API <ExternalLink className="h-3.5 w-3.5" />
         </a>
       </div>
+      {results.length > 0 && <DeleteResults results={results} onDismiss={() => setResults([])} />}
       {inventory.repositories.map((repository) => (
         <Repository
           key={repository.name}
@@ -107,6 +170,8 @@ export default function RegistryCatalog({
           tags={inventory.tags.filter((item) => item.repository === repository.name)}
           scanning={scanning}
           onScan={onScan}
+          selection={mayDelete ? selection : null}
+          onSelect={select}
         />
       ))}
       {!inventory.tags.length && (
@@ -115,6 +180,9 @@ export default function RegistryCatalog({
           title="Registry is empty"
           description={`Push an image to ${inventory.registry.host}, then refresh this page.`}
         />
+      )}
+      {mayDelete && selected.length > 0 && (
+        <RegistryDelete selected={selected} onClear={() => setSelection(new Set())} onDone={finish} />
       )}
     </section>
   );

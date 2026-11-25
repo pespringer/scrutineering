@@ -30,6 +30,17 @@ class BulkIdsRequest(BaseModel):
     ids: list[int | str] = Field(min_length=1, max_length=100)
 
 
+class RegistryTagItem(BaseModel):
+    repository: str = Field(min_length=1, max_length=255)
+    tag: str = Field(min_length=1, max_length=128)
+    # The image the operator saw. The server resolves the tag itself and refuses if it has moved.
+    digest: str = Field(pattern="^sha256:[a-f0-9]{64}$")
+
+
+class RegistryDeleteRequest(BaseModel):
+    items: list[RegistryTagItem] = Field(min_length=1, max_length=100)
+
+
 class BulkFindingAssignmentRequest(BaseModel):
     finding_ids: list[int] = Field(min_length=1, max_length=100)
     assignee: str | None = Field(default=None, max_length=128)

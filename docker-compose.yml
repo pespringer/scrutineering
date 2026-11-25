@@ -142,10 +142,15 @@ services:
   # Local OCI Registry — disposable image push/pull target for development
   # ---------------------------------------------------------------------------
   registry:
-    image: registry:2
+    image: registry:3.1.2
     container_name: scrutineering-registry
     security_opt:
       - no-new-privileges:true
+    environment:
+      - REGISTRY_STORAGE_DELETE_ENABLED=${REGISTRY_STORAGE_DELETE_ENABLED:-true}
+      # The image's defaults serve debug endpoints on every address and log at debug level.
+      - REGISTRY_HTTP_DEBUG_ADDR=127.0.0.1:5001
+      - REGISTRY_LOG_LEVEL=info
     ports:
       - "${REGISTRY_PUBLISH_ADDRESS:-127.0.0.1}:${LOCAL_REGISTRY_PORT:-5000}:5000"
     volumes:

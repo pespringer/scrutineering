@@ -30,7 +30,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: registry
-          image: registry:2
+          image: registry:3.1.2
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
@@ -39,6 +39,11 @@ spec:
           env:
             - name: REGISTRY_STORAGE_DELETE_ENABLED
               value: "true"
+            # The image's defaults serve debug endpoints on every address and log at debug level.
+            - name: REGISTRY_HTTP_DEBUG_ADDR
+              value: "127.0.0.1:5001"
+            - name: REGISTRY_LOG_LEVEL
+              value: info
           ports:
             - containerPort: 5000
               name: registry
