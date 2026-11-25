@@ -45,9 +45,18 @@ docker tag my-app:1.0 localhost:5000/team/my-app:1.0
 docker push localhost:5000/team/my-app:1.0
 ```
 
-Open **Images**. The **Registry catalog** lists every tag in the registry with its
-digest and state (`Not scanned`, `Scanning`, `Clean`, `Issues found`, `Scan failed`).
-Choose **Scan image**, or **Rescan** after pushing a new build under the same tag.
+Open **Images**. The **Registry catalog** lists every tag by repository, with its
+digest, compressed size, platforms and state (`Not scanned`, `Scanning`, `Clean`,
+`Issues found`, `Scan failed`). Choose **Scan image**, or **Rescan** after pushing a new
+build under the same tag.
+
+- **Stored** is what the registry keeps on disk for the tags listed, counting a layer
+  shared by several images once. Data no tag points to anymore isn't included.
+- **Contents** shows a tag's layers, build date, labels, settings and build history, for
+  each platform. Environment values and build arguments are hidden, but a secret written
+  into a build command itself is not.
+- **Candidates** that remediations built are folded under each repository. One names its
+  remediation when the recorded image matches and your role may see remediations.
 
 The bundled registry has no authentication and speaks HTTP (`REGISTRY_INSECURE=true`
 allows HTTP for it alone). Use it for local work only; shared or production

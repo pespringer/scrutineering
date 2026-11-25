@@ -84,6 +84,28 @@ def discovery_status_store(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def registry_cache(monkeypatch):
+    """An in-memory stand-in for the Redis keys that cache what the registry's images hold."""
+    store: dict[str, str] = {}
+
+    class FakeRedis:
+        def mget(self, keys):
+            return [store.get(key) for key in keys]
+
+        def pipeline(self):
+            return self
+
+        def set(self, key, value, ex=None):
+            store[key] = value
+
+        def execute(self):
+            return []
+
+    monkeypatch.setattr("src.scan.registry_catalog._redis", FakeRedis)
+    return store
+
+
+@pytest.fixture(autouse=True)
 def signing_key_dir(tmp_path, monkeypatch):
     """Each test signs with its own key, generated in a temporary directory instead of the worker's volume."""
     monkeypatch.setattr("src.signing.KEY_DIR", tmp_path / "signing")

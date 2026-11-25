@@ -6,7 +6,7 @@ import pytest
 from fastapi import HTTPException
 
 from src.api.roles import require_action
-from src.api.routes.images import _local_registry_public_url
+from src.api.routes.registry import public_registry_url
 from src.api.schemas import RemediationRequest, ScanRequest
 from src.api.serializers import (
     finding_payload,
@@ -136,10 +136,10 @@ def test_registry_dashboard_uses_public_host_for_browser_links(monkeypatch):
     monkeypatch.setenv("LOCAL_REGISTRY_PUBLIC_HOST", "registry.example.test:5443")
     monkeypatch.setenv("REGISTRY_INSECURE", "false")
 
-    assert _local_registry_public_url() == "https://registry.example.test:5443"
+    assert public_registry_url() == "https://registry.example.test:5443"
 
     monkeypatch.setenv("LOCAL_REGISTRY_PUBLIC_URL", "http://localhost:5000/")
-    assert _local_registry_public_url() == "http://localhost:5000"
+    assert public_registry_url() == "http://localhost:5000"
 
 
 def test_dashboard_roles_keep_read_only_access_separate_from_mutations():
