@@ -16,6 +16,7 @@ The table is generated from `src/api/roles.py` (`python -m src.api.roles`).
 | Browse the registry catalog (`registry.view`) | ✓ | ✓ |  | ✓ | ✓ |
 | Export open findings (`findings.export`) | ✓ | ✓ |  | ✓ | ✓ |
 | Start, cancel, retry and archive scans (`scans.manage`) |  | ✓ |  | ✓ | ✓ |
+| Delete tags from the registry (`registry.delete`) |  |  |  | ✓ | ✓ |
 | Archive images (`images.archive`) |  | ✓ |  | ✓ | ✓ |
 | Acknowledge and assign findings (`findings.triage`) |  | ✓ |  | ✓ | ✓ |
 | See remediations, their events and evidence (`remediations.view`) |  |  | ✓ | ✓ | ✓ |
@@ -57,6 +58,25 @@ build under the same tag.
   into a build command itself is not.
 - **Candidates** that remediations built are folded under each repository. One names its
   remediation when the recorded image matches and your role may see remediations.
+
+**Deleting tags.** With `registry.delete` (see the table above), select tags and choose
+**Delete…**. It can't be undone. Only the tags you name are deleted: another tag of the
+same image is kept, and so are scans, findings and evidence. The tracked image is
+archived, so its scheduled scans stop; scanning the name again brings it back. Each
+deletion is in the audit trail.
+
+A tag is refused while something needs it, and there is no override:
+
+| Refused because | What to do |
+|---|---|
+| A remediation of the image, or the one that built the candidate, isn't finished | Finish or cancel it |
+| A scan of it is pending or running | Wait for it, or cancel it |
+| A container runs it, or runs its image and no other tag keeps that | Stop the container, then wait for the next discovery run (up to 15 minutes) |
+| The tag was pushed again since you loaded the page | Refresh, and check it |
+
+A container that discovery hasn't listed for 30 days no longer counts. Without container
+records (containerd), an image counts as running for 30 minutes after it was last seen.
+Deleting a tag doesn't free disk space by itself.
 
 The bundled registry has no authentication and speaks HTTP (`REGISTRY_INSECURE=true`
 allows HTTP for it alone). Use it for local work only; shared or production
@@ -439,7 +459,9 @@ the API and the registry on `127.0.0.1`, so only this host can reach them. Setti
 fine only on a trusted one. Before the dashboard is reachable from anywhere else, put
 it behind a sign-in proxy. To push images from other machines without opening the
 dashboard, set `REGISTRY_PUBLISH_ADDRESS` instead. The registry has no
-authentication.
+authentication, so whoever reaches it can also delete images, without the dashboard's
+checks. Set `REGISTRY_STORAGE_DELETE_ENABLED=false` when you open it: the registry then
+refuses every deletion, the dashboard's included.
 
 [examples/forward-auth/](../examples/forward-auth/README.md) does this with Traefik
 and Authelia, and runs on top of the stack with one command. It has two test users

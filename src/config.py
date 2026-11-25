@@ -499,7 +499,18 @@ EXTERNAL = (
     ),
     External("HOME", "The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root).", "worker"),
     External("PGDATA", "Postgres data directory; Kubernetes uses a subdirectory of the volume.", "Postgres image"),
-    External("REGISTRY_STORAGE_DELETE_ENABLED", "Lets the in-cluster registry delete images.", "registry image"),
+    External(
+        "REGISTRY_STORAGE_DELETE_ENABLED",
+        "Lets the bundled registry delete images (default `true`). Set `false` when other machines can reach it: it "
+        "has no authentication, so they could delete images too.",
+        "registry image",
+    ),
+    External(
+        "REGISTRY_HTTP_DEBUG_ADDR",
+        "Address of the registry's debug and metrics endpoints; set to loopback.",
+        "registry image",
+    ),
+    External("REGISTRY_LOG_LEVEL", "The registry's log level; set to `info`.", "registry image"),
     External("GRYPE_DB_CACHE_DIR", "Grype's vulnerability database directory.", "Grype"),
     External("GOOGLE_APPLICATION_CREDENTIALS", "Service account file for GCR and Artifact Registry.", "Trivy, Grype"),
 )

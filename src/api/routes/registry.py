@@ -1,17 +1,19 @@
-"""The bundled registry: its catalog joined with scan state, and what one tag holds."""
+"""The bundled registry: its catalog joined with scan state, what one tag holds, and deleting tags."""
 
 from __future__ import annotations
 
-import re
+import logging
 from collections import Counter, defaultdict
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from src.api.roles import allowed, require_action
+from src.api.routes._access import record_operator_event
+from src.api.schemas import RegistryDeleteRequest, RegistryTagItem
 from src.api.serializers import enum_value, iso
 from src.config import get_settings
 from src.db.connection import get_session
-from src.db.models import Image, Remediation, Scan, ScanFinding
+from src.db.models import AuditEventType, Image, Remediation, Scan, ScanFinding
 from src.scan.registry_catalog import (
     CatalogTag,
     RegistryClient,
@@ -23,10 +25,11 @@ from src.scan.registry_catalog import (
     valid_repository,
     valid_tag,
 )
+from src.scan.registry_delete import CANDIDATE_TAG, Refused, Tag, delete_tag
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-CANDIDATE_TAG = re.compile(r"scrutineering-candidate-(\d{1,18})")
 NO_IMAGE = {"size": None, "platforms": [], "attestations": 0}
 
 
@@ -197,3 +200,42 @@ def registry_tag_detail(
         if error.status == 404:
             raise HTTPException(status_code=404, detail="tag_not_found") from error
         raise HTTPException(status_code=502, detail=f"This image can't be read: {error}.") from error
+
+
+def _delete(request: Request, client: RegistryClient, item: RegistryTagItem) -> dict:
+    """Delete one tag in its own transaction, so a refusal or failure doesn't undo the others."""
+    tag = Tag(item.repository, item.tag)
+    result = {"repository": item.repository, "tag": item.tag}
+    removed = False
+    try:
+        with get_session() as session:
+            archived = delete_tag(session, client, tag, item.digest)
+            removed = True
+            # Last, so the audit chain's lock isn't held during the registry call.
+            record_operator_event(
+                session,
+                request,
+                AuditEventType.CONFIG_CHANGED,
+                item.digest,
+                {"action": "delete_registry_tag", "image": tag.name, "archived_image_ids": archived},
+                entity_type="registry_tag",
+            )
+    except Refused as refused:
+        return {**result, "deleted": False, "code": refused.code, "reason": refused.reason}
+    except Exception:
+        if not removed:
+            logger.exception("could not delete %s", tag.name)
+            return {**result, "deleted": False, "code": "delete_failed", "reason": "It couldn't be deleted."}
+        logger.exception("deleted %s (%s) from the registry, but could not record it", tag.name, item.digest)
+        reason = "It was deleted, but that couldn't be recorded. See the API log."
+        return {**result, "deleted": True, "code": "delete_not_recorded", "reason": reason}
+    return {**result, "deleted": True, "code": None, "reason": None}
+
+
+@router.post("/registry/tags/delete")
+def delete_registry_tags(payload: RegistryDeleteRequest, request: Request) -> dict:
+    """Delete tags, one at a time. Each has its own result; a tag something needs is refused."""
+    require_action(request, "registry.delete")
+    client = RegistryClient.local()
+    results = [_delete(request, client, item) for item in payload.items]
+    return {"results": results, "deleted": sum(1 for result in results if result["deleted"])}

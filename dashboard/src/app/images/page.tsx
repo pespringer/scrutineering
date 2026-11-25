@@ -148,7 +148,7 @@ export default function ImagesPage() {
               </div>
             </div>
           </section>
-          <RegistryCatalog inventory={registry} scanning={scanning} onScan={scanTag} />
+          <RegistryCatalog inventory={registry} scanning={scanning} onScan={scanTag} onChanged={load} />
         </>
       ) : (
         <div className="mb-8 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-5 text-sm text-amber-100">

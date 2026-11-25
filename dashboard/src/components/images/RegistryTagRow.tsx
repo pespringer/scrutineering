@@ -47,10 +47,15 @@ export default function RegistryTagRow({
   item,
   scanning,
   onScan,
+  selected,
+  onSelect,
 }: {
   item: RegistryTag;
   scanning: boolean;
   onScan: (item: RegistryTag) => void;
+  /** Whether it's selected for deletion; null when the viewer can't delete tags. */
+  selected: boolean | null;
+  onSelect: (selected: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
   const status = STATUS[item.security_status];
@@ -64,6 +69,16 @@ export default function RegistryTagRow({
         )}
       >
         <div className="flex min-w-0 items-center gap-4">
+          {selected !== null && (
+            <input
+              type="checkbox"
+              aria-label={`Select ${item.image_name}`}
+              checked={selected}
+              disabled={!item.digest}
+              onChange={(event) => onSelect(event.target.checked)}
+              className="shrink-0 accent-rose-400"
+            />
+          )}
           <div
             className={cx(
               "flex h-10 w-10 shrink-0 items-center",

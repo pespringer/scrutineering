@@ -1,6 +1,6 @@
 # Registry management
 
-Status: accepted · 2026-11-24 · Phase 6 · step 1 built
+Status: accepted · 2026-11-24 · Phase 6 · steps 1–2 built
 
 ## Problem
 
@@ -98,9 +98,11 @@ Each item is refused, with a reason the dashboard shows, when:
   `completed`, `failed` or `cancelled`, or the tag's image has such a remediation
   (it completes only when that tag is rescanned);
 - **a scan is using it:** its image has a pending or running scan;
-- **it's running:** a container that isn't gone names the tag; or runs its
-  digest and no other tag keeps it; or runtime discovery saw the image within its
-  running window (the only signal on containerd).
+- **it's running:** a container that isn't gone names the tag; or was started from
+  its repository, runs its digest, and no other tag keeps that; or, for an image with
+  no container records (containerd), runtime discovery saw it within its running
+  window. A container discovery hasn't listed for 30 days no longer counts, so turning
+  discovery off doesn't block deletion for good.
 
 The running check compares names under both `LOCAL_REGISTRY_HOST` and
 `LOCAL_REGISTRY_PUBLIC_HOST`, since the same image is `registry:5000/...` to the
@@ -109,9 +111,10 @@ platform manifests and their configs, because Docker may report any of them.
 
 There is no override. Stop the container or cancel the remediation first.
 
-For each item, in one transaction: lock the remediation rows, check, `DELETE`,
+For each item, in one transaction: lock the image and remediation rows, check, `DELETE`,
 then archive the tracked image (`active = false`) and record the audit entry.
-Archiving stops scheduled scans. Scans, findings, SBOMs and evidence stay, and
+Locking the image also holds off new scans and remediations of it, whose rows refer
+to it. Archiving stops scheduled scans. Scans, findings, SBOMs and evidence stay, and
 scanning the name again brings the image back. The audit entry comes last so that
 its chain lock isn't held during the registry call. If the commit fails after the
 `DELETE`, that is logged at error level, and the tag shows as gone on the next load.
