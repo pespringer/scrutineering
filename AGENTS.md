@@ -31,6 +31,7 @@ make lock         # regenerate requirements.txt from requirements.in
 make e2e          # golden path against the running stack, real scanners
 make up           # docker compose up --build -d
 make migrate      # apply Alembic migrations in the api container
+make registry-gc  # free the registry's disk space of deleted tags (stops the registry briefly)
 ```
 
 Run the frontend locally with `cd dashboard && npm run dev`; build it with `npm run build`.

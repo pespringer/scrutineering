@@ -148,6 +148,19 @@ class RegistryClient:
             raise RegistryError("that isn't a tag")
         self._request(f"/v2/{quote(repository, safe='/')}/manifests/{quote(tag, safe='')}", method="DELETE")
 
+    def holds(self, repository: str, digest: str) -> bool:
+        """Whether the registry still stores `digest` in the repository, as a manifest or a blob, tagged or not."""
+        if not _DIGEST.fullmatch(digest):
+            raise RegistryError("the image has an unsupported digest")
+        for kind in ("manifests", "blobs"):
+            try:
+                self._request(f"/v2/{quote(repository, safe='/')}/{kind}/{digest}", accept=ACCEPT, method="HEAD")
+                return True
+            except RegistryError as error:
+                if error.status != 404:
+                    raise
+        return False
+
     def _content(self, kind: str, repository: str, digest: str, accept: str) -> bytes:
         if not _DIGEST.fullmatch(digest):
             raise RegistryError("the image has an unsupported digest")

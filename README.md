@@ -97,6 +97,7 @@ make e2e          # the golden path against the running stack, with real scanner
 make fmt          # format with Ruff and Prettier
 make fmt-check    # formatting, lint, and the 120-character line limit (as in CI)
 make lock         # regenerate requirements.txt after editing requirements.in
+make registry-gc  # free the disk space of deleted registry tags (stops the registry briefly)
 cd dashboard && npm ci && npm run dev   # the dashboard with live reload
 ```
 

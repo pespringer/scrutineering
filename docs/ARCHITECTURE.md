@@ -273,8 +273,9 @@ step from what it cloned, built and scanned itself:
   (`routes/<area>.py`), request schemas and response serializers, the role matrix
   (`roles.py`) and sign-in records (`principals.py`).
 - `src/scan/`: scan tasks (`tasks.py`), scanner adapters (`scanners/`),
-  deduplication, registry access, the registry catalog (`registry_catalog.py`) and tag
-  deletion (`registry_delete.py`), runtime discovery, and the Celery app and schedule.
+  deduplication, registry access, the registry catalog (`registry_catalog.py`), tag
+  deletion (`registry_delete.py`) and the preflight of `make registry-gc`
+  (`registry_gc.py`), runtime discovery, and the Celery app and schedule.
 - `src/remediation/`: fix planning (`planner.py`), applying fixes (`apply.py`),
   checkout and BuildKit builds (`build.py`), execution (`worker.py`), candidate cleanup
   (`candidates.py`), publication (`publish.py`, behind a provider interface; GitHub is the
