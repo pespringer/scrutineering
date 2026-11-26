@@ -18,6 +18,7 @@ const STATUS: Record<RegistryTag["security_status"], { label: string; tone: stri
 
 /** Which remediation built a candidate, when the records say so (and the viewer may see remediations). */
 function candidateLabel(candidate: RegistryCandidate): string {
+  if (candidate.unmatched) return "candidate · no matching remediation, so not cleaned up";
   if (!candidate.remediation_id || !candidate.status) return "candidate";
   return `remediation ${candidate.remediation_id} · ${candidate.status.replace(/_/g, " ")}`;
 }

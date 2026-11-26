@@ -121,10 +121,12 @@ export interface RegistryPlatform {
   size: number;
 }
 
-/** A tag a remediation pushed. Both are null unless the records match and the viewer may see remediations. */
+/** A tag a remediation pushed. ID and status are null unless the records match and the viewer may see them. */
 export interface RegistryCandidate {
   remediation_id: number | null;
   status: string | null;
+  /** No remediation's records match it, so the daily cleanup leaves it. */
+  unmatched: boolean;
 }
 
 export interface RegistryTag {

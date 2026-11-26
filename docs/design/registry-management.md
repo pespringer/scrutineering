@@ -1,6 +1,6 @@
 # Registry management
 
-Status: accepted · 2026-11-24 · Phase 6 · steps 1–2 built
+Status: accepted · 2026-11-24 · Phase 6 · steps 1–3 built
 
 ## Problem
 
@@ -125,20 +125,23 @@ characters; the reference is in the detail. No migration is needed.
 
 ### 3. Candidate cleanup
 
-A daily task, `prune-candidates`, deletes a candidate when all of these hold:
+A daily task, `prune-candidates` (`src/remediation/candidates.py`), lists the registry's
+candidate tags, and deletes one when all of these hold:
 
 - its remediation is `completed`, `failed` or `cancelled` **now**, and its
   `completed_at` is over 30 days old. The status is checked because a retry
   leaves `completed_at` set;
-- the tag is the one that remediation would push (`candidate_reference`);
+- the tag is named after that remediation, and is its recorded `candidate_image`;
 - the tag's digest equals the remediation's recorded `candidate_digest`;
 - none of the refusals above applies.
 
-It uses the same code and row lock as a manual delete, so a retry can't start
-halfway through. It records a `candidate_deleted` event on the remediation. A
+It uses the same code and row locks as a manual delete, and checks these again once the
+rows are locked, so a retry can't start halfway through. If the registry refuses every
+deletion, the run stops at the first. It records a `candidate_deleted` event on the remediation. A
 retry builds its candidate again, so a failed one isn't needed for that.
 
-Anything that doesn't match is left for an operator, and marked in the catalog.
+Anything that doesn't match is left for an operator, and marked in the catalog for
+whoever may see remediations.
 That covers candidates from an earlier database, whose IDs may have been reused,
 and ones pushed just as their remediation was cancelled, which recorded no digest.
 
@@ -215,7 +218,7 @@ Unit tests use a fake registry and cover:
   400, deletion turned off (405), the role check, the audit entry, and a mix of
   accepted and refused items.
 - **Cleanup:** the 30-day boundary, a retried remediation, a digest that differs,
-  a missing digest, and an ID that doesn't exist.
+  a missing digest, an ID that doesn't exist, and a retry during the run.
 - **Manifests:** `validate-deployment-config` and `tests/test_k8s_manifests.py`
   check the pinned image and the debug address. No cluster is available, so the
   Kubernetes change isn't tested live.

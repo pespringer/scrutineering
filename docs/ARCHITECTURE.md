@@ -42,8 +42,9 @@ flowchart LR
 - **`celery-beat`**: queues scheduled rescans of known images (`SCHEDULE_CRON_SCAN`),
   runtime discovery every 15 minutes when enabled, the notification delivery and
   evidence sweeps every minute, the stale-deployment notification sweep every 15
-  minutes, the weekly report (`REPORT_SCHEDULE_CRON`), daily prunes of superseded SBOMs and
-  gone containers and of people unseen for a year, and an hourly prune of compliance exports.
+  minutes, the weekly report (`REPORT_SCHEDULE_CRON`), daily prunes of superseded SBOMs,
+  gone containers, people unseen for a year and old candidates, and an hourly prune of
+  compliance exports.
 - **`postgres`**: all state. Alembic manages the schema (`src/db/migrations`).
 - **`redis`**: Celery's broker and result backend, plus an optional shared scan cache.
 - **`registry`**: a local OCI registry. Push to `localhost:5000`; the services reach it
@@ -275,9 +276,9 @@ step from what it cloned, built and scanned itself:
   deduplication, registry access, the registry catalog (`registry_catalog.py`) and tag
   deletion (`registry_delete.py`), runtime discovery, and the Celery app and schedule.
 - `src/remediation/`: fix planning (`planner.py`), applying fixes (`apply.py`),
-  checkout and BuildKit builds (`build.py`), execution (`worker.py`), publication
-  (`publish.py`, behind a provider interface; GitHub is the one provider), and the
-  state machine and lifecycle.
+  checkout and BuildKit builds (`build.py`), execution (`worker.py`), candidate cleanup
+  (`candidates.py`), publication (`publish.py`, behind a provider interface; GitHub is the
+  one provider), and the state machine and lifecycle.
 - `src/notifications/`: the outbox (`outbox.py`, called from
   `RemediationRepository.update_status`), the Slack and webhook channels, and delivery
   (`delivery.py`, on the `notify` queue).

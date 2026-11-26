@@ -52,6 +52,7 @@ def create_celery_app() -> Celery:
             "src.reports.export.verify_audit_chain": {"queue": "scan.low"},
             "src.api.principals.prune_principals": {"queue": "scan.low"},
             "src.remediation.evidence.build_due_evidence": {"queue": "notify"},
+            "src.remediation.candidates.prune_candidates": {"queue": "scan.low"},
         },
         beat_schedule={
             "schedule-active-image-scans": {
@@ -72,6 +73,11 @@ def create_celery_app() -> Celery:
             "prune-gone-deployments": {
                 "task": "src.scan.deployments.prune_deployments",
                 "schedule": crontab(minute=45, hour=3),
+                "options": {"queue": "scan.low"},
+            },
+            "prune-candidates": {
+                "task": "src.remediation.candidates.prune_candidates",
+                "schedule": crontab(hour=3, minute=55),
                 "options": {"queue": "scan.low"},
             },
             "prune-principals": {

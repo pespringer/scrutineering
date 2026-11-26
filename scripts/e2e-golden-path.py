@@ -265,7 +265,7 @@ def catalog_check(remediation: dict) -> None:
     candidate = tags.get(remediation["candidate_image"])
     if not candidate or candidate["digest"] != remediation["candidate_digest"]:
         fail(f"the registry catalog does not show the candidate: {candidate}")
-    if candidate["candidate"] != {"remediation_id": remediation["id"], "status": "ready"}:
+    if candidate["candidate"] != {"remediation_id": remediation["id"], "status": "ready", "unmatched": False}:
         fail(f"the catalog does not name the candidate's remediation: {candidate['candidate']}")
     unreadable = sorted(name for name, item in tags.items() if item["error"])
     if unreadable:
