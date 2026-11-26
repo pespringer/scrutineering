@@ -57,7 +57,8 @@ build under the same tag.
   each platform. Environment values and build arguments are hidden, but a secret written
   into a build command itself is not.
 - **Candidates** that remediations built are folded under each repository. One names its
-  remediation when the recorded image matches and your role may see remediations.
+  remediation when the recorded image matches and your role may see remediations. They
+  are cleaned up; see below.
 
 **Deleting tags.** With `registry.delete` (see the table above), select tags and choose
 **Delete…**. It can't be undone. Only the tags you name are deleted: another tag of the
@@ -77,6 +78,14 @@ A tag is refused while something needs it, and there is no override:
 A container that discovery hasn't listed for 30 days no longer counts. Without container
 records (containerd), an image counts as running for 30 minutes after it was last seen.
 Deleting a tag doesn't free disk space by itself.
+
+**Candidate cleanup.** A daily task (03:55 UTC) deletes a candidate 30 days after its
+remediation completed, failed or was cancelled, and records `candidate deleted` in the
+remediation's events. The same refusals apply, and a refused candidate is tried again the
+next day. One marked `no matching remediation` (its digest differs from the recorded one,
+or it's from an earlier database) is left for you to delete. A remediation that is retried
+builds its candidate again. Nothing is cleaned up while
+`REGISTRY_STORAGE_DELETE_ENABLED=false`.
 
 The bundled registry has no authentication and speaks HTTP (`REGISTRY_INSECURE=true`
 allows HTTP for it alone). Use it for local work only; shared or production
@@ -461,7 +470,7 @@ it behind a sign-in proxy. To push images from other machines without opening th
 dashboard, set `REGISTRY_PUBLISH_ADDRESS` instead. The registry has no
 authentication, so whoever reaches it can also delete images, without the dashboard's
 checks. Set `REGISTRY_STORAGE_DELETE_ENABLED=false` when you open it: the registry then
-refuses every deletion, the dashboard's included.
+refuses every deletion, including the dashboard's and the candidate cleanup's.
 
 [examples/forward-auth/](../examples/forward-auth/README.md) does this with Traefik
 and Authelia, and runs on top of the stack with one command. It has two test users

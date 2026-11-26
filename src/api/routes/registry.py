@@ -119,6 +119,8 @@ def _candidates(session, tags: list[CatalogTag], show: bool) -> dict[str, dict]:
         found[name] = {
             "remediation_id": row.id if matches else None,
             "status": enum_value(row.status) if matches else None,
+            # Cleanup leaves it for an operator. Said only to a caller who may see remediations.
+            "unmatched": show and digests[name] is not None and not matches,
         }
     return found
 

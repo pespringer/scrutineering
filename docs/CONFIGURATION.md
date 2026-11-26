@@ -44,8 +44,8 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | Variable | Default | Meaning | Read by |
 |---|---|---|---|
 | `LOCAL_REGISTRY_HOST` | `registry:5000` | The bundled registry as the services reach it. | api, worker, beat |
-| `LOCAL_REGISTRY_URL` |  | Its URL for the services. Derived from the host when empty. | api |
-| `LOCAL_REGISTRY_PUBLIC_HOST` | `localhost:5000` | The bundled registry as you push to it from the host. | api |
+| `LOCAL_REGISTRY_URL` |  | Its URL for the services. Derived from the host when empty. | api, worker |
+| `LOCAL_REGISTRY_PUBLIC_HOST` | `localhost:5000` | The bundled registry as you push to it from the host. | api, worker |
 | `LOCAL_REGISTRY_PUBLIC_URL` |  | Its URL from the host. Derived from the public host when empty. | api |
 | `REGISTRY_INSECURE` | `false` | Allow plain HTTP to the local registry (and `localhost`) only. Every other registry uses TLS. | api, worker, beat |
 
@@ -155,7 +155,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `DOCKER_HOST` | Where the worker's `docker` CLI lists containers; Compose sets the read-only proxy. | worker |
 | `HOME` | The worker's home for git and npm; Kubernetes sets `/tmp` (read-only root). | worker |
 | `PGDATA` | Postgres data directory; Kubernetes uses a subdirectory of the volume. | Postgres image |
-| `REGISTRY_STORAGE_DELETE_ENABLED` | Lets the bundled registry delete images (default `true`). Set `false` when other machines can reach it: it has no authentication, so they could delete images too. | registry image |
+| `REGISTRY_STORAGE_DELETE_ENABLED` | Lets the bundled registry delete images (default `true`). Set `false` when other machines can reach it: it has no authentication, so they could delete images too. Candidates then aren't cleaned up either. | registry image |
 | `REGISTRY_HTTP_DEBUG_ADDR` | Address of the registry's debug and metrics endpoints; set to loopback. | registry image |
 | `REGISTRY_LOG_LEVEL` | The registry's log level; set to `info`. | registry image |
 | `GRYPE_DB_CACHE_DIR` | Grype's vulnerability database directory. | Grype |

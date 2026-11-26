@@ -286,11 +286,11 @@ def test_a_candidate_names_its_remediation(monkeypatch, registry):
     _, tags = _inventory(_client(monkeypatch))
     assert tags["team/api:1"]["candidate"] is None
     candidate = tags[f"team/api:scrutineering-candidate-{remediation_id}"]["candidate"]
-    assert candidate == {"remediation_id": remediation_id, "status": "ready"}
+    assert candidate == {"remediation_id": remediation_id, "status": "ready", "unmatched": False}
 
     _, tags = _inventory(_client(monkeypatch, roles="operator"))  # may not see remediations
     candidate = tags[f"team/api:scrutineering-candidate-{remediation_id}"]["candidate"]
-    assert candidate == {"remediation_id": None, "status": None}
+    assert candidate == {"remediation_id": None, "status": None, "unmatched": False}
 
 
 def test_a_reused_remediation_number_is_not_the_candidates(monkeypatch, registry):
@@ -298,7 +298,9 @@ def test_a_reused_remediation_number_is_not_the_candidates(monkeypatch, registry
     registry.tag("team/api", f"scrutineering-candidate-{remediation_id}", registry.image({"old": 1}))
     registry.tag("team/web", f"scrutineering-candidate-{remediation_id}", registry.image({"web": 1}))
     _, tags = _inventory(_client(monkeypatch))
-    assert [tag["candidate"] for tag in tags.values()] == [{"remediation_id": None, "status": None}] * 2
+    assert [tag["candidate"] for tag in tags.values()] == [
+        {"remediation_id": None, "status": None, "unmatched": True}
+    ] * 2
 
 
 # Details

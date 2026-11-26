@@ -135,10 +135,10 @@ class Settings(BaseSettings):
         "registry:5000", "The bundled registry as the services reach it.", "Local registry", ALL
     )
     local_registry_url: str = setting(
-        "", "Its URL for the services. Derived from the host when empty.", "Local registry", (API,)
+        "", "Its URL for the services. Derived from the host when empty.", "Local registry", (API, WORKER)
     )
     local_registry_public_host: str = setting(
-        "localhost:5000", "The bundled registry as you push to it from the host.", "Local registry", (API,)
+        "localhost:5000", "The bundled registry as you push to it from the host.", "Local registry", (API, WORKER)
     )
     local_registry_public_url: str = setting(
         "", "Its URL from the host. Derived from the public host when empty.", "Local registry", (API,)
@@ -502,7 +502,7 @@ EXTERNAL = (
     External(
         "REGISTRY_STORAGE_DELETE_ENABLED",
         "Lets the bundled registry delete images (default `true`). Set `false` when other machines can reach it: it "
-        "has no authentication, so they could delete images too.",
+        "has no authentication, so they could delete images too. Candidates then aren't cleaned up either.",
         "registry image",
     ),
     External(

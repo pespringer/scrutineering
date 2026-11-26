@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
@@ -146,10 +147,18 @@ _DELETE_REFUSALS = {
 }
 
 
-def delete_tag(session: Session, client: RegistryClient, tag: Tag, expected_digest: str) -> list[int]:
+def delete_tag(
+    session: Session,
+    client: RegistryClient,
+    tag: Tag,
+    expected_digest: str,
+    *,
+    still_due: Callable[[], None] | None = None,
+) -> list[int]:
     """Delete one tag unless something needs it, and archive its tracked images. Returns their IDs.
 
     `expected_digest` is a precondition, never a fact: the tag is resolved here, and refused if it moved.
+    `still_due` runs once the rows are locked, and may raise `Refused` too.
     """
     if not valid_repository(tag.repository) or not valid_tag(tag.tag):
         raise Refused("invalid_image_reference", "That isn't a valid repository and tag.")
@@ -157,6 +166,8 @@ def delete_tag(session: Session, client: RegistryClient, tag: Tag, expected_dige
     image_ids = [image.id for image in images]
     _check_remediations(session, tag, image_ids)
     _check_scans(session, image_ids)
+    if still_due is not None:
+        still_due()
     try:
         digest = client.digest(tag.repository, tag.tag)
         if digest != expected_digest:
