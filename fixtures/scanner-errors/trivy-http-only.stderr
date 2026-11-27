@@ -1,0 +1,8 @@
+2026-11-27T03:46:23Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-27T03:46:23Z	FATAL	Fatal error	run error: image scan error: scan error: unable to initialize a scan service: unable to initialize artifact: unable to initialize container image: unable to find the specified image "registry:5000/fixtures/vulnerable-node:e2e" in ["docker" "containerd" "podman" "remote"]: 4 errors occurred:
+	* docker error: unable to inspect the image (registry:5000/fixtures/vulnerable-node:e2e): Error response from daemon: No such image: registry:5000/fixtures/vulnerable-node:e2e
+	* containerd error: containerd socket not found: /run/containerd/containerd.sock
+	* podman error: unable to initialize Podman client: no podman socket found: stat podman/podman.sock: no such file or directory
+	* remote error: Get "https://registry:5000/v2/": http: server gave HTTP response to HTTPS client
+
+

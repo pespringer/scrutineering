@@ -48,6 +48,24 @@ class ScannerAdapter(ABC):
         """
 
 
+MAX_ERROR = 500
+
+
+def error_line(stderr: str, markers: tuple[str, ...]) -> str:
+    """The part of a failed scanner's stderr that names the cause (docs/design/scan-errors.md).
+
+    Scanners log progress and warnings before the error, so the first line is rarely it. Returns
+    the text after the first marker found, trying the markers in order, or else the last non-empty
+    line, cut to `MAX_ERROR` characters.
+    """
+    lines = [line.strip() for line in stderr.splitlines() if line.strip()]
+    for marker in markers:
+        for line in lines:
+            if marker in line:
+                return line.split(marker, 1)[1].strip()[:MAX_ERROR]
+    return lines[-1][:MAX_ERROR] if lines else "no error output"
+
+
 class ScannerError(Exception):
     """Raised when a scanner fails (non-zero exit, timeout, malformed output)."""
 

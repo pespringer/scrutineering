@@ -1,0 +1,8 @@
+2026-11-27T03:46:23Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-11-27T03:46:23Z	FATAL	Fatal error	run error: image scan error: scan error: unable to initialize a scan service: unable to initialize artifact: unable to initialize container image: unable to find the specified image "docker.io/scrutineering-nope/private-xyz:1" in ["docker" "containerd" "podman" "remote"]: 4 errors occurred:
+	* docker error: unable to inspect the image (docker.io/scrutineering-nope/private-xyz:1): Error response from daemon: No such image: scrutineering-nope/private-xyz:1
+	* containerd error: containerd socket not found: /run/containerd/containerd.sock
+	* podman error: unable to initialize Podman client: no podman socket found: stat podman/podman.sock: no such file or directory
+	* remote error: GET https://index.docker.io/v2/scrutineering-nope/private-xyz/manifests/1: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:scrutineering-nope/private-xyz Type:repository]]
+
+
