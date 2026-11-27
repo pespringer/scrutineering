@@ -707,6 +707,7 @@ before the code, and has to keep the golden-path test green:
 - pinned Python dependencies: done, see [design/dependency-pinning.md](design/dependency-pinning.md)
 - registry management: done, see [design/registry-management.md](design/registry-management.md)
 - scan alerts: done, see [design/scan-alerts.md](design/scan-alerts.md)
+- clearer scan errors: accepted, see [design/scan-errors.md](design/scan-errors.md)
 
 ---
 
