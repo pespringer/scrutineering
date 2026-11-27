@@ -119,6 +119,9 @@ def test_https_to_a_plain_http_registry_needs_registry_insecure(registry):
         (TimeoutError("timed out"), "(connection timed out)"),
         (ssl.SSLCertVerificationError(1, "certificate verify failed"), "TLS certificate isn't trusted"),
         (PermissionError("registry requires credentials"), "without credentials"),
+        # The same plain-HTTP answer, as other OpenSSL builds word it.
+        (ssl.SSLError(1, "[SSL: WRONG_VERSION_NUMBER] wrong version number"), "answers only over plain HTTP"),
+        (ssl.SSLError(1, "[SSL: RECORD_LAYER_FAILURE] record layer failure"), "answers only over plain HTTP"),
     ],
 )
 def test_other_lookup_failures(reason, expected):

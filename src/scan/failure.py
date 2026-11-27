@@ -24,6 +24,8 @@ NOT_FOUND = ("MANIFEST_UNKNOWN", "NAME_UNKNOWN")
 RATE_LIMITED = ("TOOMANYREQUESTS",)
 UNAUTHORIZED = ("UNAUTHORIZED",)
 DENIED = ("DENIED",)
+# How OpenSSL reports a plain-HTTP answer to a TLS handshake; the wording depends on its build.
+PLAIN_HTTP_TLS = ("wrong_version_number", "record_layer_failure")
 TIMED_OUT = re.compile(r"timed out after (\d+)s")
 ERROR_PREFIX = re.compile(r"^\[(\w+)\] ")
 
@@ -70,7 +72,9 @@ def _from_lookup(error: BaseException | None) -> tuple[str, str] | None:
     reason = error.reason if isinstance(error, URLError) else error
     if isinstance(reason, ssl.SSLCertVerificationError):
         return "untrusted", ""
-    if isinstance(reason, ssl.SSLError) and "wrong_version_number" in str(reason).lower().replace(" ", "_"):
+    if isinstance(reason, ssl.SSLError) and any(
+        phrase in str(reason).lower().replace(" ", "_") for phrase in PLAIN_HTTP_TLS
+    ):
         return "http_only", ""
     if isinstance(reason, ConnectionRefusedError):
         return "connect", "connection refused"
