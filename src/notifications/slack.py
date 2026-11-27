@@ -44,6 +44,8 @@ def message(payload: dict) -> dict:
         return _report_ready(payload["report"])
     if payload.get("event") == "scan.new_critical":
         return _new_critical(payload["scan"], payload["findings"])
+    if payload.get("event") == "scan.failed":
+        return _scan_failed(payload["scan"], payload["error"])
     item = payload["remediation"]
     if payload.get("event") == "remediation.deployment_stale":
         return _deployment_stale(item, payload["deployment"])
@@ -123,6 +125,24 @@ def _new_critical(scan: dict, findings: dict) -> dict:
         buttons.append(_button("Open the image", findings["url"], "open_image"))
     if buttons:
         blocks.append({"type": "actions", "elements": buttons})
+    return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
+
+
+def _scan_failed(scan: dict, error: str | None) -> dict:
+    """An image stopped being checked: its scan failed, and the one before it didn't."""
+    text = f"A scan of {escape(scan['image'])} failed"
+    fields = [
+        {"type": "mrkdwn", "text": clip(value, FIELD_LIMIT)}
+        for value in (f"*Image*\n`{escape(scan['image'])}`", f"*Scan*\n{escape(scan['trigger'] or 'unknown')}")
+    ]
+    blocks: list[dict] = [
+        _section("*A scan failed*"),
+        {"type": "section", "fields": fields},
+        _section(clip(f"*Error:* {escape(error or 'no error recorded')}", SECTION_LIMIT)),
+        _section("Further failures of this image send no message until a scan of it succeeds."),
+    ]
+    if scan["url"]:
+        blocks.append({"type": "actions", "elements": [_button("Open the scan", scan["url"], "open_scan")]})
     return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
 
 

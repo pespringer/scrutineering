@@ -23,7 +23,10 @@ MAX_ERROR = 300
 DEPLOYMENT_STALE = "remediation.deployment_stale"
 REPORT_READY = "report.ready"
 NEW_CRITICAL = "scan.new_critical"
+SCAN_FAILED = "scan.failed"
 MAX_CVES = 20
+# Scans no person started; a person who starts one sees it fail in the dashboard.
+UNATTENDED_TRIGGERS = ("scheduled", "discovery", "post_merge")
 _PENDING_KEY = "notifications_pending"
 
 
@@ -162,12 +165,12 @@ def record_new_critical(
 
     Called by `persist_findings`, in the transaction that saves the findings, so both commit or neither does.
     """
-    settings = get_settings()
-    configured = channels(settings)
-    if not new or not configured or "new_critical" not in settings.notification_events:
+    if not new:
         return []
-    image = session.get(Image, image_id)
-    trigger = session.query(Scan.scheduler_type).filter(Scan.scan_id == scan_id).scalar()
+    settings, configured = _scan_settings()
+    if settings is None or not configured or "new_critical" not in settings.notification_events:
+        return []
+    scan = session.query(Scan).filter(Scan.scan_id == scan_id).one()
     open_critical = (
         session.query(ScanFinding.id)
         .filter(
@@ -182,13 +185,7 @@ def record_new_critical(
     payload = {
         "event": NEW_CRITICAL,
         "occurred_at": now().isoformat(timespec="seconds") + "Z",
-        "scan": {
-            "id": scan_id,
-            "image": image.full_name if image is not None else None,
-            "trigger": trigger,
-            "status": "completed" if complete else "partial",
-            "url": f"{base}/scans/{scan_id}" if base else None,
-        },
+        "scan": _scan_object(scan, base, "completed" if complete else "partial"),
         "findings": {
             "new_critical": len(new),
             "open_critical": open_critical,
@@ -197,6 +194,66 @@ def record_new_critical(
             "cves": cves[:MAX_CVES],
             "url": f"{base}/images/{image_id}" if base else None,
         },
+    }
+    return _queue(session, None, payload, configured)
+
+
+def _scan_settings() -> tuple[Settings | None, list[str]]:
+    """The settings and channels, or none if the settings are invalid.
+
+    A scan alert must never stop the scan's own result from being saved, and an invalid setting is
+    one way a scan fails.
+    """
+    try:
+        settings = get_settings()
+    except ValueError:
+        logger.warning("Scan alert skipped: the settings are invalid", exc_info=True)
+        return None, []
+    return settings, channels(settings)
+
+
+def _scan_object(scan: Scan, base: str, status: str) -> dict:
+    return {
+        "id": scan.scan_id,
+        "image": scan.image.full_name if scan.image is not None else None,
+        "trigger": scan.scheduler_type,
+        "status": status,
+        "url": f"{base}/scans/{scan.scan_id}" if base else None,
+    }
+
+
+def record_scan_failed(session: Session, scan: Scan) -> list[Notification]:
+    """Queue `scan.failed`: an image no person scanned started failing (docs/design/scan-alerts.md).
+
+    Called by `mark_scan_failed`, in the transaction that marks the scan failed. Only the first failure
+    after a scan that didn't fail sends a message, so an image whose registry is down sends one.
+    """
+    if scan.scheduler_type not in UNATTENDED_TRIGGERS:
+        return []
+    settings, configured = _scan_settings()
+    if settings is None or not configured or "scan_failed" not in settings.notification_events:
+        return []
+    # Two failures of one image at once would both see the same earlier success; the row lock orders them.
+    session.query(Image.id).filter(Image.id == scan.image_id).with_for_update().one()
+    previous = (
+        session.query(Scan.status)
+        .filter(
+            Scan.image_id == scan.image_id,
+            Scan.id != scan.id,
+            Scan.status.in_(["completed", "partial", "failed"]),
+            Scan.completed_at.is_not(None),
+        )
+        .order_by(Scan.completed_at.desc(), Scan.id.desc())
+        .limit(1)
+        .scalar()
+    )
+    if previous == "failed":
+        return []
+    payload = {
+        "event": SCAN_FAILED,
+        "occurred_at": now().isoformat(timespec="seconds") + "Z",
+        "scan": _scan_object(scan, settings.dashboard_public_url.rstrip("/"), "failed"),
+        "error": _first_line(scan.error_message),
     }
     return _queue(session, None, payload, configured)
 

@@ -706,7 +706,7 @@ before the code, and has to keep the golden-path test green:
 - security hardening: done, see [design/security-hardening.md](design/security-hardening.md)
 - pinned Python dependencies: done, see [design/dependency-pinning.md](design/dependency-pinning.md)
 - registry management: done, see [design/registry-management.md](design/registry-management.md)
-- scan alerts: step 1 built, see [design/scan-alerts.md](design/scan-alerts.md)
+- scan alerts: done, see [design/scan-alerts.md](design/scan-alerts.md)
 
 ---
 

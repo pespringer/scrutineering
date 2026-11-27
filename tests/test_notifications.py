@@ -286,6 +286,7 @@ def test_the_webhook_needs_a_secret_and_events_must_be_statuses():
         "deployment_stale",
         "report_ready",
         "new_critical",
+        "scan_failed",
     ]
 
 
@@ -299,7 +300,14 @@ SLACK_FIXTURES = Path(__file__).resolve().parents[1] / "fixtures" / "notificatio
 
 @pytest.mark.parametrize(
     "name",
-    ["slack-needs-acceptance", "slack-failed", "slack-deployment-stale", "slack-report-ready", "slack-new-critical"],
+    [
+        "slack-needs-acceptance",
+        "slack-failed",
+        "slack-deployment-stale",
+        "slack-report-ready",
+        "slack-new-critical",
+        "slack-scan-failed",
+    ],
 )
 def test_slack_messages_match_the_stored_json(name):
     stored = json.loads((SLACK_FIXTURES / f"{name}.json").read_text())

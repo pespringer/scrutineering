@@ -151,8 +151,9 @@ erDiagram
   private key is only on the worker (`src/signing.py`); each SBOM records its
   signature and `key_id`.
 - **`notifications`**: an outbox. Every remediation status change in
-  `NOTIFICATION_EVENTS`, and every scan that finds a new critical CVE, writes one row
-  per configured channel, in the same transaction, with the message's payload. Each row has its own delivery status:
+  `NOTIFICATION_EVENTS`, every scan that finds a new critical CVE, and every unattended
+  scan failure that starts a run of failures, writes one row per configured channel, in
+  the same transaction, with the message's payload. Each row has its own delivery status:
   `pending`, then `sent` or (after five attempts) `failed`. Sent rows are deleted
   after 30 days.
 - **`principals`**: everyone the forward-auth proxy has signed in: subject, email,

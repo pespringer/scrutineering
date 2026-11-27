@@ -118,7 +118,7 @@ a request needs them. An empty value means the default. Secrets are marked 🔒.
 | `NOTIFICATION_SLACK_WEBHOOK_URL` 🔒 |  | Slack incoming webhook (`https://hooks.slack.com/...`) to post notifications to. | api, worker |
 | `NOTIFICATION_WEBHOOK_URL` 🔒 |  | Receiver for signed JSON notifications. `https://`, or `http://` to a private address or a single-label host name. | api, worker |
 | `NOTIFICATION_WEBHOOK_SECRET` 🔒 |  | Signs each webhook body (HMAC-SHA256). Required with `NOTIFICATION_WEBHOOK_URL`. | api, worker |
-| `NOTIFICATION_EVENTS` | `proposed,needs_acceptance,ready,published,completed,failed,deployment_stale,report_ready,new_critical` | Remediation statuses that send a notification, plus `deployment_stale` (a completed fix whose containers still run an older build 24 hours later), `report_ready` (the weekly report) and `new_critical` (a scan found critical CVEs the image didn't have open). | api, worker |
+| `NOTIFICATION_EVENTS` | `proposed,needs_acceptance,ready,published,completed,failed,deployment_stale,report_ready,new_critical,scan_failed` | Remediation statuses that send a notification, plus `deployment_stale` (a completed fix whose containers still run an older build 24 hours later), `report_ready` (the weekly report), `new_critical` (a scan found critical CVEs the image didn't have open) and `scan_failed` (an image's scheduled, discovery or post-merge scan failed after its previous scan didn't). | api, worker |
 | `DASHBOARD_PUBLIC_URL` |  | The dashboard's URL, for links in notifications. Links are left out when empty. | api, worker |
 
 ## Tests

@@ -1,0 +1,67 @@
+{
+  "payload": {
+    "event": "scan.failed",
+    "occurred_at": "2026-11-27T06:00:41Z",
+    "scan": {
+      "id": "d2e1f0a9",
+      "image": "registry:5000/shop/api:1.4.2",
+      "trigger": "scheduled",
+      "status": "failed",
+      "url": "https://scrutineering.home.lan/scans/d2e1f0a9"
+    },
+    "error": "trivy: unable to pull registry:5000/shop/api:1.4.2: connection refused"
+  },
+  "message": {
+    "text": "A scan of registry:5000/shop/api:1.4.2 failed",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*A scan failed*"
+        }
+      },
+      {
+        "type": "section",
+        "fields": [
+          {
+            "type": "mrkdwn",
+            "text": "*Image*\n`registry:5000/shop/api:1.4.2`"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Scan*\nscheduled"
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*Error:* trivy: unable to pull registry:5000/shop/api:1.4.2: connection refused"
+        }
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "Further failures of this image send no message until a scan of it succeeds."
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open the scan"
+            },
+            "url": "https://scrutineering.home.lan/scans/d2e1f0a9",
+            "action_id": "open_scan"
+          }
+        ]
+      }
+    ]
+  }
+}
