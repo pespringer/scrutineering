@@ -29,4 +29,4 @@ A note answers:
 - [security-hardening.md](security-hardening.md): approved sources, a tamper-evident audit log, local ports (built)
 - [dependency-pinning.md](dependency-pinning.md): pinned, hash-checked Python dependencies (built)
 - [registry-management.md](registry-management.md): browse, delete and clean up the registry's images (built)
-- [scan-alerts.md](scan-alerts.md): alerts for new critical findings and failing scans (step 1 built)
+- [scan-alerts.md](scan-alerts.md): alerts for new critical findings and failing scans (built)

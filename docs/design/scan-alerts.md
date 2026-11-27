@@ -1,6 +1,6 @@
 # Scan alerts
 
-Status: accepted · 2026-11-27 · Phase 6 · step 1 built
+Status: accepted · 2026-11-27 · Phase 6 · built
 
 ## Problem
 
@@ -82,16 +82,22 @@ Decisions).
 **The rule.** When a scan moves to `failed`, queue a message if:
 
 - it wasn't started by a person, so its trigger is `scheduled`, `discovery` or
-  `post_merge`. A person who started a scan sees it fail in the dashboard;
-- and the image's previous finished scan (`completed`, `partial` or `failed`)
-  wasn't `failed`, or there was none.
+  `post_merge`. A person who started a scan (`manual` or `retry`) sees it fail in the
+  dashboard. A scan task run without a queued record (`worker`) doesn't count either;
+- and the image's previous finished scan (`completed`, `partial` or `failed`, by
+  whoever started it) wasn't `failed`, or there was none.
+
+The image row is locked before the previous scan is read, so two failures of one
+image at once send one message.
 
 An image that fails every 6 hours while its registry is down sends one message.
 The next one comes after a scan of it has succeeded and then failed again.
 
 **Where.** Every failure goes through `mark_scan_failed` (`src/scan/records.py`),
-which calls a new `outbox.record_scan_failed` in the same transaction. A scan
-cancelled first is never marked failed, so it never alerts.
+which calls a new `outbox.record_scan_failed` in the same transaction. That includes
+a scan the queue refused. A scan cancelled first is never marked failed, so it never
+alerts, and a scan marked failed twice alerts at most once. Candidate scans have no
+scan record, so they never reach it.
 
 ### Payloads
 

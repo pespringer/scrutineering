@@ -406,8 +406,18 @@ upgrade that keeps the same CVE isn't announced again. Every scan counts, whoeve
 started it, including an image's first: a new tag such as `app:1.5` is a new image, so
 its critical CVEs are announced too. Turning on runtime discovery for many images
 can therefore post one message per image once. High and lower severities are never
-sent; they're in the weekly report. If you set `NOTIFICATION_EVENTS` yourself, add
-`new_critical` to it.
+sent; they're in the weekly report.
+
+**Failing scans.** `scan_failed` posts when a scheduled, discovery or post-merge scan
+fails and the image's previous scan didn't, for example because its registry is
+unreachable or its credentials expired. An image that keeps failing posts once; it
+posts again only after a scan of it has succeeded (`completed` or `partial`) and a
+later one fails. Scans a person started, from the dashboard or with **Retry**, never
+post: their failure is on screen. Neither do cancelled scans, or the scans that
+verify a remediation's candidate; a failed candidate is in the remediation's
+`failed` message.
+
+If you set `NOTIFICATION_EVENTS` yourself, add `new_critical` and `scan_failed` to it.
 
 There are two channels. Set either or both in `.env`, then restart the stack
 (`make up`):
@@ -477,6 +487,22 @@ A `new_critical` message has a `scan` and `findings` instead of `remediation`.
 }
 ```
 
+A `scan_failed` message has the same `scan` object and the first line of the error, cut
+to 300 characters. The full error is on the scan's page:
+
+```json
+{
+  "id": 914,
+  "event": "scan.failed",
+  "occurred_at": "2026-11-27T12:00:07Z",
+  "scan": {
+    "id": "d2e1f0a9", "image": "registry:5000/shop/api:1.4.2", "trigger": "scheduled",
+    "status": "failed", "url": "https://scrutineering.home.lan/scans/d2e1f0a9"
+  },
+  "error": "trivy: unable to pull registry:5000/shop/api:1.4.2: connection refused"
+}
+```
+
 The headers are:
 
 - `X-Scrutineering-Event`: the event.
@@ -501,9 +527,10 @@ How delivery behaves:
   and 60 minutes. After the fifth failed attempt the message is marked `failed`.
 - Redirects are not followed.
 
-Messages name images, CVEs and pull requests, and `new_critical` lists which images
-have unpatched critical CVEs, so send them only to a private channel. The URL and secret are credentials: they're never logged or shown, and
-only the environment can set them.
+Messages name images, CVEs and pull requests, `new_critical` lists which images
+have unpatched critical CVEs, and `scan_failed` quotes registry and scanner errors, so
+send them only to a private channel. The URL and secret are credentials: they're never
+logged or shown, and only the environment can set them.
 
 ## 12. Sign-in
 

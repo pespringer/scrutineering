@@ -204,3 +204,195 @@ def test_the_slack_message_stays_within_block_kit_limits_at_the_longest_values()
     assert slack.message({**payload, "findings": {**payload["findings"], "new_critical": 1}})["text"].startswith(
         "1 new critical finding in"
     )
+
+
+# `scan.failed`: an image no person scanned started failing.
+
+
+def _finished(status: str, trigger: str = "scheduled", image: str = IMAGE) -> str:
+    """A scan that ended `completed`, `partial` or `cancelled`, as the worker or the cancel route leaves it."""
+    from datetime import datetime, timezone
+
+    with get_session() as session:
+        scan = create_pending_scan(session, image, trigger=trigger)
+        scan.status = status
+        scan.completed_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        return scan.scan_id
+
+
+def _fail(trigger: str = "scheduled", error: str = "registry unreachable", image: str = IMAGE) -> str:
+    from src.scan.records import mark_scan_failed
+
+    with get_session() as session:
+        scan_id = create_pending_scan(session, image, trigger=trigger).scan_id
+    with get_session() as session:
+        mark_scan_failed(session, scan_id, error)
+    return scan_id
+
+
+def _failures() -> list[dict]:
+    with get_session() as session:
+        rows = session.query(Notification).filter(Notification.event == "scan.failed")
+        return [row.payload for row in rows.order_by(Notification.id)]
+
+
+def test_a_failed_scheduled_scan_is_announced(configured):  # noqa: F811
+    scan_id = _fail(error="trivy: unable to pull the image\nstack trace follows")
+    (alert,) = _failures()
+    assert alert == {
+        "event": "scan.failed",
+        "occurred_at": alert["occurred_at"],
+        "scan": {
+            "id": scan_id,
+            "image": IMAGE,
+            "trigger": "scheduled",
+            "status": "failed",
+            "url": f"https://scrutineering.home.lan/scans/{scan_id}",
+        },
+        "error": "trivy: unable to pull the image",
+    }
+    assert configured
+
+
+@pytest.mark.parametrize(
+    "trigger, announced",
+    [("scheduled", True), ("discovery", True), ("post_merge", True), ("manual", False), ("retry", False)]
+    + [("worker", False), (None, False)],
+)
+def test_only_scans_no_person_started_are_announced(configured, trigger, announced):  # noqa: F811
+    _fail(trigger=trigger)
+    assert len(_failures()) == (1 if announced else 0)
+
+
+def test_an_image_that_keeps_failing_sends_one_message(configured):  # noqa: F811
+    _fail()
+    _fail()
+    _fail(trigger="discovery")
+    assert len(_failures()) == 1
+    _finished("completed")
+    _fail()
+    _fail()
+    assert len(_failures()) == 2, "a success in between starts a new run of failures"
+
+
+def test_a_partial_scan_counts_as_a_success_and_a_cancelled_one_as_nothing(configured):  # noqa: F811
+    _fail()
+    _finished("partial")
+    _fail()
+    assert len(_failures()) == 2, "the partial scan ended the first run of failures"
+    _finished("cancelled")
+    _fail()
+    assert len(_failures()) == 2, "the scan before the cancelled one had failed"
+
+
+def test_any_earlier_failure_counts_whoever_started_it(configured):  # noqa: F811
+    _fail(trigger="manual")
+    _fail()
+    assert _failures() == []
+
+
+def test_images_are_separate_for_failures_too(configured):  # noqa: F811
+    _fail()
+    _fail(image="registry:5000/shop/api:1.5.0")
+    assert [alert["scan"]["image"] for alert in _failures()] == [IMAGE, "registry:5000/shop/api:1.5.0"]
+
+
+def test_a_cancelled_or_already_finished_scan_is_never_announced(configured):  # noqa: F811
+    from src.scan.records import mark_scan_failed
+
+    cancelled = _finished("cancelled")
+    with get_session() as session:
+        mark_scan_failed(session, cancelled, "the worker stopped")
+    scan_id = _fail()
+    with get_session() as session:
+        mark_scan_failed(session, scan_id, "a second report of the same failure")
+    assert [alert["scan"]["id"] for alert in _failures()] == [scan_id]
+
+
+def test_errors_are_cut_to_their_first_line_and_300_characters(configured):  # noqa: F811
+    _fail(error="  " + "x" * 400 + "\nsecond line")
+    assert _failures()[0]["error"] == "x" * 300
+    _finished("completed")
+    _fail(error="")
+    assert _failures()[1]["error"] is None
+
+
+def test_a_scan_the_queue_refused_is_announced(configured):  # noqa: F811
+    from src.scan.records import queue_scan
+
+    def refuse(*args, **kwargs):
+        raise ConnectionError("broker down")
+
+    with pytest.raises(ConnectionError):
+        queue_scan(IMAGE, trigger="scheduled", enqueue=refuse)
+    assert _failures()[0]["error"] == "scan queue unavailable: broker down"
+
+
+def test_no_failure_is_queued_without_a_channel_or_with_the_event_off(monkeypatch, configured):  # noqa: F811
+    monkeypatch.setenv("NOTIFICATION_EVENTS", "completed,new_critical")
+    _fail()
+    monkeypatch.delenv("NOTIFICATION_WEBHOOK_URL")
+    monkeypatch.delenv("NOTIFICATION_EVENTS")
+    _fail(image="registry:5000/shop/web:1")
+    assert _failures() == [] and configured == []
+
+
+def test_invalid_settings_never_stop_the_scan_being_recorded(monkeypatch, configured):  # noqa: F811
+    from src.db.models import Scan
+
+    def invalid():
+        raise ValueError("invalid configuration: SCANNER_TIMEOUT")
+
+    monkeypatch.setattr("src.notifications.outbox.get_settings", invalid)
+    failed = _fail()
+    scanned = _scan(_finding("CVE-2026-0001"), image="registry:5000/shop/web:1")
+    with get_session() as session:
+        statuses = dict(session.query(Scan.scan_id, Scan.status).filter(Scan.scan_id.in_([failed, scanned])))
+    assert statuses[failed] == "failed"
+    assert _failures() == [] and _alerts() == []
+
+
+def test_no_failure_is_queued_when_marking_it_rolls_back(configured):  # noqa: F811
+    from src.scan.records import mark_scan_failed
+
+    with get_session() as session:
+        scan_id = create_pending_scan(session, IMAGE, trigger="scheduled").scan_id
+    with pytest.raises(RuntimeError):
+        with get_session() as session:
+            mark_scan_failed(session, scan_id, "registry unreachable")
+            raise RuntimeError("the database went away")
+    assert _failures() == [] and configured == []
+
+
+def test_the_webhook_delivers_the_failure_signed(configured, receiver):  # noqa: F811
+    from src.notifications.delivery import deliver
+
+    _fail()
+    assert deliver()["sent"] == 1
+    (request,) = receiver["requests"]
+    assert request.headers["x-scrutineering-event"] == "scan.failed"
+    assert json.loads(request.content)["error"] == "registry unreachable"
+
+
+def test_a_failure_without_a_dashboard_url_has_no_link(monkeypatch, configured):  # noqa: F811
+    monkeypatch.delenv("DASHBOARD_PUBLIC_URL")
+    _fail()
+    alert = _failures()[0]
+    assert alert["scan"]["url"] is None
+    assert not any(block["type"] == "actions" for block in slack.message(alert)["blocks"])
+
+
+def test_the_failure_message_stays_within_block_kit_limits_at_the_longest_values():
+    payload = {
+        "event": "scan.failed",
+        "scan": {
+            "id": "f" * 64,
+            "image": "<&>" * 170 + ":" + "t" * 256,
+            "trigger": "<" * 32,
+            "status": "failed",
+            "url": "https://scrutineering.example/" + "p" * 1000,
+        },
+        "error": "<&>" * 100,
+    }
+    assert _block_kit_problems(slack.message(payload)) == []
+    assert "no error recorded" in json.dumps(slack.message({**payload, "error": None}))

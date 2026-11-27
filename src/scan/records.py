@@ -98,6 +98,10 @@ def mark_scan_failed(session: Session, scan_id: str, reason: str, *, phase: str 
     scan.completed_at = now
     if scan.image is not None:
         scan.image.last_scan_at = now
+    from src.notifications.outbox import record_scan_failed
+
+    session.flush()
+    record_scan_failed(session, scan)
     return scan
 
 
