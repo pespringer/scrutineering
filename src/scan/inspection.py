@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from src.scan import failure
 from src.scan.settings import ScannerSettings
 
 # Bound as a module: tasks imports the remediation worker, which imports this module.
@@ -24,6 +25,8 @@ class InspectionResult:
     scanned_reference: str
     findings: list[dict] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # Why the scan didn't complete: the plain reason when no scanner could scan it, then each failed scanner.
+    error_message: str | None = None
 
     def vuln_keys(self) -> set[str]:
         return {make_vuln_key(item.get("cve_id") or "", item["package_name"]) for item in self.findings}
@@ -42,11 +45,23 @@ def inspect_image(image_name: str, scanners: tuple[str, ...] = DEFAULT_SCANNERS)
         registry_host=resolved["host"],
         insecure=resolved["insecure"],
     )
-    findings, errors = [], []
+    findings, failed = [], []
     for name, outcome, data in results:
         if outcome == "ok":
             findings.extend(data)
         else:
-            errors.append(f"{name}: {data}")
+            failed.append((name, data))
     deduped = deduplicate_findings_with_report(findings)[0] if findings else []
-    return InspectionResult(complete=not errors, scanned_reference=resolved["target"], findings=deduped, errors=errors)
+    errors = failure.scanner_lines(failed)
+    message = None
+    if failed:
+        nothing_scanned = len(failed) == len(results)
+        items = [{"scanner": name, "error": error} for name, error in failed]
+        message = tasks.scan_failure(resolved, items) if nothing_scanned else "\n".join(errors)
+    return InspectionResult(
+        complete=not failed,
+        scanned_reference=resolved["target"],
+        findings=deduped,
+        errors=errors,
+        error_message=message,
+    )

@@ -1,6 +1,6 @@
 # Clearer scan errors
 
-Status: accepted · 2026-11-27 · Phase 6 · step 1 built
+Status: accepted · 2026-11-27 · Phase 6 · built
 
 ## Problem
 
@@ -87,8 +87,12 @@ output".
 A new `src/scan/failure.py` turns what is known into one sentence. The first source is
 the digest lookup's exception, since it is structured: `HTTPError` with its status code,
 `URLError` with its reason, `PermissionError` from the auth challenge. When the image was
-given by digest, or the lookup succeeded, it uses the scanners' errors, matched
-case-insensitively against the texts above.
+given by digest, or the lookup succeeded, it uses the scanners' errors. Network phrases
+are matched case-insensitively. Registry error codes (`MANIFEST_UNKNOWN`, `DENIED`, …) are
+matched exactly, so a local "permission denied" isn't read as the registry's `DENIED`. A
+registry cause counts only in an error that names the image's registry host. A scanner that
+couldn't download its vulnerability database is therefore not reported as the registry being
+down. A registry cause outranks a scanner timeout.
 
 | Cause | Detected by | First line |
 | --- | --- | --- |
@@ -125,8 +129,10 @@ no change to the alert. The scan page shows the message with its line breaks
 
 - `_resolve_scan_target` keeps the lookup's exception, alongside the string it already
   records in the `scan_started` audit event.
-- `_execute_scan`, when every scanner failed, and the `identity_unresolved` path build
-  the message through `failure.explain(identity, lookup_error, scanner_errors)`.
+- `_execute_scan`, when every scanner failed, builds the message through
+  `failure.explain(identity, lookup_error, scanner_errors)`. The `identity_unresolved`
+  path uses `failure.unresolved`: the reason, or "Couldn't resolve … to a digest", then a
+  line saying `REQUIRE_IMMUTABLE_SCAN_IDENTITY` stopped it from scanning by tag.
 - `inspect_image` gives the remediation worker the same message when no scanner could
   scan a candidate. A candidate is named by digest, so its reason comes from the
   scanners' text. When only one scanner failed, the remediation still fails, as today,

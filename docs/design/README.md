@@ -30,4 +30,4 @@ A note answers:
 - [dependency-pinning.md](dependency-pinning.md): pinned, hash-checked Python dependencies (built)
 - [registry-management.md](registry-management.md): browse, delete and clean up the registry's images (built)
 - [scan-alerts.md](scan-alerts.md): alerts for new critical findings and failing scans (built)
-- [scan-errors.md](scan-errors.md): failed scans that say why in plain words (step 1 built)
+- [scan-errors.md](scan-errors.md): failed scans that say why in plain words (built)

@@ -168,12 +168,7 @@ export default function ScanDetailPage() {
             )}
           </div>
         )}
-        {scan.error_message && (
-          <div className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-200">
-            <XCircle className="mr-2 inline h-4 w-4" />
-            {scan.error_message}
-          </div>
-        )}
+        {scan.error_message && <ScanError message={scan.error_message} />}
         <div className="mt-6 grid gap-4 text-sm text-slate-400 sm:grid-cols-2">
           <div>
             <span className="text-slate-600">Started</span>
@@ -216,5 +211,21 @@ export default function ScanDetailPage() {
         </div>
       </section>
     </Layout>
+  );
+}
+
+/** Why the scan failed: the plain reason first, then each scanner's own error (docs/design/scan-errors.md). */
+function ScanError({ message }: { message: string }) {
+  const [reason, ...details] = message.split("\n");
+  return (
+    <div className="mt-5 rounded-xl border border-rose-400/20 bg-rose-400/5 p-4 text-sm text-rose-200">
+      <p className="font-medium">
+        <XCircle className="mr-2 inline h-4 w-4" />
+        {reason}
+      </p>
+      {details.length > 0 && (
+        <p className="mt-2 whitespace-pre-line break-words font-mono text-xs text-rose-200/70">{details.join("\n")}</p>
+      )}
+    </div>
   );
 }

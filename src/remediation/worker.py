@@ -169,7 +169,7 @@ def run_remediation(remediation_id: int) -> dict:
         built = _patch_and_build(remediation_id, job)
         scan = inspect_image(f"{built.reference.rsplit(':', 1)[0]}@{built.digest}")
         if not scan.complete:
-            raise BuildError("the candidate scan did not complete: " + "; ".join(scan.errors)[:1500])
+            raise BuildError(f"the candidate scan did not complete: {scan.error_message}"[:1500])
         result = verdict(job["targets"], job["baseline"], scan.findings)
         if result["still_present"]:
             _advance(remediation_id, RemediationStatus.VERIFYING, RemediationStatus.VERIFYING, verification=result)

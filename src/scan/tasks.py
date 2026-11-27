@@ -19,6 +19,7 @@ from celery import shared_task
 from src.db.connection import get_session as get_db_session
 from src.db.models import AuditEventType, Scan, ScanFinding, ScanStatus, Severity as DbSeverity, SeveritySnapshot
 from src.db.repositories import AuditLogRepository
+from src.scan import failure
 from src.scan.celery_app import create_celery_app
 from src.scan.models import Severity
 from src.scan.queue import scan_task_options
@@ -379,7 +380,9 @@ def _resolve_scan_target(image_name: str, settings: ScannerSettings) -> dict:
     """Pin an image tag to its digest and pick this scan's registry credentials.
 
     Returns the reference to hand to the scanners (`repo@sha256:...` when
-    resolved), the digest, and per-scan auth/transport settings.
+    resolved), the digest, and per-scan auth/transport settings. `parsed` is the
+    image identity and `lookup_error` why the digest lookup failed, for
+    `src/scan/failure.py`.
     """
     if filesystem_path_target(image_name):
         return {
@@ -389,19 +392,40 @@ def _resolve_scan_target(image_name: str, settings: ScannerSettings) -> dict:
             "host": "",
             "insecure": False,
             "identity": "filesystem",
+            "parsed": None,
+            "lookup_error": None,
         }
     identity = parse_image_reference(image_name)
     credentials = credentials_for_host(identity.host)
     insecure = settings.insecure_host(identity.host)
-    base = {"credentials": credentials, "host": identity.host, "insecure": insecure}
+    base = {"credentials": credentials, "host": identity.host, "insecure": insecure, "parsed": identity}
     try:
         digest = resolve_digest(identity, credentials=credentials, scheme="http" if insecure else "https")
     except Exception as exc:
         if settings.require_immutable_identity:
-            raise ImmutableIdentityError(f"could not resolve {image_name} to a digest: {exc}") from exc
+            message = failure.unresolved(identity, exc, has_credentials=credentials is not None)
+            raise ImmutableIdentityError(message) from exc
         logger.warning("Scanning %s by tag; digest resolution failed: %s", image_name, exc)
-        return {**base, "target": image_name, "digest": None, "identity": "tag", "resolution_error": str(exc)[:300]}
-    return {**base, "target": f"{identity.repo_name}@{digest}", "digest": digest, "identity": "digest"}
+        return {
+            **base,
+            "target": image_name,
+            "digest": None,
+            "identity": "tag",
+            "resolution_error": str(exc)[:300],
+            "lookup_error": exc,
+        }
+    target = f"{identity.repo_name}@{digest}"
+    return {**base, "target": target, "digest": digest, "identity": "digest", "lookup_error": None}
+
+
+def scan_failure(resolved: dict, errors: list[dict]) -> str:
+    """The `error_message` when no scanner could scan the target (docs/design/scan-errors.md)."""
+    return failure.explain(
+        resolved["parsed"],
+        resolved["lookup_error"],
+        [(item["scanner"], item["error"]) for item in errors],
+        has_credentials=resolved["credentials"] is not None,
+    )
 
 
 def filesystem_path_target(target: str) -> bool:
@@ -553,7 +577,7 @@ def _execute_scan(task, image_name: str, scan_id: str, image_id: int, scanners: 
     if not completed:
         # A dict in Celery's FAILURE state is read as exception metadata, so use a custom state.
         task.update_state(state="SCAN_FAILED", meta={"scan_id": scan_id, "image_name": image_name, "errors": errors})
-        _fail_scan(scan_id, "all configured scanners failed: " + "; ".join(e["error"] for e in errors))
+        _fail_scan(scan_id, scan_failure(resolved, errors))
         _record_scan_event(
             scan_id,
             AuditEventType.SCAN_FAILED,
