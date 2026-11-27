@@ -37,7 +37,7 @@ REMEDIATION_STATUSES = (
     "cancelled",
 )
 # Notification events that aren't a status change (docs/design/deployment-observation.md).
-OTHER_NOTIFICATION_EVENTS = ("deployment_stale", "report_ready")
+OTHER_NOTIFICATION_EVENTS = ("deployment_stale", "report_ready", "new_critical")
 
 
 def plain_http_allowed(url: str) -> bool:
@@ -313,9 +313,11 @@ class Settings(BaseSettings):
             "failed",
             "deployment_stale",
             "report_ready",
+            "new_critical",
         ],
         "Remediation statuses that send a notification, plus `deployment_stale` (a completed fix whose "
-        "containers still run an older build 24 hours later) and `report_ready` (the weekly report).",
+        "containers still run an older build 24 hours later), `report_ready` (the weekly report) and "
+        "`new_critical` (a scan found critical CVEs the image didn't have open).",
         "Notifications",
         (API, WORKER),
     )

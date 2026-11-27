@@ -1,0 +1,92 @@
+{
+  "payload": {
+    "event": "scan.new_critical",
+    "occurred_at": "2026-11-27T06:00:41Z",
+    "scan": {
+      "id": "c1f0e2d3",
+      "image": "registry:5000/shop/api:1.4.2",
+      "trigger": "scheduled",
+      "status": "completed",
+      "url": "https://scrutineering.home.lan/scans/c1f0e2d3"
+    },
+    "findings": {
+      "new_critical": 7,
+      "open_critical": 9,
+      "fixable": 2,
+      "cve_count": 7,
+      "cves": [
+        "CVE-2026-1111",
+        "CVE-2026-2222",
+        "CVE-2026-3333",
+        "CVE-2026-4444",
+        "CVE-2026-5555",
+        "CVE-2026-6666",
+        "CVE-2026-7777"
+      ],
+      "url": "https://scrutineering.home.lan/images/42"
+    }
+  },
+  "message": {
+    "text": "7 new critical findings in registry:5000/shop/api:1.4.2",
+    "blocks": [
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*7 new critical findings*"
+        }
+      },
+      {
+        "type": "section",
+        "fields": [
+          {
+            "type": "mrkdwn",
+            "text": "*Image*\n`registry:5000/shop/api:1.4.2`"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Scan*\nscheduled, completed"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*Open critical*\n9"
+          },
+          {
+            "type": "mrkdwn",
+            "text": "*New ones with a fix*\n2 of 7"
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "text": {
+          "type": "mrkdwn",
+          "text": "*CVEs:* CVE-2026-1111, CVE-2026-2222, CVE-2026-3333, CVE-2026-4444, CVE-2026-5555 and 2 more"
+        }
+      },
+      {
+        "type": "actions",
+        "elements": [
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open the scan"
+            },
+            "url": "https://scrutineering.home.lan/scans/c1f0e2d3",
+            "action_id": "open_scan"
+          },
+          {
+            "type": "button",
+            "text": {
+              "type": "plain_text",
+              "text": "Open the image"
+            },
+            "url": "https://scrutineering.home.lan/images/42",
+            "action_id": "open_image"
+          }
+        ]
+      }
+    ]
+  }
+}

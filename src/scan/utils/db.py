@@ -92,6 +92,11 @@ def persist_findings(
             row.fingerprint: row
             for row in session.execute(select(ScanFinding).where(ScanFinding.image_id == image_id)).scalars()
         }
+        # By CVE and package, not version: an upgrade that keeps the CVE isn't news (docs/design/scan-alerts.md).
+        open_critical = {
+            row.vuln_key for row in existing.values() if row.resolved_at is None and row.severity == Severity.CRITICAL
+        }
+        seen: list[ScanFinding] = []
         for fingerprint, finding in observed.items():
             severity = _severity(finding.get("severity"))
             row = existing.get(fingerprint)
@@ -127,6 +132,7 @@ def persist_findings(
                 if finding.get("fixed_version"):
                     row.fixed_version = _bounded(ScanFinding, "fixed_version", finding["fixed_version"])
                     row.fix_available = True
+            seen.append(row)
             session.add(
                 FindingObservation(
                     scan_id=scan_id,
@@ -144,5 +150,12 @@ def persist_findings(
                     apply_finding_observation(row, observed=False, observed_at=now)
             session.flush()
             complete_verified_remediations(session, image_id, scan_id)
+
+        new_critical = [row for row in seen if row.severity == Severity.CRITICAL and row.vuln_key not in open_critical]
+        if new_critical:
+            from src.notifications.outbox import record_new_critical
+
+            session.flush()
+            record_new_critical(session, scan_id, image_id, new_critical, complete=reconcile_missing)
 
     return len(observed)

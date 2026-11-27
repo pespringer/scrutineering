@@ -1,6 +1,6 @@
 # Scan alerts
 
-Status: accepted · 2026-11-27 · Phase 6
+Status: accepted · 2026-11-27 · Phase 6 · step 1 built
 
 ## Problem
 
@@ -56,7 +56,7 @@ critical findings only, at most one message per image per scan.
 The package version is left out on purpose. An upgrade that doesn't fix the CVE
 creates a new finding row (rows are keyed by version too), but it isn't news. The
 golden path's own fixture does this: the rebuilt image's `tar` moves from 6.1.11 to
-6.2.1 and keeps CVE-2026-59873.
+6.2.1 and keeps CVE-2026-59873, and `node` moves to 18.20.8 and keeps CVE-2026-111497.
 
 **Where.** `persist_findings` (`src/scan/utils/db.py`) already holds every finding
 row of the image in one transaction, before and after the scan's changes. It
@@ -113,14 +113,16 @@ The generic webhook receives:
     "new_critical": 3,
     "open_critical": 7,
     "fixable": 2,
+    "cve_count": 3,
     "cves": ["CVE-2026-1111", "CVE-2026-2222", "CVE-2026-3333"],
     "url": "https://scrutineering.home.lan/images/42"
   }
 }
 ```
 
-- `cves` lists distinct CVE IDs, at most 20, ordered by ID. Findings without a CVE
-  ID are counted, but not listed.
+- `cves` lists distinct CVE IDs, at most 20, sorted. `cve_count` is how many there
+  are, so a message can say how many weren't listed. Findings without a CVE ID are
+  counted in `new_critical`, but not listed.
 - `fixable` is how many of the new ones have a fixed version, so whether a
   remediation can be proposed.
 - The URLs are present only when `DASHBOARD_PUBLIC_URL` is set.
@@ -199,13 +201,12 @@ Nothing changes:
     `fixtures/notifications/`;
   - the configuration's accepted events.
 - **Golden path:** the in-process receiver gets:
-  - one `scan.new_critical` for the fixture's first scan, listing CVE-2026-59873
-    (`tar`);
-  - one for the rescan of the rebuilt image, listing only CVE-2026-31789
-    (`libcrypto3`, `libssl3`), which the newer scan found. `tar`'s CVE survived its
-    upgrade, so it isn't listed again.
-
-  The existing order check of remediation messages stays.
+  - in the loop test, one `scan.new_critical` for the fixture's first scan (12 CVEs
+    from Trivy and Grype, including CVE-2026-59873 in `tar`), then the four
+    remediation messages in order. The rescans add none;
+  - in the rescan test, one for the first scan and one for the rebuilt image, listing
+    only CVE-2026-4738 (`zlib`) and CVE-2026-63073 (`libcrypto3`, `libssl3`). The
+    CVEs that `tar` and `node` kept through their upgrades aren't listed again.
 - **Live:** `make e2e` keeps skipping notification delivery when no channel is
   configured. Before merging, each event is checked by hand against a local
   webhook receiver:

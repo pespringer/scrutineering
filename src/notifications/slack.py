@@ -42,6 +42,8 @@ def message(payload: dict) -> dict:
         return {"text": text, "blocks": [_section(text)]}
     if payload.get("event") == "report.ready":
         return _report_ready(payload["report"])
+    if payload.get("event") == "scan.new_critical":
+        return _new_critical(payload["scan"], payload["findings"])
     item = payload["remediation"]
     if payload.get("event") == "remediation.deployment_stale":
         return _deployment_stale(item, payload["deployment"])
@@ -92,6 +94,36 @@ def _report_ready(report: dict) -> dict:
     if report["url"]:
         blocks.append({"type": "actions", "elements": [_button("Open the report", report["url"], "open_report")]})
     return {"text": text, "blocks": blocks}
+
+
+def _new_critical(scan: dict, findings: dict) -> dict:
+    """New critical CVEs in an image: which, how many have a fix, and links to the scan and the image."""
+    count = findings["new_critical"]
+    noun = "finding" if count == 1 else "findings"
+    text = f"{count} new critical {noun} in {escape(scan['image'])}"
+    fields = [
+        {"type": "mrkdwn", "text": clip(value, FIELD_LIMIT)}
+        for value in (
+            f"*Image*\n`{escape(scan['image'])}`",
+            f"*Scan*\n{escape(scan['trigger'] or 'unknown')}, {escape(scan['status'])}",
+            f"*Open critical*\n{findings['open_critical']}",
+            f"*New ones with a fix*\n{findings['fixable']} of {count}",
+        )
+    ]
+    blocks: list[dict] = [_section(f"*{count} new critical {noun}*"), {"type": "section", "fields": fields}]
+    if findings["cves"]:
+        listed = ", ".join(escape(cve) for cve in findings["cves"][:MAX_LISTED])
+        more = findings["cve_count"] - MAX_LISTED
+        listed += f" and {more} more" if more > 0 else ""
+        blocks.append(_section(f"*CVEs:* {listed}"))
+    buttons = []
+    if scan["url"]:
+        buttons.append(_button("Open the scan", scan["url"], "open_scan"))
+    if findings["url"]:
+        buttons.append(_button("Open the image", findings["url"], "open_image"))
+    if buttons:
+        blocks.append({"type": "actions", "elements": buttons})
+    return {"text": clip(text, SECTION_LIMIT), "blocks": blocks}
 
 
 def _deployment_stale(item: dict, deployment: dict) -> dict:
