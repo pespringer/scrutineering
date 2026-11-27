@@ -246,7 +246,8 @@ configured. This note is updated to match what shipped.
 These were open questions on the proposal; all four were decided as recommended.
 
 1. **Scan alerts:** a later step, after these three. It will cover critical
-   findings only, with at most one message per image per scan.
+   findings only, with at most one message per image per scan. See
+   [scan-alerts.md](scan-alerts.md).
 2. **Plain HTTP:** allowed only to a private address (RFC 1918, loopback or
    link-local) or a single-label host name. Anything else must be `https://`.
 3. **`ready`:** stays in the default events while publication is a manual step.

@@ -703,6 +703,10 @@ before the code, and has to keep the golden-path test green:
 - GitLab publishing: step 1 built, steps 2–3 paused until a GitLab is available to test;
   see [design/gitlab-publishing.md](design/gitlab-publishing.md)
 - multi-user roles: done, see [design/multi-user-roles.md](design/multi-user-roles.md)
+- security hardening: done, see [design/security-hardening.md](design/security-hardening.md)
+- pinned Python dependencies: done, see [design/dependency-pinning.md](design/dependency-pinning.md)
+- registry management: done, see [design/registry-management.md](design/registry-management.md)
+- scan alerts: accepted, see [design/scan-alerts.md](design/scan-alerts.md)
 
 ---
 
