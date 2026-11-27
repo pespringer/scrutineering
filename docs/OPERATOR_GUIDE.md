@@ -77,7 +77,7 @@ A tag is refused while something needs it, and there is no override:
 
 A container that discovery hasn't listed for 30 days no longer counts. Without container
 records (containerd), an image counts as running for 30 minutes after it was last seen.
-Deleting a tag doesn't free disk space by itself.
+Deleting a tag doesn't free disk space by itself; see below.
 
 **Candidate cleanup.** A daily task (03:55 UTC) deletes a candidate 30 days after its
 remediation completed, failed or was cancelled, and records `candidate deleted` in the
@@ -86,6 +86,22 @@ next day. One marked `no matching remediation` (its digest differs from the reco
 or it's from an earlier database) is left for you to delete. A remediation that is retried
 builds its candidate again. Nothing is cleaned up while
 `REGISTRY_STORAGE_DELETE_ENABLED=false`.
+
+**Freeing disk space.** Run `make registry-gc` on the Docker host (Compose only). It:
+
+1. stops, changing nothing, if a remediation is building or verifying, a scan of a
+   local image is pending or running, or a container runs a build from the registry
+   that no tag keeps. It says which, and what to do. Containers are the ones runtime
+   discovery recorded and the ones this host's Docker runs;
+2. stops the registry, so nothing can push meanwhile. Pushes, pulls and scans of local
+   images fail until it's back, usually within a minute;
+3. removes every image no tag points to, and the layers only those used;
+4. starts the registry again, even if collection failed, and prints the space freed.
+
+Images other tags still use, and every platform of a multi-platform tag, are kept. An
+image pulled only by digest, with no tag left, is removed: tag it first to keep it.
+Containers on other hosts are checked only if runtime discovery records them, which it
+doesn't on containerd. Back up the registry volume first if you're unsure.
 
 The bundled registry has no authentication and speaks HTTP (`REGISTRY_INSECURE=true`
 allows HTTP for it alone). Use it for local work only; shared or production

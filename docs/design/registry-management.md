@@ -1,6 +1,6 @@
 # Registry management
 
-Status: accepted · 2026-11-24 · Phase 6 · steps 1–3 built
+Status: accepted · 2026-11-24 · Phase 6 · built
 
 ## Problem
 
@@ -155,14 +155,22 @@ kept multi-platform images and images with another tag intact.
 
 `make registry-gc` runs a script that:
 
-1. runs a preflight in the API container, and stops if a remediation is building
-   or verifying, or a scan is pending or running;
-2. stops if a running container uses a digest that no tag keeps, and lists them.
-   Collection would remove that build from the registry;
+1. runs a preflight in the API container (`src/scan/registry_gc.py`), and stops if
+   a remediation is building or verifying, or a scan of a local image is pending or
+   running. Scans of other registries' images don't stop it;
+2. stops if a running container uses a digest that no tag keeps, but that the
+   registry still stores (as a manifest or a blob), and lists them. Collection would
+   remove that build from the registry. A build that was never pushed doesn't count.
+   The containers are runtime discovery's records, and the ones the host's Docker runs,
+   which the script reads itself: discovery misses a container whose tag moved before
+   it ran, since Docker then lists it by image ID, and every container when it's off;
 3. stops the registry, which also clears its in-memory blob cache;
 4. runs `registry garbage-collect --delete-untagged` in a one-off container on
    the same volume;
 5. starts the registry again, whatever happened, and prints the space freed.
+
+The script is `scripts/registry-gc.py`, run on the Docker host. Collection works with
+deletion turned off too, since it only removes what no tag points to.
 
 Pushes during collection can corrupt images. Stopping the registry rules them out,
 at the cost of a short outage. Anything still pulled by digest but not tagged

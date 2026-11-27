@@ -2,7 +2,7 @@
 
 PYTEST = SCRUTINEERING_TEST_MODE=1 PYTHONPATH=. uv run -q --with-requirements requirements.txt python -m pytest
 
-.PHONY: up down migrate backup test test-python check fmt fmt-check lock smoke e2e record-fixtures
+.PHONY: up down migrate backup test test-python check fmt fmt-check lock smoke e2e record-fixtures registry-gc
 
 up:
 	@# Create the sources folder as you, before Docker creates it as root for the bind mount.
@@ -64,6 +64,10 @@ smoke:
 # Golden path against the running stack with real scanners (run before merging to main).
 e2e:
 	python3 scripts/e2e-golden-path.py
+
+# Free the disk space of deleted registry tags. Stops the registry briefly (docs/OPERATOR_GUIDE.md).
+registry-gc:
+	python3 scripts/registry-gc.py
 
 # Rebuild the fixture images and re-record the scanner output the golden-path test replays.
 record-fixtures:
