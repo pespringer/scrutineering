@@ -14,7 +14,7 @@ from sqlalchemy import event
 from sqlalchemy.orm import Session
 
 from src.config import Settings, get_settings
-from src.db.models import Notification, Remediation, RemediationStatus
+from src.db.models import Image, Notification, Remediation, RemediationStatus, Scan, ScanFinding, Severity
 from src.remediation.state_machine import LABELS
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 MAX_ERROR = 300
 DEPLOYMENT_STALE = "remediation.deployment_stale"
 REPORT_READY = "report.ready"
+NEW_CRITICAL = "scan.new_critical"
+MAX_CVES = 20
 _PENDING_KEY = "notifications_pending"
 
 
@@ -148,6 +150,52 @@ def record_report_ready(session: Session, report, document: dict) -> list[Notifi
             "fixes_failed": sum(1 for item in document["remediations"] if item["outcome"] == "failed"),
             "stale_containers": len(deployments["stale_containers"]),
             "url": f"{base}/reports/{report.id}" if base else None,
+        },
+    }
+    return _queue(session, None, payload, configured)
+
+
+def record_new_critical(
+    session: Session, scan_id: str, image_id: int, new: list[ScanFinding], complete: bool
+) -> list[Notification]:
+    """Queue `scan.new_critical`: this scan found critical CVEs the image didn't have open (docs/design/scan-alerts.md).
+
+    Called by `persist_findings`, in the transaction that saves the findings, so both commit or neither does.
+    """
+    settings = get_settings()
+    configured = channels(settings)
+    if not new or not configured or "new_critical" not in settings.notification_events:
+        return []
+    image = session.get(Image, image_id)
+    trigger = session.query(Scan.scheduler_type).filter(Scan.scan_id == scan_id).scalar()
+    open_critical = (
+        session.query(ScanFinding.id)
+        .filter(
+            ScanFinding.image_id == image_id,
+            ScanFinding.resolved_at.is_(None),
+            ScanFinding.severity == Severity.CRITICAL,
+        )
+        .count()
+    )
+    cves = sorted({finding.cve_id for finding in new if finding.cve_id})
+    base = settings.dashboard_public_url.rstrip("/")
+    payload = {
+        "event": NEW_CRITICAL,
+        "occurred_at": now().isoformat(timespec="seconds") + "Z",
+        "scan": {
+            "id": scan_id,
+            "image": image.full_name if image is not None else None,
+            "trigger": trigger,
+            "status": "completed" if complete else "partial",
+            "url": f"{base}/scans/{scan_id}" if base else None,
+        },
+        "findings": {
+            "new_critical": len(new),
+            "open_critical": open_critical,
+            "fixable": sum(1 for finding in new if finding.fix_available),
+            "cve_count": len(cves),
+            "cves": cves[:MAX_CVES],
+            "url": f"{base}/images/{image_id}" if base else None,
         },
     }
     return _queue(session, None, payload, configured)

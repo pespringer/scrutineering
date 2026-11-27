@@ -399,6 +399,16 @@ build; the message names them. Fixes completed more than 72 hours ago are never
 announced, so setting up a channel later doesn't post old ones. Choose which with
 `NOTIFICATION_EVENTS`.
 
+**New critical CVEs.** `new_critical` posts once per scan that finds a critical CVE
+the image didn't already have open in the same package. That covers a CVE seen for the
+first time, one that comes back after a fix, and a severity raised to critical. An
+upgrade that keeps the same CVE isn't announced again. Every scan counts, whoever
+started it, including an image's first: a new tag such as `app:1.5` is a new image, so
+its critical CVEs are announced too. Turning on runtime discovery for many images
+can therefore post one message per image once. High and lower severities are never
+sent; they're in the weekly report. If you set `NOTIFICATION_EVENTS` yourself, add
+`new_critical` to it.
+
 There are two channels. Set either or both in `.env`, then restart the stack
 (`make up`):
 
@@ -447,6 +457,26 @@ as `http://192.168.1.20:8080/hook`) or a single-label host name (such as
 }
 ```
 
+A `new_critical` message has a `scan` and `findings` instead of `remediation`.
+`cves` is sorted and lists at most 20 IDs; `cve_count` is how many there are, and
+`fixable` how many of the new findings have a fixed version:
+
+```json
+{
+  "id": 913,
+  "event": "scan.new_critical",
+  "occurred_at": "2026-11-27T06:00:41Z",
+  "scan": {
+    "id": "c1f0e2d3", "image": "registry:5000/shop/api:1.4.2", "trigger": "scheduled",
+    "status": "completed", "url": "https://scrutineering.home.lan/scans/c1f0e2d3"
+  },
+  "findings": {
+    "new_critical": 3, "open_critical": 7, "fixable": 2, "cve_count": 2,
+    "cves": ["CVE-2026-1111", "CVE-2026-2222"], "url": "https://scrutineering.home.lan/images/42"
+  }
+}
+```
+
 The headers are:
 
 - `X-Scrutineering-Event`: the event.
@@ -471,8 +501,8 @@ How delivery behaves:
   and 60 minutes. After the fifth failed attempt the message is marked `failed`.
 - Redirects are not followed.
 
-Messages name images, CVEs and pull requests, so send them only to a private
-channel. The URL and secret are credentials: they're never logged or shown, and
+Messages name images, CVEs and pull requests, and `new_critical` lists which images
+have unpatched critical CVEs, so send them only to a private channel. The URL and secret are credentials: they're never logged or shown, and
 only the environment can set them.
 
 ## 12. Sign-in

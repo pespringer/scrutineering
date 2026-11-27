@@ -13,7 +13,8 @@ repository plus a fake REST client.
   -> execute: patch, build the candidate, run the source's tests in it, scan it -> ready
   -> open a pull request with the patch -> published -> merge webhook queues a rescan
   -> rescan the rebuilt image -> the targeted finding resolves -> remediation completed
-  (each step that needs a person, or ends the loop, sends a signed webhook notification)
+  (each step that needs a person, or ends the loop, sends a signed webhook notification, as does each
+  scan that finds a critical CVE the image did not have open)
 """
 
 from __future__ import annotations
@@ -222,11 +223,23 @@ def test_saved_text_fits_its_columns(api, stage):
                     assert longest <= limit, f"{model.__tablename__}.{column.name}: {longest} > {limit}"
 
 
-def test_rescan_of_the_patched_image_resolves_the_targeted_finding(api, stage):
+def test_rescan_of_the_patched_image_resolves_the_targeted_finding(api, stage, receiver):
     """Lifecycle the remediation loop relies on: the fixed image's scan closes the finding."""
     before = _scan(api)
     stage("after")
     after = _scan(api)
+
+    # Each scan announced the critical CVEs the image didn't have open (docs/design/scan-alerts.md). The rebuilt
+    # image's tar and node were upgraded but keep their CVEs, so only what is really new is announced again.
+    from src.notifications.delivery import deliver
+
+    assert deliver()["sent"] == 2
+    first, second = (json.loads(request.content) for request in receiver)
+    assert first["event"] == second["event"] == "scan.new_critical"
+    assert first["scan"]["id"] == before["scan_id"] and second["scan"]["id"] == after["scan_id"]
+    assert {"CVE-2026-59873", "CVE-2026-31789"} <= set(first["findings"]["cves"])
+    assert second["findings"]["cves"] == ["CVE-2026-4738", "CVE-2026-63073"]
+    assert second["findings"]["new_critical"] == 3  # CVE-2026-63073 is in libcrypto3 and libssl3
 
     with get_session() as session:
         lodash = session.query(ScanFinding).filter_by(cve_id=TARGET_CVE, package_name=TARGET_PACKAGE).one()
@@ -418,12 +431,15 @@ def test_remediation_is_published_as_a_pull_request_and_completes_after_merge(ap
 
     from src.notifications.delivery import deliver
 
-    assert deliver()["sent"] == 4
+    assert deliver()["sent"] == 5
     bodies = []
     for request in receiver:
         expected = "sha256=" + hmac.new(b"golden-path-notify", request.content, hashlib.sha256).hexdigest()
         assert request.headers["x-scrutineering-signature"] == expected
         bodies.append(json.loads(request.content))
+    # The first scan's critical CVEs; the rescans add none (the candidate is scanned without saving findings).
+    alert = bodies.pop(0)
+    assert alert["event"] == "scan.new_critical" and "CVE-2026-59873" in alert["findings"]["cves"]
     assert [body["event"] for body in bodies] == [
         "remediation.proposed",
         "remediation.ready",
