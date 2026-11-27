@@ -162,8 +162,10 @@ refreshes itself while the scan runs.
   resolved.
 - **`partial`**: at least one scanner failed. Findings are recorded, but nothing is
   resolved, because the scan may have missed things. The error names the scanner.
-- **`failed`**: every scanner failed, or the results could not be saved. The error
-  says why.
+- **`failed`**: every scanner failed, or the results could not be saved. The error's
+  first line says why in plain words, such as "Couldn't reach the registry
+  registry:5000 (connection refused)", and each scanner's own error follows. See
+  [Troubleshooting](#troubleshooting).
 - **`cancelled`**: stopped by an operator.
 
 A completed or partial image scan also has an **SBOM**: every component in the
@@ -488,7 +490,7 @@ A `new_critical` message has a `scan` and `findings` instead of `remediation`.
 ```
 
 A `scan_failed` message has the same `scan` object and the first line of the error, cut
-to 300 characters. The full error is on the scan's page:
+to 300 characters: the plain reason. Each scanner's own error is on the scan's page:
 
 ```json
 {
@@ -499,7 +501,7 @@ to 300 characters. The full error is on the scan's page:
     "id": "d2e1f0a9", "image": "registry:5000/shop/api:1.4.2", "trigger": "scheduled",
     "status": "failed", "url": "https://scrutineering.home.lan/scans/d2e1f0a9"
   },
-  "error": "trivy: unable to pull registry:5000/shop/api:1.4.2: connection refused"
+  "error": "registry:5000/shop/api:1.4.2 isn't in the registry: no such tag or repository."
 }
 ```
 
@@ -616,6 +618,24 @@ unsigned, and its page says so.
   (database reachable), then `docker compose ps` and the failing service's logs.
 - **A scan of `localhost:5000/...` fails.** Inside the stack, `localhost` is the
   worker itself. Scan `registry:5000/...`.
+- **A scan fails.** Its first line names the cause, and each scanner's error follows:
+  - **"Couldn't reach the registry"**: it's down, or the worker can't reach its host and
+    port. The detail says how the connection failed.
+  - **"answers only over plain HTTP"**: only the local registry may use HTTP, with
+    `REGISTRY_INSECURE=true`.
+  - **"TLS certificate isn't trusted"**: the registry's certificate isn't signed by an
+    authority the worker image trusts.
+  - **"refused to serve … without credentials"**: add the registry's credentials to
+    `REGISTRY_CREDENTIALS_JSON`, or set `DOCKERHUB_USERNAME` and `DOCKERHUB_PASSWORD`.
+    Docker Hub gives the same answer for a repository that doesn't exist, so check the
+    name too.
+  - **"refused the configured credentials"**: the credentials are wrong or can't read
+    that repository, or it doesn't exist.
+  - **"isn't in the registry"**: the tag or repository doesn't exist there.
+  - **"is limiting pulls"**: try again later. Docker Hub allows more pulls with
+    credentials.
+  - **"didn't finish within `SCANNER_TIMEOUT`"**: raise it for large images.
+  - **"The scanners failed."**: no known cause. Read the scanners' errors below it.
 - **A scan fails with `invalid configuration: ...`.** A setting has an invalid value,
   and the message names it. Fix it in `.env` and restart.
 - **"Connect this image's source repository before proposing fixes."** See step 4.

@@ -2,7 +2,8 @@
 """Live golden path against the running Compose stack (make up), with real scanners.
 
 Scan half: build fixtures/images/vulnerable-node, push it to the local registry,
-scan it through the dashboard API, and check the targeted lodash finding.
+scan it through the dashboard API, and check the targeted lodash finding. A scan of a tag
+that doesn't exist must fail and say so in its first line.
 
 Remediation half: connect the image to a git copy of its source under
 .local/remediation-sources, propose the lodash fix, approve and execute it (the
@@ -129,6 +130,20 @@ def scan_image(image: str) -> dict:
     if scan["status"] != "completed":
         fail(f"scan ended {scan['status']}: {scan.get('error_message')}")
     return scan
+
+
+def missing_tag_check(image: str) -> None:
+    """A failed scan says why in its first line (docs/design/scan-errors.md), from the real scanners."""
+    step(f"scan {image}, which doesn't exist")
+    scan = wait_for_scan(request("POST", "/api/scans", {"image_name": image, "priority": "high"})["scan_id"])
+    lines = (scan.get("error_message") or "").split("\n")
+    expected = f"{image} isn't in the registry: no such tag or repository."
+    if scan["status"] != "failed" or lines[0] != expected:
+        fail(f"a scan of a missing tag ended {scan['status']} with {lines[0]!r}, not {expected!r}")
+    if sorted(line.split(":")[0] for line in lines[1:]) != ["grype", "trivy"]:
+        fail(f"a failed scan should list each scanner's error after its reason: {lines[1:]}")
+    request("POST", "/api/images/bulk-archive", {"ids": [scan["image_id"]]})
+    print(f"    failed: {lines[0]}")
 
 
 def prepare_source() -> str:
@@ -477,6 +492,8 @@ def main() -> None:
     scan = scan_image(image)
     scan_id = scan["scan_id"]
     print(f"    completed: {scan['findings']} findings")
+
+    missing_tag_check(f"{SCAN_HOST}/{REPO.split(':')[0]}:no-such-tag")
 
     step(f"check {TARGET_CVE} in {TARGET_PACKAGE}")
     findings, offset = [], 0
