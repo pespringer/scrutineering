@@ -62,7 +62,7 @@ def test_trivy_writes_cyclonedx_from_its_cache_with_the_scan_s_transport(tmp_pat
 @pytest.mark.parametrize(
     ("body", "message"),
     [
-        ("echo boom >&2; exit 2", "SBOM exit code 2"),
+        ("echo progress >&2; echo boom >&2; exit 2", "SBOM failed: boom"),
         ("echo not json", "not JSON"),
         ('echo \'{"bomFormat": "SPDX"}\'', "not a CycloneDX document"),
     ],

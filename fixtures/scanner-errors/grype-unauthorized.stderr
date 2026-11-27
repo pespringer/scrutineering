@@ -1,0 +1,4 @@
+[0000]  WARN registry communication is insecure: insecure-skip-tls-verify, insecure-use-http enabled
+[0003] ERROR failed to catalog: errors occurred attempting to resolve 'docker.io/scrutineering-nope/private-xyz:1':
+  - oci-registry: failed to get image descriptor from registry: GET https://index.docker.io/v2/scrutineering-nope/private-xyz/manifests/1: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:scrutineering-nope/private-xyz Type:repository]]
+  - oci-model: failed to fetch descriptor: GET https://index.docker.io/v2/scrutineering-nope/private-xyz/manifests/1: UNAUTHORIZED: authentication required; [map[Action:pull Class: Name:scrutineering-nope/private-xyz Type:repository]]

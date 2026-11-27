@@ -6,11 +6,14 @@ import logging
 import os
 from typing import Optional
 
-from .base import ScannerAdapter, ScannerFinding, ScannerError
+from .base import ScannerAdapter, ScannerFinding, ScannerError, error_line
 from src.scan.models import FindingSource, Severity
 from src.scan.source_target import filesystem_path, relative_source_path
 
 logger = logging.getLogger(__name__)
+
+# Where Grype's stderr names the cause: the registry's answer, else its first error.
+ERROR_MARKERS = ("oci-registry:", "ERROR")
 
 SEVERITY_MAP = {
     "Critical": Severity.CRITICAL,
@@ -71,13 +74,8 @@ class GrypeScanner(ScannerAdapter):
         """
         root = filesystem_path(image_name)
         scan_target = self._registry_scan_target(image_name) if root is None else f"dir:{root}"
-        command = [
-            self.grype_cmd,
-            "-o",
-            "json",
-            "-q",
-            scan_target,
-        ]
+        # No `-q`: it hides Grype's errors too. Without a terminal there is no progress output.
+        command = [self.grype_cmd, "-o", "json", scan_target]
         result = await asyncio.create_subprocess_exec(
             *command,
             stdout=asyncio.subprocess.PIPE,
@@ -93,11 +91,7 @@ class GrypeScanner(ScannerAdapter):
 
         if result.returncode != 0:
             stderr_text = stderr.decode(errors="replace").strip()
-            raise ScannerError(
-                "grype",
-                f"Exit code {result.returncode}: {stderr_text[:500]}",
-                stderr_text,
-            )
+            raise ScannerError("grype", error_line(stderr_text, ERROR_MARKERS), stderr_text)
 
         if len(stdout) > self.max_output_bytes:
             raise ScannerError("grype", "scan output exceeds size limit")

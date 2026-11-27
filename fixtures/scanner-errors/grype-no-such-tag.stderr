@@ -1,0 +1,4 @@
+[0000]  WARN registry communication is insecure: insecure-skip-tls-verify, insecure-use-http enabled
+[0004] ERROR failed to catalog: errors occurred attempting to resolve 'registry:5000/fixtures/vulnerable-node:no-such-tag':
+  - oci-registry: failed to get image descriptor from registry: GET http://registry:5000/v2/fixtures/vulnerable-node/manifests/no-such-tag: MANIFEST_UNKNOWN: manifest unknown; unknown tag=no-such-tag
+  - oci-model: failed to fetch descriptor: Get "https://registry:5000/v2/": http: server gave HTTP response to HTTPS client

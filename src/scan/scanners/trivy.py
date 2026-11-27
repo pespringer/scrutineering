@@ -14,11 +14,14 @@ import logging
 import os
 from typing import Optional
 
-from .base import ScannerAdapter, ScannerFinding, ScannerError
+from .base import ScannerAdapter, ScannerFinding, ScannerError, error_line
 from src.scan.models import FindingSource, Severity
 from src.scan.source_target import filesystem_path, relative_source_path
 
 logger = logging.getLogger(__name__)
+
+# Where Trivy's stderr names the cause: the registry's answer, else the fatal error.
+ERROR_MARKERS = ("remote error:", "run error:", "Fatal error")
 
 # Map Trivy severity strings to our canonical enum
 SEVERITY_MAP = {
@@ -133,14 +136,10 @@ class TrivyScanner(ScannerAdapter):
             proc.kill()
             raise ScannerError("trivy", f"Scan timed out after {self.timeout}s", "")
 
-        if proc.returncode not in (0, 1):
-            # Trivy returns 1 when findings exist (not an error for us)
+        if proc.returncode != 0:
+            # Without --exit-code, Trivy exits 0 whatever it finds; anything else is an error.
             stderr_text = stderr.decode(errors="replace").strip()
-            raise ScannerError(
-                "trivy",
-                f"Exit code {proc.returncode}: {stderr_text[:500]}",
-                stderr_text,
-            )
+            raise ScannerError("trivy", error_line(stderr_text, ERROR_MARKERS), stderr_text)
 
         if len(stdout) > self.max_output_bytes:
             raise ScannerError("trivy", "scan output exceeds size limit")
@@ -178,7 +177,7 @@ class TrivyScanner(ScannerAdapter):
             raise ScannerError("trivy", f"SBOM timed out after {self.timeout}s", "")
         if proc.returncode != 0:
             stderr_text = stderr.decode(errors="replace").strip()
-            raise ScannerError("trivy", f"SBOM exit code {proc.returncode}: {stderr_text[:500]}", stderr_text)
+            raise ScannerError("trivy", f"SBOM failed: {error_line(stderr_text, ERROR_MARKERS)}", stderr_text)
         if len(stdout) > self.max_output_bytes:
             raise ScannerError("trivy", "SBOM exceeds size limit")
         document = stdout.decode(errors="replace")

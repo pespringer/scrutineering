@@ -1,0 +1,4 @@
+[0000]  WARN registry communication is insecure: insecure-skip-tls-verify, insecure-use-http enabled
+[0070] ERROR failed to catalog: errors occurred attempting to resolve 'registry:5999/shop/api:1.4.2':
+  - oci-registry: failed to get image descriptor from registry: Get "https://registry:5999/v2/": dial tcp 172.19.0.5:5999: connect: connection refused; Get "http://registry:5999/v2/": dial tcp 172.19.0.5:5999: connect: connection refused
+  - oci-model: failed to fetch descriptor: Get "https://registry:5999/v2/": dial tcp 172.19.0.5:5999: connect: connection refused

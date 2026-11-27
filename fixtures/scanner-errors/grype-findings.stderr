@@ -1,0 +1,2 @@
+[0000]  WARN registry communication is insecure: insecure-skip-tls-verify, insecure-use-http enabled
+234 packages from EOL distro "alpine 3.17.0" - vulnerability data may be incomplete or outdated; consider upgrading to a supported version

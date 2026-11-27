@@ -1,6 +1,6 @@
 # Clearer scan errors
 
-Status: accepted · 2026-11-27 · Phase 6
+Status: accepted · 2026-11-27 · Phase 6 · step 1 built
 
 ## Problem
 
@@ -77,6 +77,7 @@ What the scanners actually print, captured from the worker image:
   first `ERROR` line, and failing that the last non-empty line. On success its warnings,
   such as "EOL distro", are ignored, as today.
 - Each error is cut to 500 characters, as today. The full stderr isn't stored.
+- Trivy's SBOM run, after a scan, reports a failure the same way (`SBOM failed: …`).
 
 A run that exits 0 but prints no valid JSON still fails with "Failed to parse JSON
 output".
